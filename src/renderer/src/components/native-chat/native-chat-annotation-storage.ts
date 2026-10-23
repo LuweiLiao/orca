@@ -5,6 +5,37 @@ import type {
   NativeChatAnnotationsSnapshot
 } from './native-chat-annotations-store'
 
+function hasValidRevision(value: object): boolean {
+  return !('revision' in value) || (typeof value.revision === 'string' && value.revision.length > 0)
+}
+
+export function nativeChatAnnotationRevision(note: NativeChatAnnotation): string {
+  return (
+    note.revision ??
+    JSON.stringify([
+      note.id,
+      note.createdAt,
+      note.messageId,
+      note.startOffset,
+      note.quote,
+      note.comment
+    ])
+  )
+}
+
+export function nativeChatAnnotationEditorRevision(editor: NativeChatAnnotationEditor): string {
+  return (
+    editor.revision ??
+    JSON.stringify([
+      editor.id,
+      editor.anchor.messageId,
+      editor.anchor.startOffset,
+      editor.anchor.quote,
+      editor.comment
+    ])
+  )
+}
+
 export function isNativeChatAnnotationAnchor(value: unknown): value is NativeChatAnnotationAnchor {
   return (
     typeof value === 'object' &&
@@ -33,7 +64,8 @@ function isNote(value: unknown): value is NativeChatAnnotation {
     value.comment.trim().length > 0 &&
     'createdAt' in value &&
     typeof value.createdAt === 'number' &&
-    Number.isFinite(value.createdAt)
+    Number.isFinite(value.createdAt) &&
+    hasValidRevision(value)
   )
 }
 
@@ -45,6 +77,7 @@ export function isNativeChatAnnotationEditor(value: unknown): value is NativeCha
     isNativeChatAnnotationAnchor(value.anchor) &&
     'comment' in value &&
     typeof value.comment === 'string' &&
+    hasValidRevision(value) &&
     (!('id' in value) ||
       value.id === undefined ||
       (typeof value.id === 'string' && value.id.length > 0))
@@ -56,6 +89,10 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
   const prefix = `orca:native-chat-annotations:v2:${encodeURIComponent(scopeKey)}:`
   const noteKey = (id: string): string => `${prefix}note:${encodeURIComponent(id)}`
   const editorKey = `${prefix}editor`
+  const consumedNoteKey = (note: NativeChatAnnotation): string =>
+    `${prefix}consumed-note:${encodeURIComponent(note.id)}:${encodeURIComponent(nativeChatAnnotationRevision(note))}`
+  const consumedEditorKey = (editor: NativeChatAnnotationEditor): string =>
+    `${prefix}consumed-editor:${encodeURIComponent(nativeChatAnnotationEditorRevision(editor))}`
   const migrate = (): void => {
     const stored = localStorage.getItem(legacyKey)
     if (stored === null) {
@@ -112,7 +149,9 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
         if (!isNote(note) || key !== noteKey(note.id)) {
           throw new Error('Saved annotations could not be read.')
         }
-        notes.push(note)
+        if (localStorage.getItem(consumedNoteKey(note)) === null) {
+          notes.push(note)
+        }
       }
       notes.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
       const storedEditor = localStorage.getItem(editorKey)
@@ -120,21 +159,21 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
       if (editor !== undefined && !isNativeChatAnnotationEditor(editor)) {
         throw new Error('Saved annotations could not be read.')
       }
-      return { notes, ...(editor === undefined ? {} : { editor }) }
-    },
-    writeNote: (id: string, note: NativeChatAnnotation | null): void => {
-      if (note === null) {
-        localStorage.removeItem(noteKey(id))
-      } else {
-        localStorage.setItem(noteKey(id), JSON.stringify(note))
+      return {
+        notes,
+        ...(editor === undefined || localStorage.getItem(consumedEditorKey(editor)) !== null
+          ? {}
+          : { editor })
       }
     },
-    writeEditor: (editor: NativeChatAnnotationEditor | undefined): void => {
-      if (editor === undefined) {
-        localStorage.removeItem(editorKey)
-      } else {
-        localStorage.setItem(editorKey, JSON.stringify(editor))
-      }
-    }
+    writeNote: (note: NativeChatAnnotation): void =>
+      localStorage.setItem(noteKey(note.id), JSON.stringify(note)),
+    // A revision marker never removes a different window's newer value.
+    consumeNote: (note: NativeChatAnnotation): void =>
+      localStorage.setItem(consumedNoteKey(note), '1'),
+    consumeEditor: (editor: NativeChatAnnotationEditor): void =>
+      localStorage.setItem(consumedEditorKey(editor), '1'),
+    writeEditor: (editor: NativeChatAnnotationEditor): void =>
+      localStorage.setItem(editorKey, JSON.stringify(editor))
   }
 }

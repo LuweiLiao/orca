@@ -22,11 +22,13 @@ describe('native chat annotation storage', () => {
     }
     expect(first).toMatchObject({ ...anchor, comment: 'explain this' })
     expect(store.update(first.id, 'revised request')).toBe(true)
+    const updated = store.getSnapshot().notes.find((note) => note.id === first.id)
+    expect(updated?.revision).not.toBe(first.revision)
     expect(store.remove(second.id)).toBe(true)
     vi.resetModules()
     const fresh = await import('./native-chat-annotations-store')
     const restored = fresh.getNativeChatAnnotationsStore('persistent')
-    expect(restored.getSnapshot().notes).toEqual([{ ...first, comment: 'revised request' }])
+    expect(restored.getSnapshot().notes).toEqual([updated])
     expect(restored.clear()).toBe(true)
     vi.resetModules()
     const reloaded = await import('./native-chat-annotations-store')
@@ -57,8 +59,8 @@ describe('native chat annotation storage', () => {
     }
     expect(store.update(note.id, 'edited while full')).toBe(true)
     expect(store.getSnapshot().persistenceError).toBe('Storage is full')
-    expect(getNativeChatAnnotationsStore('write-failure').getSnapshot().notes).toEqual([
-      { ...note, comment: 'edited while full' }
+    expect(getNativeChatAnnotationsStore('write-failure').getSnapshot().notes).toMatchObject([
+      { ...anchor, id: note.id, comment: 'edited while full' }
     ])
     expect(store.retryPersistence()).toBe(false)
     storage.mockRestore()
@@ -103,26 +105,31 @@ describe('native chat annotation storage', () => {
     const store = getNativeChatAnnotationsStore('editor-persistence')
     const draft = { anchor, comment: '  unfinished comment\n' }
     expect(store.setEditor(draft)).toBe(true)
+    const savedDraft = store.getSnapshot().editor
+    expect(savedDraft?.revision).toEqual(expect.any(String))
     const note = store.add(anchor, 'saved note')
     if (!note) {
       throw new Error('Missing note')
     }
-    expect(store.getSnapshot().editor).toEqual(draft)
+    expect(store.getSnapshot().editor).toEqual(savedDraft)
     expect(store.update(note.id, 'updated saved note')).toBe(true)
-    expect(store.getSnapshot().editor).toEqual(draft)
+    expect(store.getSnapshot().editor).toEqual(savedDraft)
+    const updatedNote = store.getSnapshot().notes[0]
     vi.resetModules()
     const fresh = await import('./native-chat-annotations-store')
     const restored = fresh.getNativeChatAnnotationsStore('editor-persistence')
     expect(restored.getSnapshot()).toEqual({
-      notes: [{ ...note, comment: 'updated saved note' }],
-      editor: draft
+      notes: [updatedNote],
+      editor: savedDraft
     })
     expect(restored.remove(note.id)).toBe(true)
-    expect(restored.getSnapshot()).toEqual({ notes: [], editor: draft })
+    expect(restored.getSnapshot()).toEqual({ notes: [], editor: savedDraft })
     restored.setEditor({ ...draft, id: note.id, comment: '' })
     vi.resetModules()
     const reloaded = await import('./native-chat-annotations-store')
-    expect(reloaded.getNativeChatAnnotationsStore('editor-persistence').getSnapshot()).toEqual({
+    expect(
+      reloaded.getNativeChatAnnotationsStore('editor-persistence').getSnapshot()
+    ).toMatchObject({
       notes: [],
       editor: { ...draft, id: note.id, comment: '' }
     })

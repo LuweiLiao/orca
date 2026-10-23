@@ -4,6 +4,8 @@ import { formatNativeChatQuote } from './native-chat-quote-selection'
 import {
   isNativeChatAnnotationAnchor,
   isNativeChatAnnotationEditor,
+  nativeChatAnnotationRevision,
+  nativeChatAnnotationEditorRevision,
   nativeChatAnnotationStorage
 } from './native-chat-annotation-storage'
 
@@ -13,12 +15,14 @@ export type NativeChatAnnotation = NativeChatAnnotationAnchor & {
   id: string
   comment: string
   createdAt: number
+  revision?: string
 }
 
 export type NativeChatAnnotationEditor = {
   anchor: NativeChatAnnotationAnchor
   id?: string
   comment: string
+  revision?: string
 }
 
 export type NativeChatAnnotationsSnapshot = {
@@ -70,8 +74,10 @@ export function getNativeChatAnnotationsStore(
   }
   const storage = nativeChatAnnotationStorage(scopeKey)
   let snapshot = EMPTY
-  const pending = new Map<string, NativeChatAnnotation | null>()
-  let pendingEditor: { value: NativeChatAnnotationEditor | undefined } | undefined
+  const pending = new Map<string, NativeChatAnnotation>()
+  const consumedNotes = new Map<string, NativeChatAnnotation>()
+  const consumedEditors = new Map<string, NativeChatAnnotationEditor>()
+  let pendingEditor: NativeChatAnnotationEditor | undefined
   const listeners = new Set<() => void>()
   const refresh = (): void => {
     let next: NativeChatAnnotationsSnapshot
@@ -82,10 +88,12 @@ export function getNativeChatAnnotationsStore(
     }
     const notes = new Map(next.notes.map((note) => [note.id, note]))
     for (const [id, note] of pending) {
-      if (note === null) {
-        notes.delete(id)
-      } else {
-        notes.set(id, note)
+      notes.set(id, note)
+    }
+    for (const note of consumedNotes.values()) {
+      const current = notes.get(note.id)
+      if (current && nativeChatAnnotationRevision(current) === nativeChatAnnotationRevision(note)) {
+        notes.delete(note.id)
       }
     }
     next = {
@@ -93,12 +101,19 @@ export function getNativeChatAnnotationsStore(
       notes: [...notes.values()].sort(
         (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id)
       ),
-      ...(pendingEditor ? { editor: pendingEditor.value } : {}),
-      ...((pending.size > 0 || pendingEditor) && snapshot.persistenceError
+      ...(pendingEditor ? { editor: pendingEditor } : {}),
+      ...((pending.size > 0 ||
+        pendingEditor ||
+        consumedNotes.size > 0 ||
+        consumedEditors.size > 0) &&
+      snapshot.persistenceError
         ? { persistenceError: snapshot.persistenceError }
         : {})
     }
-    if (next.editor === undefined) {
+    if (
+      next.editor === undefined ||
+      consumedEditors.has(nativeChatAnnotationEditorRevision(next.editor))
+    ) {
       delete next.editor
     }
     if (JSON.stringify(next) !== JSON.stringify(snapshot)) {
@@ -111,11 +126,19 @@ export function getNativeChatAnnotationsStore(
       // Migrate before mutating; a failed migration must leave the legacy copy intact.
       storage.read()
       for (const [id, note] of pending) {
-        storage.writeNote(id, note)
+        storage.writeNote(note)
         pending.delete(id)
       }
+      for (const [revision, note] of consumedNotes) {
+        storage.consumeNote(note)
+        consumedNotes.delete(revision)
+      }
+      for (const [revision, editor] of consumedEditors) {
+        storage.consumeEditor(editor)
+        consumedEditors.delete(revision)
+      }
       if (pendingEditor) {
-        storage.writeEditor(pendingEditor.value)
+        storage.writeEditor(pendingEditor)
         pendingEditor = undefined
       }
       refresh()
@@ -130,13 +153,24 @@ export function getNativeChatAnnotationsStore(
   const consume: NativeChatAnnotationsStore['consume'] = (notes, editor) => {
     refresh()
     for (const note of notes) {
-      const current = snapshot.notes.find((entry) => entry.id === note.id)
-      if (JSON.stringify(current) === JSON.stringify(note)) {
-        pending.set(note.id, null)
+      const unconfirmed = pending.get(note.id)
+      if (
+        unconfirmed &&
+        nativeChatAnnotationRevision(unconfirmed) === nativeChatAnnotationRevision(note)
+      ) {
+        pending.delete(note.id)
       }
+      consumedNotes.set(JSON.stringify([note.id, nativeChatAnnotationRevision(note)]), note)
     }
-    if (editor && JSON.stringify(snapshot.editor) === JSON.stringify(editor)) {
-      pendingEditor = { value: undefined }
+    if (editor) {
+      if (
+        pendingEditor &&
+        nativeChatAnnotationEditorRevision(pendingEditor) ===
+          nativeChatAnnotationEditorRevision(editor)
+      ) {
+        pendingEditor = undefined
+      }
+      consumedEditors.set(nativeChatAnnotationEditorRevision(editor), editor)
     }
     return persist()
   }
@@ -169,6 +203,7 @@ export function getNativeChatAnnotationsStore(
       const note: NativeChatAnnotation = {
         ...anchor,
         id: createBrowserUuid(),
+        revision: createBrowserUuid(),
         comment: comment.trim(),
         createdAt: Math.max(Date.now(), ...snapshot.notes.map((note) => note.createdAt + 1))
       }
@@ -182,25 +217,30 @@ export function getNativeChatAnnotationsStore(
       if (!note || !comment.trim()) {
         return false
       }
-      pending.set(id, { ...note, comment: comment.trim() })
+      pending.set(id, { ...note, comment: comment.trim(), revision: createBrowserUuid() })
       persist()
       return true
     },
     remove: (id) => {
       refresh()
-      if (!snapshot.notes.some((note) => note.id === id)) {
+      const note = snapshot.notes.find((entry) => entry.id === id)
+      if (!note) {
         return false
       }
-      pending.set(id, null)
-      persist()
+      consume([note])
       return true
     },
     setEditor: (editor) => {
       if (editor !== undefined && !isNativeChatAnnotationEditor(editor)) {
         return false
       }
-      pendingEditor = { value: editor }
-      persist()
+      if (editor === undefined) {
+        refresh()
+        consume([], snapshot.editor)
+      } else {
+        pendingEditor = { ...editor, anchor: { ...editor.anchor }, revision: createBrowserUuid() }
+        persist()
+      }
       return true
     },
     consume,
