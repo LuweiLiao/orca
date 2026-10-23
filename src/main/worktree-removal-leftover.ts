@@ -1,4 +1,4 @@
-import { lstat } from 'node:fs/promises'
+import { lstat, readdir, rmdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { RemoveWorktreeResult } from '../shared/worktree/create-types'
 import type { GitWorktreeInfo } from '../shared/worktree/types'
@@ -6,6 +6,7 @@ import { listWorktreesStrict } from './git/worktree'
 import { getErrorCode } from './git/worktree-operation-options'
 import { areWorktreePathsEqual } from './git/worktree-path-comparison'
 import { CLIENT_REMOVAL_HOME } from './worktree-removal-home-guard'
+import { toHostRemovalPath } from './host-tree-removal'
 import {
   failedWorktreeRemovals,
   persistWorktreeRemovalRecords,
@@ -13,7 +14,8 @@ import {
 } from './worktree-removal-table'
 import {
   assertWorktreeDoesNotContainRegisteredWorktree,
-  canSafelyRemoveOrphanedWorktreeDirectory
+  canSafelyRemoveOrphanedWorktreeDirectory,
+  isDangerousWorktreeRemovalPath
 } from './worktree-removal-safety'
 
 /**
@@ -51,8 +53,7 @@ export async function isCheckoutRegistered(record: {
 }
 
 /**
- * The refusal for a folder Git no longer registers: Orca deletes a checkout only through Git, so
- * the user removes the folder, and the listing drops the workspace once it is gone.
+ * A nonempty folder Git no longer registers needs manual removal to protect replacement files.
  */
 export function unregisteredFolderRefusal(worktreePath: string): Error {
   return new Error(
@@ -61,25 +62,56 @@ export function unregisteredFolderRefusal(worktreePath: string): Error {
 }
 
 /**
- * Refuses while anything is at a checkout path Git no longer registers, naming first any worktree
- * in `registeredWorktrees` inside it.
+ * Allows a missing or empty directory, naming any nested registered worktree before refusing.
  */
-export async function assertUnregisteredCheckoutGone(
+export async function assertUnregisteredCheckoutRemovable(
   worktreePath: string,
   registeredWorktrees: readonly Pick<GitWorktreeInfo, 'path'>[] = []
 ): Promise<void> {
   if (await worktreeCheckoutExists(worktreePath)) {
     // Why first: removing the folder, as the refusal asks, would delete that worktree's files too.
     assertWorktreeDoesNotContainRegisteredWorktree(worktreePath, registeredWorktrees)
+    try {
+      const stat = await lstat(worktreePath)
+      if (
+        stat.isDirectory() &&
+        !stat.isSymbolicLink() &&
+        (await readdir(worktreePath)).length === 0
+      ) {
+        return
+      }
+    } catch (error) {
+      if (getErrorCode(error) === 'ENOENT') {
+        return
+      }
+      throw error
+    }
     throw unregisteredFolderRefusal(worktreePath)
+  }
+}
+
+export async function removeEmptyUnregisteredCheckout(
+  repoPath: string,
+  worktreePath: string
+): Promise<void> {
+  if (isDangerousWorktreeRemovalPath(worktreePath, repoPath, CLIENT_REMOVAL_HOME)) {
+    throw new Error(`Refusing to delete protected worktree path: ${worktreePath}`)
+  }
+  await assertUnregisteredCheckoutRemovable(worktreePath)
+  try {
+    // Nonrecursive: files created after the empty check must prevent deletion.
+    await rmdir(toHostRemovalPath(worktreePath))
+  } catch (error) {
+    if (getErrorCode(error) !== 'ENOENT') {
+      throw error
+    }
   }
 }
 
 /**
  * Delete's choice for a workspace whose earlier delete failed, from Git's listing taken now: a
  * checkout Git registers at the path again is the normal delete's, so the failed record is dropped;
- * a folder Git does not register is refused, the record kept; with the folder gone, `retry` runs
- * or joins the recorded removal to finish the rest. True then.
+ * a nonempty unregistered folder is refused; a missing or empty folder lets `retry` finish.
  */
 export async function retryFailedRemovalUnlessRegistered(
   worktreeId: string,
@@ -95,7 +127,7 @@ export async function retryFailedRemovalUnlessRegistered(
   }
   const failed = failedWorktreeRemovals.get(worktreeId)
   if (failed) {
-    await assertUnregisteredCheckoutGone(failed.worktreePath, registeredWorktrees)
+    await assertUnregisteredCheckoutRemovable(failed.worktreePath, registeredWorktrees)
   }
   return retry() !== undefined
 }

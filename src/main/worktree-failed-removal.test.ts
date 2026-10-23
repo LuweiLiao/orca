@@ -380,4 +380,17 @@ describe('a delete that fails after Git dropped the registration', () => {
 
     expect(retry).toHaveBeenCalledTimes(1)
   })
+
+  it('Delete retries when only an empty directory remains after the lock is released', async () => {
+    await failRemoval()
+    await rm(join(checkout, 'node_modules'), { recursive: true })
+    const retry = vi.fn(() => Promise.resolve({}))
+
+    await expect(
+      retryFailedRemovalUnlessRegistered(worktreeId, checkout, [mainWorktree], retry)
+    ).resolves.toBe(true)
+
+    expect(retry).toHaveBeenCalledTimes(1)
+    expect(await readdir(checkout)).toEqual([])
+  })
 })
