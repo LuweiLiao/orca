@@ -20,6 +20,10 @@ export function nativeChatAnnotationCopy() {
       'components.native-chat.annotations.notSaved',
       'Annotations could not be saved on this device.'
     ),
+    transferFailed: translate(
+      'components.native-chat.annotations.transferFailed',
+      'The message draft could not be saved. Your annotations have been kept.'
+    ),
     originalUnavailable: translate(
       'components.native-chat.annotations.originalUnavailable',
       'Original text is not currently displayed.'

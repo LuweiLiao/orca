@@ -18787,7 +18787,8 @@
         "expand": "Expand annotations",
         "addToMessage": "Add annotations to message",
         "notSaved": "Annotations could not be saved on this device.",
-        "originalUnavailable": "Original text is not currently displayed."
+        "originalUnavailable": "Original text is not currently displayed.",
+        "transferFailed": "The message draft could not be saved. Your annotations have been kept."
       },
       "install": {
         "checking": "Checking whether {{agent}} is ready on this host…"

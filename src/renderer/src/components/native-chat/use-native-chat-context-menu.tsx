@@ -87,7 +87,10 @@ type UseNativeChatContextMenuArgs = {
 export type NativeChatContextMenuTargetArgs = {
   annotationScopeKey?: string
   /** Answers which text a right-clicked message row copies. */
-  messageListRef?: RefObject<Pick<NativeChatMessageListHandle, 'messageCopyText'> | null>
+  messageListRef?: RefObject<Pick<
+    NativeChatMessageListHandle,
+    'messageCopyText' | 'revealAnnotationMessage'
+  > | null>
   fileLinkContext?: NativeChatFileLinkContext | null
   /** Where the transcript offers rewind; absent where it never does. */
   rewind?: NativeChatRewindSurface
@@ -167,6 +170,7 @@ export function useNativeChatContextMenu({
     scopeKey: annotationScopeKey,
     rootRef,
     composerRef,
+    messageListRef,
     enabled
   })
   const menuOpenedAtRef = useRef(0)

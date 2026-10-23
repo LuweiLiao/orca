@@ -10,10 +10,15 @@ import { getNativeChatAnnotationsStore } from './native-chat-annotations-store'
 vi.mock('@/i18n/i18n', () => ({ translate: (_key: string, fallback: string) => fallback }))
 
 const appendText = vi.fn<(text: string) => void>()
+const appendTextDurably = vi.fn((text: string) => {
+  appendText(text)
+  return true
+})
 const acceptsText = vi.fn(() => true)
 const focus = vi.fn(() => true)
 const composer: NativeChatComposerHandle = {
   appendText,
+  appendTextDurably,
   acceptsText,
   focus,
   insertTypedText: () => true,
@@ -63,11 +68,25 @@ function comment(text: string): void {
 afterEach(() => {
   cleanup()
   appendText.mockClear()
+  appendTextDurably.mockReset().mockImplementation((text) => {
+    appendText(text)
+    return true
+  })
   focus.mockClear()
   acceptsText.mockReturnValue(true)
 })
 
 describe('conversation annotation review', () => {
+  it('retains notes when saving to the composer fails', () => {
+    render(<Harness scopeKey="review-transfer-failure" />)
+    fireEvent.click(screen.getByRole('button', { name: 'First' }))
+    comment('Keep this saved comment.')
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
+    appendTextDurably.mockReturnValue(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Add annotations to message' }))
+    expect(screen.getByText('Keep this saved comment.')).toBeTruthy()
+    expect(focus).not.toHaveBeenCalled()
+  })
   it('keeps several notes editable and transfers their quotes together without sending', () => {
     render(<Harness scopeKey="review-flow" />)
     fireEvent.click(screen.getByRole('button', { name: 'First' }))
