@@ -61,6 +61,7 @@
     "check:mobile-shared-dependency-versions": "node config/scripts/check-mobile-shared-dependency-versions.mjs",
     "build:orcad": "pnpm run build:packages && node config/scripts/build-orcad-node.mjs",
     "build:orcad-template": "pnpm run build:packages && node config/scripts/build-orcad-template.mjs",
+    "verify:orcad-template": "node config/scripts/packaged-orcad-template.cjs --verify-build",
     "build:orcad-prebuilds": "pnpm run build:packages && node config/scripts/build-orcad-prebuilds.mjs",
     "smoke:orcad-terminal": "node config/scripts/ensure-native-runtime.mjs --runtime=node && pnpm run build:orcad && node config/scripts/runtime-serve-terminal-smoke.mjs --target orcad",
     "smoke:serve-terminal": "node config/scripts/runtime-serve-terminal-smoke.mjs",
