@@ -147,6 +147,7 @@ export const UI_STATE_GLOBAL_FIELDS = [
   'windowBounds',
   'windowMaximized',
   'dashboardPopoutBounds',
+  'runtimeClientWindows',
   'starNagBaselineAgents',
   'starNagAppVersion',
   'starNagNextThreshold',
