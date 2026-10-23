@@ -44,12 +44,8 @@ import { mainProcessState as state } from './main-process-state'
 import { logStartupMilestone } from './startup-diagnostics'
 import { setupHeadlessServeAutoUpdater } from '../window/main-window-updater'
 import { preserveStateBeforeUpdateRestart } from '../update-restart-preservation'
-import { isQuittingForUpdate, resolveUpdateInstallMode } from '../updater'
-import {
-  configureRuntimeClientWindows,
-  restoreRuntimeClientWindows
-} from '../window/runtime-client-windows'
-import { openRuntimeClientWindowFromUserCommand } from '../window/runtime-client-window-open-command'
+import { resolveUpdateInstallMode } from '../updater'
+import { restoreNativeDesktopWindows } from '../window/native-desktop-windows'
 import { scheduleAgentLaunchRecordWarmup } from './agent-launch-record-warmup'
 import { emitServeBrowserIdentityActionLine } from '../server/serve-stdout-boundary'
 import { getBrowserIdentityModeStatus } from '../browser/browser-identity-mode-store'
@@ -216,15 +212,6 @@ async function launchDesktopMode(
   if (!runtimeRpc) {
     throw new Error('runtime_rpc_unavailable')
   }
-  configureRuntimeClientWindows({
-    getStore: () => state.store,
-    getPairingHost: () => state.runtimeRpc,
-    // Why the updater flag: an update install closes every window before before-quit marks the quit.
-    isAppQuitting: () => state.isQuitting || isQuittingForUpdate(),
-    isServeMode: () => state.isServeMode,
-    getKeybindings: () => state.keybindings?.getOverrides(),
-    onNewWindowShortcut: openRuntimeClientWindowFromUserCommand
-  })
   // Why: window and RPC startup run in parallel; registerPtyHandlers gates PTY spawns so RPC binds without racing the daemon provider swap.
   const [win, runtimeRpcStartResult] = await Promise.all([
     Promise.resolve(desktopWindow ?? openMainWindow()),
@@ -248,7 +235,7 @@ async function launchDesktopMode(
     )
   } else {
     // Why after both: restored windows need the live listener, and they close with the main window.
-    restoreRuntimeClientWindows()
+    restoreNativeDesktopWindows()
   }
   // Why before the proxy await: a mint in that window must wait for the installer, not fail
   // provider_missing; the installer itself holds its first request until the proxy lands.

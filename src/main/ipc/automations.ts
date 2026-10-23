@@ -1,6 +1,7 @@
 import { parseExecutionHostId } from '../../shared/execution-host'
 import { hostWorktreeTarget } from '../../shared/worktree/host-qualified-identity'
 import { ipcMain } from 'electron'
+import { markNativeDesktopAutomationReady } from '../window/native-desktop-automations'
 import type { Store } from '../persistence'
 import type { AutomationService } from '../automations/service'
 import type {
@@ -123,7 +124,8 @@ export function registerAutomationHandlers(store: Store, service: AutomationServ
         : 0
     }
   )
-  ipcMain.handle('automations:rendererReady', (): void => {
+  ipcMain.handle('automations:rendererReady', (event): void => {
+    markNativeDesktopAutomationReady(service, event.sender)
     service.setRendererReady()
   })
 }

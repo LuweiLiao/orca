@@ -56,6 +56,7 @@ import {
 } from '../effective-hook-config'
 import { isTuiAgent } from '../../shared/tui-agent-config'
 import { runWorktreeChangeInvalidators } from './worktree-change-invalidators'
+import { broadcastDesktopRendererEvent } from '../window/desktop-renderer-registry'
 
 type CreateWorktreeArgsWithSystemProvenance = CreateWorktreeArgs & {
   automationProvenance?: AutomationWorkspaceProvenance
@@ -943,7 +944,10 @@ export async function configureCreatedWorktreePushTarget(
 export function notifyWorktreesChanged(mainWindow: BrowserWindow, repoId: string): void {
   // Why: invalidate detected-worktree caches before renderer observers react, so follow-up listDetected sees post-change state.
   runWorktreeChangeInvalidators(repoId)
-  if (!mainWindow.isDestroyed()) {
+  if (
+    broadcastDesktopRendererEvent('worktrees:changed', { repoId }) === 0 &&
+    !mainWindow.isDestroyed()
+  ) {
     mainWindow.webContents.send('worktrees:changed', { repoId })
   }
 }
@@ -954,10 +958,13 @@ export function notifyWorktreeGitStatusMetadataChanged(
   worktreePaths: readonly string[] | null = null
 ): void {
   // Why: index churn is a Source Control freshness hint, not a graph mutation; leave structural caches and runtime/mobile events untouched.
-  if (!mainWindow.isDestroyed()) {
-    const payload: GitStatusMetadataChangedEvent = worktreePaths
-      ? { repoId, worktreePaths: [...worktreePaths] }
-      : { repoId }
+  const payload: GitStatusMetadataChangedEvent = worktreePaths
+    ? { repoId, worktreePaths: [...worktreePaths] }
+    : { repoId }
+  if (
+    broadcastDesktopRendererEvent('worktrees:gitStatusMetadataChanged', payload) === 0 &&
+    !mainWindow.isDestroyed()
+  ) {
     mainWindow.webContents.send('worktrees:gitStatusMetadataChanged', payload)
   }
 }
@@ -968,7 +975,11 @@ export function notifyWorktreeHeadIdentitiesChanged(
   identities: WorktreeHeadIdentity[]
 ): void {
   // Why: background worktrees have no active status refresh, so metadata-detected head moves ride this targeted event instead of the structural fanout.
-  if (!mainWindow.isDestroyed()) {
+  if (
+    broadcastDesktopRendererEvent('worktrees:headIdentitiesChanged', { repoId, identities }) ===
+      0 &&
+    !mainWindow.isDestroyed()
+  ) {
     mainWindow.webContents.send('worktrees:headIdentitiesChanged', { repoId, identities })
   }
 }
@@ -981,12 +992,15 @@ export function emitCreateWorktreeProgress(
   creationId?: string,
   checkout?: WorktreeCheckoutProgress | null
 ): void {
-  if (!mainWindow.isDestroyed()) {
-    const event: CreateWorktreeProgressEvent = {
-      creationId,
-      phase,
-      ...(checkout !== undefined ? { checkout } : {})
-    }
+  const event: CreateWorktreeProgressEvent = {
+    creationId,
+    phase,
+    ...(checkout !== undefined ? { checkout } : {})
+  }
+  if (
+    broadcastDesktopRendererEvent('createWorktree:progress', event) === 0 &&
+    !mainWindow.isDestroyed()
+  ) {
     mainWindow.webContents.send('createWorktree:progress', event)
   }
 }

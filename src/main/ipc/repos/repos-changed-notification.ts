@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
 import { wakeFolderRepoGitUpgradeWatch } from '../folder-repo-git-upgrade-wake'
 import { scheduleCurrentWorktreeBaseDirectoryWatcherSync } from '../worktree-base-directory-watcher'
+import { broadcastDesktopRendererEvent } from '../../window/desktop-renderer-registry'
 
 type RepoRemoteClientNotifier = Pick<OrcaRuntimeService, 'notifyReposChangedForRemoteClients'>
 
@@ -14,7 +15,11 @@ export function setRepoRemoteClientNotifier(notifier: RepoRemoteClientNotifier):
 
 export function notifyReposChanged(mainWindow: BrowserWindow | null): void {
   wakeFolderRepoGitUpgradeWatch()
-  if (mainWindow && !mainWindow.isDestroyed()) {
+  if (
+    broadcastDesktopRendererEvent('repos:changed') === 0 &&
+    mainWindow &&
+    !mainWindow.isDestroyed()
+  ) {
     mainWindow.webContents.send('repos:changed')
   }
   // Why: paired clients only refetch a remote catalog on this event; without it a

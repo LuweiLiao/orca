@@ -26,6 +26,10 @@ import { primeTerminalWebglAddon } from './lib/pane-manager/pane-webgl-renderer'
 import { SkillWarningPreviewLauncher } from './components/skills/SkillWarningPreviewLauncher'
 import { installBrowserClientPageRenderer } from './components/browser-pane/browser-client-page-renderer-installation'
 import { installOsFileDropCancellationGuard } from './lib/os-file-drop-cancellation-guard'
+import {
+  activateLaunchWorktreeWhenReady,
+  consumeLaunchWorktreeTarget
+} from './web/web-launch-worktree-target'
 
 const disposeOsFileDropGuard = installOsFileDropCancellationGuard()
 import.meta.hot?.dispose(disposeOsFileDropGuard)
@@ -82,6 +86,10 @@ getOrCreateRendererRoot(rootElement, import.meta.hot?.data).render(
   </StrictMode>
 )
 recordRendererCrashBreadcrumb('renderer_bootstrap_rendered')
+const launchWorktreeId = consumeLaunchWorktreeTarget()
+if (launchWorktreeId) {
+  void activateLaunchWorktreeWhenReady(launchWorktreeId)
+}
 
 // Why here: the xterm WebGL addon is 243 KB, is only ever constructed once a
 // terminal attaches (many frames away), and is needed by nothing during boot.

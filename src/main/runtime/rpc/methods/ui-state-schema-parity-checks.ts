@@ -15,6 +15,7 @@ type MainOwnedUIState =
   | 'trayMinimizeNoticeShown'
   | 'dashboardPopoutBounds'
   | 'runtimeClientWindows'
+  | 'desktopWindows'
   | '_expandedWorktreeCardPropertiesDefaulted'
   | '_jiraIssueWorktreeCardPropertyDefaulted'
   | '_hostWorktreeCardPropertyDefaulted'
