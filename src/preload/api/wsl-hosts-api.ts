@@ -1,4 +1,4 @@
-// Available only on Windows desktops or e2e fakes with the internal gate enabled.
+// Available on Windows desktops, or explicitly enabled e2e fakes.
 import { ipcRenderer } from 'electron'
 import {
   WSL_HOST_STATUS_CHANNEL,
@@ -45,7 +45,7 @@ export function getWslHostsApi(
   env: Readonly<Record<string, string | undefined>> = process.env,
   platform: NodeJS.Platform = process.platform
 ): WslHostsPreloadApi | undefined {
-  if (!isWslHostsInternalGateOpen(env)) {
+  if (!isWslHostsInternalGateOpen(env, platform)) {
     return undefined
   }
   return platform === 'win32' || env.ORCA_E2E_FAKE_WSL_HOSTS ? wslHostsApi : undefined

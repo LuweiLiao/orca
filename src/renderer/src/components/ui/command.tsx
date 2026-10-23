@@ -246,13 +246,17 @@ function CommandGroup({
 }
 
 const commandItemVariants = cva('', {
-  variants: { selection: { default: '', palette: 'jump-palette-item' } },
+  variants: {
+    selection: { default: '', palette: 'jump-palette-item' },
+    layout: { default: '', host: 'items-start px-3 py-2 text-xs' }
+  },
   defaultVariants: { selection: 'default' }
 })
 
 function CommandItem({
   className,
   selection,
+  layout,
   ref,
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Item> & VariantProps<typeof commandItemVariants>) {
@@ -262,7 +266,7 @@ function CommandItem({
       data-slot="command-item"
       className={cn(
         'relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
-        commandItemVariants({ selection }),
+        commandItemVariants({ selection, layout }),
         className
       )}
       {...props}
