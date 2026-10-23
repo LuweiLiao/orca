@@ -86,7 +86,7 @@ it('migrates legacy notes and unfinished editor before removing the old copy', a
   expect(a.getSnapshot()).toEqual({ notes: [note], editor })
   expect(localStorage.getItem(key)).toBeNull()
   expect(
-    localStorage.getItem('orca:native-chat-annotations:v2:migration:note:legacy-note')
+    localStorage.getItem('orca:native-chat-annotations:v2:migration:legacy-note:legacy-note')
   ).toContain('legacy')
 })
 
@@ -99,6 +99,7 @@ it('retains the legacy copy if migration cannot save every record', async () => 
   })
   const { a } = await contexts('migration-failed')
   expect(a.getSnapshot().persistenceError).toBe('Full')
+  expect(a.getSnapshot().notes).toEqual([note])
   expect(localStorage.getItem(key)).toContain('legacy')
   write.mockRestore()
   expect(a.retryPersistence()).toBe(true)
