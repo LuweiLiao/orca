@@ -21,6 +21,8 @@ import {
   dirtyScopes,
   hasLocalChange,
   load,
+  localDraftEdits,
+  pendingDraftTransforms,
   nextSavedAt,
   notifyScope,
   records,
@@ -162,6 +164,10 @@ export function updateNativeChatComposerDraft(
     return
   }
   if (isEmptyDraft({ text, images })) {
+    if (!append) {
+      pendingDraftTransforms.delete(scopeKey)
+      localDraftEdits.delete(scopeKey)
+    }
     records.delete(scopeKey)
     reconcileRestoredImageChecks(scopeKey, [])
     notifyScope(scopeKey)
@@ -170,6 +176,11 @@ export function updateNativeChatComposerDraft(
   }
   // Why stamped once: a conversation never moves to another workspace, so its owner stays true.
   const owner = current.owner ?? change.owner ?? resolveOwner?.(scopeKey)
+  const editRevision = append ? current.editRevision : createBrowserUuid()
+  if (!append && editRevision) {
+    pendingDraftTransforms.delete(scopeKey)
+    localDraftEdits.set(scopeKey, editRevision)
+  }
   const record: DraftRecord = {
     text,
     ...(Object.keys(pastedTextFiles).length ? { pastedTextFiles } : {}),
@@ -177,6 +188,7 @@ export function updateNativeChatComposerDraft(
     images: [...images],
     savedAt: nextSavedAt(current.savedAt + 1),
     ...(journalEntryIds ? { journalEntryIds } : {}),
+    ...(editRevision ? { editRevision } : {}),
     ...(owner ? { owner } : {}),
     ...(unsavedText === undefined ? {} : { unsavedText })
   }
@@ -217,20 +229,15 @@ export function appendToNativeChatComposerDraft(
 ): boolean {
   const before = records.get(scopeKey)
   const current = readNativeChatComposerDraft(scopeKey)
-  const preserveLocalDraft = hasLocalChange(scopeKey)
+  const preserveLocalDraft =
+    before?.editRevision !== undefined && localDraftEdits.get(scopeKey) === before.editRevision
   const placed = placeNativeChatComposerDraftAddition(current, addition)
   const id = createBrowserUuid()
   const { text, images, document, journalEntryIds } = withAddition(current, placed, id)
   const append: DraftAppend = (loaded) => {
     const base =
-      load.hydrated && preserveLocalDraft && before && loaded.savedAt < before.savedAt
-        ? {
-            ...loaded,
-            ...before,
-            journalEntryIds: [
-              ...new Set([...(loaded.journalEntryIds ?? []), ...(before.journalEntryIds ?? [])])
-            ]
-          }
+      load.hydrated && preserveLocalDraft && before && loaded.editRevision !== before.editRevision
+        ? before
         : loaded
     return { ...withAddition(base, placed, id), ...(!base.owner && owner ? { owner } : {}) }
   }
@@ -290,6 +297,8 @@ function deleteDraftsWhere(
   for (const scopeKey of new Set([...records.keys(), ...scopeListeners.keys()])) {
     const draft = records.get(scopeKey)
     if (matches(scopeKey, draft)) {
+      pendingDraftTransforms.delete(scopeKey)
+      localDraftEdits.delete(scopeKey)
       records.delete(scopeKey)
       reconcileRestoredImageChecks(scopeKey, [])
       notifyScope(scopeKey)

@@ -33,6 +33,7 @@ export type StoredNativeChatComposerDraft = NativeChatComposerDraft & {
   readonly savedAt: number
   readonly owner?: NativeChatComposerDraftOwner
   readonly journalEntryIds?: readonly string[]
+  readonly editRevision?: string
 }
 
 /** Where drafts are kept. Every write and removal settles once storage has committed it, and
@@ -176,6 +177,7 @@ export function parseStoredNativeChatComposerDraft(
     ...(isEditorDocument(document) ? { document } : {}),
     images: images.flatMap((image) => parseImage(image) ?? []),
     savedAt,
+    ...(typeof value.editRevision === 'string' ? { editRevision: value.editRevision } : {}),
     ...(Array.isArray(value.journalEntryIds) &&
     value.journalEntryIds.every((id) => typeof id === 'string')
       ? { journalEntryIds: [...new Set(value.journalEntryIds)] }

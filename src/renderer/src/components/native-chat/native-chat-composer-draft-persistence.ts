@@ -8,16 +8,17 @@ export {
 } from './native-chat-composer-draft-saved-form'
 import {
   dirtyScopes,
-  hasLocalChange,
   load,
+  localDraftEdits,
+  pendingDraftTransforms,
   nextSavedAt,
   notifyScope,
   records,
   refusedScopes,
   unconfirmed,
-  reconcileRestoredImageChecks,
   type AppendBeforeLoad,
   type DraftAppend,
+  type DraftTransform,
   type DraftRecord,
   type UnconfirmedDraftChange
 } from './native-chat-composer-draft-memory'
@@ -34,16 +35,23 @@ import {
   parseStoredNativeChatComposerDraft,
   type StoredNativeChatComposerDraft
 } from './native-chat-composer-draft-storage'
+import {
+  writeNativeChatComposerDraftTransaction,
+  EMPTY_NATIVE_CHAT_STORED_DRAFT
+} from './native-chat-composer-draft-transaction'
+import {
+  broadcastNativeChatComposerDraftChange,
+  resetNativeChatComposerDraftBroadcastForTests
+} from './native-chat-composer-draft-broadcast'
+export { installNativeChatComposerDraftBroadcast } from './native-chat-composer-draft-broadcast'
 
 const PERSIST_DEBOUNCE_MS = 250
-const CHANNEL_NAME = 'orca-native-chat-composer-drafts'
 
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 let flushOnHideInstalled = false
 const inFlight = new Set<Promise<boolean>>()
 // Per scope, the writes not yet settled: each resolves true once committed, false when refused.
 const scopeWrites = new Map<string, Set<Promise<boolean>>>()
-let channel: BroadcastChannel | null = null
 
 function confirm(
   scopeKey: string,
@@ -56,8 +64,11 @@ function confirm(
       notifyScope(scopeKey)
     }
   }
+  if (change.draft?.editRevision && localDraftEdits.get(scopeKey) === change.draft.editRevision) {
+    localDraftEdits.delete(scopeKey)
+  }
   pruneNativeChatComposerDraftJournal(scopeKey, change.at, confirmedIds)
-  channel?.postMessage({ scopeKey })
+  broadcastNativeChatComposerDraftChange(scopeKey)
 }
 
 function refuse(scopeKey: string, change: UnconfirmedDraftChange, error: unknown): void {
@@ -73,7 +84,7 @@ function refuse(scopeKey: string, change: UnconfirmedDraftChange, error: unknown
   }
 }
 
-function persist(scopeKey: string, append?: DraftAppend): void {
+function persist(scopeKey: string): void {
   const record = records.get(scopeKey)
   const draft = record ? savedForm(record) : null
   const change: UnconfirmedDraftChange = { draft, at: draft?.savedAt ?? nextSavedAt() }
@@ -89,30 +100,30 @@ function persist(scopeKey: string, append?: DraftAppend): void {
   }
   unconfirmed.set(scopeKey, change)
   const storage = nativeChatComposerDraftStorage()
-  let appended: DraftRecord | undefined
-  const operation =
-    append && draft
-      ? storage.update(scopeKey, (stored) => {
-          const base = parseStoredNativeChatComposerDraft(stored) ?? {
-            text: '',
-            images: [],
-            savedAt: 0
-          }
-          appended = {
-            ...append(base),
-            savedAt: nextSavedAt(Math.max(base.savedAt, draft.savedAt) + 1)
-          }
-          confirmedIds = appended.journalEntryIds ?? []
-          return savedForm(appended)
-        })
-      : draft
-        ? storage.write(scopeKey, draft)
-        : storage.remove([scopeKey])
+  const transform = pendingDraftTransforms.get(scopeKey)
+  let appended: DraftRecord | null | undefined
+  const operation = transform
+    ? writeNativeChatComposerDraftTransaction(scopeKey, transform, record, (result) => {
+        appended = result
+        if (result) {
+          confirmedIds = result.journalEntryIds ?? []
+        }
+      })
+    : draft
+      ? storage.write(scopeKey, draft)
+      : storage.remove([scopeKey])
   const written = operation.then(
     () => {
-      if (appended && records.get(scopeKey) === record) {
-        records.set(scopeKey, { ...record, ...appended })
+      if (appended !== undefined && records.get(scopeKey) === record) {
+        if (appended) {
+          records.set(scopeKey, { ...record, ...appended })
+        } else {
+          records.delete(scopeKey)
+        }
         notifyScope(scopeKey)
+      }
+      if (pendingDraftTransforms.get(scopeKey) === transform) {
+        pendingDraftTransforms.delete(scopeKey)
       }
       confirm(scopeKey, change, confirmedIds)
       return true
@@ -202,7 +213,7 @@ function appendBeforeLoad(scopeKey: string, append: DraftAppend): void {
       () => {
         entry.committed = true
         pruneNativeChatComposerDraftJournal(scopeKey, appendedAt, committedIds)
-        channel?.postMessage({ scopeKey })
+        broadcastNativeChatComposerDraftChange(scopeKey)
         return true
       },
       (error: unknown) => {
@@ -234,8 +245,13 @@ export function persistNativeChatComposerDraft(
     return
   }
   if (load.hydrated && append) {
+    const pending = pendingDraftTransforms.get(scopeKey)
+    pendingDraftTransforms.set(
+      scopeKey,
+      pending ? (base) => append(pending(base) ?? EMPTY_NATIVE_CHAT_STORED_DRAFT) : append
+    )
     dirtyScopes.delete(scopeKey)
-    persist(scopeKey, append)
+    persist(scopeKey)
     return
   }
   dirtyScopes.add(scopeKey)
@@ -249,53 +265,21 @@ export function persistNativeChatComposerDraft(
   flushTimer ??= setTimeout(flushNativeChatComposerDrafts, PERSIST_DEBOUNCE_MS)
 }
 
+export function persistNativeChatComposerDraftRecovery(
+  scopeKey: string,
+  transform: DraftTransform
+): void {
+  pendingDraftTransforms.set(scopeKey, transform)
+  dirtyScopes.delete(scopeKey)
+  persist(scopeKey)
+}
+
 /** A deletion also applies to drafts a load still in flight brings back. */
 export function deleteLoadingNativeChatComposerDraftsWhere(
   matches: (scopeKey: string, draft: StoredNativeChatComposerDraft) => boolean
 ): void {
   if (!load.hydrated) {
     load.deletionsBeforeLoad.push(matches)
-  }
-}
-
-// Why: another window of the same app (two web-client tabs) can send or edit this draft; its write
-// replaces what this window holds unless this window has a change of its own not yet saved.
-function adoptForeignChange(message: unknown): void {
-  const scopeKey =
-    typeof message === 'object' && message !== null && 'scopeKey' in message
-      ? message.scopeKey
-      : null
-  if (typeof scopeKey !== 'string' || hasLocalChange(scopeKey)) {
-    return
-  }
-  void nativeChatComposerDraftStorage()
-    .read(scopeKey)
-    .then((value) => {
-      if (hasLocalChange(scopeKey)) {
-        return
-      }
-      const draft = parseStoredNativeChatComposerDraft(value)
-      if (draft) {
-        reconcileRestoredImageChecks(scopeKey, draft.images, records.get(scopeKey)?.images ?? [])
-        records.set(scopeKey, draft)
-      } else {
-        records.delete(scopeKey)
-        reconcileRestoredImageChecks(scopeKey, [])
-      }
-      notifyScope(scopeKey)
-    })
-    .catch(() => {})
-}
-
-export function installNativeChatComposerDraftBroadcast(): void {
-  if (channel || typeof BroadcastChannel === 'undefined') {
-    return
-  }
-  channel = new BroadcastChannel(CHANNEL_NAME)
-  channel.onmessage = (event) => adoptForeignChange(event.data)
-  // Why: Node's channel (unit tests) would otherwise keep the process alive.
-  if ('unref' in channel && typeof channel.unref === 'function') {
-    channel.unref()
   }
 }
 
@@ -324,8 +308,7 @@ export function resetNativeChatComposerDraftPersistenceForTests(): void {
     clearTimeout(flushTimer)
     flushTimer = null
   }
-  channel?.close()
-  channel = null
+  resetNativeChatComposerDraftBroadcastForTests()
   if (flushOnHideInstalled) {
     flushOnHideInstalled = false
     window.removeEventListener('pagehide', journalUnconfirmed)
