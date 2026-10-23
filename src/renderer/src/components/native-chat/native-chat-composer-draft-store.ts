@@ -1,4 +1,5 @@
 import { nativeChatPastedTextToken } from './native-chat-pasted-text-reference'
+import { createBrowserUuid } from '@/lib/browser-uuid'
 // The one owner of each composer scope's unsent message: its text, the editor document for that
 // text and its settled image refs. Every writer changes the whole record here in memory, and
 // storage is written from that record, so a reload or quit gives the draft back and a failed or
@@ -64,6 +65,7 @@ export function hasUnsavedNativeChatComposerDraftChange(scopeKey: string): boole
 }
 
 export type NativeChatComposerDraftChange = {
+  journalEntryIds?: readonly string[]
   text?: string
   pastedTextFiles?: Readonly<Record<string, string>>
   /** Present, even as undefined, to replace the document. */
@@ -120,7 +122,7 @@ function isEmptyDraft(draft: NativeChatComposerDraft): boolean {
 
 export function readNativeChatComposerDraft(
   scopeKey: string
-): NativeChatComposerDraft & Pick<StoredNativeChatComposerDraft, 'owner'> {
+): NativeChatComposerDraft & Pick<StoredNativeChatComposerDraft, 'owner' | 'journalEntryIds'> {
   return records.get(scopeKey) ?? EMPTY_DRAFT
 }
 
@@ -145,7 +147,9 @@ export function updateNativeChatComposerDraft(
   )
   const images = change.images ?? current.images
   const unsavedText = change.unsavedText ?? current.unsavedText
+  const journalEntryIds = change.journalEntryIds ?? current.journalEntryIds
   if (
+    JSON.stringify(journalEntryIds) === JSON.stringify(current.journalEntryIds) &&
     JSON.stringify(pastedTextFiles) === JSON.stringify(current.pastedTextFiles ?? {}) &&
     text === current.text &&
     sameNativeChatComposerDraftDocument(document, current.document) &&
@@ -171,7 +175,8 @@ export function updateNativeChatComposerDraft(
     ...(Object.keys(pastedTextFiles).length ? { pastedTextFiles } : {}),
     ...(document ? { document } : {}),
     images: [...images],
-    savedAt: nextSavedAt(),
+    savedAt: nextSavedAt(current.savedAt + 1),
+    ...(journalEntryIds ? { journalEntryIds } : {}),
     ...(owner ? { owner } : {}),
     ...(unsavedText === undefined ? {} : { unsavedText })
   }
@@ -185,11 +190,17 @@ export function updateNativeChatComposerDraft(
   }
 }
 
-function withAddition<T extends NativeChatComposerDraft>(
-  draft: T,
-  addition: NativeChatComposerDraftAddition
-): T {
-  return { ...draft, ...withNativeChatComposerDraftAddition(draft, addition) }
+function withAddition<
+  T extends NativeChatComposerDraft & Pick<StoredNativeChatComposerDraft, 'journalEntryIds'>
+>(draft: T, addition: NativeChatComposerDraftAddition, id: string): T {
+  if (draft.journalEntryIds?.includes(id)) {
+    return draft
+  }
+  return {
+    ...draft,
+    ...withNativeChatComposerDraftAddition(draft, addition),
+    journalEntryIds: [...(draft.journalEntryIds ?? []), id]
+  }
 }
 
 /**
@@ -206,18 +217,34 @@ export function appendToNativeChatComposerDraft(
 ): boolean {
   const before = records.get(scopeKey)
   const current = readNativeChatComposerDraft(scopeKey)
+  const preserveLocalDraft = hasLocalChange(scopeKey)
   const placed = placeNativeChatComposerDraftAddition(current, addition)
-  const { text, images, document } = withAddition(current, placed)
+  const id = createBrowserUuid()
+  const { text, images, document, journalEntryIds } = withAddition(current, placed, id)
+  const append: DraftAppend = (loaded) => {
+    const base =
+      load.hydrated && preserveLocalDraft && before && loaded.savedAt < before.savedAt
+        ? {
+            ...loaded,
+            ...before,
+            journalEntryIds: [
+              ...new Set([...(loaded.journalEntryIds ?? []), ...(before.journalEntryIds ?? [])])
+            ]
+          }
+        : loaded
+    return { ...withAddition(base, placed, id), ...(!base.owner && owner ? { owner } : {}) }
+  }
   updateNativeChatComposerDraft(
     scopeKey,
     {
       text,
       images,
       document,
+      journalEntryIds,
       ...(owner ? { owner } : {})
     },
     'immediate',
-    (loaded) => withAddition(loaded, placed)
+    append
   )
   const after = records.get(scopeKey)
   if (!after) {
@@ -227,7 +254,7 @@ export function appendToNativeChatComposerDraft(
   if (after === before && !hasLocalChange(scopeKey) && !refusedScopes.has(scopeKey)) {
     return true
   }
-  return journalNativeChatComposerDraftAddition(scopeKey, placed, after.savedAt)
+  return journalNativeChatComposerDraftAddition(scopeKey, placed, after.savedAt, id)
 }
 
 /**

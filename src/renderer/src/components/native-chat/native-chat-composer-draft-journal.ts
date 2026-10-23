@@ -1,5 +1,6 @@
 // Recovery records are independent writes, so another window cannot replace an acknowledged append.
 import type { UnconfirmedDraftChange } from './native-chat-composer-draft-memory'
+import { createBrowserUuid } from '@/lib/browser-uuid'
 import {
   withNativeChatComposerDraftAddition,
   type NativeChatComposerDraftAddition
@@ -10,8 +11,10 @@ import {
   replaceNativeChatDraftJournalChange,
   readNativeChatDraftJournalRecords,
   pruneNativeChatDraftJournalRecords,
+  nativeChatDraftJournalRecordId,
   type AdditionJournalEntry,
-  type JournalEntry
+  type JournalEntry,
+  type JournalRecord
 } from './native-chat-composer-draft-journal-records'
 
 export const MAX_JOURNAL_CHARS = 256_000
@@ -30,11 +33,15 @@ function readEntries(): JournalEntry[] {
   }
 }
 
-export type NativeChatComposerDraftJournalSnapshot = readonly JournalEntry[]
+export type NativeChatComposerDraftJournalSnapshot = readonly JournalRecord[]
 
 /** Capture before loading: later writes belong to a live window and must not be replayed. */
 export function snapshotNativeChatComposerDraftJournal(): NativeChatComposerDraftJournalSnapshot {
-  return readEntries().filter((entry) => entry.run !== THIS_RUN)
+  try {
+    return readNativeChatDraftJournalRecords().filter(({ entry }) => entry.run !== THIS_RUN)
+  } catch {
+    return []
+  }
 }
 
 export function replayNativeChatComposerDraftJournal(
@@ -42,34 +49,66 @@ export function replayNativeChatComposerDraftJournal(
   entries: NativeChatComposerDraftJournalSnapshot
 ): Set<string> {
   const changed = new Set<string>()
+  const confirmed = new Map(drafts)
   const removedAt = new Map<string, number>()
-  for (const entry of entries) {
+  for (const record of entries) {
+    const entry = record.entry
     if (isAddition(entry)) {
       continue
     }
-    const stored = drafts.get(entry.scopeKey)
+    const id = nativeChatDraftJournalRecordId(record)
+    const stored = confirmed.get(entry.scopeKey)
     if (stored && stored.savedAt >= entry.at) {
-      pruneNativeChatComposerDraftJournal(entry.scopeKey, entry.at)
+      pruneNativeChatDraftJournalRecords(entry.scopeKey, entry.at, [id])
       continue
     }
-    drafts.set(entry.scopeKey, entry.draft)
+    const previousIds = drafts.get(entry.scopeKey)?.journalEntryIds ?? []
+    drafts.set(
+      entry.scopeKey,
+      entry.draft
+        ? {
+            ...entry.draft,
+            journalEntryIds: [
+              ...new Set([...previousIds, ...(entry.draft.journalEntryIds ?? []), id])
+            ]
+          }
+        : null
+    )
     if (!entry.draft) {
       removedAt.set(entry.scopeKey, entry.at)
     }
     changed.add(entry.scopeKey)
   }
-  const additions = entries.filter(isAddition).sort((left, right) => left.at - right.at)
-  for (const { scopeKey, at, addition } of additions) {
+  const additions = entries
+    .filter(({ entry }) => isAddition(entry))
+    .sort((left, right) => left.entry.at - right.entry.at)
+  for (const record of additions) {
+    if (!isAddition(record.entry)) {
+      continue
+    }
+    const { scopeKey, at, addition } = record.entry
+    const id = nativeChatDraftJournalRecordId(record)
+    const stored = confirmed.get(scopeKey)
+    if (
+      stored?.journalEntryIds?.includes(id) ||
+      (!record.key &&
+        !record.entry.id &&
+        stored?.journalEntryIds === undefined &&
+        (stored?.savedAt ?? 0) >= at)
+    ) {
+      pruneNativeChatDraftJournalRecords(scopeKey, at, [id])
+      continue
+    }
     const base = drafts.get(scopeKey) ?? null
-    if ((base?.savedAt ?? removedAt.get(scopeKey) ?? 0) >= at) {
-      pruneNativeChatComposerDraftJournal(scopeKey, at)
+    if (base?.journalEntryIds?.includes(id) || (removedAt.get(scopeKey) ?? -Infinity) >= at) {
       continue
     }
     const from = base ?? { text: '', images: [], savedAt: 0 }
     drafts.set(scopeKey, {
       ...from,
       ...withNativeChatComposerDraftAddition(from, addition),
-      savedAt: at
+      savedAt: Math.max(from.savedAt, at),
+      journalEntryIds: [...(from.journalEntryIds ?? []), id]
     })
     changed.add(scopeKey)
   }
@@ -106,9 +145,10 @@ export function journalNativeChatComposerDraftChanges(
 export function journalNativeChatComposerDraftAddition(
   scopeKey: string,
   addition: NativeChatComposerDraftAddition,
-  at: number
+  at: number,
+  id = createBrowserUuid()
 ): boolean {
-  const entry = { scopeKey, at, run: THIS_RUN, addition }
+  const entry = { scopeKey, at, run: THIS_RUN, addition, id }
   const entries = [...readEntries().filter(isAddition), entry]
   return (
     JSON.stringify(entries).length <= MAX_JOURNAL_ADDITIONS_CHARS &&
@@ -116,6 +156,10 @@ export function journalNativeChatComposerDraftAddition(
   )
 }
 
-export function pruneNativeChatComposerDraftJournal(scopeKey: string, confirmedAt: number): void {
-  pruneNativeChatDraftJournalRecords(scopeKey, confirmedAt)
+export function pruneNativeChatComposerDraftJournal(
+  scopeKey: string,
+  confirmedAt: number,
+  confirmedIds?: readonly string[]
+): void {
+  pruneNativeChatDraftJournalRecords(scopeKey, confirmedAt, confirmedIds, THIS_RUN)
 }
