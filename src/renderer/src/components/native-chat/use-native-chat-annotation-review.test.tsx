@@ -74,9 +74,45 @@ afterEach(() => {
   })
   focus.mockClear()
   acceptsText.mockReturnValue(true)
+  vi.restoreAllMocks()
 })
 
 describe('conversation annotation review', () => {
+  it('shows legacy notes, the unfinished editor and retry when migration cannot write', () => {
+    const scope = 'review-refused-migration'
+    const anchor = { messageId: 'reply', quote: 'first sentence.', startOffset: 0 }
+    localStorage.setItem(
+      `orca:native-chat-annotations:v1:${scope}`,
+      JSON.stringify({
+        version: 1,
+        notes: [{ ...anchor, id: 'legacy', comment: 'Saved legacy comment', createdAt: 1 }],
+        editor: { anchor, comment: 'Unfinished legacy editor' }
+      })
+    )
+    const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Full')
+    })
+    render(<Harness scopeKey={scope} />)
+    expect(screen.getByText('Saved legacy comment')).toBeTruthy()
+    const input = screen.getByRole('textbox', { name: 'Comment' })
+    expect(input instanceof HTMLTextAreaElement && input.value).toBe('Unfinished legacy editor')
+    expect(screen.getByRole('status').textContent).toContain('Annotations could not be saved')
+    blocked.mockRestore()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByText('Saved legacy comment')).toBeTruthy()
+  })
+
+  it('keeps an error and retry visible even when no annotations could be read', () => {
+    const scope = 'review-unreadable-migration'
+    localStorage.setItem(`orca:native-chat-annotations:v1:${scope}`, '{invalid')
+    render(<Harness scopeKey={scope} />)
+    expect(screen.getByRole('region', { name: 'Annotations' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retry saving annotations' })).toBeTruthy()
+    localStorage.removeItem(`orca:native-chat-annotations:v1:${scope}`)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
+    expect(screen.queryByRole('region', { name: 'Annotations' })).toBeNull()
+  })
   it('retains notes when saving to the composer fails', () => {
     render(<Harness scopeKey="review-transfer-failure" />)
     fireEvent.click(screen.getByRole('button', { name: 'First' }))

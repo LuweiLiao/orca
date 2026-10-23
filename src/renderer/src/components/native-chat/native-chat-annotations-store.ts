@@ -124,7 +124,10 @@ export function getNativeChatAnnotationsStore(
   const persist = (): boolean => {
     try {
       // Migrate before mutating; a failed migration must leave the legacy copy intact.
-      storage.read()
+      const saved = storage.read()
+      if (saved.persistenceError) {
+        throw new Error(saved.persistenceError)
+      }
       for (const [id, note] of pending) {
         storage.writeNote(note)
         pending.delete(id)

@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { ChevronDown, ChevronUp, MessageSquarePlus, Pencil, TextSearch, Trash2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  MessageSquarePlus,
+  Pencil,
+  RotateCw,
+  TextSearch,
+  Trash2
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -108,7 +116,7 @@ export function useNativeChatAnnotationReview({
   return {
     begin: scopeKey ? begin : undefined,
     tray:
-      scopeKey && count > 0 ? (
+      scopeKey && (count > 0 || review.persistenceError) ? (
         <section
           data-native-chat-annotations=""
           aria-label={copy.title}
@@ -136,9 +144,14 @@ export function useNativeChatAnnotationReview({
             )}
           </div>
           {review.persistenceError ? (
-            <p role="status" className="py-1 text-xs text-chat-warning">
-              {copy.notSaved}
-            </p>
+            <div className="flex items-center gap-1 py-1 text-xs text-chat-warning">
+              <p role="status" className="min-w-0 flex-1">
+                {copy.notSaved}
+              </p>
+              {iconButton(copy.retry, <RotateCw />, () => {
+                review.retryPersistence()
+              })}
+            </div>
           ) : null}
           {transferErrorScope === scopeKey ? (
             <p role="status" className="py-1 text-xs text-chat-warning">

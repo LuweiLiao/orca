@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { useNativeChatAnnotationReview } from './use-native-chat-annotation-review'
 import { useNativeChatComposerHandle } from './use-native-chat-composer-handle'
 import { useNativeChatDraft } from './use-native-chat-draft'
+import { readNativeChatDraftJournalRecords } from './native-chat-composer-draft-journal-records'
 import { getNativeChatAnnotationsStore } from './native-chat-annotations-store'
 import type { NativeChatComposerHandle } from './native-chat-composer-types'
 import {
@@ -87,7 +88,7 @@ it('journals the actual composer append before removing the saved annotations, w
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Existing draft.' } })
   fireEvent.click(screen.getByRole('button', { name: 'Add annotations to message' }))
   expect(store.getSnapshot().notes).toHaveLength(0)
-  expect(localStorage.getItem('orca:nativeChatComposerDraftJournal:v1')).toContain(
+  expect(JSON.stringify(readNativeChatDraftJournalRecords())).toContain(
     'Keep this comment after a crash.'
   )
   const input = screen.getByRole('textbox')
@@ -104,7 +105,7 @@ it('keeps the saved annotations and editor if the synchronous recovery journal f
   render(<Harness />)
   const write = localStorage.setItem.bind(localStorage)
   vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
-    if (key === 'orca:nativeChatComposerDraftJournal:v1') {
+    if (key.startsWith('orca:nativeChatComposerDraftJournal:v2:entry:')) {
       throw new Error('Full')
     }
     write(key, value)

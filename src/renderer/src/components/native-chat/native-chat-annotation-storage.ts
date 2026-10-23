@@ -89,14 +89,16 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
   const prefix = `orca:native-chat-annotations:v2:${encodeURIComponent(scopeKey)}:`
   const noteKey = (id: string): string => `${prefix}note:${encodeURIComponent(id)}`
   const editorKey = `${prefix}editor`
+  const legacyNoteKey = (id: string): string => `${prefix}legacy-note:${encodeURIComponent(id)}`
+  const legacyEditorKey = `${prefix}legacy-editor`
   const consumedNoteKey = (note: NativeChatAnnotation): string =>
     `${prefix}consumed-note:${encodeURIComponent(note.id)}:${encodeURIComponent(nativeChatAnnotationRevision(note))}`
   const consumedEditorKey = (editor: NativeChatAnnotationEditor): string =>
     `${prefix}consumed-editor:${encodeURIComponent(nativeChatAnnotationEditorRevision(editor))}`
-  const migrate = (): void => {
+  const migrate = (): NativeChatAnnotationsSnapshot => {
     const stored = localStorage.getItem(legacyKey)
     if (stored === null) {
-      return
+      return { notes: [] }
     }
     const value: unknown = JSON.parse(stored)
     if (
@@ -114,31 +116,44 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
     ) {
       throw new Error('Saved annotations could not be read.')
     }
-    for (const note of value.notes) {
-      if (localStorage.getItem(noteKey(note.id)) === null) {
-        localStorage.setItem(noteKey(note.id), JSON.stringify(note))
+    const legacy: NativeChatAnnotationsSnapshot = {
+      notes: value.notes,
+      ...('editor' in value && isNativeChatAnnotationEditor(value.editor)
+        ? { editor: value.editor }
+        : {})
+    }
+    try {
+      // Migration writes only seed records, never the slots edited by live windows.
+      for (const note of legacy.notes) {
+        localStorage.setItem(legacyNoteKey(note.id), JSON.stringify(note))
+      }
+      if (legacy.editor) {
+        localStorage.setItem(legacyEditorKey, JSON.stringify(legacy.editor))
+      }
+      localStorage.removeItem(legacyKey)
+      return legacy
+    } catch (error) {
+      return {
+        ...legacy,
+        persistenceError: error instanceof Error ? error.message : 'Annotations could not be saved.'
       }
     }
-    if (
-      'editor' in value &&
-      value.editor !== undefined &&
-      localStorage.getItem(editorKey) === null
-    ) {
-      localStorage.setItem(editorKey, JSON.stringify(value.editor))
-    }
-    localStorage.removeItem(legacyKey)
   }
   return {
     matches: (key: string | null): boolean =>
       key === null || key === legacyKey || key.startsWith(prefix),
     read: (): NativeChatAnnotationsSnapshot => {
-      migrate()
+      const legacy = migrate()
       const keys = Array.from({ length: localStorage.length }, (_, index) =>
         localStorage.key(index)
       )
-      const notes: NativeChatAnnotation[] = []
+      const inherited = new Map(legacy.notes.map((note) => [note.id, note]))
+      const current = new Map<string, NativeChatAnnotation>()
       for (const key of keys) {
-        if (!key?.startsWith(`${prefix}note:`)) {
+        if (
+          !key ||
+          (!key.startsWith(`${prefix}note:`) && !key.startsWith(`${prefix}legacy-note:`))
+        ) {
           continue
         }
         const stored = localStorage.getItem(key)
@@ -146,21 +161,37 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
           continue
         }
         const note: unknown = JSON.parse(stored)
-        if (!isNote(note) || key !== noteKey(note.id)) {
+        if (!isNote(note) || (key !== noteKey(note.id) && key !== legacyNoteKey(note.id))) {
           throw new Error('Saved annotations could not be read.')
         }
-        if (localStorage.getItem(consumedNoteKey(note)) === null) {
-          notes.push(note)
+        if (key === noteKey(note.id)) {
+          current.set(note.id, note)
+        } else {
+          inherited.set(note.id, note)
         }
       }
+      // A consumed current record still takes precedence over its old migration seed.
+      for (const [id, note] of current) {
+        inherited.set(id, note)
+      }
+      const notes = [...inherited.values()].filter(
+        (note) => localStorage.getItem(consumedNoteKey(note)) === null
+      )
       notes.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
       const storedEditor = localStorage.getItem(editorKey)
-      const editor: unknown = storedEditor === null ? undefined : JSON.parse(storedEditor)
+      const inheritedEditor = localStorage.getItem(legacyEditorKey)
+      const editor: unknown =
+        storedEditor === null
+          ? inheritedEditor === null
+            ? legacy.editor
+            : JSON.parse(inheritedEditor)
+          : JSON.parse(storedEditor)
       if (editor !== undefined && !isNativeChatAnnotationEditor(editor)) {
         throw new Error('Saved annotations could not be read.')
       }
       return {
         notes,
+        ...(legacy.persistenceError ? { persistenceError: legacy.persistenceError } : {}),
         ...(editor === undefined || localStorage.getItem(consumedEditorKey(editor)) !== null
           ? {}
           : { editor })

@@ -161,6 +161,84 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   await expect(root.getByRole('textbox')).toContainText('State the physical units of the estimate.')
   await expect(root.getByRole('textbox')).toContainText(FIRST)
   await expect(root.getByRole('textbox')).toContainText(SECOND)
+  await orcaPage.evaluate(
+    ({ quote }) => {
+      const savedKey = Object.keys(localStorage).find(
+        (key) => key.startsWith('orca:native-chat-annotations:v2:') && key.includes(':note:')
+      )
+      if (!savedKey) {
+        throw new Error('Annotation scope unavailable')
+      }
+      const prefix = savedKey.slice(0, savedKey.indexOf(':note:'))
+      const scope = decodeURIComponent(prefix.slice('orca:native-chat-annotations:v2:'.length))
+      const source = [...document.querySelectorAll('[data-native-chat-quote-source]')].find(
+        (element) => element.textContent?.includes(quote)
+      )
+      const row = source?.closest(
+        '[data-native-chat-annotation-message-id], [data-native-chat-message-id]'
+      )
+      const messageId =
+        row?.getAttribute('data-native-chat-annotation-message-id') ??
+        row?.getAttribute('data-native-chat-message-id')
+      if (!messageId) {
+        throw new Error('Annotation message unavailable')
+      }
+      const anchor = { messageId, quote, startOffset: 0 }
+      const key = `orca:native-chat-annotations:v1:${scope}`
+      localStorage.removeItem(`${prefix}:editor`)
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          version: 1,
+          notes: [
+            {
+              ...anchor,
+              id: 'legacy-quota-note',
+              comment: 'Legacy note stays visible when migration fails.',
+              createdAt: Date.now()
+            }
+          ],
+          editor: { anchor, comment: 'Legacy unfinished comment.' }
+        })
+      )
+      const write = Storage.prototype.setItem
+      Storage.prototype.setItem = function (name, value) {
+        if (name.startsWith(`${prefix}:legacy-`)) {
+          throw new DOMException('Test quota refusal', 'QuotaExceededError')
+        }
+        write.call(this, name, value)
+      }
+      Object.defineProperty(window, '__restoreAnnotationMigrationStorage', {
+        configurable: true,
+        value: () => {
+          Storage.prototype.setItem = write
+        }
+      })
+      window.dispatchEvent(new StorageEvent('storage', { key }))
+    },
+    { quote: FIRST }
+  )
+  await expect(
+    tray.getByText('Legacy note stays visible when migration fails.', { exact: true })
+  ).toBeVisible()
+  await expect(tray.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue(
+    'Legacy unfinished comment.'
+  )
+  await expect(tray.getByRole('status')).toContainText('Annotations could not be saved')
+  await orcaPage.screenshot({ path: testInfo.outputPath('annotations-migration-refused.png') })
+  await orcaPage.evaluate(() => {
+    const restore: unknown = Reflect.get(window, '__restoreAnnotationMigrationStorage')
+    if (typeof restore !== 'function') {
+      throw new Error('Storage restore unavailable')
+    }
+    restore()
+    Reflect.deleteProperty(window, '__restoreAnnotationMigrationStorage')
+  })
+  await tray.getByRole('button', { name: 'Retry saving annotations', exact: true }).click()
+  await expect(tray.getByRole('status')).toHaveCount(0)
+  await expect(
+    tray.getByText('Legacy note stays visible when migration fails.', { exact: true })
+  ).toBeVisible()
   expect(
     await electronApp.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows().every((window) => !window.isVisible())
