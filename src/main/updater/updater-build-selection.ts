@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { isUpdaterActive } from './updater-build-switch'
 import {
   DEV_CHANNEL_PLATFORM_LABEL,
   getVersionChannel,
@@ -89,7 +90,7 @@ export abstract class UpdaterBuildSelection extends UpdaterMenuChecks {
 
   /** Pins the updater at one exact release tag and checks it, so a dev can move to any published build on any channel — including an older one. */
   protected async checkForPinnedBuild(channel: ReleaseChannel, tag: string): Promise<void> {
-    if (!app.isPackaged) {
+    if (!isUpdaterActive()) {
       this.sendStatus({ state: 'not-available', userInitiated: true })
       return
     }
