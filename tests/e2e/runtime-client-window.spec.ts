@@ -63,16 +63,13 @@ async function waitForNewClientPage(
 }
 
 async function waitForMainPage(app: ElectronApplication): Promise<Page> {
-  let found: Page | null = null
   await expect
-    .poll(
-      () => {
-        found = app.windows().find(isMainPage) ?? null
-        return found !== null
-      },
-      { timeout: 30_000, message: 'Main window did not appear' }
-    )
+    .poll(() => app.windows().some(isMainPage), {
+      timeout: 30_000,
+      message: 'Main window did not appear'
+    })
     .toBe(true)
+  const found = app.windows().find(isMainPage)
   if (!found) {
     throw new Error('Main window disappeared after it appeared')
   }
