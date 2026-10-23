@@ -167,6 +167,7 @@ export function NativeChatStructuredSession(
     { sessionId: props.sessionId, isVisible: props.isVisible }
   )
   const paneCommands = useStructuredNativeChatPaneCommands({
+    annotationScopeKey: JSON.stringify(['structured', props.target, props.sessionId]),
     tabId: props.tabId,
     groupId: props.groupId,
     isVisible: props.isVisible,
@@ -335,7 +336,7 @@ export function NativeChatStructuredSession(
       </NativeChatContextClearFade>
       {readFailedFinally ? null : (
         <>
-          {/* Host-held drafts, never transcript rows. Above the status area, so running shells and agents sit next to the composer. */}
+          {paneCommands.annotationTray}
           <NativeChatQueuedMessageList
             controller={submits.queuedMessages}
             chatWorktreeId={ownerWorktreeId ?? null}

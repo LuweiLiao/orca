@@ -19683,6 +19683,8 @@
         "queueFollowUpsTitle": "Mettre les messages en file d’attente",
         "queueFollowUpsCopy": "Les messages envoyés pendant que l'agent travaille attendent sous forme de cartes que vous pouvez envoyer maintenant, modifier ou supprimer. Les messages avec des images sont envoyés immédiatement.",
         "queueFollowUpsToggleLabel": "Activer ou désactiver la file d'attente",
+        "queueFollowUpsUnsupported": "Cet hôte ne prend pas en charge la file d'attente des messages. Ce réglage est indisponible.",
+        "queueFollowUpsUnconfirmed": "La prise en charge de la file d'attente n'a pas été confirmée pour cet hôte. Ce réglage reste indisponible jusqu'à confirmation.",
         "inlineVisualsTitle": "Visuels intégrés",
         "inlineVisualsCopy": "Laissez l'agent afficher des graphiques, des diagrammes et des maquettes dans ses réponses. S'applique aux nouveaux chats.",
         "inlineVisualsToggleLabel": "Activer/désactiver les visuels intégrés",

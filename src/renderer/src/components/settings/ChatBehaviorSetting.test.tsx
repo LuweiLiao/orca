@@ -195,24 +195,58 @@ describe('ChatBehaviorSetting queue follow-ups', () => {
     expect(updateSettings).toHaveBeenCalledWith({ nativeChatQueueFollowUps: false })
   })
 
-  it('hides the switch when the host does not queue messages, since it would do nothing', () => {
+  it('keeps the setting visible but disabled when the host does not queue messages', () => {
     setLocalRuntimeCapabilitiesForTests([])
-    const { container } = renderSetting({})
-    expect(container.querySelector(QUEUE_TOGGLE)).toBeNull()
+    const updateSettings = vi.fn()
+    const { getByRole, getByText } = renderSetting({}, updateSettings)
+    const toggle = getByRole('switch', { name: 'Toggle queue follow-ups' })
+    expect(toggle.hasAttribute('disabled')).toBe(true)
+    expect(getByText(/This host does not support queued follow-ups/)).toBeTruthy()
+    fireEvent.click(toggle)
+    expect(updateSettings).not.toHaveBeenCalled()
   })
 
-  it('hides the switch until the host answers, then shows it', async () => {
+  it('keeps the setting disabled until the host answers, then enables the saved preference', async () => {
     setLocalRuntimeCapabilitiesForTests(null)
     let answer: (status: { capabilities: string[] }) => void = () => {}
     vi.stubGlobal('api', {
       runtime: { getStatus: () => new Promise((resolve) => (answer = resolve)) }
     })
-    const { container } = renderSetting({})
-    expect(container.querySelector(QUEUE_TOGGLE)).toBeNull()
+    const updateSettings = vi.fn()
+    const { getByRole, getByText, queryByText } = renderSetting(
+      { nativeChatQueueFollowUps: false },
+      updateSettings
+    )
+    const toggle = getByRole('switch', { name: 'Toggle queue follow-ups' })
+    expect(toggle.hasAttribute('disabled')).toBe(true)
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(getByText(/Queue support has not been confirmed/)).toBeTruthy()
+    fireEvent.click(toggle)
+    expect(updateSettings).not.toHaveBeenCalled()
     await act(async () =>
       answer({ capabilities: [AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY] })
     )
-    expect(container.querySelector(QUEUE_TOGGLE)).not.toBeNull()
+    expect(toggle.hasAttribute('disabled')).toBe(false)
+    expect(queryByText(/Queue support has not been confirmed/)).toBeNull()
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(toggle)
+    expect(updateSettings).toHaveBeenCalledWith({ nativeChatQueueFollowUps: true })
+  })
+
+  it('keeps a failed capability check visible and disabled without claiming lack of support', async () => {
+    setLocalRuntimeCapabilitiesForTests(null)
+    vi.stubGlobal('api', {
+      runtime: { getStatus: () => Promise.reject(new Error('Runtime unavailable')) }
+    })
+    const updateSettings = vi.fn()
+    const { getByRole, getByText, queryByText } = renderSetting({}, updateSettings)
+    await act(async () => {})
+    const toggle = getByRole('switch', { name: 'Toggle queue follow-ups' })
+    expect(toggle.hasAttribute('disabled')).toBe(true)
+    expect(getByText(/Queue support has not been confirmed/)).toBeTruthy()
+    expect(queryByText(/This host does not support queued follow-ups/)).toBeNull()
+    fireEvent.click(toggle)
+    expect(updateSettings).not.toHaveBeenCalled()
   })
 })
 
