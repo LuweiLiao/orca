@@ -91,7 +91,7 @@ export abstract class OrcaRuntimeWithResolveWorktreeRemovalTarget extends OrcaRu
 
   /**
    * Delete on a local delete that failed after Git dropped the registration, while Git's listing
-   * still does not register the path: refuses while the folder is there, else finishes that removal.
+   * still does not register the path: refuses a nonempty folder, else finishes that removal.
    * True when it did.
    */
   protected async retryFailedRemoval(

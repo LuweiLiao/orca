@@ -16,8 +16,9 @@ import { areWorktreePathsEqual } from '../git/worktree-path-comparison'
 import { getLocalProjectWorktreeGitOptions } from '../project-runtime-git-options'
 import { findRegisteredDeletableWorktree } from '../worktree-removal-safety'
 import {
-  assertUnregisteredCheckoutGone,
-  differentCheckoutAtPathError
+  assertUnregisteredCheckoutRemovable,
+  differentCheckoutAtPathError,
+  removeEmptyUnregisteredCheckout
 } from '../worktree-removal-leftover'
 import { CLIENT_REMOVAL_HOME, getPathOps } from '../worktree-removal-home-guard'
 import { removeStaleLocalWorktreeRegistration } from '../local-worktree-removal-recovery'
@@ -121,7 +122,7 @@ type InterruptedLocalWorktreeRemovalArgs = Pick<
  * Finishes a removal a quit or crash interrupted, or a failed one whose folder the user removed.
  * What is left comes from Git and disk, not the record: a checkout Git registers is deleted by Git
  * with the recorded choices, or only unregistered when its `.git` is gone; a folder Git no longer
- * registers is refused, never deleted; with the folder gone, the rest of the delete finishes.
+ * registers is only removed when empty; with the folder gone, the rest of the delete finishes.
  */
 async function finishInterruptedLocalWorktreeRemoval(
   args: InterruptedLocalWorktreeRemovalArgs
@@ -179,7 +180,7 @@ async function finishInterruptedLocalWorktreeRemoval(
   }
   // Before the teardown, so a refused folder keeps its terminals and watchers.
   if (!deletable) {
-    await assertUnregisteredCheckoutGone(record.worktreePath, worktrees)
+    await assertUnregisteredCheckoutRemovable(record.worktreePath, worktrees)
   }
   const gate = await args.acquireWatcherRemoval(record.worktreePath)
   if (args.stopPtys) {
@@ -200,8 +201,8 @@ async function finishInterruptedLocalWorktreeRemoval(
       repo.path,
       record.worktreePath,
       record.deleteBranch && record.branch ? { name: record.branch, head: record.head } : null,
-      // Again after the teardown's waits: a folder may have appeared at the path meanwhile.
-      () => assertUnregisteredCheckoutGone(record.worktreePath),
+      // Again after teardown: replacement files must block the nonrecursive empty-directory removal.
+      () => removeEmptyUnregisteredCheckout(repo.path, record.worktreePath),
       localOptions
     )
     removed = true

@@ -1,4 +1,4 @@
-import { lstat } from 'node:fs/promises'
+import { lstat, readdir, rmdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { RemoveWorktreeResult } from '../shared/worktree/create-types'
 import type { GitWorktreeInfo } from '../shared/worktree/types'
@@ -6,6 +6,7 @@ import { listWorktreesStrict } from './git/worktree'
 import { getErrorCode } from './git/worktree-operation-options'
 import { areWorktreePathsEqual } from './git/worktree-path-comparison'
 import { CLIENT_REMOVAL_HOME } from './worktree-removal-home-guard'
+import { toHostRemovalPath } from './host-tree-removal'
 import {
   failedWorktreeRemovals,
   persistWorktreeRemovalRecords,
@@ -13,7 +14,8 @@ import {
 } from './worktree-removal-table'
 import {
   assertWorktreeDoesNotContainRegisteredWorktree,
-  canSafelyRemoveOrphanedWorktreeDirectory
+  canSafelyRemoveOrphanedWorktreeDirectory,
+  isDangerousWorktreeRemovalPath
 } from './worktree-removal-safety'
 
 /** Absent .git or a proven orphan marker can identify a leftover; live or foreign registrations cannot. */
@@ -50,18 +52,51 @@ export function unregisteredFolderRefusal(worktreePath: string): Error {
   )
 }
 
-/** Name nested worktrees before asking the user to remove an unregistered folder. */
-export async function assertUnregisteredCheckoutGone(
+/** Allow missing or empty folders; name nested worktrees before refusing removal. */
+export async function assertUnregisteredCheckoutRemovable(
   worktreePath: string,
   registeredWorktrees: readonly Pick<GitWorktreeInfo, 'path'>[] = []
 ): Promise<void> {
   if (await worktreeCheckoutExists(worktreePath)) {
     assertWorktreeDoesNotContainRegisteredWorktree(worktreePath, registeredWorktrees)
+    try {
+      const stat = await lstat(worktreePath)
+      if (
+        stat.isDirectory() &&
+        !stat.isSymbolicLink() &&
+        (await readdir(worktreePath)).length === 0
+      ) {
+        return
+      }
+    } catch (error) {
+      if (getErrorCode(error) === 'ENOENT') {
+        return
+      }
+      throw error
+    }
     throw unregisteredFolderRefusal(worktreePath)
   }
 }
 
-/** Registered paths use normal deletion; otherwise require the folder gone before retrying recorded cleanup. */
+export async function removeEmptyUnregisteredCheckout(
+  repoPath: string,
+  worktreePath: string
+): Promise<void> {
+  if (isDangerousWorktreeRemovalPath(worktreePath, repoPath, CLIENT_REMOVAL_HOME)) {
+    throw new Error(`Refusing to delete protected worktree path: ${worktreePath}`)
+  }
+  await assertUnregisteredCheckoutRemovable(worktreePath)
+  try {
+    // Nonrecursive: files created after the empty check must prevent deletion.
+    await rmdir(toHostRemovalPath(worktreePath))
+  } catch (error) {
+    if (getErrorCode(error) !== 'ENOENT') {
+      throw error
+    }
+  }
+}
+
+/** Registered paths use normal deletion; missing or empty folders allow recorded cleanup to retry. */
 export async function retryFailedRemovalUnlessRegistered(
   worktreeId: string,
   worktreePath: string,
@@ -76,7 +111,7 @@ export async function retryFailedRemovalUnlessRegistered(
   }
   const failed = failedWorktreeRemovals.get(worktreeId)
   if (failed) {
-    await assertUnregisteredCheckoutGone(failed.worktreePath, registeredWorktrees)
+    await assertUnregisteredCheckoutRemovable(failed.worktreePath, registeredWorktrees)
   }
   return retry() !== undefined
 }
