@@ -9,6 +9,10 @@ import { BrowserWindow, ipcMain, webContents, type WebContents } from 'electron'
 import type { Store } from '../persistence'
 import type { PersistedUIState } from '../../shared/persisted-ui-state-types'
 import { isFeatureInteractionId } from '../../shared/feature-interactions'
+import {
+  isTrustedDesktopRenderer,
+  preferredDesktopRenderer
+} from '../window/desktop-renderer-registry'
 
 let trustedUIRendererWebContentsId: number | null = null
 
@@ -27,13 +31,16 @@ export function sendToTrustedUIRenderer(
   payload: unknown,
   excludedWebContentsId?: number
 ): void {
-  const renderer = getTrustedUIRendererWebContents(excludedWebContentsId)
-  renderer?.send(channel, payload)
+  getTrustedUIRendererWebContents(excludedWebContentsId)?.send(channel, payload)
 }
 
 export function getTrustedUIRendererWebContents(
   excludedWebContentsId?: number
 ): WebContents | null {
+  const registered = preferredDesktopRenderer(excludedWebContentsId)
+  if (registered) {
+    return registered
+  }
   // Why: exact targeting avoids waking retained browser/utility windows that cannot consume app UI events.
   const rendererId = trustedUIRendererWebContentsId
   if (rendererId == null || rendererId === excludedWebContentsId) {
@@ -131,23 +138,5 @@ export function registerUIHandlers(
 }
 
 export function isTrustedUIRenderer(sender: WebContents): boolean {
-  if (sender.isDestroyed() || sender.getType() !== 'window') {
-    return false
-  }
-  if (trustedUIRendererWebContentsId != null) {
-    return sender.id === trustedUIRendererWebContentsId
-  }
-
-  const senderUrl = sender.getURL()
-  if (process.env.ELECTRON_RENDERER_URL) {
-    try {
-      return new URL(senderUrl).origin === new URL(process.env.ELECTRON_RENDERER_URL).origin
-    } catch {
-      return false
-    }
-  }
-
-  // Why: packaged fallback must be tied to the created main window id, not any
-  // file:// document that can obtain this IPC channel.
-  return false
+  return isTrustedDesktopRenderer(sender, trustedUIRendererWebContentsId, false)
 }
