@@ -2,6 +2,7 @@ import type { DeviceEntry } from '../runtime/device-entry'
 import type { RuntimeRpcPairing } from '../runtime/runtime-rpc/runtime-rpc-pairing'
 import { WS_BIND_HOST_LOOPBACK } from '../runtime/runtime-rpc/runtime-rpc-pairing-types'
 import type { RuntimeClientWindowRecord } from './runtime-client-window-records'
+import { RUNTIME_CLIENT_WINDOW_WORKTREE_PARAM } from '../../shared/runtime-client-window-fragment'
 
 export type RuntimeClientWindowPairingHost = {
   createPairingOffer: (args: {
@@ -83,7 +84,7 @@ export function withWorktreeFragment(url: string, worktreeId: string | undefined
   }
   const parsed = new URL(url)
   const fragment = parsed.hash.replace(/^#/, '')
-  const worktree = `worktree=${encodeURIComponent(worktreeId)}`
+  const worktree = `${RUNTIME_CLIENT_WINDOW_WORKTREE_PARAM}=${encodeURIComponent(worktreeId)}`
   parsed.hash = fragment ? `${fragment}&${worktree}` : worktree
   return parsed.toString()
 }
