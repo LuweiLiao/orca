@@ -256,6 +256,10 @@ test('adds a WSL distro as a host, adds a project on it, and runs a terminal the
   orcaPage,
   electronApp
 }, testInfo) => {
+  test.skip(
+    process.platform === 'win32',
+    "The fake distro's project is a host temp dir, which is only Linux-shaped off Windows"
+  )
   test.setTimeout(240_000)
   await waitForSessionReady(orcaPage)
   const offer = await createRuntimeDesktopPairingOffer(orcaPage)
