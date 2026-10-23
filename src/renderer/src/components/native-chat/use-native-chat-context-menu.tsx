@@ -54,6 +54,11 @@ import {
 import type { NativeChatFileLinkContext } from './native-chat-file-link'
 import type { NativeChatMessageListHandle } from './use-native-chat-reveal-latest'
 import type { NativeChatRewindSurface } from './use-native-chat-rewind'
+import {
+  readNativeChatAnnotationAnchor,
+  type NativeChatAnnotationAnchor
+} from './native-chat-annotation-anchor'
+import { useNativeChatAnnotationReview } from './use-native-chat-annotation-review'
 
 type NativeChatContextMenuState = {
   open: boolean
@@ -63,6 +68,8 @@ type NativeChatContextMenuState = {
   image?: NativeChatCopyImage
   target: NativeChatContextMenuTarget
   returnFocusTo: Element | null
+  annotationAnchor?: NativeChatAnnotationAnchor | null
+  annotationScopeKey?: string
 }
 
 type UseNativeChatContextMenuArgs = {
@@ -82,6 +89,7 @@ type UseNativeChatContextMenuArgs = {
 
 /** What the menu needs to offer the rows for a right-clicked target. */
 export type NativeChatContextMenuTargetArgs = {
+  annotationScopeKey?: string
   /** Answers which text a right-clicked message row copies. */
   messageListRef?: RefObject<Pick<NativeChatMessageListHandle, 'messageCopyText'> | null>
   fileLinkContext?: NativeChatFileLinkContext | null
@@ -151,12 +159,20 @@ export function useNativeChatContextMenu({
   messageListRef,
   fileLinkContext = null,
   rewind,
-  onFind
+  onFind,
+  annotationScopeKey
 }: UseNativeChatContextMenuArgs): {
   onContextMenuCapture: MouseEventHandler<HTMLElement>
   onPointerDownCapture: PointerEventHandler<HTMLElement>
   menu: React.JSX.Element
+  annotationTray: React.JSX.Element | null
 } {
+  const annotationReview = useNativeChatAnnotationReview({
+    scopeKey: annotationScopeKey,
+    rootRef,
+    composerRef,
+    enabled
+  })
   const menuOpenedAtRef = useRef(0)
   const [state, setState] = useState<NativeChatContextMenuState>({
     open: false,
@@ -210,6 +226,8 @@ export function useNativeChatContextMenu({
         canPaste: isEditableTarget(event.target),
         returnFocusTo: rootRef.current?.ownerDocument.activeElement ?? null,
         image: readNativeChatCopyImage(event.target),
+        annotationScopeKey,
+        annotationAnchor: rootRef.current ? readNativeChatAnnotationAnchor(rootRef.current) : null,
         target: readNativeChatContextMenuTarget(event.target, {
           root: rootRef.current,
           composer: composerRef.current,
@@ -218,7 +236,7 @@ export function useNativeChatContextMenu({
         })
       })
     },
-    [composerRef, enabled, fileLinkContext, messageListRef, rootRef]
+    [annotationScopeKey, composerRef, enabled, fileLinkContext, messageListRef, rootRef]
   )
 
   const setOpen = useCallback((open: boolean) => {
@@ -229,6 +247,7 @@ export function useNativeChatContextMenu({
   }, [])
 
   return {
+    annotationTray: annotationReview.tray,
     onContextMenuCapture,
     onPointerDownCapture: keepSelectionThroughMenuPress,
     menu: (
@@ -238,6 +257,8 @@ export function useNativeChatContextMenu({
           rootRef={rootRef}
           composerRef={composerRef}
           enabled={enabled && !(state.open && hasItems)}
+          onAnnotate={annotationReview.begin}
+          annotationScopeKey={annotationScopeKey}
         />
         <DropdownMenuTrigger asChild>
           <button
@@ -282,6 +303,17 @@ export function useNativeChatContextMenu({
             target={target}
             composerRef={composerRef}
             rewind={rewind}
+            onAnnotate={
+              state.annotationScopeKey === annotationScopeKey &&
+              state.annotationAnchor &&
+              annotationReview.begin
+                ? () => {
+                    if (state.annotationAnchor) {
+                      annotationReview.begin?.(state.annotationAnchor)
+                    }
+                  }
+                : undefined
+            }
           />
           {state.canPaste ? (
             <DropdownMenuItem onSelect={() => actions.onPaste()}>

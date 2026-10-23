@@ -167,6 +167,7 @@ export function NativeChatStructuredSession(
   )
   const fileLinkProps = { onLinkClick, allowFileUriLinks: onLinkClick !== undefined }
   const paneCommands = useStructuredNativeChatPaneCommands({
+    annotationScopeKey: JSON.stringify(['structured', props.target, props.sessionId]),
     tabId: props.tabId,
     ownerWorktreeId,
     groupId: props.groupId,
@@ -336,7 +337,7 @@ export function NativeChatStructuredSession(
       </NativeChatContextClearFade>
       {readFailedFinally ? null : (
         <>
-          {/* Host-held drafts, never transcript rows. Above the status area, so running shells and agents sit next to the composer. */}
+          {paneCommands.annotationTray}
           <NativeChatQueuedMessageList
             controller={submits.queuedMessages}
             chatWorktreeId={ownerWorktreeId ?? null}

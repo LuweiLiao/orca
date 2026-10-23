@@ -3,7 +3,7 @@ import { translate } from '@/i18n/i18n'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import {
   useChatSettingsTypedPermissions,
-  useStructuredAgentSessionHostQueuesMessages
+  useStructuredAgentSessionHostQueuesMessagesState
 } from '@/runtime/structured-agent-session-host-capability'
 import { useAppStore } from '../../store'
 import { Card, CardContent } from '../ui/card'
@@ -32,15 +32,14 @@ export function ChatBehaviorSetting({
 }: ChatBehaviorSettingProps): React.JSX.Element | null {
   const typedPermissions = useChatSettingsTypedPermissions()
   const query = useAppStore((state) => state.settingsSearchQuery)
-  // A host without the capability ignores the preference; the switch would do nothing.
-  const hostQueuesMessages = useStructuredAgentSessionHostQueuesMessages(STRUCTURED_CHAT_HOST)
+  const queueSupport = useStructuredAgentSessionHostQueuesMessagesState(STRUCTURED_CHAT_HOST)
   const entries = getChatBehaviorEntriesByKey()
   const rows = [
     ...(settings.nativeChatPermissionMode !== undefined
       ? [getChatPermissionSearchEntry(typedPermissions)]
       : []),
     entries.resumeOnRestart,
-    ...(hostQueuesMessages ? [entries.queueFollowUps] : []),
+    entries.queueFollowUps,
     entries.shellEnvironment
   ]
   if (!forceVisible && !matchesSettingsSearch(query, rows)) {
@@ -48,6 +47,18 @@ export function ChatBehaviorSetting({
   }
   const resumeOnRestartEnabled = settings.nativeChatResumeWorkOnRestart === true
   const queueFollowUpsEnabled = settings.nativeChatQueueFollowUps !== false
+  const queueUnavailableReason =
+    queueSupport === 'unsupported'
+      ? translate(
+          'components.settings.nativeChat.queueFollowUpsUnsupported',
+          'This host does not support queued follow-ups. This setting is unavailable.'
+        )
+      : queueSupport === 'unknown'
+        ? translate(
+            'components.settings.nativeChat.queueFollowUpsUnconfirmed',
+            'Queue support has not been confirmed for this host. This setting is unavailable until support is confirmed.'
+          )
+        : undefined
   return (
     <section id="chat-behavior" className="space-y-3">
       <SettingsSubsectionHeader title={getChatBehaviorTitle()} />
@@ -78,27 +89,30 @@ export function ChatBehaviorSetting({
                 }
               />
             </SearchableSetting>
-            {hostQueuesMessages ? (
-              <SearchableSetting
-                {...entries.queueFollowUps}
-                id={entries.queueFollowUps.targetSectionId}
-                forceVisible={forceVisible}
-                className="max-w-none"
-              >
-                <SettingsSwitchRow
-                  label={entries.queueFollowUps.title}
-                  description={entries.queueFollowUps.description}
-                  checked={queueFollowUpsEnabled}
-                  ariaLabel={translate(
-                    'components.settings.nativeChat.queueFollowUpsToggleLabel',
-                    'Toggle queue follow-ups'
-                  )}
-                  onChange={() =>
-                    updateSettings({ nativeChatQueueFollowUps: !queueFollowUpsEnabled })
-                  }
-                />
-              </SearchableSetting>
-            ) : null}
+            <SearchableSetting
+              {...entries.queueFollowUps}
+              id={entries.queueFollowUps.targetSectionId}
+              forceVisible={forceVisible}
+              className="max-w-none"
+            >
+              <SettingsSwitchRow
+                label={entries.queueFollowUps.title}
+                description={
+                  queueUnavailableReason
+                    ? `${entries.queueFollowUps.description} ${queueUnavailableReason}`
+                    : entries.queueFollowUps.description
+                }
+                checked={queueFollowUpsEnabled}
+                disabled={queueSupport !== 'supported'}
+                ariaLabel={translate(
+                  'components.settings.nativeChat.queueFollowUpsToggleLabel',
+                  'Toggle queue follow-ups'
+                )}
+                onChange={() =>
+                  updateSettings({ nativeChatQueueFollowUps: !queueFollowUpsEnabled })
+                }
+              />
+            </SearchableSetting>
             <SearchableSetting
               {...entries.shellEnvironment}
               id={entries.shellEnvironment.targetSectionId}
