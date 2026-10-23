@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { isUpdaterActive } from './updater-build-switch'
 import type { UpdateCheckOptions, UpdateStatus } from '../../shared/update-status-types'
 import type {
   RemoteServerUpdateInstallResult,
@@ -17,7 +18,7 @@ export abstract class UpdaterRemoteStatus extends UpdaterNudge {
   }
 
   protected getRemoteServerUpdateSupport(): RemoteServerUpdateSupport {
-    if (!app.isPackaged) {
+    if (!isUpdaterActive()) {
       return {
         installMode: this.updateInstallMode,
         automatic: false,

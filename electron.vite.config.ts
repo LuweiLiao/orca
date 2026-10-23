@@ -268,6 +268,8 @@ export const electronViteConfig: UserConfig = {
       ORCA_POSTHOG_WRITE_KEY: ORCA_POSTHOG_WRITE_KEY_LITERAL,
       ORCA_DIAGNOSTICS_TOKEN_URL: ORCA_DIAGNOSTICS_TOKEN_URL_LITERAL,
       ORCA_BUILD_COMMIT: ORCA_BUILD_COMMIT_LITERAL,
+      // Why: this personal build stays off official releases unless the build opts back in.
+      ORCA_AUTO_UPDATE_DISABLED: JSON.stringify(process.env.ORCA_ENABLE_AUTO_UPDATE !== '1'),
       ...DARK_BUILD_DEFINES
     },
     // Why: @xterm/headless declares "exports": null in package.json, which
