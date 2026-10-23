@@ -1,5 +1,7 @@
 // Mocked desktop removal failures; runtime-failed-local-worktree-removal.test.ts covers real Git and filesystem behavior.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as FsPromises from 'node:fs/promises'
+import * as WindowsRemovalRecovery from '../local-worktree-removal-recovery'
 import {
   gitExecFileAsyncMock,
   killAllProcessesForWorktreeMock,
@@ -22,6 +24,17 @@ import {
   startBackgroundWorktreeRemoval
 } from '../worktree-background-removal'
 import { hostWorktreeTarget } from '../../shared/worktree/host-qualified-identity'
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof FsPromises>()
+  return {
+    ...actual,
+    lstat: (path: Parameters<typeof actual.lstat>[0]) =>
+      actual.lstat(path === '/workspace/feature-wt' ? process.cwd() : path),
+    readdir: (path: Parameters<typeof actual.readdir>[0]) =>
+      path === '/workspace/feature-wt' ? Promise.resolve(['leftover.txt']) : actual.readdir(path)
+  }
+})
 
 vi.mock('electron', async () =>
   (await import('./worktrees-test-module-mocks')).electronModuleMock()
@@ -164,6 +177,9 @@ describe('a failed delete Git no longer registers, over desktop IPC', () => {
   })
 
   it('removes the push-target remote Orca added when Delete fails partway', async () => {
+    vi.spyOn(WindowsRemovalRecovery, 'recoverLocalWindowsWorktreeRemoval').mockResolvedValueOnce(
+      undefined
+    )
     const [main] = mockKnownFeatureWorktree()
     const pushTarget = {
       remoteName: 'pr-contributor-orca',

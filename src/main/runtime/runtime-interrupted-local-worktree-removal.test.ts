@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, realpath, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, normalize } from 'node:path'
 import { promisify } from 'node:util'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Repo } from '../../shared/repo-types'
@@ -93,7 +93,12 @@ type FinishOutcome =
   | { status: 'failed'; error: string }
 
 async function finishAfterRestart(
-  options: { repoGone?: boolean; head?: string; force?: boolean } = {}
+  options: {
+    repoGone?: boolean
+    head?: string
+    force?: boolean
+    stopPtys?: () => Promise<void>
+  } = {}
 ): Promise<{
   outcome: FinishOutcome
   purged: string[]
@@ -138,6 +143,7 @@ async function finishAfterRestart(
         return { finish: async () => gate.release() }
       },
       closeWatchers: async () => {},
+      stopPtys: options.stopPtys,
       preservedBranchCleanup: {
         preserveHead: (result) => result ?? {},
         remember
@@ -163,10 +169,41 @@ async function finishAfterRestart(
 async function listedRows(): Promise<{ path: string; removalError?: string }[]> {
   return (await withUnregisteredRemovalCheckouts(repo.id, await listWorktreesStrict(repoPath)))
     .filter((row) => !row.isMainWorktree)
-    .map(({ path, removalError }) => ({ path, ...(removalError ? { removalError } : {}) }))
+    .map(({ path, removalError }) => ({
+      path: normalize(path),
+      ...(removalError ? { removalError } : {})
+    }))
 }
 
 describe('finishing an interrupted worktree removal after a restart', () => {
+  it('finishes when Git removed the checkout but an empty directory remains', async () => {
+    await git(['worktree', 'remove', worktreePath])
+    await mkdir(worktreePath)
+
+    const { outcome, purged, records } = await finishAfterRestart()
+
+    expect(outcome).toMatchObject({ status: 'removed' })
+    expect(existsSync(worktreePath)).toBe(false)
+    expect(records).toEqual([])
+    expect(purged).toEqual([`repo-1::${worktreePath}`])
+    expect(await git(['branch', '--list', 'feature'])).toBe('')
+  })
+
+  it('keeps files created in the empty directory while teardown waits', async () => {
+    await git(['worktree', 'remove', worktreePath])
+    await mkdir(worktreePath)
+
+    const { outcome, purged } = await finishAfterRestart({
+      stopPtys: async () => {
+        await writeFile(join(worktreePath, 'notes.txt'), 'keep me\n')
+      }
+    })
+
+    expect(outcome).toMatchObject({ status: 'failed' })
+    expect(await readFile(join(worktreePath, 'notes.txt'), 'utf8')).toBe('keep me\n')
+    expect(purged).toEqual([])
+  })
+
   it('finishes a forced delete Git was still deleting, branch and metadata included', async () => {
     // Git stopped partway: part of the checkout is gone, which reads as local changes.
     await unlink(join(worktreePath, 'seed.txt'))
