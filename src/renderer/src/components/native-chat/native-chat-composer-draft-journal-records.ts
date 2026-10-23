@@ -10,13 +10,22 @@ const PREFIX = 'orca:nativeChatComposerDraftJournal:v2:'
 const ENTRY_PREFIX = `${PREFIX}entry:`
 const PRUNED_PREFIX = `${PREFIX}legacy-pruned:`
 
-type EntryBase = { readonly scopeKey: string; readonly at: number; readonly run?: string }
+type EntryBase = {
+  readonly scopeKey: string
+  readonly at: number
+  readonly run?: string
+  readonly id?: string
+}
 export type DraftJournalEntry = EntryBase & { readonly draft: StoredNativeChatComposerDraft | null }
 export type AdditionJournalEntry = EntryBase & {
   readonly addition: NativeChatComposerDraftAddition
 }
 export type JournalEntry = DraftJournalEntry | AdditionJournalEntry
-type JournalRecord = { key?: string; entry: JournalEntry }
+export type JournalRecord = { key?: string; entry: JournalEntry }
+
+export function nativeChatDraftJournalRecordId(record: JournalRecord): string {
+  return record.entry.id ?? record.key ?? `legacy:${JSON.stringify(record.entry)}`
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -31,8 +40,11 @@ function parseEntry(entry: unknown): JournalEntry[] {
     return []
   }
   const run = typeof entry.run === 'string' ? entry.run : undefined
+  const id = typeof entry.id === 'string' ? entry.id : undefined
   if (!isRecord(addition)) {
-    return [{ scopeKey, draft: parseStoredNativeChatComposerDraft(draft), at, run }]
+    return [
+      { scopeKey, draft: parseStoredNativeChatComposerDraft(draft), at, run, ...(id ? { id } : {}) }
+    ]
   }
   const parsed = parseStoredNativeChatComposerDraft({
     text: typeof addition.text === 'string' ? addition.text : '',
@@ -45,6 +57,7 @@ function parseEntry(entry: unknown): JournalEntry[] {
           scopeKey,
           at,
           run,
+          ...(id ? { id } : {}),
           addition: {
             text: parsed.text,
             images: parsed.images,
@@ -135,12 +148,28 @@ export function replaceNativeChatDraftJournalChange(entry: DraftJournalEntry): b
   }
 }
 
-export function pruneNativeChatDraftJournalRecords(scopeKey: string, at: number): void {
+export function pruneNativeChatDraftJournalRecords(
+  scopeKey: string,
+  at: number,
+  confirmedIds?: readonly string[],
+  run?: string
+): void {
   try {
     // New records have unique immutable keys; a concurrent append cannot be in this snapshot.
     const records = readNativeChatDraftJournalRecords()
     for (const record of records) {
-      if (record.entry.scopeKey !== scopeKey || record.entry.at > at) {
+      if (
+        record.entry.scopeKey !== scopeKey ||
+        (confirmedIds
+          ? !confirmedIds.includes(nativeChatDraftJournalRecordId(record)) &&
+            !(
+              run !== undefined &&
+              !('addition' in record.entry) &&
+              record.entry.run === run &&
+              record.entry.at <= at
+            )
+          : record.entry.at > at)
+      ) {
         continue
       }
       if (record.key) {

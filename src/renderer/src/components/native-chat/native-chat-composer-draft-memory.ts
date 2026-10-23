@@ -100,8 +100,8 @@ export const load: LoadBookkeeping = {
 let lastSavedAt = 0
 
 /** Monotonic within a run, so drafts changed in the same millisecond still age in order. */
-export function nextSavedAt(): number {
-  lastSavedAt = Math.max(Date.now(), lastSavedAt + 1)
+export function nextSavedAt(minimum = 0): number {
+  lastSavedAt = Math.max(Date.now(), lastSavedAt + 1, minimum)
   return lastSavedAt
 }
 

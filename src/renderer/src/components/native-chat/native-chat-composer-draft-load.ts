@@ -47,7 +47,7 @@ function withAppends(
     return { draft: loaded, changed: false }
   }
   const merged = missing.reduce((draft, entry) => entry.append(draft), loaded)
-  return { draft: { ...merged, savedAt: nextSavedAt() }, changed: true }
+  return { draft: { ...merged, savedAt: nextSavedAt(merged.savedAt + 1) }, changed: true }
 }
 
 type DraftLoadResult = { draft: StoredNativeChatComposerDraft; changed: boolean }

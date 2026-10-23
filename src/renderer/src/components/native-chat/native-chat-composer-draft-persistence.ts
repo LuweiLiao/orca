@@ -1,9 +1,11 @@
 // Keeps storage a copy of the draft store's memory: writes each changed draft whole, journals what
 // storage has not confirmed when the window goes away, and follows other windows' writes.
 
-import { basename } from '@/lib/path'
-import { isNativeChatKeptPastePath, isNativeChatPastedImagePath } from './native-chat-image-paste'
-import { isAgentSessionAttachmentStorePath } from '../../../../shared/agent-session-attachments'
+import { savedNativeChatComposerDraft as savedForm } from './native-chat-composer-draft-saved-form'
+export {
+  isKeptLocalPaste,
+  unavailableNativeChatComposerDraftImage
+} from './native-chat-composer-draft-saved-form'
 import {
   dirtyScopes,
   hasLocalChange,
@@ -24,9 +26,12 @@ import {
   pruneNativeChatComposerDraftJournal
 } from './native-chat-composer-draft-journal'
 import {
+  nativeChatDraftJournalRecordId,
+  readNativeChatDraftJournalRecords
+} from './native-chat-composer-draft-journal-records'
+import {
   nativeChatComposerDraftStorage,
   parseStoredNativeChatComposerDraft,
-  type NativeChatComposerDraftImage,
   type StoredNativeChatComposerDraft
 } from './native-chat-composer-draft-storage'
 
@@ -40,48 +45,18 @@ const inFlight = new Set<Promise<boolean>>()
 const scopeWrites = new Map<string, Set<Promise<boolean>>>()
 let channel: BroadcastChannel | null = null
 
-/** An image the draft names but can no longer send, so the user can attach it again. */
-export function unavailableNativeChatComposerDraftImage(
-  image: NativeChatComposerDraftImage
-): NativeChatComposerDraftImage {
-  return image.unavailableName === undefined
-    ? { id: image.id, path: '', unavailableName: basename(image.path) }
-    : image
-}
-
-/** A local paste in Orca's paste folder: it outlives the run, so a restore can show and send it. */
-export function isKeptLocalPaste(image: NativeChatComposerDraftImage): boolean {
-  return !image.connectionId && isNativeChatKeptPastePath(image.path)
-}
-
-/** What storage keeps: not an unsaved launch-seed copy, and a paste outside Orca's paste folder
- *  (over SSH, or from before it) only by name. A paste a paired server stored for the chat stays
- *  whole: the server keeps it, and its claim at send refuses one it no longer has. Null when
- *  nothing is left. */
-function savedForm(record: DraftRecord): StoredNativeChatComposerDraft | null {
-  const { unsavedText, ...saved } = record
-  const images = saved.images.map((image) =>
-    isNativeChatPastedImagePath(image.path) &&
-    !isKeptLocalPaste(image) &&
-    !isAgentSessionAttachmentStorePath(image.path)
-      ? unavailableNativeChatComposerDraftImage(image)
-      : image
-  )
-  const text = saved.text === unsavedText ? '' : saved.text
-  if (text === '' && images.length === 0) {
-    return null
-  }
-  return { ...saved, text, images }
-}
-
-function confirm(scopeKey: string, change: UnconfirmedDraftChange): void {
+function confirm(
+  scopeKey: string,
+  change: UnconfirmedDraftChange,
+  confirmedIds: readonly string[]
+): void {
   if (unconfirmed.get(scopeKey) === change) {
     unconfirmed.delete(scopeKey)
     if (refusedScopes.delete(scopeKey)) {
       notifyScope(scopeKey)
     }
   }
-  pruneNativeChatComposerDraftJournal(scopeKey, change.at)
+  pruneNativeChatComposerDraftJournal(scopeKey, change.at, confirmedIds)
   channel?.postMessage({ scopeKey })
 }
 
@@ -98,15 +73,48 @@ function refuse(scopeKey: string, change: UnconfirmedDraftChange, error: unknown
   }
 }
 
-function persist(scopeKey: string): void {
+function persist(scopeKey: string, append?: DraftAppend): void {
   const record = records.get(scopeKey)
   const draft = record ? savedForm(record) : null
   const change: UnconfirmedDraftChange = { draft, at: draft?.savedAt ?? nextSavedAt() }
+  let confirmedIds = draft?.journalEntryIds ?? []
+  if (!draft) {
+    try {
+      confirmedIds = readNativeChatDraftJournalRecords()
+        .filter(({ entry }) => entry.scopeKey === scopeKey)
+        .map(nativeChatDraftJournalRecordId)
+    } catch {
+      /* Failed cleanup leaves recovery records intact. */
+    }
+  }
   unconfirmed.set(scopeKey, change)
   const storage = nativeChatComposerDraftStorage()
-  const written = (draft ? storage.write(scopeKey, draft) : storage.remove([scopeKey])).then(
+  let appended: DraftRecord | undefined
+  const operation =
+    append && draft
+      ? storage.update(scopeKey, (stored) => {
+          const base = parseStoredNativeChatComposerDraft(stored) ?? {
+            text: '',
+            images: [],
+            savedAt: 0
+          }
+          appended = {
+            ...append(base),
+            savedAt: nextSavedAt(Math.max(base.savedAt, draft.savedAt) + 1)
+          }
+          confirmedIds = appended.journalEntryIds ?? []
+          return savedForm(appended)
+        })
+      : draft
+        ? storage.write(scopeKey, draft)
+        : storage.remove([scopeKey])
+  const written = operation.then(
     () => {
-      confirm(scopeKey, change)
+      if (appended && records.get(scopeKey) === record) {
+        records.set(scopeKey, { ...record, ...appended })
+        notifyScope(scopeKey)
+      }
+      confirm(scopeKey, change, confirmedIds)
       return true
     },
     (error: unknown) => {
@@ -178,19 +186,22 @@ function appendBeforeLoad(scopeKey: string, append: DraftAppend): void {
   load.appendsBeforeLoad.set(scopeKey, [...(load.appendsBeforeLoad.get(scopeKey) ?? []), entry])
   const owner = records.get(scopeKey)?.owner
   const appendedAt = records.get(scopeKey)?.savedAt ?? 0
+  let committedIds: readonly string[] = []
   const empty: StoredNativeChatComposerDraft = { text: '', images: [], savedAt: 0 }
   const written = nativeChatComposerDraftStorage()
     .update(scopeKey, (stored) => {
       const base = parseStoredNativeChatComposerDraft(stored) ?? empty
-      return savedForm({
+      const next = savedForm({
         ...append({ ...base, ...(base.owner || !owner ? {} : { owner }) }),
-        savedAt: nextSavedAt()
+        savedAt: nextSavedAt(base.savedAt + 1)
       })
+      committedIds = next?.journalEntryIds ?? []
+      return next
     })
     .then(
       () => {
         entry.committed = true
-        pruneNativeChatComposerDraftJournal(scopeKey, appendedAt)
+        pruneNativeChatComposerDraftJournal(scopeKey, appendedAt, committedIds)
         channel?.postMessage({ scopeKey })
         return true
       },
@@ -214,7 +225,7 @@ function appendBeforeLoad(scopeKey: string, append: DraftAppend): void {
  *  is applied again on top of it. */
 export function persistNativeChatComposerDraft(
   scopeKey: string,
-  persist: 'immediate' | 'deferred',
+  timing: 'immediate' | 'deferred',
   append?: DraftAppend
 ): void {
   installFlushOnHide()
@@ -222,11 +233,16 @@ export function persistNativeChatComposerDraft(
     appendBeforeLoad(scopeKey, append)
     return
   }
+  if (load.hydrated && append) {
+    dirtyScopes.delete(scopeKey)
+    persist(scopeKey, append)
+    return
+  }
   dirtyScopes.add(scopeKey)
   if (!load.hydrated) {
     load.editedBeforeLoad.add(scopeKey)
   }
-  if (persist === 'immediate') {
+  if (timing === 'immediate') {
     flushNativeChatComposerDrafts()
     return
   }
