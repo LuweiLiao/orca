@@ -81,6 +81,7 @@
     "check:mobile-shared-dependency-versions": "node config/scripts/package-manager/lockfile-contracts/check-mobile-shared-dependency-versions.mjs",
     "build:orcad": "pnpm run build:packages && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/orcad-distribution/prebuilds/build-orcad-node.mjs",
     "build:orcad-template": "pnpm run build:packages && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/orcad-distribution/template/build-orcad-template.mjs",
+    "verify:orcad-template": "node config/scripts/orcad-distribution/template/packaged-orcad-template.cjs --verify-build",
     "build:orcad-prebuilds": "pnpm run build:packages && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/orcad-distribution/prebuilds/build-orcad-prebuilds.mjs",
     "smoke:orcad-terminal": "node config/scripts/native-build/node-addons/ensure-native-runtime.mjs --runtime=node && pnpm run build:orcad && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/runtime-verification/daemon-lifecycle/runtime-serve-terminal-smoke.mjs --target orcad",
     "smoke:serve-terminal": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON config/scripts/runtime-verification/daemon-lifecycle/runtime-serve-terminal-smoke.mjs",
