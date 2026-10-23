@@ -29,6 +29,78 @@ vi.mock('@/components/ui/command', () => ({
 }))
 
 describe('AddRepoHostSelector', () => {
+  it('lists unregistered WSL distros beside this computer, before SSH, and disables WSL 1', () => {
+    const html = renderToStaticMarkup(
+      <AddRepoHostSelector
+        hosts={[
+          {
+            id: 'local',
+            label: 'Local Windows',
+            detail: 'This computer',
+            kind: 'local',
+            health: 'local',
+            presence: 'local'
+          },
+          {
+            id: 'ssh:builder',
+            label: 'Builder',
+            detail: 'SSH',
+            kind: 'ssh',
+            health: 'disconnected',
+            presence: 'configured'
+          }
+        ]}
+        selectedHostId="local"
+        open
+        onOpenChange={vi.fn()}
+        onSelectHost={vi.fn()}
+        onSelectWslDistro={vi.fn()}
+        wslDistros={[
+          { name: 'Ubuntu-22.04', state: 'stopped', version: 2, environmentId: null },
+          { name: 'Legacy', state: 'stopped', version: 1, environmentId: null }
+        ]}
+      />
+    )
+    expect(html).toContain('Ubuntu-22.04 (WSL)')
+    expect(html.indexOf('Ubuntu-22.04 (WSL)')).toBeLessThan(html.indexOf('Builder'))
+    expect(html).toContain('WSL 1')
+    expect(html).toContain('aria-disabled="true"')
+  })
+
+  it('does not duplicate registered WSL hosts in discovery results', () => {
+    const html = renderToStaticMarkup(
+      <AddRepoHostSelector
+        hosts={[
+          {
+            id: 'local',
+            label: 'Local Windows',
+            detail: 'This computer',
+            kind: 'local',
+            health: 'local',
+            presence: 'local'
+          },
+          {
+            id: 'runtime:wsl',
+            label: 'Ubuntu (WSL)',
+            detail: 'WSL distro',
+            kind: 'runtime',
+            health: 'disconnected',
+            presence: 'configured',
+            wslDistro: 'Ubuntu'
+          }
+        ]}
+        selectedHostId="local"
+        open
+        onOpenChange={vi.fn()}
+        onSelectHost={vi.fn()}
+        onSelectWslDistro={vi.fn()}
+        wslDistros={[{ name: 'ubuntu', state: 'stopped', version: 2, environmentId: 'wsl' }]}
+      />
+    )
+    expect(html.match(/Ubuntu \(WSL\)/g)).toHaveLength(1)
+    expect(html).not.toContain('ubuntu (WSL)')
+  })
+
   it('shows a remote host setup menu when Local Mac is the only host', () => {
     const html = renderToStaticMarkup(
       <AddRepoHostSelector
