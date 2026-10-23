@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test, expect } from './helpers/orca-app'
@@ -105,6 +105,41 @@ test('conversation annotations preserve quotes, highlight passages and collect e
     .getByRole('textbox', { name: 'Comment', exact: true })
     .fill('Explain the measured signal and its control effect.')
   await tray.getByRole('button', { name: 'Save annotation', exact: true }).click()
+  await orcaPage.emulateMedia({ reducedMotion: 'reduce' })
+  appendFileSync(
+    transcriptPath,
+    Array.from({ length: 60 }, (_, index) =>
+      claudeTranscriptLines({
+        sessionId,
+        messageIdPrefix: `${sessionId}-later-${index}`,
+        userText: `Later question ${index}`,
+        assistantText: `Later answer ${index}. ${'Measured signal and controller response. '.repeat(20)}`
+      })
+    ).join('')
+  )
+  const scroller = root.locator('[data-native-chat-scroll]')
+  await expect(
+    root.locator('[data-native-chat-quote-source]').filter({ hasText: 'Later answer 59.' })
+  ).toBeVisible({ timeout: 30_000 })
+  await scroller.evaluate((element) => element.scrollTo({ top: element.scrollHeight }))
+  const original = root.locator('[data-native-chat-quote-source]').filter({ hasText: FIRST })
+  await expect(original).toHaveCount(0)
+  await tray.getByRole('button', { name: 'Show original text', exact: true }).first().click()
+  await expect(original).toBeVisible()
+  await expect
+    .poll(async () =>
+      original.evaluate((element) => {
+        const viewport = element.closest('[data-native-chat-scroll]')?.getBoundingClientRect()
+        const bounds = element.getBoundingClientRect()
+        return (
+          viewport !== undefined && bounds.bottom > viewport.top && bounds.top < viewport.bottom
+        )
+      })
+    )
+    .toBe(true)
+  await orcaPage.screenshot({
+    path: testInfo.outputPath('annotation-original-after-virtualization.png')
+  })
   await orcaPage.screenshot({ path: testInfo.outputPath('annotations-desktop.png') })
 
   await orcaPage.setViewportSize({ width: 720, height: 800 })

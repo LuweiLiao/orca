@@ -276,7 +276,7 @@ export function NativeChatMessageList({
     virtualItems: transcriptWindow.virtualItems,
     outline: railOutline
   })
-  const requestRailJump = useCallback((item: NativeChatRailItem) => {
+  const requestRailJump = useCallback((item: Pick<NativeChatRailItem, 'id'>) => {
     navigationSequence.current += 1
     const requestId = navigationSequence.current
     setNavigationRequest({ kind: 'rail', messageId: item.id, requestId })
@@ -327,7 +327,26 @@ export function NativeChatMessageList({
     onLeaveEnd: readerLeavesEnd,
     onScrollGesture: transcriptScroll.forwardedGesture
   })
-  useNativeChatMessageListHandle(ref, jumpToLatest, readerInput.revealFindMatch, dismiss, allSlots)
+  const revealAnnotationMessage = useCallback(
+    (messageId: string): boolean => {
+      if (nativeChatSlotIndexOf(slots, messageId) < 0) {
+        return false
+      }
+      beginNavigation()
+      readerLeavesEnd()
+      requestRailJump({ id: messageId })
+      return true
+    },
+    [beginNavigation, readerLeavesEnd, requestRailJump, slots]
+  )
+  useNativeChatMessageListHandle(
+    ref,
+    jumpToLatest,
+    readerInput.revealFindMatch,
+    dismiss,
+    allSlots,
+    revealAnnotationMessage
+  )
   useNativeChatRailJumpLanding({
     railJump,
     slots,

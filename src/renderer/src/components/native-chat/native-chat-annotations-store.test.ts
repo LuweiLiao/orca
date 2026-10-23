@@ -64,9 +64,9 @@ describe('native chat annotation storage', () => {
     storage.mockRestore()
     expect(store.retryPersistence()).toBe(true)
     expect(store.getSnapshot().persistenceError).toBeUndefined()
-    expect(localStorage.getItem('orca:native-chat-annotations:v1:write-failure')).toContain(
-      'edited while full'
-    )
+    expect(
+      localStorage.getItem(`orca:native-chat-annotations:v2:write-failure:note:${note.id}`)
+    ).toContain('edited while full')
   })
 
   it('reports unreadable storage and still accepts notes in memory', () => {
