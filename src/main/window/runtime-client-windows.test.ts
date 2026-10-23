@@ -18,6 +18,7 @@ const { instances, BrowserWindowMock, getAllDisplaysMock } = vi.hoisted(() => {
     }
     show = vi.fn()
     showInactive = vi.fn()
+    setMenu = vi.fn()
     maximize = vi.fn(() => {
       this.maximized = true
     })

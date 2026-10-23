@@ -1,5 +1,9 @@
 import { app, BrowserWindow, nativeTheme, type Event } from 'electron'
 import type { PersistedUIState } from '../../shared/persisted-ui-state-types'
+import type { KeybindingOverrides } from '../../shared/keybindings'
+import type { UIZoomDirection } from '../../shared/ui-zoom-level'
+import { installRuntimeClientWindowShortcuts } from './runtime-client-window-shortcuts'
+import { stepWebContentsZoom } from './window-zoom-shortcuts'
 import { isWindowlessLaunch, showWindowWithoutStealingFocus } from './foreground-activation-policy'
 import { installPrivilegedWindowNavigationPolicy } from './privileged-window-navigation'
 import { rectHasVisibleAreaOnAnyDisplay, type WindowRect } from './window-bounds-validation'
@@ -37,6 +41,8 @@ export type RuntimeClientWindowDeps = {
   getPairingHost: () => RuntimeClientWindowPairingHost | null
   isAppQuitting: () => boolean
   isServeMode: () => boolean
+  getKeybindings?: () => KeybindingOverrides | undefined
+  onNewWindowShortcut?: () => void
 }
 
 export type OpenRuntimeClientWindowResult =
@@ -116,10 +122,18 @@ export function createRuntimeClientWindowManager(
     })
     const liveEntry: LiveRuntimeClientWindow = { slot, window, ownerClosing: false }
     live.set(slot, liveEntry)
+    // Why: app-menu accelerators target the main window; without a menu here the web client owns its keys.
+    if (process.platform !== 'darwin') {
+      window.setMenu(null)
+    }
 
     const contents = window.webContents
     // Why: same-origin navigation stays in the web client; anything else goes to the system browser.
     installPrivilegedWindowNavigationPolicy(contents)
+    installRuntimeClientWindowShortcuts(contents, {
+      getKeybindings: () => deps.getKeybindings?.(),
+      onNewWindow: () => deps.onNewWindowShortcut?.()
+    })
     contents.session.setPermissionRequestHandler((_contents, permission, callback, details) =>
       callback(isClientPermission(permission, details.requestingUrl, entry.webClientOrigin))
     )
@@ -313,4 +327,18 @@ export function closeAllRuntimeClientWindows(): void {
 
 export function listRuntimeClientWindows(): RuntimeClientWindowInfo[] {
   return manager?.list() ?? []
+}
+
+export function isRuntimeClientWindow(window: Electron.BaseWindow | null | undefined): boolean {
+  return Boolean(window) && listRuntimeClientWindows().some((entry) => entry.window === window)
+}
+
+/** Zooms the focused extra window itself; false when another window has focus. */
+export function zoomRuntimeClientWindowIfFocused(direction: UIZoomDirection): boolean {
+  const focused = BrowserWindow.getFocusedWindow()
+  if (!focused || !isRuntimeClientWindow(focused)) {
+    return false
+  }
+  stepWebContentsZoom(focused.webContents, direction)
+  return true
 }

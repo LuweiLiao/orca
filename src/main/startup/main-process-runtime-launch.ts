@@ -49,6 +49,7 @@ import {
   configureRuntimeClientWindows,
   restoreRuntimeClientWindows
 } from '../window/runtime-client-windows'
+import { openRuntimeClientWindowFromUserCommand } from '../window/runtime-client-window-open-command'
 import { scheduleAgentLaunchRecordWarmup } from './agent-launch-record-warmup'
 import { emitServeBrowserIdentityActionLine } from '../server/serve-stdout-boundary'
 import { getBrowserIdentityModeStatus } from '../browser/browser-identity-mode-store'
@@ -220,7 +221,9 @@ async function launchDesktopMode(
     getPairingHost: () => state.runtimeRpc,
     // Why the updater flag: an update install closes every window before before-quit marks the quit.
     isAppQuitting: () => state.isQuitting || isQuittingForUpdate(),
-    isServeMode: () => state.isServeMode
+    isServeMode: () => state.isServeMode,
+    getKeybindings: () => state.keybindings?.getOverrides(),
+    onNewWindowShortcut: openRuntimeClientWindowFromUserCommand
   })
   // Why: window and RPC startup run in parallel; registerPtyHandlers gates PTY spawns so RPC binds without racing the daemon provider swap.
   const [win, runtimeRpcStartResult] = await Promise.all([
