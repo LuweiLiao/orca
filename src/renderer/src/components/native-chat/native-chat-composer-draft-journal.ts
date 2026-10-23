@@ -51,6 +51,7 @@ export function replayNativeChatComposerDraftJournal(
   const changed = new Set<string>()
   const confirmed = new Map(drafts)
   const removedAt = new Map<string, number>()
+  const wholeIds = new Map<string, string[]>()
   for (const record of entries) {
     const entry = record.entry
     if (isAddition(entry)) {
@@ -62,15 +63,21 @@ export function replayNativeChatComposerDraftJournal(
       pruneNativeChatDraftJournalRecords(entry.scopeKey, entry.at, [id])
       continue
     }
-    const previousIds = drafts.get(entry.scopeKey)?.journalEntryIds ?? []
+    const previousIds = wholeIds.get(entry.scopeKey) ?? []
+    wholeIds.set(entry.scopeKey, [...previousIds, id])
+    const previous = drafts.get(entry.scopeKey)
+    const next =
+      previous?.journalEntryIds &&
+      entry.draft?.journalEntryIds &&
+      previous.editRevision === entry.draft.editRevision
+        ? previous
+        : entry.draft
     drafts.set(
       entry.scopeKey,
-      entry.draft
+      next
         ? {
-            ...entry.draft,
-            journalEntryIds: [
-              ...new Set([...previousIds, ...(entry.draft.journalEntryIds ?? []), id])
-            ]
+            ...next,
+            journalEntryIds: [...new Set([...previousIds, ...(next.journalEntryIds ?? []), id])]
           }
         : null
     )
