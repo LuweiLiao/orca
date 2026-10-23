@@ -52,9 +52,10 @@ async function launchDesktopWithFakeWsl(
   dispose: () => Promise<void>
 }> {
   const userDataDir = mkdtempSync(path.join(os.tmpdir(), 'orca-e2e-wsl-desktop-'))
+  const profile = getE2ECompletedOnboardingProfile()
   writeFileSync(
     path.join(userDataDir, 'orca-data.json'),
-    `${JSON.stringify(getE2ECompletedOnboardingProfile(), null, 2)}\n`
+    `${JSON.stringify({ ...profile, settings: { ...profile.settings, uiLanguage: 'en', theme: 'dark' } }, null, 2)}\n`
   )
   options.beforeLaunch?.(userDataDir)
   const { ELECTRON_RUN_AS_NODE: _unused, ...cleanEnv } = process.env
@@ -63,8 +64,7 @@ async function launchDesktopWithFakeWsl(
     inheritedEnv: cleanEnv,
     launchEnv: {},
     extraEnv: {
-      // WSL hosts exist only behind this internal gate; the gated-off test leaves it closed.
-      ...(options.internalGate === false ? {} : { [WSL_HOSTS_INTERNAL_GATE_ENV]: '1' }),
+      [WSL_HOSTS_INTERNAL_GATE_ENV]: options.internalGate === false ? '0' : '1',
       ORCA_E2E_FAKE_WSL_HOSTS: JSON.stringify({
         distros: [
           { name: 'Ubuntu', state: 'running', version: 2 },
@@ -194,6 +194,63 @@ async function checkWindowsFolderPicker(
   await cdp.send('Emulation.setUserAgentOverride', { userAgent: '' })
   await cdp.detach()
 }
+
+test('selects a discovered WSL distro directly from Add Project without enabling settings first', async ({
+  orcaPage
+}, testInfo) => {
+  test.setTimeout(180_000)
+  await waitForSessionReady(orcaPage)
+  const offer = await createRuntimeDesktopPairingOffer(orcaPage)
+  const logDir = mkdtempSync(path.join(os.tmpdir(), 'orca-e2e-wsl-picker-'))
+  const connectLogFile = path.join(logDir, 'connects.log')
+  const desktop = await launchDesktopWithFakeWsl(offer.pairingUrl, testInfo, {
+    distros: [{ name: 'Ubuntu', state: 'stopped', version: 2 }, LEGACY_DISTRO],
+    connectLogFile
+  })
+  try {
+    const { page, app } = desktop
+    await openSidebarProjectDialog(page)
+    const dialog = page.getByRole('dialog', { name: /Add a project/i })
+    const picker = dialog.getByRole('combobox')
+    await picker.click()
+    const ubuntu = page.locator('[cmdk-item]').filter({ hasText: WSL_HOST_LABEL })
+    await expect(ubuntu).toContainText('Stopped')
+    await expect(page.locator('[cmdk-item]').filter({ hasText: 'Legacy (WSL)' })).toHaveAttribute(
+      'data-disabled',
+      'true'
+    )
+    expect(fakeWslConnects(connectLogFile)).toEqual([])
+    await settleAnimations(page)
+    await page.screenshot({ path: testInfo.outputPath('wsl-direct-picker.png') })
+    await ubuntu.click()
+    await expect(picker).toContainText(WSL_HOST_LABEL)
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.__store
+            ?.getState()
+            .runtimeEnvironments.some(
+              (environment) =>
+                environment.orcadDeployment?.kind === 'wsl' &&
+                environment.orcadDeployment.distro === 'Ubuntu'
+            )
+        )
+      )
+      .toBe(true)
+    await expect(dialog.getByRole('button', { name: /Browse folder|Browse host/i })).toBeEnabled()
+    expect(fakeWslConnects(connectLogFile)).toContain('Ubuntu')
+    expect(
+      await app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows().some((window) => window.isVisible())
+      )
+    ).toBe(false)
+    await picker.click()
+    await expect(page.locator('[cmdk-item]').filter({ hasText: WSL_HOST_LABEL })).toHaveCount(1)
+  } finally {
+    await desktop.dispose()
+    rmSync(logDir, { recursive: true, force: true })
+  }
+})
 
 test('adds a WSL distro as a host, adds a project on it, and runs a terminal there', async ({
   orcaPage,
@@ -375,8 +432,8 @@ test('adds a WSL distro as a host, adds a project on it, and runs a terminal the
       .click()
     const offRow = page.locator('[cmdk-item]').filter({ hasText: WSL_HOST_LABEL })
     await expect(offRow).toContainText('Turned off in Settings → Experimental')
-    await expect(offRow.getByRole('button', { name: 'Turn on' })).toBeVisible()
-    await expect(offRow.getByRole('button', { name: 'Connect' })).toHaveCount(0)
+    await expect(offRow.getByRole('button', { name: 'Connect' })).toBeVisible()
+    await expect(offRow.getByRole('button', { name: 'Turn on' })).toHaveCount(0)
     await settleAnimations(page)
     await page.screenshot({ path: testInfo.outputPath('wsl-host-row-turned-off.png') })
     await page.keyboard.press('Escape')

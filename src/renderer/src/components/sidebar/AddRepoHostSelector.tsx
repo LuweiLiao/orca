@@ -13,6 +13,14 @@ import type { ExecutionHostId } from '../../../../shared/execution-host'
 import { describeRuntimeCompatBlock } from '../../../../shared/protocol-compat'
 import { translate } from '@/i18n/i18n'
 import { canConnectAddRepoHost, canSelectAddRepoHost } from './add-repo-host-availability'
+import { wslHostEnvironmentLabel, type WslHostDistro } from '../../../../shared/wsl-host-types'
+import { AddRepoWslDistroRow } from './AddRepoWslDistroRow'
+
+const EMPTY_WSL_DISTROS: readonly WslHostDistro[] = []
+
+type AddRepoHostChoice =
+  | SidebarHostOption
+  | { id: string; label: string; kind: 'wsl-distro'; distro: WslHostDistro }
 
 type AddRepoHostSelectorProps = {
   hosts: SidebarHostOption[]
@@ -27,6 +35,12 @@ type AddRepoHostSelectorProps = {
   onAddWslHost?: () => void
   /** Opens Experimental → WSL distros as hosts, for a WSL host listed while that is off. */
   onOpenWslHostsSetting?: () => void
+  wslDistros?: readonly WslHostDistro[]
+  wslLoading?: boolean
+  wslError?: string | null
+  connectingWslDistro?: string | null
+  wslServerFilesMissing?: boolean
+  onSelectWslDistro?: (distro: string) => void
 }
 
 function getHostStatusDetail(host: SidebarHostOption): string {
@@ -50,12 +64,37 @@ export function AddRepoHostSelector({
   onAddSshHost,
   onAddRemoteServer,
   onAddWslHost,
-  onOpenWslHostsSetting
+  onOpenWslHostsSetting,
+  wslDistros = EMPTY_WSL_DISTROS,
+  wslLoading = false,
+  wslError,
+  connectingWslDistro,
+  wslServerFilesMissing = false,
+  onSelectWslDistro
 }: AddRepoHostSelectorProps): React.JSX.Element | null {
   const [addHostOpen, setAddHostOpen] = useState(false)
-  const rows = useBoundedHostRows(hosts, new Set(selectedHostId ? [selectedHostId] : []))
+  const wslChoices: AddRepoHostChoice[] = onSelectWslDistro
+    ? wslDistros
+        .filter(
+          (distro) =>
+            !hosts.some((host) => host.wslDistro?.toLowerCase() === distro.name.toLowerCase())
+        )
+        .map((distro) => ({
+          id: `wsl-distro:${distro.name}`,
+          label: wslHostEnvironmentLabel(distro.name),
+          kind: 'wsl-distro',
+          distro
+        }))
+    : []
+  const choices: AddRepoHostChoice[] = [
+    ...hosts.filter((host) => host.kind === 'local'),
+    ...wslChoices,
+    ...hosts.filter((host) => host.wslDistro !== undefined),
+    ...hosts.filter((host) => host.kind !== 'local' && host.wslDistro === undefined)
+  ]
+  const rows = useBoundedHostRows(choices, new Set(selectedHostId ? [selectedHostId] : []))
   const showHostSetupActions = Boolean(onAddSshHost || onAddRemoteServer || onAddWslHost)
-  if (!shouldShowHostScopeControls(hosts) && !showHostSetupActions) {
+  if (!shouldShowHostScopeControls(hosts) && !showHostSetupActions && wslChoices.length === 0) {
     return null
   }
 
@@ -77,8 +116,14 @@ export function AddRepoHostSelector({
             aria-expanded={open}
             className="h-7 min-w-0 max-w-[18rem] gap-1.5 rounded-md border border-border bg-muted/30 px-2 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
           >
-            <span className="min-w-0 truncate">{selectedHost.label}</span>
-            {selectedHost.health !== 'local' ? (
+            <span className="min-w-0 truncate">
+              {connectingWslDistro
+                ? wslHostEnvironmentLabel(connectingWslDistro)
+                : selectedHost.label}
+            </span>
+            {connectingWslDistro ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : selectedHost.health !== 'local' ? (
               <span
                 title={getHostStatusDetail(selectedHost)}
                 className="shrink-0 text-[11px] font-normal text-muted-foreground"
@@ -214,14 +259,35 @@ export function AddRepoHostSelector({
                 </Popover>
               ) : null}
               {rows.shown.map((host) => {
+                if (host.kind === 'wsl-distro') {
+                  return (
+                    <AddRepoWslDistroRow
+                      key={host.id}
+                      distro={host.distro}
+                      connectingDistro={connectingWslDistro}
+                      serverFilesMissing={wslServerFilesMissing}
+                      onSelect={onSelectWslDistro}
+                    />
+                  )
+                }
                 const selected = host.id === selectedHostId
-                const disabled = !canSelectAddRepoHost(host)
+                const disabled = !canSelectAddRepoHost(host) || Boolean(connectingWslDistro)
+                const canStartWslHost =
+                  host.wslDistro !== undefined &&
+                  onSelectWslDistro !== undefined &&
+                  !wslServerFilesMissing &&
+                  host.wslUnavailable !== 'server-files-missing' &&
+                  host.health !== 'blocked'
                 const canConnectHost = canConnectAddRepoHost(host)
                 const canTurnOn =
-                  host.wslUnavailable === 'turned-off' && onOpenWslHostsSetting !== undefined
+                  !canStartWslHost &&
+                  host.wslUnavailable === 'turned-off' &&
+                  onOpenWslHostsSetting !== undefined
                 // Why one flag: either action keeps the otherwise unselectable row interactive.
-                const canConnect = canConnectHost || canTurnOn
-                const isConnecting = host.health === 'connecting'
+                const canConnect =
+                  !connectingWslDistro && (canConnectHost || canTurnOn || canStartWslHost)
+                const isConnecting =
+                  host.health === 'connecting' || connectingWslDistro === host.wslDistro
                 return (
                   <CommandItem
                     key={host.id}
@@ -229,6 +295,13 @@ export function AddRepoHostSelector({
                     disabled={disabled && !canConnect}
                     aria-disabled={disabled}
                     onSelect={() => {
+                      if (connectingWslDistro) {
+                        return
+                      }
+                      if (canStartWslHost && !canSelectAddRepoHost(host) && host.wslDistro) {
+                        onSelectWslDistro?.(host.wslDistro)
+                        return
+                      }
                       if (disabled) {
                         return
                       }
@@ -254,17 +327,21 @@ export function AddRepoHostSelector({
                         <span className="min-w-0 flex-1 truncate">{getHostStatusDetail(host)}</span>
                       </span>
                     </span>
-                    {canConnectHost ? (
+                    {canConnectHost || (canStartWslHost && disabled) ? (
                       <Button
                         type="button"
                         variant="link"
                         size="xs"
                         className="ml-2 h-auto w-[5.75rem] shrink-0 justify-end gap-1 self-center px-0 py-0 text-[11px] font-normal text-muted-foreground hover:text-foreground hover:no-underline"
-                        disabled={isConnecting}
+                        disabled={isConnecting || Boolean(connectingWslDistro)}
                         onClick={(event) => {
                           event.preventDefault()
                           event.stopPropagation()
-                          onConnectHost?.(host.id)
+                          if (canStartWslHost && host.wslDistro) {
+                            onSelectWslDistro?.(host.wslDistro)
+                          } else {
+                            onConnectHost?.(host.id)
+                          }
                         }}
                       >
                         {isConnecting ? <Loader2 className="size-3 animate-spin" /> : null}
@@ -300,7 +377,20 @@ export function AddRepoHostSelector({
                   </CommandItem>
                 )
               })}
+              {wslLoading ? (
+                <div role="status" className="px-3 py-2 text-xs text-muted-foreground">
+                  {translate(
+                    'auto.components.sidebar.AddWslHostFormPanel.loading',
+                    'Looking for WSL distros…'
+                  )}
+                </div>
+              ) : null}
             </CommandList>
+            {wslError ? (
+              <p role="alert" className="border-t border-border px-3 py-2 text-xs text-destructive">
+                {wslError}
+              </p>
+            ) : null}
             <HostListOverflowNote hiddenCount={rows.hiddenCount} />
           </Command>
         </PopoverContent>

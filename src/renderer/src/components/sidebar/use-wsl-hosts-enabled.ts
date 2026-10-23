@@ -1,8 +1,7 @@
 import { useAppStore } from '@/store'
 
 /**
- * True where WSL distros can be hosts: a Windows desktop (or the e2e fake) launched with the internal
- * gate open. The preload omits the API otherwise, which hides every WSL host surface.
+ * True on Windows desktops and enabled e2e fakes. Older preloads omit the API.
  */
 export function wslHostsAvailable(): boolean {
   return typeof window !== 'undefined' && window.api?.runtimeEnvironments?.wslHosts !== undefined

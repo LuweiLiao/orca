@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   },
   sshConnect: vi.fn(),
   sshGetState: vi.fn(),
+  connectingWslDistro: vi.fn<() => string | null>().mockReturnValue(null),
   isWebClient: false
 }))
 
@@ -69,6 +70,10 @@ vi.mock('@/lib/web-client-location', () => ({
   isWebClientLocation: () => mocks.isWebClient
 }))
 
+vi.mock('./use-add-repo-wsl-distros', () => ({
+  useAddRepoWslDistros: () => ({ connectingDistro: mocks.connectingWslDistro() })
+}))
+
 describe('useAddRepoHostSelection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -109,6 +114,7 @@ describe('useAddRepoHostSelection', () => {
     mocks.sshConnect.mockReset()
     mocks.sshGetState.mockReset()
     mocks.isWebClient = false
+    mocks.connectingWslDistro.mockReturnValue(null)
     vi.stubGlobal('window', {
       api: {
         ssh: {
@@ -129,6 +135,15 @@ describe('useAddRepoHostSelection', () => {
     expect(result.selectedHostId).toBeNull()
     expect(result.selectedParsedHost).toBeNull()
     expect(result.displayedHostId).toBe('ssh:ssh-1')
+  })
+
+  it('blocks project actions while the selected WSL distro is being prepared', async () => {
+    mocks.stateValues = ['local', true]
+    mocks.connectingWslDistro.mockReturnValue('Ubuntu')
+    const { useAddRepoHostSelection } = await import('./use-add-repo-host-selection')
+    const result = useAddRepoHostSelection({ isOpen: true, setStep: vi.fn() })
+    expect(result.selectedHostId).toBeNull()
+    expect(result.selectedParsedHost).toBeNull()
   })
 
   it('selects a runtime host without changing the durable active server', async () => {
