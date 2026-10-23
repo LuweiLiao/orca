@@ -20,7 +20,8 @@ const {
 const { join, relative, resolve, sep } = require('node:path')
 const {
   ORCAD_TEMPLATE_MANIFEST_FILENAME,
-  ORCAD_TEMPLATE_TARGETS_DIR
+  ORCAD_TEMPLATE_TARGETS_DIR,
+  ORCAD_CLI_PACKAGE_FILENAME
 } = require('../../src/shared/orcad-artifacts.ts')
 const { verifyPackagedOrcadTemplate } = require('./verify-packaged-orcad-template.cjs')
 const {
@@ -49,17 +50,40 @@ function isOrcadTemplateRequired(env = process.env) {
 
 // Why: electron-builder only warns on a missing extraResources source.
 function assertOrcadTemplateBuilt(projectDir = join(__dirname, '..', '..'), env = process.env) {
-  const manifest = join(
-    projectDir,
-    orcadTemplateExtraResource.from,
-    ORCAD_TEMPLATE_MANIFEST_FILENAME
-  )
-  if (isOrcadTemplateRequired(env) && !existsSync(manifest)) {
+  const resourcesDir = join(projectDir, 'out')
+  const templateDir = join(projectDir, orcadTemplateExtraResource.from)
+  const manifest = join(templateDir, ORCAD_TEMPLATE_MANIFEST_FILENAME)
+  if (!existsSync(manifest)) {
+    if (isOrcadTemplateRequired(env)) {
+      throw new Error(
+        `ORCA_REQUIRE_ORCAD_TEMPLATE=1 but ${manifest} is missing; download the merged template ` +
+          'from the release template job, or build it with `pnpm build:orcad-template`.'
+      )
+    }
+    if (!existsSync(templateDir)) {
+      return
+    }
+  }
+  verifyPackagedOrcadTemplate(resourcesDir)
+  const desktopCommit = readCompiledSourceCommit(join(projectDir, 'out', 'package.json'))
+  const templateCommit = readCompiledSourceCommit(join(templateDir, ORCAD_CLI_PACKAGE_FILENAME))
+  if (desktopCommit !== templateCommit) {
     throw new Error(
-      `ORCA_REQUIRE_ORCAD_TEMPLATE=1 but ${manifest} is missing; download the merged template ` +
-        'from the release template job, or build it with `pnpm build:orcad-template`.'
+      `Desktop source commit ${desktopCommit} does not match orcad template source commit ${templateCommit}. ` +
+        'Download the merged template from the same source commit, or rebuild the desktop and ' +
+        'template together with `pnpm build:desktop` and `pnpm build:orcad-template`.'
     )
   }
+}
+
+function readCompiledSourceCommit(packagePath) {
+  const metadata = JSON.parse(readFileSync(packagePath, 'utf8'))
+  if (typeof metadata?.commit !== 'string' || !/^[a-f0-9]{40}$/.test(metadata.commit)) {
+    throw new Error(
+      `${packagePath} does not identify its source commit. Rebuild the desktop and orcad template before packaging.`
+    )
+  }
+  return metadata.commit
 }
 
 function sha256(path) {
@@ -183,9 +207,16 @@ module.exports = {
 
 if (require.main === module) {
   const [flag, appDir, signedListFile] = process.argv.slice(2)
-  if (flag !== '--reseal-signed' || !appDir || !signedListFile) {
+  if (flag === '--verify-build') {
+    assertOrcadTemplateBuilt(resolve(appDir ?? join(__dirname, '..', '..')), {
+      ...process.env,
+      ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
+    })
+  } else if (flag === '--reseal-signed' && appDir && signedListFile) {
+    resealSignedWindowsApp(resolve(appDir), resolve(signedListFile))
+  } else {
+    console.error('usage: packaged-orcad-template.cjs --verify-build [projectDir]')
     console.error('usage: packaged-orcad-template.cjs --reseal-signed <appDir> <signedListFile>')
     process.exit(2)
   }
-  resealSignedWindowsApp(resolve(appDir), resolve(signedListFile))
 }

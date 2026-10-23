@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
-import { appendFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { runProcessSync } from '@orca/process-host'
 import {
   ORCAD_TEMPLATE_MANIFEST_FILENAME,
   ORCAD_TEMPLATE_TARGETS_DIR
@@ -48,6 +49,107 @@ async function createResources() {
 }
 
 const quietly = () => vi.spyOn(console, 'log').mockImplementation(() => {})
+
+async function createProjectBuild() {
+  const projectDir = await tempRoot()
+  const outDir = join(projectDir, 'out')
+  await mkdir(outDir)
+  const templateDir = await writeOrcadTemplateTestFixture(outDir)
+  const identity = { type: 'commonjs', commit: 'a'.repeat(40) }
+  await writeFile(join(outDir, 'package.json'), JSON.stringify(identity))
+  await writeFile(join(templateDir, 'out', 'package.json'), JSON.stringify(identity))
+  resealOrcadTemplateManifest(templateDir, ['out/package.json'])
+  return { projectDir, templateDir }
+}
+
+describe('orcad template before packaging', () => {
+  it('exposes a command that accepts a matching build and rejects an older template', async () => {
+    const { projectDir, templateDir } = await createProjectBuild()
+    const verify = () =>
+      runProcessSync({
+        program: process.env.ORCA_TEST_NODE_EXECUTABLE ?? process.execPath,
+        args: [
+          join(import.meta.dirname, 'packaged-orcad-template.cjs'),
+          '--verify-build',
+          projectDir
+        ],
+        cwd: projectDir,
+        env: { ...process.env, ORCA_BACKGROUND_LAUNCH: '1' }
+      })
+    const matching = verify()
+    expect(matching.code, matching.stderr).toBe(0)
+    await writeFile(
+      join(templateDir, 'out', 'package.json'),
+      JSON.stringify({ commit: 'b'.repeat(40) })
+    )
+    resealOrcadTemplateManifest(templateDir, ['out/package.json'])
+    const mismatched = verify()
+    expect(mismatched.code).not.toBe(0)
+    expect(mismatched.stderr).toContain('source commit')
+  })
+
+  it('accepts a verified template built from the compiled desktop source', async () => {
+    quietly()
+    const { projectDir } = await createProjectBuild()
+    expect(() => assertOrcadTemplateBuilt(projectDir)).not.toThrow()
+  })
+
+  it('rejects an internally consistent template built from a different source commit', async () => {
+    const { projectDir, templateDir } = await createProjectBuild()
+    await writeFile(
+      join(templateDir, 'out', 'package.json'),
+      JSON.stringify({ commit: 'b'.repeat(40) })
+    )
+    resealOrcadTemplateManifest(templateDir, ['out/package.json'])
+    expect(() => assertOrcadTemplateBuilt(projectDir)).toThrow('source commit')
+  })
+
+  it('accepts channel-specific app versions when the source commit matches', async () => {
+    quietly()
+    const { projectDir } = await createProjectBuild()
+    await writeFile(
+      join(projectDir, 'out', 'package.json'),
+      JSON.stringify({
+        commit: 'a'.repeat(40),
+        version: '1.4.214-dev.1'
+      })
+    )
+    expect(() => assertOrcadTemplateBuilt(projectDir)).not.toThrow()
+  })
+
+  it.each(['desktop', 'template'])('rejects a missing %s source commit', async (kind) => {
+    const { projectDir, templateDir } = await createProjectBuild()
+    const packagePath =
+      kind === 'desktop'
+        ? join(projectDir, 'out', 'package.json')
+        : join(templateDir, 'out', 'package.json')
+    await writeFile(packagePath, JSON.stringify({ type: 'commonjs' }))
+    if (kind === 'template') {
+      resealOrcadTemplateManifest(templateDir, ['out/package.json'])
+    }
+    expect(() => assertOrcadTemplateBuilt(projectDir)).toThrow(
+      'does not identify its source commit'
+    )
+  })
+
+  it('rejects a template missing a required child before packaging starts', async () => {
+    const { projectDir, templateDir } = await createProjectBuild()
+    const manifestPath = join(templateDir, ORCAD_TEMPLATE_MANIFEST_FILENAME)
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+    delete manifest.commonSha256['computer-sidecar.js']
+    await writeFile(manifestPath, JSON.stringify(manifest))
+    await rm(join(templateDir, 'computer-sidecar.js'))
+    expect(() => assertOrcadTemplateBuilt(projectDir)).toThrow('common manifest inventory')
+  })
+
+  it('rejects a template with an older Node reference even when its checksum was resealed', async () => {
+    const { projectDir, templateDir } = await createProjectBuild()
+    const marker = 'targets/linux-x64-glibc/.runtime-node'
+    await writeFile(join(templateDir, ...marker.split('/')), `${'0'.repeat(64)}\n`)
+    resealOrcadTemplateManifest(templateDir, [marker])
+    expect(() => assertOrcadTemplateBuilt(projectDir)).toThrow('runtime reference disagrees')
+  })
+})
 
 describe('packaged orcad template', () => {
   it('signs only darwin Mach-O payloads on macOS and reseals their new bytes', async () => {
