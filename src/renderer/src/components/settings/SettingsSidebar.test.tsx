@@ -10,6 +10,8 @@ import { SettingsSidebar } from './SettingsSidebar'
 import { TooltipProvider } from '../ui/tooltip'
 import type { SettingsSetupGuideProgress } from './settings-setup-guide-progress'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
+import { i18n } from '@/i18n/i18n'
+import { getSettingsSectionSearchEntries, rankSettingsSearchItems } from './settings-search'
 
 const mocks = vi.hoisted(() => ({
   useSettingsSetupGuideProgress: vi.fn()
@@ -130,8 +132,9 @@ describe('SettingsSidebar', () => {
     mocks.useSettingsSetupGuideProgress.mockReturnValue(makeSetupGuideProgress())
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     document.body.innerHTML = ''
+    await i18n.changeLanguage('en')
   })
 
   it.each([false, true])('renders Chat navigation only with the opt-in enabled (%s)', (enabled) => {
@@ -160,6 +163,52 @@ describe('SettingsSidebar', () => {
     const buttons = Array.from(container.querySelectorAll('button'))
     expect(buttons.some((button) => button.textContent === 'Chat')).toBe(enabled)
   })
+
+  it.each([
+    [false, false],
+    [false, true],
+    [true, false],
+    [true, true]
+  ])(
+    'keeps global queue results separate from the empty Projects group (chat %s, queue support %s)',
+    async (enabled, hostQueuesMessages) => {
+      await i18n.changeLanguage('zh')
+      const sections = buildSettingsNavigationMetadata({
+        isMac: false,
+        isWindows: true,
+        isWebClient: false,
+        nativeChatEnabled: enabled,
+        hostQueuesMessages,
+        repos: []
+      })
+      const matches = rankSettingsSearchItems(
+        '将后续消息加入队列',
+        sections,
+        getSettingsSectionSearchEntries
+      ).map(({ item }) => item)
+      expect(matches.map((section) => section.id)).toEqual(enabled ? ['chat'] : [])
+      const container = document.createElement('div')
+      container.innerHTML = renderToStaticMarkup(
+        <TooltipProvider>
+          <SettingsSidebar
+            activeSectionId="chat"
+            settings={{ ...getDefaultSettings('/tmp'), experimentalNativeChat: enabled }}
+            generalGroups={[{ id: 'interface', title: '界面', sections: matches }]}
+            repoSections={[]}
+            hasRepos
+            onBack={vi.fn()}
+            onSelectSection={vi.fn()}
+          />
+        </TooltipProvider>
+      )
+      expect(container.textContent).toContain('没有匹配的项目设置。')
+      expect(
+        Array.from(container.querySelectorAll('button')).some(
+          (button) => button.textContent === '聊天'
+        )
+      ).toBe(enabled)
+    }
+  )
 
   it('applies left sidebar appearance styles to the settings navigation', () => {
     const markup = renderSidebar('orchestration', {

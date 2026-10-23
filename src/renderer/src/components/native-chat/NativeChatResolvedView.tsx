@@ -178,10 +178,9 @@ export function NativeChatResolvedView({
     [paneLaunchPrompt, session.messages]
   )
   const sessionWithLaunchPrompt = useMemo<typeof session>(() => {
-    if (!launchPromptMessage) {
-      return session
-    }
-    return { ...session, messages: [...session.messages, launchPromptMessage] }
+    return launchPromptMessage
+      ? { ...session, messages: [...session.messages, launchPromptMessage] }
+      : session
   }, [launchPromptMessage, session])
 
   const sessionAfterCommandBoundaries = useMemo<typeof session>(() => {
@@ -315,10 +314,10 @@ export function NativeChatResolvedView({
     { sessionId, isVisible }
   )
 
-  // Only the focused conversation accepts chat text-size shortcuts.
   useNativeChatFontSize(isConversation && isVisible && isFocusedGroup, rootRef)
   const find = useNativeChatFind(isVisible && isFocusedGroup, rootRef, composerRef, messageListRef)
   const contextMenu = useNativeChatContextMenu({
+    annotationScopeKey: JSON.stringify(['terminal', runtimeEnvironmentId, agent, sessionId]),
     rootRef,
     composerRef,
     enabled: isVisible,
@@ -420,6 +419,7 @@ export function NativeChatResolvedView({
           mobile driver (R8). Under a card it stays mounted but hidden, so its state survives;
           detaching the ref keeps root typing, paste and reveal focus off it. */}
       <div hidden={shownPromptCard !== null} className="contents">
+        {contextMenu.annotationTray}
         <NativeChatComposer
           ref={shownPromptCard ? undefined : composerRef}
           inputOwnedByCard={shownPromptCard !== null}

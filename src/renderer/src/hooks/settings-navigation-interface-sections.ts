@@ -19,7 +19,6 @@ export function buildInterfaceSettingsSections({
   isWindows,
   isWebClient,
   nativeChatEnabled,
-  hostQueuesMessages,
   managedBrowserCreationEnabled,
   mobileEmulatorCreationEnabled
 }: SettingsNavigationBuildOptions): SettingsNavSection[] {
@@ -53,9 +52,7 @@ export function buildInterfaceSettingsSections({
             searchEntries: [
               getChatPermissionSearchEntry(),
               ...getChatAppearanceSearchEntries(),
-              ...getChatBehaviorSearchEntries().filter(
-                (entry) => hostQueuesMessages || entry.targetSectionId !== 'chat-queue-follow-ups'
-              ),
+              ...getChatBehaviorSearchEntries(),
               ...(showDesktopOnlySettings
                 ? [
                     getChatProvidersSearchEntry(),

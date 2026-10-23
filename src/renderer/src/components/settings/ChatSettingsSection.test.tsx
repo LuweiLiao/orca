@@ -13,7 +13,12 @@ import { getChatAppearanceSearchEntries } from './chat-appearance-search'
 import { getChatNamingSearchEntry } from './chat-naming-search'
 import { getChatInlineVisualsSearchEntry } from './chat-inline-visuals-search'
 import { getChatBehaviorSearchEntries } from './chat-behavior-search'
-import { AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
+import {
+  AGENT_SESSION_QUEUED_COMMANDS_RUNTIME_CAPABILITY,
+  AGENT_SESSION_QUEUED_MESSAGE_EDIT_RUNTIME_CAPABILITY,
+  AGENT_SESSION_QUEUED_MESSAGE_IMAGE_EDIT_RUNTIME_CAPABILITY,
+  AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY
+} from '../../../../shared/protocol-version'
 import { setLocalRuntimeCapabilitiesForTests } from '@/runtime/local-runtime-capabilities'
 import { useStructuredAgentSessionHostQueuesMessages } from '@/runtime/structured-agent-session-host-capability'
 import type * as HostStructuredAgentsModule from '@/runtime/host-structured-agents'
@@ -23,6 +28,7 @@ import { buildCmdJSettingsResults } from '../cmd-j/palette-results'
 import { isSettingsNavigationTarget } from '@/lib/settings-navigation-types'
 import { getSettingsSectionId, getSettingsScrollTarget } from './settings-navigation-foundations'
 import { getSettingsSectionSearchEntries, matchesSettingsSearch } from './settings-search'
+import type { SettingsSearchEntry } from './settings-search'
 
 const state = vi.hoisted(
   (): {
@@ -58,7 +64,8 @@ function renderChat(
   enabled: boolean | undefined,
   showDesktopOnlySettings = true,
   hasUnsavedChatPromptChanges = false,
-  overrides: Partial<GlobalSettings> = {}
+  overrides: Partial<GlobalSettings> = {},
+  searchEntries?: SettingsSearchEntry[]
 ) {
   const settings = { ...getDefaultSettings('/tmp'), experimentalNativeChat: enabled, ...overrides }
   state.settings = settings
@@ -73,13 +80,15 @@ function renderChat(
         settings={settings}
         updateSettings={updateSettings}
         writeSourceControlAiSettings={async () => {}}
-        searchEntries={[
-          ...getChatAppearanceSearchEntries(),
-          ...getChatBehaviorSearchEntries(),
-          ...(showDesktopOnlySettings
-            ? [getChatNamingSearchEntry(), getChatInlineVisualsSearchEntry()]
-            : [])
-        ]}
+        searchEntries={
+          searchEntries ?? [
+            ...getChatAppearanceSearchEntries(),
+            ...getChatBehaviorSearchEntries(),
+            ...(showDesktopOnlySettings
+              ? [getChatNamingSearchEntry(), getChatInlineVisualsSearchEntry()]
+              : [])
+          ]
+        }
         showDesktopOnlySettings={showDesktopOnlySettings}
         isMounted
         hasUnsavedChatPromptChanges={hasUnsavedChatPromptChanges}
@@ -242,12 +251,27 @@ describe('Chat settings page', () => {
     expect(results[0]?.sectionId).toBe('chat')
   })
 
-  it.each([false, true])(
-    'keeps queue search and palette targets aligned with local support %s',
-    (supported) => {
-      setLocalRuntimeCapabilitiesForTests(
-        supported ? [AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY] : []
-      )
+  it.each([
+    ['en', 'Queue follow-ups', false],
+    ['en', 'Queue follow-ups', true],
+    ['zh', '将后续消息加入队列', false],
+    ['zh', '将后续消息加入队列', true]
+  ] as const)(
+    'finds %s queue setting %s with local support %s',
+    async (language, query, supported) => {
+      await i18n.changeLanguage('en')
+      expect(
+        getChatBehaviorSearchEntries().find(
+          (entry) => entry.targetSectionId === 'chat-queue-follow-ups'
+        )?.title
+      ).toBe('Queue follow-ups')
+      await i18n.changeLanguage(language)
+      setLocalRuntimeCapabilitiesForTests([
+        AGENT_SESSION_QUEUED_COMMANDS_RUNTIME_CAPABILITY,
+        AGENT_SESSION_QUEUED_MESSAGE_EDIT_RUNTIME_CAPABILITY,
+        AGENT_SESSION_QUEUED_MESSAGE_IMAGE_EDIT_RUNTIME_CAPABILITY,
+        ...(supported ? [AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY] : [])
+      ])
       const { result } = renderHook(() =>
         useStructuredAgentSessionHostQueuesMessages({ kind: 'local' })
       )
@@ -267,21 +291,29 @@ describe('Chat settings page', () => {
       const queueResult = buildCmdJSettingsResults(sections).find(
         (entry) => entry.targetSectionId === 'chat-queue-follow-ups'
       )
-      state.settingsSearchQuery = 'queue'
-      const { container } = renderChat(true)
-      expect(chat && matchesSettingsSearch('queue', getSettingsSectionSearchEntries(chat))).toBe(
-        hostQueuesMessages
-      )
-      expect(Boolean(queueEntry)).toBe(hostQueuesMessages)
-      expect(Boolean(queueResult)).toBe(hostQueuesMessages)
-      expect(Boolean(container.querySelector('#chat-queue-follow-ups'))).toBe(hostQueuesMessages)
-      expect(Boolean(container.querySelector('#chat-behavior'))).toBe(hostQueuesMessages)
-      if (hostQueuesMessages) {
-        expect(queueResult?.sectionId).toBe('chat')
-        expect(getSettingsScrollTarget(queueResult?.targetSectionId ?? '', container)).toBe(
-          container.querySelector('#chat-queue-follow-ups')
+      state.settingsSearchQuery = query
+      const { container, updateSettings } = renderChat(true, true, false, {}, chat?.searchEntries)
+      expect(chat && matchesSettingsSearch(query, getSettingsSectionSearchEntries(chat))).toBe(true)
+      expect(queueEntry?.title).toBe(query)
+      expect(queueResult?.sectionId).toBe('chat')
+      const row = container.querySelector('#chat-queue-follow-ups')
+      expect(row).not.toBeNull()
+      expect(getSettingsScrollTarget(queueResult?.targetSectionId ?? '', container)).toBe(row)
+      expect(screen.getByText(query)).toBeTruthy()
+      expect(container.querySelector('#chat-appearance')).toBeNull()
+      expect(container.querySelector('#chat-shell-environment')).toBeNull()
+      const toggle = screen.getByRole('switch')
+      expect(toggle.hasAttribute('disabled')).toBe(!supported)
+      fireEvent.click(toggle)
+      if (supported) {
+        expect(updateSettings).toHaveBeenCalledWith({ nativeChatQueueFollowUps: false })
+      } else {
+        expect(updateSettings).not.toHaveBeenCalled()
+        expect(row?.textContent).toContain(
+          language === 'zh'
+            ? '此主机不支持后续消息队列，暂时无法更改此设置。'
+            : 'This host does not support queued follow-ups. This setting is unavailable.'
         )
-        expect(screen.getByRole('switch', { name: 'Toggle queue follow-ups' })).toBeTruthy()
       }
     }
   )

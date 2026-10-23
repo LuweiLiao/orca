@@ -19470,6 +19470,8 @@
         "queueFollowUpsTitle": "Poner mensajes en cola",
         "queueFollowUpsCopy": "Los mensajes que envías mientras el agente trabaja esperan como tarjetas que puedes enviar ahora, editar o eliminar. Los mensajes con imágenes se envían de inmediato.",
         "queueFollowUpsToggleLabel": "Alternar la cola de mensajes",
+        "queueFollowUpsUnsupported": "Este host no admite la cola de mensajes. Este ajuste no está disponible.",
+        "queueFollowUpsUnconfirmed": "No se ha confirmado que este host admita la cola de mensajes. Este ajuste no está disponible hasta que se confirme.",
         "inlineVisualsTitle": "Elementos visuales inline",
         "inlineVisualsCopy": "Permite que el agente muestre gráficos, diagramas y maquetas dentro de sus respuestas. Se aplica a los chats nuevos.",
         "inlineVisualsToggleLabel": "Alternar elementos visuales inline",

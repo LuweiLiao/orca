@@ -20118,6 +20118,8 @@
         "inlineVisualsToggleLabel": "Ativar ou desativar visualizações nas respostas",
         "queueFollowUpsCopy": "As mensagens enviadas enquanto o agente trabalha aguardam como cartões que você pode usar para orientá-lo, editar ou excluir. Mensagens com imagens são enviadas imediatamente.",
         "queueFollowUpsToggleLabel": "Ativar ou desativar fila de mensagens de acompanhamento",
+        "queueFollowUpsUnsupported": "Este host não oferece suporte à fila de mensagens de acompanhamento. Esta configuração está indisponível.",
+        "queueFollowUpsUnconfirmed": "O suporte à fila não foi confirmado para este host. Esta configuração fica indisponível até a confirmação.",
         "behaviorTitle": "Comportamento",
         "resumeSearchUpdate": "atualizar",
         "resumeSearchRelaunch": "reiniciar",
