@@ -8,7 +8,7 @@ import type {
 import { patchStoredSession } from '../../shared/workspace-layout/workspace-layout-record-patch'
 import { desktopWindowId } from '../window/desktop-renderer-registry'
 import { desktopWindowSession } from './desktop-window-state'
-import { preserveConcurrentTabGroupOrder } from './desktop-window-tab-order'
+import { preserveConcurrentTabGroupOrder } from '../../shared/desktop-window-tab-order'
 
 const savedViews = new WeakMap<WebContents, Map<string, WorkspaceSessionState>>()
 

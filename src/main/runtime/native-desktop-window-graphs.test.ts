@@ -30,6 +30,25 @@ function graph(id: number, generation = `renderer-${id}`): RuntimeRendererSyncWi
 }
 
 describe('native desktop window runtime graphs', () => {
+  it('withdraws reloading windows, restores canceled navigation, and never revives a crashed graph', () => {
+    const runtime = createRuntime()
+    const graphs = new NativeDesktopWindowGraphs(runtime)
+    graphs.sync(11, graph(1))
+    graphs.sync(22, graph(2))
+    const resumeFirst = graphs.suspend(11)
+    expect(runtime.getStatus()).toMatchObject({ graphStatus: 'ready', liveTabCount: 1 })
+    expect(graphs.windowIdsForTab('tab-1')).toEqual([])
+    resumeFirst()
+    expect(runtime.getStatus()).toMatchObject({ graphStatus: 'ready', liveTabCount: 2 })
+    const resumeSecond = graphs.suspend(22)
+    graphs.remove(22)
+    resumeSecond()
+    expect(graphs.windowIdsForTab('tab-2')).toEqual([])
+    graphs.remove(11)
+    expect(runtime.getStatus().graphStatus).toBe('unavailable')
+    graphs.sync(22, graph(2, 'recovered'))
+    expect(runtime.getStatus()).toMatchObject({ graphStatus: 'ready', liveTabCount: 1 })
+  })
   it('keeps unchanged mobile snapshots and prunes a removed window workspace', () => {
     const runtime = createRuntime()
     const publish = vi.spyOn(runtime, 'syncWindowGraph')

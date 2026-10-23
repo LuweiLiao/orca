@@ -1,3 +1,4 @@
+import { webContents } from 'electron'
 import { BrowserGrabSessionController } from './browser-grab-session-controller'
 import type { BrowserCertificateTrustController } from './browser-certificate-trust-controller'
 import type { BrowserSiteDisplayController } from './browser-site-display-controller'
@@ -27,6 +28,8 @@ import type { BrowserGrabCancelReason } from '../../shared/browser-grab-types'
 import { BrowserManagerViewportScrollState } from './browser-manager-viewport-scroll-state'
 
 export abstract class BrowserManagerState extends BrowserManagerViewportScrollState {
+  protected readonly nativeRendererByGuestId = new Map<number, number>()
+  protected abstract selectGuestForEvent(guestId: number): void
   protected abstract attachGuestPolicies(
     guest: Electron.WebContents,
     inheritedOwnerContext?: PopupOwnerContext | null,
@@ -230,8 +233,15 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     if (!browserPageId) {
       return null
     }
-    const renderer = this.resolveRendererForBrowserTab(browserPageId)
-    return renderer ? { browserPageId, renderer } : null
+    const ownerGuestId =
+      this.popupOwnerContextByGuestId.get(guestWebContentsId)?.rootGuestWebContentsId ??
+      guestWebContentsId
+    const rendererId = this.nativeRendererByGuestId.get(ownerGuestId)
+    const renderer =
+      rendererId === undefined
+        ? this.resolveRendererForBrowserTab(browserPageId)
+        : webContents.fromId(rendererId)
+    return renderer && !renderer.isDestroyed() ? { browserPageId, renderer } : null
   }
 
   /** Where a prompt from this page or popup shows; null when it has no window on this machine. */

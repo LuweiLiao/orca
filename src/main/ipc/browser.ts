@@ -2,7 +2,8 @@ import { ipcMain, webContents } from 'electron'
 import { browserCertificateTrustController, browserManager } from '../browser/browser-manager'
 import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
 import { isWorkspaceDocPageId } from '../browser/doc-preview-guest-policy'
-import { isTrustedBrowserRenderer } from './browser-renderer-trust'
+import { selectTrustedBrowserRenderer as isTrustedBrowserRenderer } from './browser-renderer-selection'
+import { desktopWindowId } from '../window/desktop-renderer-registry'
 import {
   isLiveBrowserWebContentsId,
   resolveTabRegistrationWaiters
@@ -175,6 +176,12 @@ export function registerBrowserHandlers(): void {
     // that grab would then answer ok without ever arming. A document page withdraws by revoking
     // its grant, so its id arriving here is misaddressed however it got here.
     if (typeof args?.browserPageId !== 'string' || isWorkspaceDocPageId(args.browserPageId)) {
+      return false
+    }
+    if (
+      desktopWindowId(event.sender) &&
+      !browserManager.ownsNativeGuest(args.browserPageId, event.sender.id)
+    ) {
       return false
     }
     // Why: notify bridge before unregistering so it can destroy the session

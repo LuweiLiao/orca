@@ -1,7 +1,7 @@
-import type { TabGroup } from '../../shared/tab-types'
-import type { WorkspaceSessionState } from '../../shared/workspace-session-state-types'
-import { collectTabGroupLayoutGroupIds } from '../../shared/workspace-layout/tab-group-moves'
-import { pruneGroupLayout } from '../../shared/workspace-session-terminal-tab-close'
+import type { TabGroup } from './tab-types'
+import type { WorkspaceSessionState } from './workspace-session-state-types'
+import { collectTabGroupLayoutGroupIds } from './workspace-layout/tab-group-moves'
+import { pruneGroupLayout } from './workspace-session-terminal-tab-close'
 
 function changedTabOrder(
   current: readonly string[],

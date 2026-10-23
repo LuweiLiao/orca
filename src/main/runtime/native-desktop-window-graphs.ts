@@ -24,6 +24,7 @@ export class NativeDesktopWindowGraphs {
   private readonly windows = new Map<number, WindowGraph>()
   private epoch = randomUUID()
   private version = 0
+  private readonly membershipVersions = new Map<number, symbol>()
 
   constructor(private readonly runtime: GraphRuntime) {}
 
@@ -42,6 +43,7 @@ export class NativeDesktopWindowGraphs {
         throw new Error('duplicate_runtime_tab_id')
       }
     }
+    this.membershipVersions.set(windowId, Symbol())
     const previous = this.windows.get(windowId)
     const sameDocument = previous?.graph.rendererGeneration === graph.rendererGeneration
     if (!sameDocument) {
@@ -69,6 +71,7 @@ export class NativeDesktopWindowGraphs {
   }
 
   remove(windowId: number): void {
+    this.membershipVersions.delete(windowId)
     if (!this.windows.delete(windowId)) {
       return
     }
@@ -76,6 +79,26 @@ export class NativeDesktopWindowGraphs {
       this.runtime.markGraphUnavailable(NATIVE_DESKTOP_GRAPH_ID)
     } else {
       this.epoch = randomUUID()
+      this.publish()
+    }
+  }
+
+  suspend(windowId: number): () => void {
+    const previous = this.windows.get(windowId)
+    this.remove(windowId)
+    const version = Symbol()
+    this.membershipVersions.set(windowId, version)
+    return () => {
+      if (
+        !previous ||
+        this.windows.has(windowId) ||
+        this.membershipVersions.get(windowId) !== version
+      ) {
+        return
+      }
+      this.windows.set(windowId, previous)
+      this.epoch = randomUUID()
+      this.runtime.attachWindow(NATIVE_DESKTOP_GRAPH_ID)
       this.publish()
     }
   }

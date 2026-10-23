@@ -39,7 +39,14 @@ export function registerRuntimeWindowLifecycle(
   const rendererNotifications = createRuntimeRendererNotificationSender({
     isWindowDestroyed: () => mainWindow.isDestroyed(),
     webContents: mainWebContents,
-    onFailure: (reason) => runtime.markGraphReloadFailed(mainWindow.id, reason)
+    onFailure: (reason) => {
+      if (native) {
+        rendererAvailable = false
+        nativeDesktopWindowGraphs(runtime).remove(windowId)
+      } else {
+        runtime.markGraphReloadFailed(windowId, reason)
+      }
+    }
   })
   const send = rendererNotifications.send
   const notifier: RuntimeNotifier = {
@@ -247,9 +254,11 @@ export function registerRuntimeWindowLifecycle(
   registerRendererDocumentNavigation(mainWebContents, () => {
     rendererAvailable = false
     rendererNotifications.onMainFrameReloadStarted()
+    const resumeNativeGraph = native ? nativeDesktopWindowGraphs(runtime).suspend(windowId) : null
     const fence = native ? null : runtime.markRendererReloading(windowId)
     return () => {
       if (native || (fence && runtime.markRendererReloadCancelled(windowId, fence))) {
+        resumeNativeGraph?.()
         rendererAvailable = true
         rendererNotifications.onMainFrameReloadCancelled()
       }

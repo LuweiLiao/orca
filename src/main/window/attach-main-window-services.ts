@@ -31,11 +31,7 @@ import { hydrateLocalPtyRegistryAtBoot } from '../memory/hydrate-local-pty-regis
 import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
 import { getKnownWorktreeIdsForHistoryGc } from './history-gc-worktree-ids'
 import type { ClaudeAccountSelectionTarget } from '../claude-accounts/runtime-selection'
-import {
-  scheduleWorktreeBaseDirectoryWatcherSync,
-  setWorktreeBaseDirectoryWatcherSyncContext
-} from '../ipc/worktree-base-directory-watcher'
-import { startFolderRepoGitUpgradeWatch } from '../ipc/folder-repo-git-upgrade'
+import { attachMainWindowWorktreeWatchers } from './main-window-worktree-watchers'
 import { scheduleMainWindowAutoUpdaterSetup } from './main-window-updater'
 import { registerRuntimeWindowLifecycle } from './runtime-window-lifecycle'
 import { ensureStructuredAgentSessionHostUnlessRefused } from '../runtime/structured-agent-session-host-refusal'
@@ -88,6 +84,7 @@ export function attachMainWindowServices(
   } else {
     registerAppReloadHandler(mainWindow, options?.onBeforeRendererReload)
   }
+  attachMainWindowWorktreeWatchers(store, mainWindow)
   if (!native || !attachedNativeRuntimes.has(runtime)) {
     registerRepoHandlers(mainWindow, store, runtime)
     // Why: repo IPC mutations must also invalidate paired clients' catalogs (#11994).
@@ -96,12 +93,6 @@ export function attachMainWindowServices(
     registerWorktreeHandlers(mainWindow, store, runtime, {
       onWorktreeLifecycle: options?.onWorktreeLifecycle
     })
-    // Why: repo/settings mutations resync watchers through this attached main-window context.
-    setWorktreeBaseDirectoryWatcherSyncContext(store, mainWindow)
-    scheduleWorktreeBaseDirectoryWatcherSync(store, mainWindow)
-    // Why: folder projects get no watch target, so an external `git init` needs its own
-    // marker poll to upgrade them without a restart (#11477).
-    startFolderRepoGitUpgradeWatch(store, mainWindow)
     registerWorkspaceCleanupHandlers(store)
     registerPtyHandlers(
       delivery?.source ?? mainWindow,
@@ -169,6 +160,9 @@ export function attachMainWindowServices(
     registerTccPromptNoticeHandlers(mainWindow)
   }
   registerRuntimeWindowLifecycle(mainWindow, runtime)
+  if (native) {
+    mainWindow.on('focus', () => browserManager.selectNativeRenderer(mainWindow.webContents.id))
+  }
 
   const allowedPermissions = new Set(['media', 'fullscreen', 'pointerLock'])
   mainWindow.webContents.session.setPermissionRequestHandler(
