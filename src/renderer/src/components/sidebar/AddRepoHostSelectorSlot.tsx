@@ -11,6 +11,7 @@ export function AddRepoHostSelectorSlot({
 }) {
   const [addRemoteHostMode, setAddRemoteHostMode] = useState<AddRemoteHostMode | null>(null)
   const wslHostsEnabled = useWslHostsEnabled()
+  const { wsl } = hostSelection
 
   return (
     <>
@@ -25,6 +26,12 @@ export function AddRepoHostSelectorSlot({
         onAddRemoteServer={() => setAddRemoteHostMode('server')}
         onAddWslHost={wslHostsEnabled ? () => setAddRemoteHostMode('wsl') : undefined}
         onOpenWslHostsSetting={openWslHostsExperimentalSetting}
+        wslDistros={wsl.distros}
+        wslLoading={wsl.loading}
+        wslError={wsl.error}
+        connectingWslDistro={wsl.connectingDistro}
+        wslServerFilesMissing={wsl.serverFilesMissing}
+        onSelectWslDistro={(distro) => void wsl.connect(distro)}
       />
       <AddRemoteHostDialog mode={addRemoteHostMode} onOpenChange={setAddRemoteHostMode} />
     </>

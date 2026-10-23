@@ -5,6 +5,7 @@ import {
   getSettingsFocusedExecutionHostId,
   LOCAL_EXECUTION_HOST_ID,
   parseExecutionHostId,
+  toRuntimeExecutionHostId,
   type ExecutionHostId
 } from '../../../../shared/execution-host'
 import type { SshConnectionState } from '../../../../shared/ssh-types'
@@ -18,6 +19,7 @@ import {
 } from '../../../../shared/managed-orcad-execution-host'
 import { translate } from '@/i18n/i18n'
 import { isWebClientLocation } from '@/lib/web-client-location'
+import { useAddRepoWslDistros } from './use-add-repo-wsl-distros'
 
 export function useAddRepoHostSelection({
   isOpen,
@@ -38,6 +40,7 @@ export function useAddRepoHostSelection({
   setHostSelectorOpen: (open: boolean) => void
   handleSelectAddProjectHost: (hostId: ExecutionHostId) => Promise<void>
   handleConnectAddProjectHost: (hostId: ExecutionHostId) => Promise<void>
+  wsl: ReturnType<typeof useAddRepoWslDistros>
 } {
   const settings = useAppStore((s) => s.settings)
   const setSshConnectionState = useAppStore((s) => s.setSshConnectionState)
@@ -68,6 +71,14 @@ export function useAddRepoHostSelection({
   const [selectedAddProjectHostId, setSelectedAddProjectHostId] =
     useState<ExecutionHostId>(LOCAL_EXECUTION_HOST_ID)
   const [hostSelectorOpen, setHostSelectorOpen] = useState(false)
+  const wsl = useAddRepoWslDistros({
+    open: isOpen && hostSelectorOpen,
+    onConnected: (environmentId) => {
+      setSelectedAddProjectHostId(toRuntimeExecutionHostId(environmentId))
+      setStep('add')
+      setHostSelectorOpen(false)
+    }
+  })
   const previousOpenRef = useRef(false)
   const pairedWebRuntimeHost = isWebClient
     ? selectableHostOptions.find((host) => host.kind === 'runtime' && canSelectAddRepoHost(host))
@@ -95,8 +106,9 @@ export function useAddRepoHostSelection({
           (host) => host.id === LOCAL_EXECUTION_HOST_ID && canSelectAddRepoHost(host)
         ) ??
         selectableHostOptions.find((host) => canSelectAddRepoHost(host)))
-  const selectedHostId =
-    selectedHost?.id ?? (isWebClient || requestedHostPending ? null : LOCAL_EXECUTION_HOST_ID)
+  const selectedHostId = wsl.connectingDistro
+    ? null
+    : (selectedHost?.id ?? (isWebClient || requestedHostPending ? null : LOCAL_EXECUTION_HOST_ID))
   const displayedHostId = requestedHostPending ? (requestedHost?.id ?? null) : selectedHostId
   const selectedParsedHost = parseExecutionHostId(selectedHostId)
 
@@ -235,6 +247,7 @@ export function useAddRepoHostSelection({
     hostSelectorOpen,
     setHostSelectorOpen,
     handleSelectAddProjectHost,
-    handleConnectAddProjectHost
+    handleConnectAddProjectHost,
+    wsl
   }
 }

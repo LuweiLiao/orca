@@ -14,7 +14,7 @@ export function useWslDistroList(enabled: boolean): {
   refresh: () => void
 } {
   const [distros, setDistros] = useState<WslHostDistro[]>([])
-  const [loading, setLoading] = useState(enabled)
+  const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inFlight = useRef(false)
