@@ -130,6 +130,29 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
     }
   }
 
+  /** Unregisters exactly the caller's own guest; a peer's guest stays selected and live. */
+  unregisterGuestForRenderer(
+    pageId: string,
+    rendererId: number,
+    reason: 'page-closed' | 'guest-destroyed' = 'page-closed'
+  ): boolean {
+    const targetId = this.guestIdForRenderer(pageId, rendererId)
+    if (targetId === undefined) {
+      return false
+    }
+    const previouslySelectedId = this.webContentsIdByTabId.get(pageId)
+    const guests = this.nativeGuests.get(pageId)
+    if (guests) {
+      // unregisterGuest always tears down whichever guest is currently selected; aim it at the caller's own guest.
+      this.selectNativeGuest(pageId, targetId, true)
+    }
+    this.unregisterGuest(pageId, reason)
+    if (guests && previouslySelectedId !== undefined && previouslySelectedId !== targetId) {
+      this.selectNativeGuest(pageId, previouslySelectedId)
+    }
+    return true
+  }
+
   protected override guestIdForRenderer(pageId: string, rendererId: number): number | undefined {
     const guests = this.nativeGuests.get(pageId)
     if (!guests) {
@@ -138,14 +161,6 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
     return [...guests].findLast(
       ([, entry]) => entry.registration.rendererWebContentsId === rendererId
     )?.[0]
-  }
-
-  ownsNativeGuest(pageId: string, rendererId: number): boolean {
-    const guests = this.nativeGuests.get(pageId)
-    return (
-      !guests ||
-      [...guests.values()].some((entry) => entry.registration.rendererWebContentsId === rendererId)
-    )
   }
 
   protected selectGuestForEvent(guestId: number): void {

@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { registerBrowserHandlers, setAgentBrowserBridgeRef } from './browser'
+import { browserManager } from '../browser/browser-manager'
 
 export function nativeRegistrationRegressions(mocks: {
   handleMock: ReturnType<typeof vi.fn>
@@ -27,6 +28,7 @@ export function nativeRegistrationRegressions(mocks: {
       handler(
         {
           sender: {
+            id: 91,
             isDestroyed: () => false,
             getType: () => 'window',
             getURL: () => 'file:///renderer/index.html'
@@ -36,6 +38,8 @@ export function nativeRegistrationRegressions(mocks: {
       )
     ).toBe(true)
     expect(bridge.onTabChanged).toHaveBeenCalledWith(4242, 'wt-browser')
+    // activeTabChanged is explicit activation: it is the one caller allowed to move the shared selection.
+    expect(vi.mocked(browserManager.selectNativeRenderer)).toHaveBeenCalledWith(91)
   })
 
   it.each([true, false])(

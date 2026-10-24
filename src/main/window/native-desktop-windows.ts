@@ -83,15 +83,13 @@ export class NativeDesktopWindows {
         return
       }
       this.windows.delete(id)
-      if (store && !this.deps.isQuitting()) {
+      // This close triggers app.quit() below; keep it `open: true` so it restores next launch.
+      const closureCausesQuit =
+        this.windows.size === 0 && !this.deps.isServeMode() && process.platform !== 'darwin'
+      if (store && !this.deps.isQuitting() && !closureCausesQuit) {
         updateDesktopWindowState(store, id, { open: false })
       }
-      if (
-        this.windows.size === 0 &&
-        !this.deps.isServeMode() &&
-        !this.deps.isQuitting() &&
-        process.platform !== 'darwin'
-      ) {
+      if (closureCausesQuit && !this.deps.isQuitting()) {
         app.quit()
       }
     })

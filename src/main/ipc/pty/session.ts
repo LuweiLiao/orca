@@ -150,6 +150,7 @@ export type PtyIpcSession = {
       data: string
       sequenceChars?: number
       transformed?: boolean
+      droppedOutput?: boolean
     },
     outputSeq: number | undefined
   ) => void

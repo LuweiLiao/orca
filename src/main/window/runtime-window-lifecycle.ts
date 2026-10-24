@@ -9,7 +9,7 @@ import type { TerminalTabCreateReply } from '../../shared/terminal-reveal-identi
 import { runWorktreeChangeInvalidators } from '../ipc/worktree-change-invalidators'
 import { requestAgentLaunchTabPublishFromRenderer } from './agent-launch-tab-publish-relay'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import { registerRendererDocumentNavigation } from './renderer-document-navigation'
+import { registerRuntimeRendererLifecycle } from './runtime-renderer-lifecycle'
 import { createRuntimeRendererNotificationSender } from './runtime-renderer-notification-sender'
 import { requestSessionTabCloseFromRenderer } from './session-tab-close-request-relay'
 import { revealTerminalPaneInWindow } from './terminal-pane-reveal-relay'
@@ -236,7 +236,13 @@ export function registerRuntimeWindowLifecycle(
     clientHostedBrowserRowsChanged: (event) => send('runtime:clientHostedBrowserRowsChanged', event)
   }
   const unregisterNative = native
-    ? registerNativeDesktopNotifier(runtime, mainWindow, notifier, () => rendererAvailable)
+    ? registerNativeDesktopNotifier(
+        runtime,
+        mainWindow,
+        notifier,
+        () => rendererAvailable,
+        () => send('runtime:notifierReset')
+      )
     : null
   if (!native) {
     runtime.setNotifier(notifier)
@@ -252,26 +258,15 @@ export function registerRuntimeWindowLifecycle(
         { consumesTerminalSideEffects: false }
       )
     : null
-  registerRendererDocumentNavigation(mainWebContents, () => {
-    rendererAvailable = false
-    rendererNotifications.onMainFrameReloadStarted()
-    const resumeNativeGraph = native ? nativeDesktopWindowGraphs(runtime).suspend(windowId) : null
-    const fence = native ? null : runtime.markRendererReloading(windowId)
-    return () => {
-      if (native || (fence && runtime.markRendererReloadCancelled(windowId, fence))) {
-        resumeNativeGraph?.()
-        rendererAvailable = true
-        rendererNotifications.onMainFrameReloadCancelled()
-      }
+  registerRuntimeRendererLifecycle({
+    webContents: mainWebContents,
+    runtime,
+    windowId,
+    native,
+    notifications: rendererNotifications,
+    setAvailable: (available) => {
+      rendererAvailable = available
     }
-  })
-  mainWebContents.on('did-finish-load', () => {
-    rendererAvailable = true
-    rendererNotifications.onMainFrameLoadFinished()
-  })
-  mainWebContents.on('render-process-gone', () => {
-    rendererAvailable = false
-    rendererNotifications.onRendererProcessGone()
   })
   mainWindow.on('closed', () => {
     detachSidebarInputsNotices?.()

@@ -8,7 +8,7 @@ import {
   type BrowserClientPageMetadataPublishOutcome
 } from '../../shared/browser-client-page-metadata-protocol'
 import { RemoteRuntimeClientError } from '../../shared/remote-runtime-client-error'
-import { selectTrustedBrowserRenderer as isTrustedBrowserRenderer } from './browser-renderer-selection'
+import { isTrustedBrowserRenderer } from './browser-renderer-trust'
 import type { BrowserViewportOverride } from '../../shared/browser-workspace-types'
 import {
   isBrowserSiteColorScheme,
@@ -45,10 +45,10 @@ export function registerBrowserGuestViewHandlers(): void {
   ipcMain.removeHandler('browser:zoomPage')
   ipcMain.removeHandler('browser:setPageSiteColorScheme')
 
-  // Page/session operations exclude document previews.
+  // Page/session operations exclude document previews; resolve only the sender's own guest.
   const pageGuestId = (event: IpcMainInvokeEvent, browserPageId: unknown): number | null =>
     isTrustedBrowserRenderer(event.sender) && typeof browserPageId === 'string'
-      ? browserManager.getGuestWebContentsId(browserPageId)
+      ? browserManager.getGuestWebContentsIdForRenderer(browserPageId, event.sender.id)
       : null
 
   const pageGuest = (
@@ -103,7 +103,8 @@ export function registerBrowserGuestViewHandlers(): void {
       }
       return browserManager.openDevTools(
         args.browserPageId,
-        isPagePoint(args.inspectAt) ? args.inspectAt : undefined
+        isPagePoint(args.inspectAt) ? args.inspectAt : undefined,
+        event.sender.id
       )
     }
   )
@@ -165,7 +166,7 @@ export function registerBrowserGuestViewHandlers(): void {
           return false
         }
       }
-      return browserManager.setViewportOverride(args.browserPageId, args.override)
+      return browserManager.setViewportOverride(args.browserPageId, args.override, event.sender.id)
     }
   )
 

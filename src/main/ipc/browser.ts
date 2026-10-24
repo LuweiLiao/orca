@@ -2,7 +2,8 @@ import { ipcMain, webContents } from 'electron'
 import { browserCertificateTrustController, browserManager } from '../browser/browser-manager'
 import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
 import { isWorkspaceDocPageId } from '../browser/doc-preview-guest-policy'
-import { selectTrustedBrowserRenderer as isTrustedBrowserRenderer } from './browser-renderer-selection'
+import { isTrustedBrowserRenderer } from './browser-renderer-trust'
+import { selectTrustedBrowserRenderer } from './browser-renderer-selection'
 import { desktopWindowId } from '../window/desktop-renderer-registry'
 import {
   isLiveBrowserWebContentsId,
@@ -165,8 +166,8 @@ export function registerBrowserHandlers(): void {
         return false
       }
       return (
-        browserManager.getGuestWebContentsId(args.browserPageId) === args.webContentsId &&
-        isLiveBrowserWebContentsId(args.webContentsId)
+        browserManager.getGuestWebContentsIdForRenderer(args.browserPageId, event.sender.id) ===
+          args.webContentsId && isLiveBrowserWebContentsId(args.webContentsId)
       )
     }
   )
@@ -179,24 +180,27 @@ export function registerBrowserHandlers(): void {
     if (typeof args?.browserPageId !== 'string' || isWorkspaceDocPageId(args.browserPageId)) {
       return false
     }
-    if (
-      desktopWindowId(event.sender) &&
-      !browserManager.ownsNativeGuest(args.browserPageId, event.sender.id)
-    ) {
+    const isNative = Boolean(desktopWindowId(event.sender))
+    // A native renderer may only unregister its own guest, never a peer window's.
+    const wcId = isNative
+      ? browserManager.getGuestWebContentsIdForRenderer(args.browserPageId, event.sender.id)
+      : browserManager.getGuestWebContentsId(args.browserPageId)
+    if (isNative && wcId === null) {
       return false
     }
     // Destroy bridge sessions before unregistering clears the guest mapping.
-    const wcId = browserManager.getGuestWebContentsId(args.browserPageId)
     if (wcId !== null && agentBrowserBridgeRef) {
       agentBrowserBridgeRef.onTabClosed(wcId)
     }
-    if (wcId !== null || !desktopWindowId(event.sender)) {
+    if (wcId !== null || !isNative) {
       cancelBrowserWebAuthnAccountRequests(
         args.browserPageId,
-        desktopWindowId(event.sender) ? (wcId ?? undefined) : undefined
+        isNative ? (wcId ?? undefined) : undefined
       )
     }
-    browserManager.unregisterGuest(args.browserPageId)
+    if (!browserManager.unregisterGuestForRenderer(args.browserPageId, event.sender.id)) {
+      return false
+    }
     disposeGrabModeStateForPage(args.browserPageId)
     return true
   })
@@ -234,13 +238,21 @@ export function registerBrowserHandlers(): void {
       ) {
         return { ok: false, reason: 'missing' }
       }
-      return browserCertificateTrustController.proceed(args.browserPageId, args.challengeId)
+      const webContentsId = desktopWindowId(event.sender)
+        ? browserManager.getGuestWebContentsIdForRenderer(args.browserPageId, event.sender.id)
+        : browserManager.getGuestWebContentsId(args.browserPageId)
+      return browserCertificateTrustController.proceed(
+        args.browserPageId,
+        args.challengeId,
+        webContentsId
+      )
     }
   )
 
   // Keep agent commands aligned with the tab the user selected.
   ipcMain.handle('browser:activeTabChanged', (event, args: { browserPageId: string }) => {
-    if (!isTrustedBrowserRenderer(event.sender)) {
+    // Explicit activation: this is the one path that may move the shared selection cursor.
+    if (!selectTrustedBrowserRenderer(event.sender)) {
       return false
     }
     if (!agentBrowserBridgeRef) {

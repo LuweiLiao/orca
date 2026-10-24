@@ -209,6 +209,20 @@ export class NativeDesktopPtyDelivery {
     }
   }
 
+  /** On exit, retire this PTY id's driver/hint ownership everywhere so a same-id respawn starts unclaimed. */
+  private clearDriverAndHints(id: string): void {
+    this.drivers.delete(id)
+    for (const entry of this.windows.values()) {
+      entry.hints.delete(id)
+    }
+    activeRendererPtys.delete(id)
+    visibleRendererPtys.delete(id)
+    rendererVisibilityKnownPtys.delete(id)
+    setRendererPtyDeliveryInterest(id, false)
+    this.sourceSession?.transitionHiddenRendererPtyDeliveryState(id, false)
+    this.sourceSession?.syncPtyBackgroundedDelivery(id, 'pty-exit')
+  }
+
   sessionFor(renderer: WebContents): PtyIpcSession | null {
     if (renderer.isDestroyed()) {
       return null
@@ -225,7 +239,8 @@ export class NativeDesktopPtyDelivery {
             id: payload.id,
             data: payload.data,
             sequenceChars: payload.rawLength,
-            transformed: payload.transformed
+            transformed: payload.transformed,
+            droppedOutput: payload.droppedOutput
           },
           payload.seq
         )
@@ -249,6 +264,10 @@ export class NativeDesktopPtyDelivery {
         entries.at(-1)
       target?.renderer.send(channel, ...values)
       return
+    }
+    if (id && channel === 'pty:exit') {
+      // A fresh same-id respawn must not inherit the exited incarnation's reply/resize driver or visibility hints.
+      this.clearDriverAndHints(id)
     }
     for (const { renderer, session } of this.windows.values()) {
       if (renderer.isDestroyed()) {

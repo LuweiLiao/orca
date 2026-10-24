@@ -12,13 +12,21 @@ import { sendGuestCdpCommand } from './guest-cdp-command'
 const TOUCH_EMULATION_DISABLED = { enabled: false } as const
 
 export abstract class BrowserManagerViewport extends BrowserManagerDownloadLifecycle {
-  async openDevTools(browserTabId: string, inspectAt?: { x: number; y: number }): Promise<boolean> {
-    const webContentsId = this.webContentsIdByTabId.get(browserTabId)
+  async openDevTools(
+    browserTabId: string,
+    inspectAt?: { x: number; y: number },
+    rendererWebContentsId?: number
+  ): Promise<boolean> {
+    const webContentsId =
+      rendererWebContentsId === undefined
+        ? this.webContentsIdByTabId.get(browserTabId)
+        : this.guestIdForRenderer(browserTabId, rendererWebContentsId)
     if (!webContentsId) {
       return false
     }
     const guest = webContents.fromId(webContentsId)
     if (!guest || guest.isDestroyed()) {
+      this.selectGuestForEvent(webContentsId)
       this.unregisterGuest(browserTabId)
       return false
     }
@@ -37,9 +45,13 @@ export abstract class BrowserManagerViewport extends BrowserManagerDownloadLifec
   // Never detach here: other CDP clients, including the agent bridge, would lose their state.
   async setViewportOverride(
     browserTabId: string,
-    override: BrowserViewportOverride | null
+    override: BrowserViewportOverride | null,
+    rendererWebContentsId?: number
   ): Promise<boolean> {
-    const expectedWebContentsId = this.webContentsIdByTabId.get(browserTabId)
+    const expectedWebContentsId =
+      rendererWebContentsId === undefined
+        ? this.webContentsIdByTabId.get(browserTabId)
+        : this.guestIdForRenderer(browserTabId, rendererWebContentsId)
     if (expectedWebContentsId === undefined) {
       return false
     }

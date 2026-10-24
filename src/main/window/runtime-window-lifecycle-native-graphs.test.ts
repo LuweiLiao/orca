@@ -7,7 +7,13 @@ import { nativeDesktopWindowGraphs } from '../runtime/native-desktop-window-grap
 import { registerRuntimeWindowLifecycle } from './runtime-window-lifecycle'
 
 vi.mock('./desktop-renderer-registry', () => ({ desktopWindowId: () => 'native' }))
-vi.mock('./native-desktop-notifiers', () => ({ registerNativeDesktopNotifier: () => () => {} }))
+vi.mock('./native-desktop-notifiers', () => ({
+  registerNativeDesktopNotifier: () => () => {},
+  beginNativeDesktopNotifierReloadFence: () => {},
+  markNativeDesktopNotifierUnready: () => {},
+  flushNativeDesktopNotifier: () => {},
+  restoreNativeDesktopNotifierReady: () => {}
+}))
 
 function windowFixture(id: number) {
   const renderer = Object.assign(new EventEmitter(), {
