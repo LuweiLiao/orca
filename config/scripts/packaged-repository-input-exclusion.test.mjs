@@ -31,6 +31,14 @@ describe('packaged repository input exclusion', () => {
       'pnpm-workspace.yaml',
       'vite.web.config.ts'
     ]
+    const localArtifacts = [
+      'output/previous/win-unpacked/Orca.exe',
+      'output/integration-review/receipt.json',
+      'dist/orca-windows-setup.exe',
+      'test-results/native/trace.zip',
+      'playwright-report/index.html',
+      '.cache/typecheck/state.json'
+    ]
     const runtimePaths = [
       'LICENSE',
       'package.json',
@@ -39,13 +47,19 @@ describe('packaged repository input exclusion', () => {
       'out/main/runtime/mobile-cloud-relay/index.js',
       'out/main/runtime/push/push-host-proof.js',
       'out/shared/mobile-push-contract.js',
+      'out/main/output/index.js',
       'out/renderer/index.html',
       'out/renderer/assets/cloud/client.js',
       'resources/configs/orca.yaml',
       'resources/cloud/icon.png'
     ]
     try {
-      for (const fixturePath of [...cloudPaths, ...rootConfigs, ...runtimePaths]) {
+      for (const fixturePath of [
+        ...cloudPaths,
+        ...rootConfigs,
+        ...localArtifacts,
+        ...runtimePaths
+      ]) {
         const file = join(source, fixturePath)
         await mkdir(dirname(file), { recursive: true })
         await writeFile(file, fixturePath)
@@ -55,6 +69,7 @@ describe('packaged repository input exclusion', () => {
       ])
       expect(existsSync(join(destination, 'cloud'))).toBe(false)
       expect(rootConfigs.filter((file) => existsSync(join(destination, file)))).toEqual([])
+      expect(localArtifacts.filter((file) => existsSync(join(destination, file)))).toEqual([])
       for (const runtimePath of runtimePaths) {
         expect(await readFile(join(destination, runtimePath), 'utf8')).toBe(runtimePath)
       }
