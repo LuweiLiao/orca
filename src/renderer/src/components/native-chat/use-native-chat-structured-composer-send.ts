@@ -117,12 +117,26 @@ export function useNativeChatStructuredComposerSend({
       const annotated = hostCommand
         ? null
         : prepareNativeChatAnnotatedMessage(annotationScopeKey, text)
+      let annotationMessageId: string | undefined
       await dispatchNativeChatStructuredComposerText(
         structuredTransport,
         withConversationReferenceInstructions(annotated?.text ?? text),
         attachments,
         promptSkillRefs(submitted.document),
-        promptOrchestrationCards(submitted.document)
+        promptOrchestrationCards(submitted.document),
+        annotated?.hasAnnotations
+          ? {
+              onAdmitted: (messageId) => {
+                annotationMessageId = messageId
+                annotated.reserve(messageId)
+              },
+              onSettled: (outcome) => {
+                if (annotationMessageId && (outcome === 'returned' || outcome === 'dropped')) {
+                  annotated.release(annotationMessageId)
+                }
+              }
+            }
+          : undefined
       )
         .then(({ accepted, error, refusedWhile, revealsTranscript }) => {
           if (!hostCommand || isCurrent()) {
@@ -131,7 +145,6 @@ export function useNativeChatStructuredComposerSend({
           if (!accepted) {
             return
           }
-          annotated?.consume()
           completeNativeChatStructuredUserAction(
             agent,
             structuredTransport,

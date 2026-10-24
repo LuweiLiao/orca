@@ -1,6 +1,10 @@
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import type { NativeChatAnnotationAnchor } from './native-chat-annotation-anchor'
-import { formatNativeChatQuote } from './native-chat-quote-selection'
+import {
+  nativeChatAnnotationDeliveryStorage,
+  withoutReservedNativeChatAnnotations,
+  type NativeChatAnnotationDelivery
+} from './native-chat-annotation-delivery'
 import {
   isNativeChatAnnotationAnchor,
   isNativeChatAnnotationEditor,
@@ -10,6 +14,10 @@ import {
 } from './native-chat-annotation-storage'
 
 export type { NativeChatAnnotationAnchor } from './native-chat-annotation-anchor'
+export {
+  formatNativeChatAnnotations,
+  prepareNativeChatAnnotatedMessage
+} from './native-chat-annotation-delivery'
 
 export type NativeChatAnnotation = NativeChatAnnotationAnchor & {
   id: string
@@ -41,6 +49,8 @@ export type NativeChatAnnotationsStore = {
   consume: (notes: readonly NativeChatAnnotation[], editor?: NativeChatAnnotationEditor) => boolean
   clear: () => boolean
   retryPersistence: () => boolean
+  reserve: (delivery: NativeChatAnnotationDelivery) => boolean
+  settleDelivery: (messageId: string, outcome: 'accepted' | 'returned' | 'waiting') => boolean
 }
 
 const EMPTY: NativeChatAnnotationsSnapshot = { notes: [] }
@@ -59,12 +69,12 @@ const disabledStore: NativeChatAnnotationsStore = {
   setEditor: () => false,
   consume: () => false,
   clear: () => false,
-  retryPersistence: () => false
+  retryPersistence: () => false,
+  reserve: () => false,
+  settleDelivery: () => false
 }
 
-export function getNativeChatAnnotationsStore(
-  scopeKey: string | undefined
-): NativeChatAnnotationsStore {
+export function getNativeChatAnnotationsStore(scopeKey?: string): NativeChatAnnotationsStore {
   if (!scopeKey) {
     return disabledStore
   }
@@ -73,12 +83,18 @@ export function getNativeChatAnnotationsStore(
     return existing
   }
   const storage = nativeChatAnnotationStorage(scopeKey)
+  const deliveries = nativeChatAnnotationDeliveryStorage(scopeKey)
   let snapshot = EMPTY
   const pending = new Map<string, NativeChatAnnotation>()
   const consumedNotes = new Map<string, NativeChatAnnotation>()
   const consumedEditors = new Map<string, NativeChatAnnotationEditor>()
   let pendingEditor: NativeChatAnnotationEditor | undefined
   const listeners = new Set<() => void>()
+  const reportError = (error: unknown): false => {
+    snapshot = { ...snapshot, persistenceError: errorMessage(error) }
+    listeners.forEach((listener) => listener())
+    return false
+  }
   const refresh = (): void => {
     let next: NativeChatAnnotationsSnapshot
     try {
@@ -116,6 +132,11 @@ export function getNativeChatAnnotationsStore(
     ) {
       delete next.editor
     }
+    try {
+      next = withoutReservedNativeChatAnnotations(next, deliveries.read())
+    } catch (error) {
+      next = { ...next, persistenceError: errorMessage(error) }
+    }
     if (JSON.stringify(next) !== JSON.stringify(snapshot)) {
       snapshot = next
       listeners.forEach((listener) => listener())
@@ -124,7 +145,7 @@ export function getNativeChatAnnotationsStore(
   const persist = (): boolean => {
     try {
       // Migrate before mutating; a failed migration must leave the legacy copy intact.
-      const saved = storage.read()
+      const saved = storage.read(true)
       if (saved.persistenceError) {
         throw new Error(saved.persistenceError)
       }
@@ -148,9 +169,7 @@ export function getNativeChatAnnotationsStore(
       return true
     } catch (error) {
       refresh()
-      snapshot = { ...snapshot, persistenceError: errorMessage(error) }
-      listeners.forEach((listener) => listener())
-      return false
+      return reportError(error)
     }
   }
   const consume: NativeChatAnnotationsStore['consume'] = (notes, editor) => {
@@ -251,33 +270,41 @@ export function getNativeChatAnnotationsStore(
       refresh()
       return consume(snapshot.notes, snapshot.editor)
     },
-    retryPersistence: persist
+    retryPersistence: persist,
+    reserve: (delivery) => {
+      if (!persist()) {
+        return false
+      }
+      try {
+        deliveries.write(delivery)
+        refresh()
+        return true
+      } catch (error) {
+        return reportError(error)
+      }
+    },
+    settleDelivery: (messageId, outcome) => {
+      try {
+        const delivery = deliveries.read().find((entry) => entry.messageId === messageId)
+        if (!delivery) {
+          return true
+        }
+        if (outcome === 'accepted') {
+          if (!consume(delivery.notes, delivery.editor)) {
+            return false
+          }
+          deliveries.remove(messageId)
+        } else if ((delivery.returned === true) !== (outcome === 'returned')) {
+          const { returned: _returned, ...waiting } = delivery
+          deliveries.write(outcome === 'returned' ? { ...waiting, returned: true } : waiting)
+        }
+        refresh()
+        return true
+      } catch (error) {
+        return reportError(error)
+      }
+    }
   }
   stores.set(scopeKey, store)
   return store
-}
-
-export function formatNativeChatAnnotations(
-  notes: readonly Pick<NativeChatAnnotation, 'quote' | 'comment'>[]
-): string {
-  return notes
-    .map((note) => `${formatNativeChatQuote(note.quote)}${note.comment.trim()}`)
-    .join('\n\n')
-}
-
-export function prepareNativeChatAnnotatedMessage(scopeKey: string | undefined, text: string) {
-  const store = getNativeChatAnnotationsStore(scopeKey)
-  const { notes, editor } = store.getSnapshot()
-  const entries = notes.map((note) =>
-    note.id === editor?.id && editor.comment.trim() ? { ...note, comment: editor.comment } : note
-  )
-  if (editor?.comment.trim() && !notes.some((note) => note.id === editor.id)) {
-    entries.push({ ...editor.anchor, id: '', createdAt: 0, comment: editor.comment })
-  }
-  const annotations = formatNativeChatAnnotations(entries)
-  return {
-    hasAnnotations: entries.length > 0,
-    text: annotations ? [text.trim(), annotations].filter(Boolean).join('\n\n') : text,
-    consume: () => store.consume(notes, editor)
-  }
 }

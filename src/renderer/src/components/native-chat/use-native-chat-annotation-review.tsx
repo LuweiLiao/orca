@@ -1,4 +1,4 @@
-import { useState, type ReactNode, type RefObject } from 'react'
+import { useMemo, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MessageSquare, Pencil, RotateCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,12 +34,16 @@ export function useNativeChatAnnotationReview({
   useTranslation()
   const review = useNativeChatAnnotations(scopeKey)
   const editor = review.editor
-  const highlightNotes = editor
-    ? [
-        ...review.notes.filter((note) => note.id !== editor.id),
-        { ...editor.anchor, id: 'editor', comment: editor.comment, createdAt: 0 }
-      ]
-    : review.notes
+  const highlightNotes = useMemo(
+    () =>
+      editor
+        ? [
+            ...review.notes.filter((note) => note.id !== editor.id),
+            { ...editor.anchor, id: 'editor', comment: editor.comment, createdAt: 0 }
+          ]
+        : review.notes,
+    [editor, review.notes]
+  )
   const highlightName = useNativeChatAnnotationHighlights(rootRef, highlightNotes, enabled)
   const [expanded, setExpanded] = useState(false)
   const { locate, missingOriginal, resetMissingOriginal } = useNativeChatAnnotationLocate(

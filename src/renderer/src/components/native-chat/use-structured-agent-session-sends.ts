@@ -131,6 +131,7 @@ export function useStructuredAgentSessionSends(args: {
       if (!sent) {
         return false
       }
+      request?.onAdmitted?.(sent.clientMessageId)
       if (request?.onSettled) {
         void sent.outcome.then(request.onSettled)
       }

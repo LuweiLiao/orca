@@ -8,13 +8,15 @@ import { imageReferencesToPromptMarkers } from '../../../../shared/native-chat-i
 import type { StructuredAgentSessionCommandOutcome } from '../../../../shared/structured-agent-session-composer'
 import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
 import type { NativeChatComposerImageAttachment } from './NativeChatComposerField'
+import type { StructuredAgentSessionSendRequest } from './structured-agent-session-send-slot'
 
 export async function dispatchNativeChatStructuredComposerText(
   transport: NativeChatStructuredComposerTransport,
   draftText: string,
   attachments: readonly NativeChatComposerImageAttachment[] = [],
   skills: readonly AgentJournalSkillRef[] = [],
-  orchestrationCards: readonly OrchestrationAgentSelection[] = []
+  orchestrationCards: readonly OrchestrationAgentSelection[] = [],
+  sendRequest?: StructuredAgentSessionSendRequest
 ): Promise<Omit<StructuredAgentSessionCommandOutcome, 'handled'> & { revealsTranscript: boolean }> {
   // The one place a chip's image gets its number: its place among the images this message carries.
   const prompt = imageReferencesToPromptMarkers(
@@ -39,6 +41,7 @@ export async function dispatchNativeChatStructuredComposerText(
     }
   }
   const request = {
+    ...sendRequest,
     ...(skills.length > 0 ? { skills } : {}),
     ...(orchestrationCards.length > 0 ? { orchestrationCards } : {})
   }

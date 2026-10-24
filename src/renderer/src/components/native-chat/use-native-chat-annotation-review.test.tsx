@@ -188,7 +188,6 @@ describe('conversation annotation review', () => {
     localStorage.setItem(`orca:native-chat-annotations:v1:${scope}`, '{invalid')
     render(<Harness scopeKey={scope} />)
     expect(screen.getByRole('status')).toBeTruthy()
-    localStorage.removeItem(`orca:native-chat-annotations:v1:${scope}`)
     fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
     expect(screen.queryByRole('status')).toBeNull()
   })

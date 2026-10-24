@@ -18706,8 +18706,8 @@
     "native-chat": {
       "annotations": {
         "add": "添加批注",
-        "count": "{{count}} 条注释",
-        "countOne": "1 条注释",
+        "count": "{{count}} 条批注",
+        "countOne": "1 条批注",
         "title": "批注",
         "comment": "批注内容",
         "save": "保存批注",

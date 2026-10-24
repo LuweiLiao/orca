@@ -174,4 +174,68 @@ describe('native chat annotation storage', () => {
       persistenceError: 'Saved annotations could not be read.'
     })
   })
+
+  it.each(['legacy', 'note', 'note-shape', 'editor'] as const)(
+    'quarantines an unreadable %s record without blocking later saves',
+    async (kind) => {
+      const scope = `corrupt-${kind}`
+      const store = getNativeChatAnnotationsStore(scope)
+      const saved = store.add(anchor, 'Preserve the readable note')
+      if (!saved) {
+        throw new Error('Note was not accepted')
+      }
+      const prefix = `orca:native-chat-annotations:v2:${scope}:`
+      const key =
+        kind === 'legacy'
+          ? `orca:native-chat-annotations:v1:${scope}`
+          : kind === 'editor'
+            ? `${prefix}editor`
+            : `${prefix}note:broken`
+      const unreadable = kind.endsWith('shape') || kind === 'editor' ? '{}' : '{invalid'
+      localStorage.setItem(key, unreadable)
+      vi.resetModules()
+      const fresh = await import('./native-chat-annotations-store')
+      const restored = fresh.getNativeChatAnnotationsStore(scope)
+      expect(restored.getSnapshot()).toEqual({
+        notes: [saved],
+        persistenceError: 'Saved annotations could not be read.'
+      })
+      const quarantineKey = Array.from({ length: localStorage.length }, (_, index) =>
+        localStorage.key(index)
+      ).find((entry) => entry?.startsWith(`${prefix}quarantine:${encodeURIComponent(key)}:`))
+      expect(quarantineKey && localStorage.getItem(quarantineKey)).toBe(unreadable)
+      expect(localStorage.getItem(key)).toBeNull()
+      expect(restored.retryPersistence()).toBe(true)
+      expect(restored.getSnapshot().persistenceError).toBeUndefined()
+      expect(restored.update(saved.id, 'Updated after recovery')).toBe(true)
+      const added = restored.add(anchor, 'New after recovery')
+      expect(added).not.toBeNull()
+      expect(restored.remove(saved.id)).toBe(true)
+      expect(restored.consume(restored.getSnapshot().notes)).toBe(true)
+      vi.resetModules()
+      const reloaded = await import('./native-chat-annotations-store')
+      expect(reloaded.getNativeChatAnnotationsStore(scope).getSnapshot()).toEqual({ notes: [] })
+    }
+  )
+
+  it('keeps the unreadable original until its quarantine copy can be saved', () => {
+    const scope = 'quarantine-write-failure'
+    const key = `orca:native-chat-annotations:v1:${scope}`
+    localStorage.setItem(key, '{invalid')
+    const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Storage is full')
+    })
+    const store = getNativeChatAnnotationsStore(scope)
+    store.add(anchor, 'Keep the pending note')
+    expect(store.retryPersistence()).toBe(false)
+    expect(localStorage.getItem(key)).toBe('{invalid')
+    blocked.mockRestore()
+    expect(store.retryPersistence()).toBe(false)
+    expect(localStorage.getItem(key)).toBeNull()
+    expect(store.retryPersistence()).toBe(true)
+    expect(store.getSnapshot()).toMatchObject({
+      notes: [{ comment: 'Keep the pending note' }]
+    })
+    expect(store.getSnapshot().persistenceError).toBeUndefined()
+  })
 })

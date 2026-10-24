@@ -189,7 +189,7 @@ test('conversation annotations preserve quotes, highlight passages and collect e
     const settings = await window.api.settings.set({ uiLanguage: 'zh', theme: 'light' })
     window.__store?.setState({ settings })
   })
-  await expect(root.getByRole('button', { name: '2 条注释', exact: true })).toBeVisible()
+  await expect(root.getByRole('button', { name: '2 条批注', exact: true })).toBeVisible()
   await orcaPage.screenshot({ path: testInfo.outputPath('annotations-light-chinese.png') })
   await orcaPage.evaluate(async () => {
     const settings = await window.api.settings.set({ uiLanguage: 'en', theme: 'dark' })

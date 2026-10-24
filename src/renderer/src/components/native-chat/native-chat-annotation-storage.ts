@@ -1,3 +1,4 @@
+import { createBrowserUuid } from '@/lib/browser-uuid'
 import type {
   NativeChatAnnotation,
   NativeChatAnnotationAnchor,
@@ -53,7 +54,7 @@ export function isNativeChatAnnotationAnchor(value: unknown): value is NativeCha
   )
 }
 
-function isNote(value: unknown): value is NativeChatAnnotation {
+export function isNativeChatAnnotation(value: unknown): value is NativeChatAnnotation {
   return (
     isNativeChatAnnotationAnchor(value) &&
     'id' in value &&
@@ -84,6 +85,22 @@ export function isNativeChatAnnotationEditor(value: unknown): value is NativeCha
   )
 }
 
+function isLegacySnapshot(value: unknown): value is NativeChatAnnotationsSnapshot & { version: 1 } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'version' in value &&
+    value.version === 1 &&
+    'notes' in value &&
+    Array.isArray(value.notes) &&
+    value.notes.every(isNativeChatAnnotation) &&
+    new Set(value.notes.map((note) => note.id)).size === value.notes.length &&
+    (!('editor' in value) ||
+      value.editor === undefined ||
+      isNativeChatAnnotationEditor(value.editor))
+  )
+}
+
 export function nativeChatAnnotationStorage(scopeKey: string) {
   const legacyKey = `orca:native-chat-annotations:v1:${scopeKey}`
   const prefix = `orca:native-chat-annotations:v2:${encodeURIComponent(scopeKey)}:`
@@ -95,26 +112,36 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
     `${prefix}consumed-note:${encodeURIComponent(note.id)}:${encodeURIComponent(nativeChatAnnotationRevision(note))}`
   const consumedEditorKey = (editor: NativeChatAnnotationEditor): string =>
     `${prefix}consumed-editor:${encodeURIComponent(nativeChatAnnotationEditorRevision(editor))}`
-  const migrate = (): NativeChatAnnotationsSnapshot => {
-    const stored = localStorage.getItem(legacyKey)
+  let readError: string | undefined
+  const readRecord = <T>(key: string, validate: (value: unknown) => value is T): T | undefined => {
+    const stored = localStorage.getItem(key)
     if (stored === null) {
-      return { notes: [] }
+      return undefined
     }
-    const value: unknown = JSON.parse(stored)
-    if (
-      typeof value !== 'object' ||
-      value === null ||
-      !('version' in value) ||
-      value.version !== 1 ||
-      !('notes' in value) ||
-      !Array.isArray(value.notes) ||
-      !value.notes.every(isNote) ||
-      new Set(value.notes.map((note) => note.id)).size !== value.notes.length ||
-      ('editor' in value &&
-        value.editor !== undefined &&
-        !isNativeChatAnnotationEditor(value.editor))
-    ) {
-      throw new Error('Saved annotations could not be read.')
+    let value: unknown
+    try {
+      value = JSON.parse(stored)
+    } catch {
+      value = undefined
+    }
+    if (validate(value)) {
+      return value
+    }
+    // Preserve unreadable data before removing it from the active record namespace.
+    localStorage.setItem(
+      `${prefix}quarantine:${encodeURIComponent(key)}:${createBrowserUuid()}`,
+      stored
+    )
+    if (localStorage.getItem(key) === stored) {
+      localStorage.removeItem(key)
+    }
+    readError = 'Saved annotations could not be read.'
+    return undefined
+  }
+  const migrate = (): NativeChatAnnotationsSnapshot => {
+    const value = readRecord(legacyKey, isLegacySnapshot)
+    if (!value) {
+      return { notes: [] }
     }
     const legacy: NativeChatAnnotationsSnapshot = {
       notes: value.notes,
@@ -142,7 +169,10 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
   return {
     matches: (key: string | null): boolean =>
       key === null || key === legacyKey || key.startsWith(prefix),
-    read: (): NativeChatAnnotationsSnapshot => {
+    read: (retry = false): NativeChatAnnotationsSnapshot => {
+      if (retry) {
+        readError = undefined
+      }
       const legacy = migrate()
       const keys = Array.from({ length: localStorage.length }, (_, index) =>
         localStorage.key(index)
@@ -156,13 +186,14 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
         ) {
           continue
         }
-        const stored = localStorage.getItem(key)
-        if (stored === null) {
+        const note = readRecord(
+          key,
+          (value): value is NativeChatAnnotation =>
+            isNativeChatAnnotation(value) &&
+            (key === noteKey(value.id) || key === legacyNoteKey(value.id))
+        )
+        if (!note) {
           continue
-        }
-        const note: unknown = JSON.parse(stored)
-        if (!isNote(note) || (key !== noteKey(note.id) && key !== legacyNoteKey(note.id))) {
-          throw new Error('Saved annotations could not be read.')
         }
         if (key === noteKey(note.id)) {
           current.set(note.id, note)
@@ -178,20 +209,15 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
         (note) => localStorage.getItem(consumedNoteKey(note)) === null
       )
       notes.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
-      const storedEditor = localStorage.getItem(editorKey)
-      const inheritedEditor = localStorage.getItem(legacyEditorKey)
-      const editor: unknown =
-        storedEditor === null
-          ? inheritedEditor === null
-            ? legacy.editor
-            : JSON.parse(inheritedEditor)
-          : JSON.parse(storedEditor)
-      if (editor !== undefined && !isNativeChatAnnotationEditor(editor)) {
-        throw new Error('Saved annotations could not be read.')
-      }
+      const editor =
+        readRecord(editorKey, isNativeChatAnnotationEditor) ??
+        readRecord(legacyEditorKey, isNativeChatAnnotationEditor) ??
+        legacy.editor
       return {
         notes,
-        ...(legacy.persistenceError ? { persistenceError: legacy.persistenceError } : {}),
+        ...(legacy.persistenceError || readError
+          ? { persistenceError: legacy.persistenceError ?? readError }
+          : {}),
         ...(editor === undefined || localStorage.getItem(consumedEditorKey(editor)) !== null
           ? {}
           : { editor })
