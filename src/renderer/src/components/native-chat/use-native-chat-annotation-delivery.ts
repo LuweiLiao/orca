@@ -46,18 +46,21 @@ export function useNativeChatAnnotationDelivery(scopeKey: string, state: Deliver
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot)
   const lastAttempt = useRef<string | undefined>(undefined)
   useEffect(() => {
-    const stateKey = JSON.stringify([scopeKey, cards, submissions, snapshot.persistenceError])
     try {
-      const attempt = JSON.stringify([
-        stateKey,
-        nativeChatAnnotationDeliveryStorage(scopeKey).read()
-      ])
+      const deliveries = nativeChatAnnotationDeliveryStorage(scopeKey).read()
+      if (deliveries.length === 0) {
+        lastAttempt.current = undefined
+        return
+      }
+      const stateKey = JSON.stringify([scopeKey, cards, submissions, snapshot.persistenceError])
+      const attempt = JSON.stringify([stateKey, deliveries])
       if (lastAttempt.current === attempt) {
         return
       }
       lastAttempt.current = attempt
       reconcileNativeChatAnnotationDeliveries(scopeKey, { cards, submissions })
     } catch {
+      const stateKey = JSON.stringify([scopeKey, cards, submissions, snapshot.persistenceError])
       if (lastAttempt.current === stateKey) {
         return
       }

@@ -1,4 +1,4 @@
-import { createBrowserUuid } from '@/lib/browser-uuid'
+import { readNativeChatAnnotationRecord } from './native-chat-annotation-quarantine'
 import type {
   NativeChatAnnotation,
   NativeChatAnnotationAnchor,
@@ -113,31 +113,10 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
   const consumedEditorKey = (editor: NativeChatAnnotationEditor): string =>
     `${prefix}consumed-editor:${encodeURIComponent(nativeChatAnnotationEditorRevision(editor))}`
   let readError: string | undefined
-  const readRecord = <T>(key: string, validate: (value: unknown) => value is T): T | undefined => {
-    const stored = localStorage.getItem(key)
-    if (stored === null) {
-      return undefined
-    }
-    let value: unknown
-    try {
-      value = JSON.parse(stored)
-    } catch {
-      value = undefined
-    }
-    if (validate(value)) {
-      return value
-    }
-    // Preserve unreadable data before removing it from the active record namespace.
-    localStorage.setItem(
-      `${prefix}quarantine:${encodeURIComponent(key)}:${createBrowserUuid()}`,
-      stored
-    )
-    if (localStorage.getItem(key) === stored) {
-      localStorage.removeItem(key)
-    }
-    readError = 'Saved annotations could not be read.'
-    return undefined
-  }
+  const readRecord = <T>(key: string, validate: (value: unknown) => value is T): T | undefined =>
+    readNativeChatAnnotationRecord(key, `${prefix}quarantine:`, validate, () => {
+      readError = 'Saved annotations could not be read.'
+    })
   const migrate = (): NativeChatAnnotationsSnapshot => {
     const value = readRecord(legacyKey, isLegacySnapshot)
     if (!value) {
