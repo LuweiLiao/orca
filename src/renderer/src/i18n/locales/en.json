@@ -18930,6 +18930,19 @@
         "transferFailed": "The message draft could not be saved. Your annotations have been kept.",
         "retry": "Retry saving annotations"
       },
+      "conversationReference": {
+        "source": "Referenced conversation",
+        "differentHost": "This agent cannot reach the conversation on its source host. Open the chat on that host to reference it.",
+        "loading": "Reading conversation",
+        "retry": "Retry",
+        "more": "Load more",
+        "drag": "Drag into a message to reference this conversation",
+        "copy": "Copy conversation reference",
+        "user": "User",
+        "assistant": "Assistant",
+        "tool": "Tool",
+        "empty": "This conversation has no readable text."
+      },
       "install": {
         "checking": "Checking whether {{agent}} is ready on this host…"
       },

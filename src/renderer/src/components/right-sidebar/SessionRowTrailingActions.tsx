@@ -1,4 +1,7 @@
 import type React from 'react'
+import { toast } from 'sonner'
+import { aiVaultConversationReference } from '@/lib/ai-vault-conversation-reference'
+import { conversationReferenceToken } from '../../../../shared/conversation-reference'
 import {
   ChevronDown,
   LocateFixed,
@@ -267,6 +270,16 @@ export function SessionRowTrailingActions({
           </Tooltip>
           <DropdownMenuContent align="end">
             <SessionActionMenuItems
+              onCopyReference={() => {
+                void window.api.aiVault
+                  .createConversationReference(aiVaultConversationReference(session))
+                  .then((reference) =>
+                    window.api.ui.writeTerminalClipboardText(conversationReferenceToken(reference))
+                  )
+                  .catch((error: unknown) =>
+                    toast.error(error instanceof Error ? error.message : String(error))
+                  )
+              }}
               resumeDisabled={resumeDisabled}
               resumeHidden={resumeHidden}
               resumeLabel={resumeLabel}

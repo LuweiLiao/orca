@@ -98,6 +98,25 @@ it('routes a Claude image send outcome to its own pending echo', () => {
   expect(callbacks.rejected).toHaveBeenCalledWith('pending-1')
 })
 
+it('sends conversation reading instructions together with annotations and waits for delivery', () => {
+  const store = getNativeChatAnnotationsStore('pty-reference-and-annotation')
+  store.clear()
+  store.add(
+    { quote: 'Source conclusion.', messageId: 'reply', startOffset: 0 },
+    'Check this claim.'
+  )
+  const reference =
+    '[Earlier discussion](orca-conversation://reference/00000000-0000-4000-8000-000000000001?host=local)'
+  send('codex', 'chat', reference, [], 'pty-reference-and-annotation')
+  const call = vi.mocked(sendNativeChatMessage).mock.calls[0]
+  expect(call?.[1]).toContain(`${reference}\n\n> Source conclusion.\n\nCheck this claim.`)
+  expect(call?.[1]).toContain('orca conversation read')
+  call?.[2]?.onDeliverySettled?.(false)
+  expect(store.getSnapshot().notes).toHaveLength(1)
+  call?.[2]?.onDeliverySettled?.(true)
+  expect(store.getSnapshot().notes).toHaveLength(0)
+})
+
 it.each([
   ['codex', 'chat', 'hello'],
   ['claude', 'command', '/compact']

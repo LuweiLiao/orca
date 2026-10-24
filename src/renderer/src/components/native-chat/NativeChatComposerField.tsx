@@ -1,4 +1,5 @@
 import { NativeChatPromptEditor } from './NativeChatPromptEditor'
+import { useConversationReferenceDrop } from './use-conversation-reference-drop'
 import type { NativeChatComposerInput } from './native-chat-composer-input'
 import type { ClipboardEventHandler, KeyboardEventHandler, ReactNode, RefObject } from 'react'
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
@@ -172,6 +173,13 @@ export function NativeChatComposerField({
   agent
 }: NativeChatComposerFieldProps): React.JSX.Element {
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
+  const conversationDrop = useConversationReferenceDrop(
+    draftScopeKey,
+    textareaRef,
+    disabled,
+    imeEnterGesture.isComposing,
+    attachmentEnvironmentId
+  )
   const optionCount =
     autocomplete.mode === 'slash'
       ? autocomplete.items.length
@@ -255,12 +263,17 @@ export function NativeChatComposerField({
             className="mb-1.5"
           />
           <div
+            data-conversation-reference-drop="true"
+            onDragOver={conversationDrop.onDragOver}
+            onDragLeave={conversationDrop.onDragLeave}
+            onDrop={conversationDrop.onDrop}
             className={cn(
               // Why: always-on hairline (token-level border, not focus ring) —
               // no focus/click border flash. The box is a container, not a
               // focus target.
               'rounded-xl border border-chat-composer-border p-1.5 shadow-xs',
               'bg-chat-composer-surface',
+              conversationDrop.hover && 'ring-2 ring-inset ring-ring',
               // Why (#10481): the native caret blink invalidates paint up to the
               // nearest containment boundary; without this the whole transcript
               // re-rasterizes twice a second. Pickers are siblings and every menu
@@ -298,6 +311,10 @@ export function NativeChatComposerField({
                 onDraftChange(value, input)
               }}
               onKeyDownCapture={(event) => {
+                if (conversationDrop.pending && event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  return
+                }
                 if (!imeEnterGesture.ownsKeyDown(event)) {
                   onKeyDown(event)
                 }
@@ -359,7 +376,7 @@ export function NativeChatComposerField({
               <NativeChatComposerActions
                 attachDisabled={attachDisabled}
                 dictationDisabled={dictationDisabled}
-                sendDisabled={sendButtonDisabled}
+                sendDisabled={sendButtonDisabled || conversationDrop.pending}
                 sendBlockedReason={sendBlockedReason}
                 draftNotSaved={draftNotSaved}
                 isWorking={isWorking}

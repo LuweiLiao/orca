@@ -13,6 +13,7 @@ import type { NativeChatStructuredComposerTransport } from './native-chat-compos
 import type { NativeChatComposerImageAttachment } from './NativeChatComposerField'
 import { useNativeChatStructuredComposerSend } from './use-native-chat-structured-composer-send'
 import { getNativeChatAnnotationsStore } from './native-chat-annotations-store'
+import { nativeChatAnnotationStorage } from './native-chat-annotation-storage'
 
 vi.mock('@/lib/native-chat-telemetry', () => ({ emitNativeChatMessageSent: vi.fn() }))
 vi.mock('@/lib/worker-terminal-takeover-report', () => ({
@@ -100,6 +101,78 @@ it('attaches comments at send time, keeps them on refusal and consumes only acce
   vi.mocked(structuredTransport.send).mockReturnValue(true)
   await send('', [])
   expect(store.getSnapshot().notes).toHaveLength(0)
+})
+
+it('retains conversation references and annotations across a refused structured send', async () => {
+  const scope = 'structured-reference-and-annotation'
+  const store = getNativeChatAnnotationsStore(scope)
+  store.clear()
+  store.add(
+    { quote: 'Source conclusion.', messageId: 'reply', startOffset: 0 },
+    'Check this claim.'
+  )
+  const reference =
+    '[Earlier discussion](orca-conversation://reference/00000000-0000-4000-8000-000000000001?host=local)'
+  const { send, structuredTransport } = harness('codex', undefined, undefined, scope)
+  vi.mocked(structuredTransport.send).mockReturnValue(false)
+  await send(reference, [])
+  const sent = vi.mocked(structuredTransport.send).mock.calls[0]?.[0]
+  expect(sent).toContain(`${reference}\n\n> Source conclusion.\n\nCheck this claim.`)
+  expect(sent).toContain('orca conversation read')
+  expect(store.getSnapshot().notes).toHaveLength(1)
+  vi.mocked(structuredTransport.send).mockReturnValue(true)
+  await send(reference, [])
+  expect(store.getSnapshot().notes).toHaveLength(0)
+})
+
+it('keeps notes and the unfinished editor durable until the structured host accepts the message', async () => {
+  const scope = 'structured-annotation-durable-send'
+  const store = getNativeChatAnnotationsStore(scope)
+  store.clear()
+  const anchor = { quote: 'Original sentence.', messageId: 'reply', startOffset: 0 }
+  store.add(anchor, 'Saved comment.')
+  store.setEditor({ anchor, comment: 'Unfinished comment.' })
+  const stored = nativeChatAnnotationStorage(scope)
+  const before = stored.read()
+  const { send, structuredTransport } = harness('codex', undefined, undefined, scope)
+  vi.mocked(structuredTransport.send).mockReturnValue(false)
+  await send('Existing draft.', [])
+  expect(stored.read()).toEqual(before)
+  expect(structuredTransport.send).toHaveBeenCalledWith(
+    'Existing draft.\n\n> Original sentence.\n\nSaved comment.\n\n> Original sentence.\n\nUnfinished comment.',
+    []
+  )
+  vi.mocked(structuredTransport.send).mockReturnValue(true)
+  await send('Existing draft.', [])
+  expect(stored.read()).toEqual({ notes: [] })
+})
+
+it('retains durable annotations if accepted-send cleanup fails and removes them on persistence retry', async () => {
+  const scope = 'structured-annotation-cleanup-retry'
+  const store = getNativeChatAnnotationsStore(scope)
+  store.clear()
+  const anchor = { quote: 'Original sentence.', messageId: 'reply', startOffset: 0 }
+  store.add(anchor, 'Saved comment.')
+  store.setEditor({ anchor, comment: 'Unfinished comment.' })
+  const stored = nativeChatAnnotationStorage(scope)
+  const before = stored.read()
+  const write = localStorage.setItem.bind(localStorage)
+  const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+    if (key.includes(':consumed-note:') || key.includes(':consumed-editor:')) {
+      throw new Error('Cleanup storage unavailable')
+    }
+    write(key, value)
+  })
+  try {
+    const { send } = harness('codex', undefined, undefined, scope)
+    await send('Existing draft.', [])
+    expect(stored.read()).toEqual(before)
+    expect(store.getSnapshot().persistenceError).toBe('Cleanup storage unavailable')
+  } finally {
+    blocked.mockRestore()
+  }
+  expect(store.retryPersistence()).toBe(true)
+  expect(stored.read()).toEqual({ notes: [] })
 })
 
 // The guard exists because a host command sends no message, so its attachments

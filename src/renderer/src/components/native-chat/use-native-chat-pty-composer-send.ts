@@ -2,6 +2,7 @@ import {
   admitNativeChatPastedText,
   resolveNativeChatPastedText
 } from './native-chat-composer-pasted-text-references'
+import { withConversationReferenceInstructions } from '../../../../shared/conversation-reference'
 import { useCallback, type Dispatch, type SetStateAction } from 'react'
 import { prepareNativeChatAnnotatedMessage } from './native-chat-annotations-store'
 import type { AgentType } from '../../../../shared/agent-status-types'
@@ -86,6 +87,7 @@ export function useNativeChatPtyComposerSend(args: {
     if (text.trim() === '' && imagePaths.length === 0) {
       return
     }
+    text = withConversationReferenceInstructions(text)
     const { sendOptions: launchSendOptions } = resolveNativeChatLaunchDraftSend({
       launchDraft: args.launchDraft,
       launchDraftResolved: args.launchDraftResolved,

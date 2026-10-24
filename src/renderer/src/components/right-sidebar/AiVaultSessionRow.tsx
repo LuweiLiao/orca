@@ -1,4 +1,6 @@
 import { isAntigravityReferenceSession } from '../../../../shared/antigravity-session-origin'
+import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import { aiVaultConversationReference } from '@/lib/ai-vault-conversation-reference'
 import type { AiVaultSubagentResumeActions } from './AiVaultSessionSubagents'
 import { useCallback } from 'react'
 import type React from 'react'
@@ -115,7 +117,11 @@ export function VaultSessionRow({
   const requestDelete = session.structuredSession
     ? undefined
     : (): void => onRequestDelete?.(session)
-  const draggable = !resumeDisabled && !onPick
+  const draggable =
+    !onPick &&
+    (session.messageCount > 0 ||
+      session.previewMessages.length > 0 ||
+      Boolean(session.structuredSession))
   const detailsTooltip = detailsExpanded
     ? translate('auto.components.right.sidebar.AiVaultSessionRow.hideDetails', 'Hide Details')
     : translate('auto.components.right.sidebar.AiVaultSessionRow.showDetails', 'Show Details')
@@ -124,6 +130,13 @@ export function VaultSessionRow({
       event.stopPropagation()
       if (!draggable) {
         event.preventDefault()
+        return
+      }
+      if (resumeDisabled) {
+        writeConversationReferenceDrag(
+          event.dataTransfer,
+          aiVaultConversationReference(session, title)
+        )
         return
       }
       writeAiVaultSessionDragData(event.dataTransfer, {
@@ -145,7 +158,7 @@ export function VaultSessionRow({
       })
       window.dispatchEvent(new Event(AI_VAULT_SESSION_DRAG_START_EVENT))
     },
-    [draggable, realHomeResumeStartup, session, resumeStartup, title]
+    [draggable, resumeDisabled, realHomeResumeStartup, session, resumeStartup, title]
   )
 
   const body = (
@@ -183,8 +196,8 @@ export function VaultSessionRow({
             !draggable
               ? undefined
               : translate(
-                  'auto.components.right.sidebar.AiVaultSessionRow.dragToResume',
-                  'Drag to resume in a new tab'
+                  'components.native-chat.conversationReference.drag',
+                  'Drag into a message to reference this conversation'
                 )
           }
           onDragStart={startResumeDrag}
