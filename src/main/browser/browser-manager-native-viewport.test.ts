@@ -114,6 +114,26 @@ describe('native peer viewport operations', () => {
     expect(manager.getGuestWebContentsId('shared')).toBe(102)
   })
 
+  // PR33112: a renderer-scoped call must resolve its own guest without first moving the
+  // shared selection cursor toward it.
+  it('applies the viewport override for each renderer without selecting it first', async () => {
+    const a = register(101, 501)
+    const b = register(102, 502)
+    // B registered last and is selected by default; do not call selectNativeRenderer for A.
+    expect(manager.getGuestWebContentsId('shared')).toBe(102)
+
+    await expect(manager.setViewportOverride('shared', mobile, 501)).resolves.toBe(true)
+    await expect(manager.setViewportOverride('shared', desktop, 502)).resolves.toBe(true)
+
+    expect(a.standingUserAgentOverride()).toMatchObject({
+      userAgent: expect.stringContaining('iPhone'),
+      userAgentMetadata: { mobile: true }
+    })
+    expect(b.presentedUserAgent()).not.toContain('iPhone')
+    // Resolving by renderer must not have disturbed which guest is selected.
+    expect(manager.getGuestWebContentsId('shared')).toBe(102)
+  })
+
   it.each(['Emulation.setDeviceMetricsOverride', 'Emulation.setTouchEmulationEnabled'])(
     'finishes A identity while B reports scroll during %s',
     async (method) => {

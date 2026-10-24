@@ -41,6 +41,7 @@ import { wirePtyIpcSession } from './wire-session'
 import { NativeDesktopPtyDelivery } from './native-desktop-delivery'
 import { applyCumulativeAck } from './accounting'
 import { PTY_RENDERER_IN_FLIGHT_HIGH_WATER_CHARS } from './constants'
+import { lastInputAtByPty } from './visibility-state'
 
 const windows: BrowserWindow[] = []
 
@@ -86,6 +87,7 @@ afterEach(() => {
   }
   vi.clearAllTimers()
   vi.useRealTimers()
+  lastInputAtByPty.clear()
   frames.clear()
 })
 
@@ -127,6 +129,97 @@ describe('native desktop terminal output delivery', () => {
     const sent = frames.get(second.webContents.id) ?? []
     expect(sent.map((frame) => frame.channel)).toEqual(['pty:data', 'pty:exit'])
     expect(sent[0]?.values).toEqual([{ id: 'pty', data: 'last-output' }])
+  })
+
+  it('preserves the droppedOutput flag through the immediate per-window path', () => {
+    const { first, source } = fixture()
+    lastInputAtByPty.set('pty', performance.now())
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data: 'salvaged', droppedOutput: true })
+    const sent = frames.get(first.webContents.id)?.find((frame) => frame.channel === 'pty:data')
+    expect(sent?.values).toEqual([{ id: 'pty', data: 'salvaged', droppedOutput: true }])
+    lastInputAtByPty.clear()
+  })
+
+  it('preserves the droppedOutput flag through the pending/batched per-window path', () => {
+    const { first, source } = fixture()
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data: 'salvaged', droppedOutput: true })
+    vi.advanceTimersByTime(200)
+    const sent = frames.get(first.webContents.id)?.find((frame) => frame.channel === 'pty:data')
+    expect(sent?.values).toEqual([{ id: 'pty', data: 'salvaged', droppedOutput: true }])
+  })
+
+  it('preserves the droppedOutput flag through pending gating once credit is released', () => {
+    const { first, a, source } = fixture()
+    const data = 'x'.repeat(PTY_RENDERER_IN_FLIGHT_HIGH_WATER_CHARS)
+    // Saturate window a's in-flight credit so the dropped marker queues gated instead of sending immediately.
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data })
+    vi.advanceTimersByTime(200)
+    expect(a.getRendererInFlightCharsForPty('pty')).toBeGreaterThan(0)
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data: 'salvaged', droppedOutput: true })
+    vi.advanceTimersByTime(200)
+    expect(a.pendingData.get('pty')).toMatchObject({ data: 'salvaged', droppedOutput: true })
+    // Release the gate the same way the renderer's ACK would.
+    applyCumulativeAck(a, 'pty', data.length)
+    a.schedulePendingDataAfterCreditReport(true)
+    vi.advanceTimersByTime(200)
+    const framesForFirst = frames.get(first.webContents.id) ?? []
+    const droppedFrame = framesForFirst.find(
+      (frame) => frame.channel === 'pty:data' && JSON.stringify(frame.values).includes('salvaged')
+    )
+    expect(droppedFrame?.values).toEqual([{ id: 'pty', data: 'salvaged', droppedOutput: true }])
+  })
+
+  it('delivers an empty droppedOutput marker instead of silently consuming it', () => {
+    const { first, source } = fixture()
+    expect(source.sendPtyDataToRenderer('pty', { id: 'pty', data: '', droppedOutput: true })).toBe(
+      true
+    )
+    vi.advanceTimersByTime(200)
+    const sent = frames.get(first.webContents.id)?.filter((frame) => frame.channel === 'pty:data')
+    expect(sent).toHaveLength(1)
+    expect(sent?.[0]?.values).toEqual([{ id: 'pty', data: '', droppedOutput: true }])
+  })
+
+  it('salvages a reply-eliciting query from queued window bytes when a drop marker supersedes them', () => {
+    const { first, source, a } = fixture()
+    // Window a has ordinary bytes queued (not yet in flight) that the source never saw, including a DSR
+    // probe; a later droppedOutput marker from the source must not discard that probe as ordinary data.
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data: 'before\x1b[6n' })
+    expect(a.pendingData.get('pty')).toMatchObject({ data: 'before\x1b[6n' })
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data: 'salvaged', droppedOutput: true })
+    vi.advanceTimersByTime(200)
+    const sent = frames.get(first.webContents.id)?.filter((frame) => frame.channel === 'pty:data')
+    expect(sent).toHaveLength(1)
+    expect(sent?.[0]?.values).toEqual([{ id: 'pty', data: '\x1b[6nsalvaged', droppedOutput: true }])
+  })
+
+  it('releases an open DEC 2026 frame and a split mode-2031 toggle when a drop marker supersedes queued bytes', () => {
+    const { first, source, a } = fixture()
+    // Window a's own queue opens a DEC 2026 frame and starts a mode-2031 subscribe toggle split
+    // across the chunk boundary; the drop marker from the source must still release both.
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data: '\x1b[?2026hpainting\x1b[?20' })
+    expect(a.pendingData.get('pty')).toMatchObject({ data: '\x1b[?2026hpainting\x1b[?20' })
+    source.sendPtyDataToRenderer('pty', { id: 'pty', data: '31h', droppedOutput: true })
+    vi.advanceTimersByTime(200)
+    const sent = frames.get(first.webContents.id)?.filter((frame) => frame.channel === 'pty:data')
+    expect(sent).toHaveLength(1)
+    expect(sent?.[0]?.values).toEqual([
+      { id: 'pty', data: '31h\x1b[?2026l\x1b[?2031h', droppedOutput: true }
+    ])
+  })
+
+  it('releases the exited incarnation driver and hints so a same-id respawn is unclaimed', () => {
+    const { delivery, first, second, source } = fixture()
+    delivery.claim(first.webContents, 'pty')
+    delivery.updateHint(first.webContents, 'pty', 'visible', true)
+    expect(delivery.canReply(second.webContents, 'pty')).toBe(false)
+    expect(delivery.canResize(second.webContents, 'pty')).toBe(false)
+
+    source.mainWindow?.webContents.send('pty:exit', { id: 'pty', code: 0 })
+    source.mainWindow?.webContents.send('pty:spawned', { id: 'pty' })
+
+    expect(delivery.canReply(second.webContents, 'pty')).toBe(true)
+    expect(delivery.canResize(second.webContents, 'pty')).toBe(true)
   })
 
   it('keeps visibility aggregated and elects only one query-reply and resize driver', () => {

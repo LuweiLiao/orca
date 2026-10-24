@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ElectronApplication, Page } from '@stablyai/playwright-test'
 import { runProcess } from '@orca/process-host'
-import { expect, test } from './helpers/orca-app'
+import { expect, test } from './helpers/source-control-generation-app'
 import { waitForSessionReady } from './helpers/store'
 
 async function survivingWindow(app: ElectronApplication, first: Page): Promise<Page> {
@@ -33,8 +33,9 @@ test('a surviving native window observes external git init for a folder project'
   electronApp,
   orcaPage,
   registerPostElectronShutdownCleanup
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000)
+  await orcaPage.evaluate(() => window.__store?.getState().updateSettings({ uiLanguage: 'en' }))
   const folderPath = realpathSync(mkdtempSync(join(tmpdir(), 'orca-native-folder-')))
   registerPostElectronShutdownCleanup(() => rm(folderPath, { recursive: true, force: true }))
   const repoId = await orcaPage.evaluate(async (path) => {
@@ -53,6 +54,11 @@ test('a surviving native window observes external git init for a folder project'
       )
     )
     .toBe('folder')
+  await page.evaluate(() => window.__store?.getState().setGroupBy('repo'))
+  const header = page.locator(`[data-worktree-sidebar] [data-repo-header-id="${repoId}"]`)
+  await expect(header).toBeVisible()
+  await header.hover()
+  await expect(header.getByRole('button', { name: /^Create workspace for / })).toBeVisible()
   const git = await runProcess({ program: 'git', args: ['init', folderPath] })
   expect(git.code, git.stderr).toBe(0)
   await expect
@@ -65,12 +71,16 @@ test('a surviving native window observes external git init for a folder project'
       { timeout: 30_000 }
     )
     .toBe('git')
+  await header.hover()
+  await expect(header.getByRole('button', { name: /^Create new worktree for / })).toBeVisible()
+  await expect(header.getByRole('button', { name: /^Create workspace for / })).toHaveCount(0)
+  await page.screenshot({ path: testInfo.outputPath('folder-to-git.png') })
 })
 
 test('a surviving native window receives external worktree and git metadata changes', async ({
   electronApp,
   orcaPage,
-  testRepoPath,
+  seededRepoPath,
   registerPostElectronShutdownCleanup
 }) => {
   test.setTimeout(120_000)
@@ -95,7 +105,7 @@ test('a surviving native window receives external worktree and git metadata chan
   const created = await runProcess({
     program: 'git',
     args: ['worktree', 'add', '-b', 'native-external', external],
-    cwd: testRepoPath
+    cwd: seededRepoPath
   })
   expect(created.code, created.stderr).toBe(0)
   await expect
@@ -119,7 +129,7 @@ test('a surviving native window receives external worktree and git metadata chan
       '-m',
       'Native watcher metadata'
     ],
-    cwd: testRepoPath
+    cwd: seededRepoPath
   })
   expect(refreshed.code, refreshed.stderr).toBe(0)
   await expect

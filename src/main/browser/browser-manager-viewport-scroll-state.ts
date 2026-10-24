@@ -28,14 +28,13 @@ export abstract class BrowserManagerViewportScrollState {
     return this.tabIdByWebContentsId.get(guestId) === browserTabId
   }
 
+  protected abstract guestIdForRenderer(pageId: string, rendererId: number): number | undefined
+
   setViewportScrollState(
     browserTabId: string,
     rendererWebContentsId: number,
     state: BrowserViewportScrollState
   ): void {
-    if (this.rendererWebContentsIdByTabId.get(browserTabId) !== rendererWebContentsId) {
-      return
-    }
     if (
       ![state.scrollLeft, state.scrollTop, state.maxScrollLeft, state.maxScrollTop].every(
         (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0
@@ -43,7 +42,8 @@ export abstract class BrowserManagerViewportScrollState {
     ) {
       return
     }
-    const guestId = this.webContentsIdByTabId.get(browserTabId)
+    // Resolve the reporting renderer's own guest; a peer's selection must not steal this write.
+    const guestId = this.guestIdForRenderer(browserTabId, rendererWebContentsId)
     if (guestId !== undefined) {
       this.viewportScrollStatesByGuestId.set(guestId, state)
     }

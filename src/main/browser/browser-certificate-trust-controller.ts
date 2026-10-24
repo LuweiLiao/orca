@@ -153,8 +153,11 @@ export class BrowserCertificateTrustController {
     return pending?.browserPageId === browserPageId ? toBrowserCertificateFailure(pending) : null
   }
 
-  proceed(browserPageId: string, challengeId: string): BrowserCertificateProceedResult {
-    const webContentsId = this.dependencies.resolveWebContentsIdForPage(browserPageId)
+  proceed(
+    browserPageId: string,
+    challengeId: string,
+    webContentsId: number | null = this.dependencies.resolveWebContentsIdForPage(browserPageId)
+  ): BrowserCertificateProceedResult {
     if (webContentsId === null) {
       return { ok: false, reason: 'missing' }
     }

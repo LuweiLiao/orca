@@ -13,6 +13,14 @@ export abstract class BrowserManagerQueries extends BrowserManagerRegistration {
     return this.webContentsIdByTabId.get(browserTabId) ?? null
   }
 
+  /** Exact guest owned by this renderer, independent of which guest is currently selected. */
+  getGuestWebContentsIdForRenderer(
+    browserTabId: string,
+    rendererWebContentsId: number
+  ): number | null {
+    return this.guestIdForRenderer(browserTabId, rendererWebContentsId) ?? null
+  }
+
   getWebContentsIdByTabId(): Map<string, number> {
     return this.webContentsIdByTabId
   }

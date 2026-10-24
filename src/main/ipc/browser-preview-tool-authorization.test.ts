@@ -46,8 +46,10 @@ vi.mock('../browser/browser-manager', () => ({
     attachGuestPolicies: vi.fn(),
     unregisterGuest: vi.fn(),
     getGuestWebContentsId: vi.fn(),
+    getGuestWebContentsIdForRenderer: vi.fn(),
     getWebContentsIdByTabId: vi.fn(() => new Map()),
     getWorktreeIdForTab: vi.fn(),
+    unregisterGuestForRenderer: vi.fn(() => true),
     getAuthorizedGuest: getAuthorizedGuestMock,
     setGrabMode: setGrabModeMock,
     awaitGrabSelection: awaitGrabSelectionMock,
@@ -481,7 +483,10 @@ describe('doc preview tool authorization', () => {
     expect(unregistered).toBe(true)
     await expect(pending).resolves.toEqual({ ok: true })
     expect(setGrabModeMock).not.toHaveBeenCalled()
-    expect(vi.mocked(browserManager.unregisterGuest)).toHaveBeenCalledWith('browser-page-1')
+    expect(vi.mocked(browserManager.unregisterGuestForRenderer)).toHaveBeenCalledWith(
+      'browser-page-1',
+      HOST_RENDERER_ID
+    )
   })
 
   // An open document must not answer for a browsing page ID.

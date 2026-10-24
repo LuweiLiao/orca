@@ -145,7 +145,7 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
   protected readonly mouseWheelZoomCleanupByTabId = new Map<string, () => void>()
   protected readonly annotationViewportBridgeOpsByTabId = new Map<string, Promise<unknown>>()
 
-  protected guestIdForRenderer(pageId: string, rendererId: number): number | undefined {
+  protected override guestIdForRenderer(pageId: string, rendererId: number): number | undefined {
     return this.rendererWebContentsIdByTabId.get(pageId) === rendererId
       ? this.webContentsIdByTabId.get(pageId)
       : undefined

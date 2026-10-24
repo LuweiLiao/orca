@@ -252,6 +252,22 @@ describe('BrowserCertificateTrustController', () => {
     })
   })
 
+  // PR33112: a native renderer's own guest id must resolve its challenge even while the
+  // shared page-to-guest mapping is pointing at a peer window's guest.
+  it('proceeds the calling renderer guest when an explicit webContentsId is given', () => {
+    pageByGuestId.set(otherGuest.id, 'page-1')
+    certificateEvent({ controller, guest })
+    // The shared selection now points at the peer guest, as it would if the other window is active.
+    guestByPageId.set('page-1', otherGuest.id)
+    expect(controller.proceed('page-1', 'challenge-1')).toEqual({ ok: false, reason: 'missing' })
+    expect(guest.loadURL).not.toHaveBeenCalled()
+
+    // Passing the caller's own exact guest id resolves its own pending challenge regardless.
+    expect(controller.proceed('page-1', 'challenge-1', guest.id)).toEqual({ ok: true })
+    expect(guest.loadURL).toHaveBeenCalledWith('https://localhost:3443/app')
+    expect(otherGuest.loadURL).not.toHaveBeenCalled()
+  })
+
   it('blocks a session-cached certificate for sibling requests until that guest approves it', () => {
     certificateEvent({ controller, guest })
     expect(controller.proceed('page-1', 'challenge-1')).toEqual({ ok: true })

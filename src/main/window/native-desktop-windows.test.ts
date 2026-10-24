@@ -94,6 +94,27 @@ describe('native desktop windows', () => {
     expect(restored.opened.map((options) => options.windowId)).toEqual(['desktop-1', 'desktop-2'])
   })
 
+  it('keeps the final window restorable when its own close triggers app.quit', () => {
+    const { manager, store } = fixture()
+    manager.open()
+    manager.open()
+    const [first, second] = manager.list()
+    first?.close()
+    expect(store.getUI().desktopWindows?.['desktop-0']?.open).toBe(false)
+    second?.close()
+    if (process.platform === 'darwin') {
+      // macOS stays open with no window, so the ordinary close path applies.
+      expect(store.getUI().desktopWindows?.['desktop-1']?.open).toBe(false)
+      return
+    }
+    expect(app.quit).toHaveBeenCalledTimes(1)
+    // The close that triggers app.quit must not record itself as closed, or a
+    // later startup resolves the wrong window id (regression for PR #33112).
+    expect(store.getUI().desktopWindows?.['desktop-1']?.open).toBe(true)
+    const restored = fixture({ desktopWindows: store.getUI().desktopWindows })
+    expect(restored.manager.startupId()).toBe('desktop-1')
+  })
+
   it('migrates old extra-window records once and does not create windows in serve mode', () => {
     const { manager, store, opened, setServe } = fixture({
       runtimeClientWindows: [
