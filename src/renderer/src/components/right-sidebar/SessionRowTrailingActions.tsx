@@ -1,7 +1,4 @@
 import type React from 'react'
-import { toast } from 'sonner'
-import { aiVaultConversationReference } from '@/lib/ai-vault-conversation-reference'
-import { conversationReferenceToken } from '../../../../shared/conversation-reference'
 import {
   ChevronDown,
   LocateFixed,
@@ -60,6 +57,8 @@ export function SessionRowTrailingActions({
   onResumeInNewChat,
   onResumeInNewCli,
   onCopyResume,
+  onReferenceConversation,
+  onCopyReference,
   onCopyId,
   onCopyPath,
   onOpenLog,
@@ -87,6 +86,8 @@ export function SessionRowTrailingActions({
   onResumeInNewChat?: () => void
   onResumeInNewCli?: () => void
   onCopyResume?: () => void
+  onReferenceConversation?: () => void
+  onCopyReference?: () => void
   onCopyId: () => void
   onCopyPath?: () => void
   onOpenLog?: () => void
@@ -270,16 +271,8 @@ export function SessionRowTrailingActions({
           </Tooltip>
           <DropdownMenuContent align="end">
             <SessionActionMenuItems
-              onCopyReference={() => {
-                void window.api.aiVault
-                  .createConversationReference(aiVaultConversationReference(session))
-                  .then((reference) =>
-                    window.api.ui.writeTerminalClipboardText(conversationReferenceToken(reference))
-                  )
-                  .catch((error: unknown) =>
-                    toast.error(error instanceof Error ? error.message : String(error))
-                  )
-              }}
+              onReferenceConversation={onReferenceConversation}
+              onCopyReference={onCopyReference}
               resumeDisabled={resumeDisabled}
               resumeHidden={resumeHidden}
               resumeLabel={resumeLabel}

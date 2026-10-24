@@ -41,27 +41,54 @@ const app = await electron.launch({
 })
 try {
   const page = await app.firstWindow()
+  const cdp = await page.context().newCDPSession(page)
   page.setDefaultTimeout(15000)
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto(pathToFileURL(path.join(output, 'renderer/index.html')).href)
-  await page.getByTestId('source').dragTo(page.getByRole('textbox'))
+  const input = page.getByRole('textbox')
+  const sourceRow = page.getByTestId('source').locator('.compact-agent-row')
+  const historyRow = page.getByTestId('history').locator('.group\\/session-row')
+  const references = page.locator('[data-native-chat-conversation-reference]')
+  const capture = async (name) => {
+    await expect.poll(() => page.getByRole('menu').evaluate((element) => getComputedStyle(element).opacity)).toBe('1')
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true })
+    writeFileSync(path.join(output, `${name}.png`), Buffer.from(screenshot.data, 'base64'))
+    writeFileSync(path.join(output, `${name}-ax.json`), JSON.stringify(await cdp.send('Accessibility.getFullAXTree')))
+  }
+  await input.fill('Keep the existing draft. ')
+  await sourceRow.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Reference conversation', exact: true })).toBeVisible()
+  await expect(page.getByTestId('workspace-menus')).toHaveText('0')
+  await capture('sidebar-menu')
+  await page.getByRole('menuitem', { name: 'Reference conversation', exact: true }).click()
+  await expect(references).toHaveCount(1)
+  await expect(input).toContainText('Keep the existing draft.')
+  await historyRow.getByText('Cursor history conversation', { exact: true }).click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Copy conversation reference', exact: true })).toBeVisible()
+  await capture('history-context-menu')
+  await page.getByRole('menuitem', { name: 'Reference conversation', exact: true }).click()
+  await expect(references).toHaveCount(2)
+  await historyRow.getByTestId('ai-vault-session-more-actions').click()
+  await expect(page.getByRole('menuitem', { name: 'Copy conversation reference', exact: true })).toBeVisible()
+  await capture('history-overflow-menu')
+  await page.getByRole('menuitem', { name: 'Reference conversation', exact: true }).click()
+  await expect(references).toHaveCount(3)
+  await page.getByTestId('source').locator('[draggable="true"]').dragTo(page.getByRole('textbox'))
+  await expect(references).toHaveCount(4)
   const chip = page.locator('[data-native-chat-conversation-reference]').first()
   await expect(chip).toHaveText('Claude Code conversation')
-  const historyTransfer = await page.evaluateHandle(() => new DataTransfer())
-  await page.getByTestId('history').dispatchEvent('dragstart', { dataTransfer: historyTransfer })
-  const dropBox = await page.getByTestId('composer').boundingBox()
-  if (!dropBox) {
-    throw new Error('Composer has no rendered drop area')
-  }
-  await page.getByTestId('resume-overlay').dispatchEvent('drop', {
-    dataTransfer: historyTransfer,
-    clientX: dropBox.x + dropBox.width / 2,
-    clientY: dropBox.y + dropBox.height / 2
-  })
+  await page.getByTestId('history').locator('[draggable="true"]').first().dragTo(page.getByRole('textbox'))
+  await expect(references).toHaveCount(5)
   await expect(page.locator('[data-native-chat-conversation-reference]').last()).toHaveText(
     'Cursor history conversation'
   )
+  await historyRow.getByTestId('ai-vault-session-toggle-details').click()
+  await expect(historyRow.getByText('Original history question.', { exact: true })).toBeVisible()
+  await historyRow.locator('[draggable="true"]').first().dragTo(input)
+  await expect(references).toHaveCount(6)
+  await expect(input).toContainText('Keep the existing draft.')
   await expect(page.getByTestId('resumed')).toHaveText('0')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
   await expect(page.getByTestId('sent')).toContainText('orca-conversation://reference/')
@@ -111,7 +138,7 @@ try {
     )
   ).toEqual([[false, false]])
   console.log(
-    `PASS: drag, reference pill, send instructions, source preview, hidden windows; screenshots: ${output}`
+    `PASS: actual sidebar context menu, history context/overflow menus, collapsed/expanded history pointer drags, preserved draft, no resume, reference preview, hidden windows; screenshots: ${output}`
   )
 } finally {
   await app.close()

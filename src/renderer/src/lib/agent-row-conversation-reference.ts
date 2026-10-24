@@ -11,6 +11,15 @@ import { structuredAgentSessionOwnerForTab } from '@/runtime/structured-agent-se
 import { runtimeEnvironmentIdOrLocalUnlessTwin } from './worktree-runtime-owner'
 import { useAppStore } from '@/store'
 
+/** Whether the row names a conversation a reference could be made from, read without the store. */
+export function canReferenceAgentRow(row: DashboardAgentRow): boolean {
+  return (
+    row.rowSource !== 'subagent' &&
+    (row.entry.structuredHostOwned === true ||
+      (Boolean(row.entry.providerSession) && isAiVaultAgent(row.agentType)))
+  )
+}
+
 export function agentRowConversationReference(
   row: DashboardAgentRow,
   title?: string

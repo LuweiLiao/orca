@@ -331,7 +331,11 @@ export default function AiVaultSessionDropLayer({
         x: event.clientX,
         y: event.clientY
       })
-      event.dataTransfer.dropEffect = nextTarget ? 'copy' : 'none'
+      // Why: the layer stands over a composer until it re-renders; a drop there is forwarded to it.
+      event.dataTransfer.dropEffect =
+        nextTarget || conversationReferenceDropTarget({ x: event.clientX, y: event.clientY })
+          ? 'copy'
+          : 'none'
     },
     [updateTarget]
   )

@@ -26,9 +26,14 @@ const source = {
 function Fixture() {
   const input = useRef<NativeChatComposerInput | null>(null)
   const [value, setValue] = useState('')
-  const drop = useConversationReferenceDrop('conversation-drop-test', input, false, () => false)
+  const drop = useConversationReferenceDrop({
+    scope: 'conversation-drop-test',
+    input,
+    disabled: false,
+    composing: () => false
+  })
   return (
-    <div data-testid="drop" onDrop={drop.onDrop} onDragOver={drop.onDragOver}>
+    <div ref={drop.ref} data-testid="drop" onDrop={drop.onDrop} onDragOver={drop.onDragOver}>
       <NativeChatPromptEditor
         inputRef={input}
         initialValue=""
