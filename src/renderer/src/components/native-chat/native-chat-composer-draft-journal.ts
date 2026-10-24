@@ -1,11 +1,15 @@
 // Recovery records are independent writes, so another window cannot replace an acknowledged append.
 import type { UnconfirmedDraftChange } from './native-chat-composer-draft-memory'
 import { createBrowserUuid } from '@/lib/browser-uuid'
+import type { NativeChatComposerDraftAddition } from './native-chat-composer-draft-addition'
+import type {
+  NativeChatComposerDraftOwner,
+  StoredNativeChatComposerDraft
+} from './native-chat-composer-draft-storage'
 import {
-  withNativeChatComposerDraftAddition,
-  type NativeChatComposerDraftAddition
-} from './native-chat-composer-draft-addition'
-import type { StoredNativeChatComposerDraft } from './native-chat-composer-draft-storage'
+  addNativeChatComposerDraftJournalAddition,
+  mergeNativeChatComposerDraftRecovery
+} from './native-chat-composer-draft-recovery-merge'
 import {
   appendNativeChatDraftJournalRecord,
   replaceNativeChatDraftJournalChange,
@@ -69,9 +73,10 @@ export function replayNativeChatComposerDraftJournal(
     const next =
       previous?.journalEntryIds &&
       entry.draft?.journalEntryIds &&
+      previous.editRevision !== undefined &&
       previous.editRevision === entry.draft.editRevision
-        ? previous
-        : entry.draft
+        ? mergeNativeChatComposerDraftRecovery(entry.draft, previous)
+        : mergeNativeChatComposerDraftRecovery(previous, entry.draft)
     drafts.set(
       entry.scopeKey,
       next
@@ -113,9 +118,9 @@ export function replayNativeChatComposerDraftJournal(
     const from = base ?? { text: '', images: [], savedAt: 0 }
     drafts.set(scopeKey, {
       ...from,
-      ...withNativeChatComposerDraftAddition(from, addition),
+      ...addNativeChatComposerDraftJournalAddition(from, addition, id),
       savedAt: Math.max(from.savedAt, at),
-      journalEntryIds: [...(from.journalEntryIds ?? []), id]
+      ...(!from.owner && record.entry.owner ? { owner: record.entry.owner } : {})
     })
     changed.add(scopeKey)
   }
@@ -153,9 +158,10 @@ export function journalNativeChatComposerDraftAddition(
   scopeKey: string,
   addition: NativeChatComposerDraftAddition,
   at: number,
-  id = createBrowserUuid()
+  id = createBrowserUuid(),
+  owner?: NativeChatComposerDraftOwner
 ): boolean {
-  const entry = { scopeKey, at, run: THIS_RUN, addition, id }
+  const entry = { scopeKey, at, run: THIS_RUN, addition, id, ...(owner ? { owner } : {}) }
   const entries = [...readEntries().filter(isAddition), entry]
   return (
     JSON.stringify(entries).length <= MAX_JOURNAL_ADDITIONS_CHARS &&

@@ -1,6 +1,7 @@
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import {
   parseStoredNativeChatComposerDraft,
+  type NativeChatComposerDraftOwner,
   type StoredNativeChatComposerDraft
 } from './native-chat-composer-draft-storage'
 import type { NativeChatComposerDraftAddition } from './native-chat-composer-draft-addition'
@@ -19,6 +20,7 @@ type EntryBase = {
 export type DraftJournalEntry = EntryBase & { readonly draft: StoredNativeChatComposerDraft | null }
 export type AdditionJournalEntry = EntryBase & {
   readonly addition: NativeChatComposerDraftAddition
+  readonly owner?: NativeChatComposerDraftOwner
 }
 export type JournalEntry = DraftJournalEntry | AdditionJournalEntry
 export type JournalRecord = { key?: string; entry: JournalEntry }
@@ -49,7 +51,8 @@ function parseEntry(entry: unknown): JournalEntry[] {
   const parsed = parseStoredNativeChatComposerDraft({
     text: typeof addition.text === 'string' ? addition.text : '',
     images: Array.isArray(addition.images) ? addition.images : [],
-    savedAt: at
+    savedAt: at,
+    owner: entry.owner
   })
   return parsed
     ? [
@@ -58,6 +61,7 @@ function parseEntry(entry: unknown): JournalEntry[] {
           at,
           run,
           ...(id ? { id } : {}),
+          ...(parsed.owner ? { owner: parsed.owner } : {}),
           addition: {
             text: parsed.text,
             images: parsed.images,
