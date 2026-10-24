@@ -728,4 +728,69 @@ describe('AgentBrowserBridge', () => {
       await b.destroyAllSessions()
     }
   )
+
+  it('revokes a retained navigation before its batched shutdown cleanup slot is available', async () => {
+    const tabs = new Map<string, number>([['tab-1', 100]])
+    const guests = new Map([
+      [100, mockWebContents(100)],
+      [200, mockWebContents(200)]
+    ])
+    for (let index = 0; index < 4; index++) {
+      tabs.set(`other-${index}`, 300 + index)
+      guests.set(300 + index, mockWebContents(300 + index))
+    }
+    webContentsFromIdMock.mockImplementation((id) => guests.get(id) ?? null)
+    const b = new AgentBrowserBridge(mockBrowserManager(tabs))
+    b.setActiveTab(100)
+    succeedWith({ snapshot: 'ready' })
+    for (let index = 0; index < 4; index++) {
+      await b.snapshot(undefined, `other-${index}`)
+    }
+    await b.snapshot(undefined, 'tab-1')
+    const entered = Promise.withResolvers<void>()
+    const loaded = Promise.withResolvers<void>()
+    const retiring = Promise.withResolvers<void>()
+    const blocked = Promise.withResolvers<void>()
+    const releases: (() => void)[] = []
+    let finishRetirement: (() => void) | undefined
+    const old = guests.get(100)!
+    old.loadURL.mockImplementation(() => {
+      entered.resolve()
+      return loaded.promise
+    })
+    execFileMock.mockImplementation(
+      (_bin: string, args: string[], _opts: unknown, cb: ExecFileCallback) => {
+        const finish = () => cb(null, JSON.stringify({ success: true, data: null }), '')
+        if (args.includes('close') && args.includes('orca-tab-tab-1')) {
+          finishRetirement = finish
+          retiring.resolve()
+        } else if (args.includes('close')) {
+          releases.push(finish)
+          if (releases.length === 4) {
+            blocked.resolve()
+          }
+        } else {
+          finish()
+        }
+        return createFakeAgentBrowserChild({ kill: vi.fn() })
+      }
+    )
+    const navigation = b.goto('https://next.test', undefined, 'tab-1')
+    const settled = Promise.allSettled([navigation])
+    await entered.promise
+    tabs.set('tab-1', 200)
+    const swapping = b.onProcessSwap('tab-1', 200, 100)
+    await retiring.promise
+    const shutdown = b.destroyAllSessions()
+    await blocked.promise
+    loaded.resolve()
+    const result = await settled
+    finishRetirement?.()
+    for (const release of releases) {
+      release()
+    }
+    await Promise.all([swapping, shutdown])
+    expect(releases).toHaveLength(4)
+    expect(result[0]).toMatchObject({ status: 'rejected', reason: { code: 'browser_tab_closed' } })
+  })
 })
