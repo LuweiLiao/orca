@@ -18,26 +18,6 @@ export function readRuntimeClientWindowRecords(raw: unknown): RuntimeClientWindo
   return [...bySlot.values()].sort((a, b) => a.slot - b.slot)
 }
 
-export function upsertRuntimeClientWindowRecord(
-  records: readonly RuntimeClientWindowRecord[],
-  slot: number,
-  patch: Partial<Omit<RuntimeClientWindowRecord, 'slot'>>
-): RuntimeClientWindowRecord[] {
-  const existing = records.find((record) => record.slot === slot)
-  const next = { ...existing, ...patch, slot }
-  const others = records.filter((record) => record.slot !== slot)
-  return [...others, next].sort((a, b) => a.slot - b.slot)
-}
-
-/** Lowest slot number with no live window, so a closed window's slot (and its pairing) is reused first. */
-export function lowestFreeRuntimeClientWindowSlot(liveSlots: ReadonlySet<number>): number {
-  let slot = 1
-  while (liveSlots.has(slot)) {
-    slot += 1
-  }
-  return slot
-}
-
 function parseRecord(entry: unknown): RuntimeClientWindowRecord | null {
   if (!entry || typeof entry !== 'object' || !('slot' in entry)) {
     return null

@@ -100,7 +100,7 @@ export abstract class AgentBrowserBridgeTabs extends AgentBrowserBridgeState {
         firstLiveWcId = wcId
       }
       const loadError = this.browserManager.getBrowserPageLoadError(tabId)
-      const certificateFailure = this.browserManager.getBrowserPageCertificateFailure(tabId)
+      const certificateFailure = this.browserManager.getBrowserPageCertificateFailure(tabId, wcId)
       result.push({
         browserPageId: tabId,
         index: index++,

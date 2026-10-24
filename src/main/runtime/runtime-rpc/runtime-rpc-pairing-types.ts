@@ -132,17 +132,11 @@ export type MobilePairingConnectionContext = Readonly<{
 
 // Why: keepalive frames count as socket activity, resetting both idle timers so long-polls outlive the 30s/60s idle caps. See §3.1.
 
-export function createWebClientEntryUrl(endpoint: string): string {
+export function createWebClientUrl(endpoint: string, pairingUrl: string): string {
   const url = new URL(endpoint)
   url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:'
   url.pathname = webClientPathForEndpoint(url.pathname)
   url.search = ''
-  url.hash = ''
-  return url.toString()
-}
-
-export function createWebClientUrl(endpoint: string, pairingUrl: string): string {
-  const url = new URL(createWebClientEntryUrl(endpoint))
   // Why: pairing URLs carry full credentials; the fragment keeps them out of proxy logs and Referer headers.
   url.hash = `pairing=${encodeURIComponent(pairingUrl)}`
   return url.toString()

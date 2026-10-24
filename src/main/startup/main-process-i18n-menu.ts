@@ -8,10 +8,7 @@ import {
 } from '../menu/register-app-menu'
 import { zoomDashboardPopoutIfFocused } from '../window/dashboard-popout-window'
 import { zoomWorkspaceSpaceWindowIfFocused } from '../window/workspace-space-window'
-import {
-  isRuntimeClientWindow,
-  zoomRuntimeClientWindowIfFocused
-} from '../window/runtime-client-windows'
+import { preferredDesktopRenderer } from '../window/desktop-renderer-registry'
 import { openRuntimeClientWindowFromUserCommand } from '../window/runtime-client-window-open-command'
 import { recordCrashBreadcrumb } from '../crash-reporting/crash-breadcrumb-store'
 import { mainProcessState as state } from './main-process-state'
@@ -26,24 +23,15 @@ import {
 import { ensureAutoUpdaterConfigured } from '../window/attach-main-window-services'
 import { logStartupMilestone } from './startup-diagnostics'
 
-// Why: menu zoom must act on the window the user is looking at — routing to
-// the main window while a secondary window is focused zooms behind it.
+// Auxiliary windows handle zoom directly; full desktop windows use their renderer.
 function zoomFocusedWindowFromMenu(direction: UIZoomDirection): void {
-  if (
-    !zoomDashboardPopoutIfFocused(direction) &&
-    !zoomWorkspaceSpaceWindowIfFocused(direction) &&
-    !zoomRuntimeClientWindowIfFocused(direction)
-  ) {
-    state.mainWindow?.webContents.send('terminal:zoom', direction)
+  if (!zoomDashboardPopoutIfFocused(direction) && !zoomWorkspaceSpaceWindowIfFocused(direction)) {
+    preferredDesktopRenderer()?.send('terminal:zoom', direction)
   }
 }
 
-// Why: macOS keeps one app menu for every window, so a main-renderer action clicked while an
-// extra window is focused would silently change the main window behind it.
-function sendToMainRendererUnlessExtraWindowFocused(channel: string): void {
-  if (!isRuntimeClientWindow(BrowserWindow.getFocusedWindow())) {
-    state.mainWindow?.webContents.send(channel)
-  }
+function sendToFocusedDesktopRenderer(channel: string): void {
+  preferredDesktopRenderer()?.send(channel)
 }
 
 export async function initializeMainProcessI18nAndMenu(): Promise<void> {
@@ -85,12 +73,12 @@ export async function initializeMainProcessI18nAndMenu(): Promise<void> {
     onZoomIn: () => zoomFocusedWindowFromMenu('in'),
     onZoomOut: () => zoomFocusedWindowFromMenu('out'),
     onZoomReset: () => zoomFocusedWindowFromMenu('reset'),
-    onToggleLeftSidebar: () => sendToMainRendererUnlessExtraWindowFocused('ui:toggleLeftSidebar'),
-    onToggleRightSidebar: () => sendToMainRendererUnlessExtraWindowFocused('ui:toggleRightSidebar'),
+    onToggleLeftSidebar: () => sendToFocusedDesktopRenderer('ui:toggleLeftSidebar'),
+    onToggleRightSidebar: () => sendToFocusedDesktopRenderer('ui:toggleRightSidebar'),
     onToggleAppearance: (key) => {
       if (key === 'statusBarVisible') {
         // Why: status bar visibility lives in persisted UI state (not settings) and the renderer owns the toggle — forward the event, let it flip + store.
-        sendToMainRendererUnlessExtraWindowFocused('ui:toggleStatusBar')
+        sendToFocusedDesktopRenderer('ui:toggleStatusBar')
         return
       }
       const current = store.getSettings()
