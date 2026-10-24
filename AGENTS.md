@@ -60,6 +60,16 @@ All changes must consider folder workspaces as well as git worktrees. Don't assu
 
 # Git / GitHub
 
+## LLW Fork Workflow
+
+Follow [`docs/readme/llw-development.md`](./docs/readme/llw-development.md).
+Start independent upstream fixes/features from `upstream/main`; start changes
+that depend on fork features from `origin/llw`. Keep upstream PR branches focused.
+Integrate verified feature commits into `llw` with source provenance and rerun
+combined checks. Do not use old release or baseline worktrees as development
+bases. Coordinate published `llw` rebases, preserve a backup and use an explicit
+force-with-lease. Never rewrite unrelated public PR branches during integration.
+
 If changing code around `git`, `gh`, source-control, or review behavior read [`docs/reference/git-workflow.md`](./docs/reference/git-workflow.md).
 
 For a failed GitHub Actions run, inspect the failed jobs and retry with `gh run rerun <run-id> --failed --repo stablyai/orca`. Preserve successful jobs; use a full rerun only when the failure requires revalidating them. A code fix needs a new push and fresh checks, not a retry of the old SHA.
