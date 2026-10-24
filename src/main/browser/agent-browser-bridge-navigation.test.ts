@@ -528,6 +528,61 @@ describe('AgentBrowserBridge', () => {
     expect(execFileMock).not.toHaveBeenCalled()
   })
 
+  it.each([false, true].flatMap((primed) => [false, true].map((close) => ({ primed, close }))))(
+    'retargets own goto through a real swap notification; daemon=$primed/close=$close',
+    async ({ primed, close }) => {
+      const tabs = new Map([['tab-1', 100]])
+      const old = mockWebContents(100, 'https://example.com/start', 'Old')
+      const replacement = mockWebContents(200, 'https://example.com/final', 'Replacement')
+      const entered = Promise.withResolvers<void>()
+      const loaded = Promise.withResolvers<void>()
+      old.loadURL.mockImplementation(() => {
+        entered.resolve()
+        return loaded.promise
+      })
+      webContentsFromIdMock.mockImplementation((id) =>
+        id === 100 ? old : id === 200 ? replacement : null
+      )
+      const b = new AgentBrowserBridge(mockBrowserManager(tabs))
+      b.setActiveTab(100)
+      succeedWith({ snapshot: 'ready' })
+      if (primed) {
+        await b.snapshot()
+      }
+      const navigation = b.goto('https://example.com/next', undefined, 'tab-1')
+      await entered.promise
+      const queued = b.snapshot(undefined, 'tab-1')
+      const settled = Promise.allSettled([navigation, queued])
+      tabs.set('tab-1', 200)
+      await b.onProcessSwap('tab-1', 200, 100)
+      if (close) {
+        await b.onTabClosed(200)
+        tabs.delete('tab-1')
+      }
+      loaded.resolve()
+      const results = await settled
+      if (close) {
+        expect(results.map((result) => result.status)).toEqual(['rejected', 'rejected'])
+      } else {
+        expect(results[0]).toEqual({
+          status: 'fulfilled',
+          value: {
+            url: 'https://example.com/final',
+            title: 'Replacement'
+          }
+        })
+        expect(results[1]).toMatchObject({
+          status: 'rejected',
+          reason: { code: 'browser_tab_closed' }
+        })
+        await expect(b.snapshot(undefined, 'tab-1')).resolves.toMatchObject({
+          browserPageId: 'tab-1'
+        })
+      }
+      await b.destroyAllSessions()
+    }
+  )
+
   it('routes direct commands to the replacement registration, not the stale session owner', async () => {
     const tabs = new Map([['tab-1', 100]])
     const oldWc = mockWebContents(100, 'https://old.example', 'Old')
@@ -564,5 +619,49 @@ describe('AgentBrowserBridge', () => {
     )
     expect(oldWc.debugger.sendCommand).not.toHaveBeenCalled()
     expect(execFileMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects own navigation when its replacement closes during old daemon teardown', async () => {
+    const tabs = new Map([['tab-1', 100]])
+    const old = mockWebContents(100)
+    const replacement = mockWebContents(200)
+    const entered = Promise.withResolvers<void>()
+    const loaded = Promise.withResolvers<void>()
+    const closingDaemon = Promise.withResolvers<void>()
+    let finishClose: (() => void) | undefined
+    old.loadURL.mockImplementation(() => {
+      entered.resolve()
+      return loaded.promise
+    })
+    webContentsFromIdMock.mockImplementation((id) =>
+      id === 100 ? old : id === 200 ? replacement : null
+    )
+    const b = new AgentBrowserBridge(mockBrowserManager(tabs))
+    b.setActiveTab(100)
+    succeedWith({ snapshot: 'ready' })
+    await b.snapshot()
+    execFileMock.mockImplementation(
+      (_bin: string, args: string[], _opts: unknown, cb: ExecFileCallback) => {
+        if (args.includes('close')) {
+          finishClose = () => cb(null, JSON.stringify({ success: true, data: null }), '')
+          closingDaemon.resolve()
+        }
+        return createFakeAgentBrowserChild({ kill: vi.fn() })
+      }
+    )
+    const navigation = b.goto('https://example.com/next', undefined, 'tab-1')
+    await entered.promise
+    const queued = b.snapshot(undefined, 'tab-1')
+    const settled = Promise.allSettled([navigation, queued])
+    tabs.set('tab-1', 200)
+    const swapping = b.onProcessSwap('tab-1', 200, 100)
+    await closingDaemon.promise
+    const closing = b.onTabClosed(200)
+    tabs.delete('tab-1')
+    loaded.resolve()
+    expect((await settled).map((result) => result.status)).toEqual(['rejected', 'rejected'])
+    finishClose?.()
+    await Promise.all([swapping, closing])
+    await b.destroyAllSessions()
   })
 })

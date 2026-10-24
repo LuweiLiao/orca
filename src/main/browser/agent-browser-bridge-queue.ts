@@ -127,13 +127,25 @@ export abstract class AgentBrowserBridgeQueue extends AgentBrowserBridgeShutdown
     }
     // Why: the page's guest can change while queued; bind to the one current at execution.
     const target = this.resolveCommandTarget(worktreeId, browserPageId)
-    if (options.ensureSession !== false) {
-      await this.ensureSession(sessionName, browserPageId, target.webContentsId)
+    const navigation = options.retargetNavigation
+      ? { webContentsId: target.webContentsId }
+      : undefined
+    if (navigation) {
+      this.navigationCommandsBySession.set(sessionName, navigation)
     }
-    assertQueueStillOwned()
-    const result = await execute(sessionName, target)
-    assertQueueStillOwned()
-    return result
+    try {
+      if (options.ensureSession !== false) {
+        await this.ensureSession(sessionName, browserPageId, target.webContentsId)
+      }
+      assertQueueStillOwned()
+      const result = await execute(sessionName, target)
+      assertQueueStillOwned()
+      return result
+    } finally {
+      if (this.navigationCommandsBySession.get(sessionName) === navigation) {
+        this.navigationCommandsBySession.delete(sessionName)
+      }
+    }
   }
 
   /** Holds the page for a host's command, so a revocation stops every later step of it. */

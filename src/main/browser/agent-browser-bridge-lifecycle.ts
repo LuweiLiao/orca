@@ -32,7 +32,9 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
         await creating.catch(() => {})
       }
       const owner =
-        this.sessions.get(sessionName)?.webContentsId ?? this.commandGuestBySession.get(sessionName)
+        this.navigationCommandsBySession.get(sessionName)?.webContentsId ??
+        this.sessions.get(sessionName)?.webContentsId ??
+        this.commandGuestBySession.get(sessionName)
       if (owner === undefined || owner === webContentsId) {
         await this.onPageClosed(browserPageId)
       }
@@ -49,6 +51,7 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
    */
   async onPageClosed(browserPageId: string): Promise<void> {
     const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
+    this.rejectQueuedCommandsForClosedSession(sessionName)
     await this.destroySession(sessionName)
     this.pendingInterceptRestore.delete(sessionName)
   }
@@ -75,14 +78,31 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
       await creating.catch(() => {})
     }
     const session = this.sessions.get(sessionName)
-    const owner = session?.webContentsId ?? this.commandGuestBySession.get(sessionName)
+    const navigation = this.navigationCommandsBySession.get(sessionName)
+    const owner =
+      navigation?.webContentsId ??
+      session?.webContentsId ??
+      this.commandGuestBySession.get(sessionName)
     const owningWorktreeId = this.browserManager.getWorktreeIdForTab(browserPageId)
     // Why: save intercept patterns before destroy so the new session can restore them after init.
     if (owner === undefined || oldWebContentsId === undefined || owner === oldWebContentsId) {
+      const retargetNavigation =
+        navigation !== undefined &&
+        navigation.webContentsId === oldWebContentsId &&
+        this.resolveTabIdSafe(newWebContentsId) === browserPageId &&
+        !this.shutdownStarted
+      if (retargetNavigation) {
+        navigation.webContentsId = newWebContentsId
+        this.commandGuestBySession.set(sessionName, newWebContentsId)
+        this.rejectWaitingCommands(sessionName)
+      }
       if (session && session.activeInterceptPatterns.length > 0) {
         this.pendingInterceptRestore.set(sessionName, [...session.activeInterceptPatterns])
       }
-      await this.destroySession(sessionName)
+      await this.destroySession(sessionName, {
+        closeTimeoutMs: AGENT_BROWSER_CLEANUP_TIMEOUT_MS,
+        keepQueuedCommands: retargetNavigation
+      })
     }
     if (oldWebContentsId != null && this.activeWebContentsId === oldWebContentsId) {
       this.activeWebContentsId = newWebContentsId
@@ -238,19 +258,23 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
   }
 
   protected rejectQueuedCommandsForClosedSession(sessionName: string): void {
-    const queue = this.commandQueues.get(sessionName)
+    this.rejectWaitingCommands(sessionName)
     this.commandQueues.delete(sessionName)
     this.commandGuestBySession.delete(sessionName)
+    this.navigationCommandsBySession.delete(sessionName)
     this.processingQueues.delete(sessionName)
+  }
+
+  private rejectWaitingCommands(sessionName: string): void {
+    const queue = this.commandQueues.get(sessionName)
     if (queue) {
       const err = new BrowserError(
         'browser_tab_closed',
         'Tab was closed while commands were queued'
       )
-      for (const cmd of queue) {
+      for (const cmd of queue.splice(0)) {
         cmd.reject(err)
       }
-      queue.length = 0
     }
   }
 }

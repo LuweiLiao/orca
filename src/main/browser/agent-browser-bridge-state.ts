@@ -17,6 +17,7 @@ export abstract class AgentBrowserBridgeState {
   protected readonly commandQueues = new Map<string, QueuedCommand[]>()
   protected readonly processingQueues = new Set<string>()
   protected readonly commandGuestBySession = new Map<string, number>()
+  protected readonly navigationCommandsBySession = new Map<string, { webContentsId: number }>()
   protected readonly agentBrowserBin: string
   protected readonly agentBrowserEnv: NodeJS.ProcessEnv
   protected readonly ownsAgentBrowserSocketDirectory: boolean
