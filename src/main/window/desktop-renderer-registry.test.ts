@@ -38,6 +38,7 @@ import {
   listDesktopRenderers,
   preferredDesktopRenderer,
   registerDesktopRenderer,
+  setDesktopRendererFocusResolver,
   unregisterDesktopRenderer
 } from './desktop-renderer-registry'
 import {
@@ -50,6 +51,7 @@ afterEach(() => {
     unregisterDesktopRenderer(renderer)
   }
   setTrustedBrowserRendererWebContentsId(null)
+  setDesktopRendererFocusResolver(null)
   focus.id = 0
 })
 
@@ -85,6 +87,7 @@ describe('registered desktop renderers', () => {
     registerDesktopRenderer(first)
     registerDesktopRenderer(second)
 
+    setDesktopRendererFocusResolver(() => BrowserWindow.getFocusedWindow()?.webContents ?? null)
     focus.id = second.id
     expect(preferredDesktopRenderer()).toBe(second)
     expect(preferredDesktopRenderer(second.id)).toBe(first)
@@ -92,6 +95,21 @@ describe('registered desktop renderers', () => {
     expect(preferredDesktopRenderer()).toBe(first)
     unregisterDesktopRenderer(first)
     expect(preferredDesktopRenderer()).toBe(second)
+  })
+
+  it('uses registered survivors without any desktop focus resolver', () => {
+    expect(preferredDesktopRenderer()).toBeNull()
+    const firstWindow = new BrowserWindow({ show: false })
+    const first = firstWindow.webContents
+    const second = new BrowserWindow({ show: false }).webContents
+    registerDesktopRenderer(first)
+    registerDesktopRenderer(second)
+    focus.id = second.id
+    expect(preferredDesktopRenderer()).toBe(first)
+    expect(preferredDesktopRenderer(first.id)).toBe(second)
+    firstWindow.destroy()
+    expect(preferredDesktopRenderer()).toBe(second)
+    expect(preferredDesktopRenderer(second.id)).toBeNull()
   })
 
   it('does not trust another object with the same numeric renderer id', () => {

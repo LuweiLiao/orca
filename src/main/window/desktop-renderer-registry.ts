@@ -1,8 +1,13 @@
-import { BrowserWindow, type WebContents } from 'electron'
+import type { WebContents } from 'electron'
 
 const renderers = new Map<number, WebContents>()
 const rendererIds = new WeakMap<WebContents, number>()
 const windowIds = new WeakMap<WebContents, string>()
+let focusedRenderer: (() => WebContents | null) | null = null
+
+export function setDesktopRendererFocusResolver(resolve: (() => WebContents | null) | null): void {
+  focusedRenderer = resolve
+}
 
 export function registerDesktopRenderer(renderer: WebContents, windowId?: string): void {
   if (windowId) {
@@ -60,7 +65,7 @@ export function preferredDesktopRenderer(excludedId?: number): WebContents | nul
   if (renderers.size === 0) {
     return null
   }
-  const focused = BrowserWindow.getFocusedWindow()?.webContents
+  const focused = focusedRenderer?.()
   if (focused && focused.id !== excludedId && isRegisteredDesktopRenderer(focused)) {
     return focused
   }

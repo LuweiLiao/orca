@@ -38,6 +38,7 @@ import { formatNativeDesktopWindowArgument } from '../../shared/native-desktop-w
 import {
   listDesktopRenderers,
   registerDesktopRenderer,
+  setDesktopRendererFocusResolver,
   unregisterDesktopRenderer
 } from './desktop-renderer-registry'
 
@@ -173,6 +174,7 @@ export function createMainWindow(
     }
   }
   const rendererWebContentsId = desktopRenderer.id
+  setDesktopRendererFocusResolver(() => BrowserWindow.getFocusedWindow()?.webContents ?? null)
   registerDesktopRenderer(desktopRenderer, opts?.windowId)
   installWindowsPathRegistryChangeListener(mainWindow)
   // Why: native paste fallback is privileged IPC; only the top-level renderer may request it.
