@@ -1,5 +1,7 @@
 import { chatWorkspaceByTabId } from '@/lib/structured-chat-tab-index'
 import { routeNativeChatHref } from '../../../../shared/native-chat-href-routing'
+import { isWindowsAbsolutePathLike } from '../../../../shared/cross-platform-path'
+import { isWslUncPath } from '../../../../shared/wsl-paths'
 import {
   parseExplicitFileLinkTarget,
   resolveExplicitFileLinkTarget,
@@ -146,5 +148,12 @@ export function resolveNativeChatFileLink(
     const absolutePath = resolveExplicitFileLinkTargetPath(route.pathText, context.worktreePath)
     return absolutePath ? { absolutePath, line: null, column: null } : null
   }
-  return resolvePathText(route.pathText, route.line, context)
+  // Markdown hrefs may spell a Windows drive as /C:/; literal host paths stay untouched.
+  const pathText =
+    isWindowsAbsolutePathLike(context.worktreePath) &&
+    !isWslUncPath(context.worktreePath) &&
+    /^\/[A-Za-z]:[\\/]/.test(route.pathText)
+      ? route.pathText.slice(1)
+      : route.pathText
+  return resolvePathText(pathText, route.line, context)
 }
