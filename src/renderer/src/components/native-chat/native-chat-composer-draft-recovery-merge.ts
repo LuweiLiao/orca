@@ -3,6 +3,7 @@ import {
   type NativeChatComposerDraftAddition
 } from './native-chat-composer-draft-addition'
 import type { StoredNativeChatComposerDraft } from './native-chat-composer-draft-storage'
+import { nativeChatPastedTextToken } from './native-chat-pasted-text-reference'
 
 export function addNativeChatComposerDraftJournalAddition<
   T extends Pick<
@@ -75,6 +76,18 @@ export function mergeNativeChatComposerDraftRecovery(
   }
   for (const { id, addition } of previous.journalAdditions ?? []) {
     merged = addNativeChatComposerDraftJournalAddition(merged, addition, id)
+  }
+  const inheritedPaths = Object.entries(previous.pastedTextFiles ?? {}).filter(([id]) => {
+    const token = nativeChatPastedTextToken(id)
+    return merged.text.includes(token) && !recovered.text.includes(token)
+  })
+  const paths = Object.fromEntries(
+    Object.entries({ ...Object.fromEntries(inheritedPaths), ...recovered.pastedTextFiles }).filter(
+      ([id]) => merged.text.includes(nativeChatPastedTextToken(id))
+    )
+  )
+  if (Object.keys(paths).length > 0 || recovered.pastedTextFiles !== undefined) {
+    merged = { ...merged, pastedTextFiles: paths }
   }
   return { ...merged, ...(!merged.owner && previous.owner ? { owner: previous.owner } : {}) }
 }
