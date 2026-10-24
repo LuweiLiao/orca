@@ -3,17 +3,17 @@ import { expect } from '@stablyai/playwright-test'
 import { writeFile } from 'node:fs/promises'
 import { waitForSessionReady } from './store'
 
+export function nativeDesktopPages(app: ElectronApplication): Page[] {
+  return app
+    .windows()
+    .filter((page) => !page.isClosed() && /\/index\.html(?:[?#]|$)/.test(page.url()))
+}
+
 export async function peerNativeWindow(app: ElectronApplication, first: Page): Promise<Page> {
   const known = new Set(app.windows())
   expect(await first.evaluate(() => window.api.ui.openRuntimeClientWindow())).toEqual({ ok: true })
-  await expect
-    .poll(() =>
-      app.windows().some((page) => !known.has(page) && /\/index\.html(?:[?#]|$)/.test(page.url()))
-    )
-    .toBe(true)
-  const peer = app
-    .windows()
-    .find((page) => !known.has(page) && /\/index\.html(?:[?#]|$)/.test(page.url()))
+  await expect.poll(() => nativeDesktopPages(app).some((page) => !known.has(page))).toBe(true)
+  const peer = nativeDesktopPages(app).find((page) => !known.has(page))
   if (!peer) {
     throw new Error('Missing peer native window')
   }
