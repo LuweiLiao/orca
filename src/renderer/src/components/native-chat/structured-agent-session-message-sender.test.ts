@@ -489,6 +489,14 @@ describe('structured agent session message sender', () => {
     expect(sendCalls()).toBe(1)
   })
 
+  it('warns when handing back a refused message remains only in memory', async () => {
+    mocks.call.mockResolvedValue(refusedSend)
+    mocks.handBack.mockReturnValueOnce(false)
+    const sent = send('Keep this draft')
+    expect(await sent.outcome).toBe('returned')
+    expect(getStructuredAgentSessionSendNotice(SESSION)).toContain("Couldn't save your message.")
+  })
+
   it('gives back a remote image with the connection it lives on, which never goes to the host', async () => {
     mocks.call.mockResolvedValue(refusedSend)
     const a = send('look', {
