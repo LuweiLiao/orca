@@ -758,10 +758,10 @@ describe('AgentBrowserBridge', () => {
     expect((closeCall![2] as { timeout: number }).timeout).toBeLessThanOrEqual(5_000)
   })
 
-  // Why: the daemon is already spawned by the time the name reaches pendingSessionCreation, so a
-  // quit that only walks `sessions` leaves exactly the orphan the barrier was added to prevent.
-  it('closes a session still being created when everything is torn down', async () => {
+  // Proxy startup may finish after shutdown revoked its command.
+  it('stops a starting proxy without creating its helper after shutdown', async () => {
     let releaseProxyStart: (() => void) | undefined
+    const stopProxy = vi.fn(async () => {})
     CdpWsProxyMock.mockImplementationOnce(function (this: Record<string, unknown>) {
       this.start = vi.fn(
         () =>
@@ -769,7 +769,7 @@ describe('AgentBrowserBridge', () => {
             releaseProxyStart = () => resolve('ws://127.0.0.1:9222')
           })
       )
-      this.stop = vi.fn(async () => {})
+      this.stop = stopProxy
       this.getPort = vi.fn(() => 9222)
     })
 
@@ -781,8 +781,10 @@ describe('AgentBrowserBridge', () => {
     const closesBeforeTeardown = closeCallCount()
     const teardown = bridge.destroyAllSessions()
     releaseProxyStart!()
-    await Promise.allSettled([inFlight, teardown])
-
-    expect(closeCallCount()).toBeGreaterThan(closesBeforeTeardown)
+    const results = await Promise.allSettled([inFlight, teardown])
+    expect(results[0]?.status).toBe('rejected')
+    expect(stopProxy).toHaveBeenCalledExactlyOnceWith()
+    expect(closeCallCount()).toBe(closesBeforeTeardown)
+    expect(execFileMock.mock.calls.some((call) => call[1].includes('snapshot'))).toBe(false)
   })
 })

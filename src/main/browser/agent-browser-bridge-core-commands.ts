@@ -15,6 +15,7 @@ import {
   waitForAbortedNavigationReplacement
 } from './agent-browser-bridge-process'
 import { AgentBrowserBridgeQueue } from './agent-browser-bridge-queue'
+import { assertRemoteCliBrowserAccess } from '../runtime/desktop-browser-bridge/remote-cli-browser-scope'
 
 export abstract class AgentBrowserBridgeCoreCommands extends AgentBrowserBridgeQueue {
   async snapshot(worktreeId?: string, browserPageId?: string): Promise<BrowserSnapshotResult> {
@@ -123,6 +124,7 @@ export abstract class AgentBrowserBridgeCoreCommands extends AgentBrowserBridgeQ
 
         // Why: cross-process navigation can replace the guest while retaining the same authoritative page id.
         const navigatedTarget = this.resolveCommandTarget(worktreeId, target.browserPageId)
+        assertRemoteCliBrowserAccess(navigatedTarget.webContentsId)
         const navigatedWebContents = this.requireTargetWebContents(navigatedTarget)
         const loadError = navigationAborted
           ? this.browserManager.getBrowserPageLoadError(target.browserPageId)

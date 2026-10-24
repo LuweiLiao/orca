@@ -51,6 +51,7 @@ vi.mock('./cdp-bridge', () => ({
 }))
 
 import { AgentBrowserBridge } from './agent-browser-bridge'
+import { runInRemoteCliBrowserScope } from '../runtime/desktop-browser-bridge/remote-cli-browser-scope'
 import {
   createFakeAgentBrowserChild,
   createSucceedWith,
@@ -621,47 +622,110 @@ describe('AgentBrowserBridge', () => {
     expect(execFileMock).not.toHaveBeenCalled()
   })
 
-  it('rejects own navigation when its replacement closes during old daemon teardown', async () => {
-    const tabs = new Map([['tab-1', 100]])
-    const old = mockWebContents(100)
-    const replacement = mockWebContents(200)
-    const entered = Promise.withResolvers<void>()
-    const loaded = Promise.withResolvers<void>()
-    const closingDaemon = Promise.withResolvers<void>()
-    let finishClose: (() => void) | undefined
-    old.loadURL.mockImplementation(() => {
-      entered.resolve()
-      return loaded.promise
-    })
-    webContentsFromIdMock.mockImplementation((id) =>
-      id === 100 ? old : id === 200 ? replacement : null
-    )
-    const b = new AgentBrowserBridge(mockBrowserManager(tabs))
-    b.setActiveTab(100)
-    succeedWith({ snapshot: 'ready' })
-    await b.snapshot()
-    execFileMock.mockImplementation(
-      (_bin: string, args: string[], _opts: unknown, cb: ExecFileCallback) => {
-        if (args.includes('close')) {
-          finishClose = () => cb(null, JSON.stringify({ success: true, data: null }), '')
-          closingDaemon.resolve()
+  it.each(['close', 'shutdown', 'second-swap'] as const)(
+    'revokes during pending old daemon teardown: %s',
+    async (event) => {
+      const tabs = new Map([['tab-1', 100]])
+      const old = mockWebContents(100)
+      const replacement = mockWebContents(200)
+      const final = mockWebContents(300)
+      const entered = Promise.withResolvers<void>()
+      const loaded = Promise.withResolvers<void>()
+      const closingDaemon = Promise.withResolvers<void>()
+      let finishClose: (() => void) | undefined
+      old.loadURL.mockImplementation(() => {
+        entered.resolve()
+        return loaded.promise
+      })
+      webContentsFromIdMock.mockImplementation((id) =>
+        id === 100 ? old : id === 200 ? replacement : id === 300 ? final : null
+      )
+      const b = new AgentBrowserBridge(mockBrowserManager(tabs))
+      b.setActiveTab(100)
+      succeedWith({ snapshot: 'ready' })
+      await b.snapshot()
+      let heldClose = false
+      execFileMock.mockImplementation(
+        (_bin: string, args: string[], _opts: unknown, cb: ExecFileCallback) => {
+          if (args.includes('close') && !heldClose) {
+            heldClose = true
+            finishClose = () => cb(null, JSON.stringify({ success: true, data: null }), '')
+            closingDaemon.resolve()
+          } else {
+            cb(null, JSON.stringify({ success: true, data: { snapshot: 'ready' } }), '')
+          }
+          return createFakeAgentBrowserChild({ kill: vi.fn() })
         }
-        return createFakeAgentBrowserChild({ kill: vi.fn() })
+      )
+      const navigation = b.goto('https://example.com/next', undefined, 'tab-1')
+      await entered.promise
+      const queued = b.snapshot(undefined, 'tab-1')
+      const settled = Promise.allSettled([navigation, queued])
+      tabs.set('tab-1', 200)
+      const swapping = b.onProcessSwap('tab-1', 200, 100)
+      await closingDaemon.promise
+      let closing: Promise<void>
+      let waiting: Promise<unknown> | undefined
+      if (event === 'second-swap') {
+        loaded.resolve()
+        await expect(navigation).resolves.toBeDefined()
+        waiting = b.snapshot(undefined, 'tab-1')
+        const waitingResult = Promise.allSettled([waiting])
+        tabs.set('tab-1', 300)
+        closing = b.onProcessSwap('tab-1', 300, 200)
+        finishClose?.()
+        await Promise.all([swapping, closing])
+        expect((await waitingResult)[0]?.status).toBe('rejected')
+        expect(CdpWsProxyMock.instances).toHaveLength(1)
+        await expect(b.snapshot(undefined, 'tab-1')).resolves.toMatchObject({
+          browserPageId: 'tab-1'
+        })
+      } else {
+        closing = event === 'shutdown' ? b.destroyAllSessions() : b.onTabClosed(200)
+        if (event === 'close') {
+          tabs.delete('tab-1')
+        }
+        loaded.resolve()
+        expect((await settled).map((result) => result.status)).toEqual(['rejected', 'rejected'])
       }
-    )
-    const navigation = b.goto('https://example.com/next', undefined, 'tab-1')
-    await entered.promise
-    const queued = b.snapshot(undefined, 'tab-1')
-    const settled = Promise.allSettled([navigation, queued])
-    tabs.set('tab-1', 200)
-    const swapping = b.onProcessSwap('tab-1', 200, 100)
-    await closingDaemon.promise
-    const closing = b.onTabClosed(200)
-    tabs.delete('tab-1')
-    loaded.resolve()
-    expect((await settled).map((result) => result.status)).toEqual(['rejected', 'rejected'])
-    finishClose?.()
-    await Promise.all([swapping, closing])
-    await b.destroyAllSessions()
-  })
+      finishClose?.()
+      await Promise.all([swapping, closing])
+      await b.destroyAllSessions()
+    }
+  )
+
+  it.each([false, true])(
+    'rechecks the replacement SSH route before returning navigation: %s',
+    async (routed) => {
+      const tabs = new Map([['tab-1', 100]])
+      const old = mockWebContents(100)
+      const replacement = mockWebContents(200, 'https://replacement.test', 'Replacement')
+      const b = new AgentBrowserBridge(mockBrowserManager(tabs))
+      b.setActiveTab(100)
+      webContentsFromIdMock.mockImplementation((id) =>
+        id === 100 ? old : id === 200 ? replacement : null
+      )
+      old.loadURL.mockImplementation(async () => {
+        tabs.set('tab-1', 200)
+        await b.onProcessSwap('tab-1', 200, 100)
+      })
+      const title = vi.spyOn(replacement, 'getTitle')
+      const navigation = runInRemoteCliBrowserScope(
+        'worktree',
+        () => b.goto('https://next.test', undefined, 'tab-1'),
+        undefined,
+        (id) => id === 100 || (routed && id === 200)
+      )
+      if (routed) {
+        await expect(navigation).resolves.toEqual({
+          url: 'https://replacement.test',
+          title: 'Replacement'
+        })
+      } else {
+        await expect(navigation).rejects.toMatchObject({ code: 'desktop_browser_bridge_unrouted' })
+        expect(title).not.toHaveBeenCalled()
+      }
+      await b.destroyAllSessions()
+    }
+  )
 })
