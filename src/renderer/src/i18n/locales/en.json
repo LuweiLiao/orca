@@ -1,10 +1,4 @@
 {
-  "multiWindow": {
-    "newWindow": "New Window",
-    "openInNewWindow": "Open in New Window",
-    "openFailed": "Could not open a new window",
-    "openFailedDetail": "Reason: {{reason}}"
-  },
   "csv": {
     "detectingDelimiter": "Detecting delimiter…",
     "indexProgress": "Indexing CSV… {{percent}}%",
@@ -18911,26 +18905,8 @@
       "useKnownId": "Use known user ID \"{{value0}}\""
     },
     "native-chat": {
-      "annotations": {
-        "add": "Add annotation",
-        "count": "{{count}} annotations",
-        "countOne": "1 annotation",
-        "title": "Annotations",
-        "comment": "Comment",
-        "save": "Save annotation",
-        "cancel": "Cancel",
-        "edit": "Edit annotation",
-        "remove": "Delete annotation",
-        "locate": "Show original text",
-        "collapse": "Collapse annotations",
-        "expand": "Expand annotations",
-        "addToMessage": "Add annotations to message",
-        "notSaved": "Annotations could not be saved on this device.",
-        "originalUnavailable": "Original text is not currently displayed.",
-        "transferFailed": "The message draft could not be saved. Your annotations have been kept.",
-        "retry": "Retry saving annotations"
-      },
       "conversationReference": {
+        "reference": "Reference conversation",
         "source": "Referenced conversation",
         "differentHost": "This agent cannot reach the conversation on its source host. Open the chat on that host to reference it.",
         "loading": "Reading conversation",
@@ -18938,17 +18914,16 @@
         "more": "Load more",
         "drag": "Drag into a message to reference this conversation",
         "copy": "Copy conversation reference",
-        "reference": "Reference conversation",
+        "user": "User",
+        "assistant": "Assistant",
+        "tool": "Tool",
+        "empty": "This conversation has no readable text.",
         "addedToDraft": "The conversation reference was added to the draft of the chat it was meant for.",
-        "draftSaveFailed": "The conversation reference could not be saved to the target draft.",
         "unavailable": "This conversation cannot be referenced.",
         "noComposer": "Open a chat to reference this conversation in its message box.",
         "ambiguousComposer": "Click the message box of the chat to reference this conversation in, then try again.",
         "composerUnavailable": "The open chat cannot take a message right now.",
-        "user": "User",
-        "assistant": "Assistant",
-        "tool": "Tool",
-        "empty": "This conversation has no readable text."
+        "draftSaveFailed": "The conversation reference could not be saved to the target draft."
       },
       "install": {
         "checking": "Checking whether {{agent}} is ready on this host…"
@@ -20119,8 +20094,6 @@
         "inlineVisualsToggleLabel": "Toggle inline visuals",
         "queueFollowUpsCopy": "Messages you send while the agent is working wait as cards you can steer, edit, or delete. Messages with images send right away.",
         "queueFollowUpsToggleLabel": "Toggle queue follow-ups",
-        "queueFollowUpsUnsupported": "This host does not support queued follow-ups. This setting is unavailable.",
-        "queueFollowUpsUnconfirmed": "Queue support has not been confirmed for this host. This setting is unavailable until support is confirmed.",
         "behaviorTitle": "Behavior",
         "resumeSearchUpdate": "update",
         "resumeSearchRelaunch": "relaunch",

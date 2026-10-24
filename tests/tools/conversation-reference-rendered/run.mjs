@@ -51,27 +51,45 @@ try {
   const historyRow = page.getByTestId('history').locator('.group\\/session-row')
   const references = page.locator('[data-native-chat-conversation-reference]')
   const capture = async (name) => {
-    await expect.poll(() => page.getByRole('menu').evaluate((element) => getComputedStyle(element).opacity)).toBe('1')
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
-    const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true })
+    await expect
+      .poll(() => page.getByRole('menu').evaluate((element) => getComputedStyle(element).opacity))
+      .toBe('1')
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    )
+    const screenshot = await cdp.send('Page.captureScreenshot', {
+      format: 'png',
+      fromSurface: true
+    })
     writeFileSync(path.join(output, `${name}.png`), Buffer.from(screenshot.data, 'base64'))
-    writeFileSync(path.join(output, `${name}-ax.json`), JSON.stringify(await cdp.send('Accessibility.getFullAXTree')))
+    writeFileSync(
+      path.join(output, `${name}-ax.json`),
+      JSON.stringify(await cdp.send('Accessibility.getFullAXTree'))
+    )
   }
   await input.fill('Keep the existing draft. ')
   await sourceRow.click({ button: 'right' })
-  await expect(page.getByRole('menuitem', { name: 'Reference conversation', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('menuitem', { name: 'Reference conversation', exact: true })
+  ).toBeVisible()
   await expect(page.getByTestId('workspace-menus')).toHaveText('0')
   await capture('sidebar-menu')
   await page.getByRole('menuitem', { name: 'Reference conversation', exact: true }).click()
   await expect(references).toHaveCount(1)
   await expect(input).toContainText('Keep the existing draft.')
-  await historyRow.getByText('Cursor history conversation', { exact: true }).click({ button: 'right' })
-  await expect(page.getByRole('menuitem', { name: 'Copy conversation reference', exact: true })).toBeVisible()
+  await historyRow
+    .getByText('Cursor history conversation', { exact: true })
+    .click({ button: 'right' })
+  await expect(
+    page.getByRole('menuitem', { name: 'Copy conversation reference', exact: true })
+  ).toBeVisible()
   await capture('history-context-menu')
   await page.getByRole('menuitem', { name: 'Reference conversation', exact: true }).click()
   await expect(references).toHaveCount(2)
   await historyRow.getByTestId('ai-vault-session-more-actions').click()
-  await expect(page.getByRole('menuitem', { name: 'Copy conversation reference', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('menuitem', { name: 'Copy conversation reference', exact: true })
+  ).toBeVisible()
   await capture('history-overflow-menu')
   await page.getByRole('menuitem', { name: 'Reference conversation', exact: true }).click()
   await expect(references).toHaveCount(3)
@@ -79,7 +97,11 @@ try {
   await expect(references).toHaveCount(4)
   const chip = page.locator('[data-native-chat-conversation-reference]').first()
   await expect(chip).toHaveText('Claude Code conversation')
-  await page.getByTestId('history').locator('[draggable="true"]').first().dragTo(page.getByRole('textbox'))
+  await page
+    .getByTestId('history')
+    .locator('[draggable="true"]')
+    .first()
+    .dragTo(page.getByRole('textbox'))
   await expect(references).toHaveCount(5)
   await expect(page.locator('[data-native-chat-conversation-reference]').last()).toHaveText(
     'Cursor history conversation'
