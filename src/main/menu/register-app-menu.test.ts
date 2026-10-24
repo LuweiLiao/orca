@@ -14,6 +14,12 @@ const {
   sendActionToFirstResponderMock: vi.fn()
 }))
 
+const { runtimeClientWindows } = vi.hoisted(() => ({ runtimeClientWindows: new Set<unknown>() }))
+
+vi.mock('../window/runtime-client-windows', () => ({
+  isRuntimeClientWindow: (window: unknown) => runtimeClientWindows.has(window)
+}))
+
 vi.mock('electron', () => ({
   BrowserWindow: {
     getFocusedWindow: getFocusedWindowMock
@@ -40,6 +46,7 @@ function buildMenuOptions() {
   return {
     onCheckForUpdates: vi.fn(),
     onOpenSettings: vi.fn(),
+    onNewWindow: vi.fn(),
     onOpenSetupGuide: vi.fn(),
     onOpenFeatureTour: vi.fn(),
     onOpenCrashReport: vi.fn(),
@@ -111,6 +118,7 @@ describe('registerAppMenu', () => {
   })
 
   beforeEach(() => {
+    runtimeClientWindows.clear()
     buildFromTemplateMock.mockReset()
     setApplicationMenuMock.mockReset()
     getFocusedWindowMock.mockReset()
@@ -326,6 +334,29 @@ describe('registerAppMenu', () => {
     expect(send).not.toHaveBeenCalled()
   })
 
+  // Why darwin: only the macOS app menu is shared with extra windows; elsewhere they have none.
+  it('runs Edit actions natively in an extra web-client window, which has no Orca preload', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
+    const contents = { paste: vi.fn(), copy: vi.fn(), selectAll: vi.fn(), send: vi.fn() }
+    const extraWindow = { webContents: contents }
+    runtimeClientWindows.add(extraWindow)
+    getFocusedWindowMock.mockReturnValue(extraWindow)
+    getFocusedWebContentsMock.mockReturnValue(contents)
+    registerAppMenu(buildMenuOptions())
+
+    const editSubmenu = getSubmenu(getTemplate(), 'Edit')
+    for (const label of ['Paste', 'Copy', 'Select All']) {
+      editSubmenu
+        .find((item) => item.label === label)
+        ?.click?.({} as never, {} as never, {} as never)
+    }
+
+    expect(contents.paste).toHaveBeenCalledOnce()
+    expect(contents.copy).toHaveBeenCalledOnce()
+    expect(contents.selectAll).toHaveBeenCalledOnce()
+    expect(contents.send).not.toHaveBeenCalled()
+  })
+
   it('pastes into DevTools instead of the Orca pane when DevTools holds focus (#16285)', () => {
     const send = vi.fn()
     const devToolsContents = { paste: vi.fn() }
@@ -462,7 +493,7 @@ describe('registerAppMenu', () => {
 
     const fileLabels = getSubmenu(template, 'File').map((item) => item.label)
     expect(fileLabels).not.toContain(`Export as PDF...\t${isMac ? '⌘⇧E' : 'Ctrl+Shift+E'}`)
-    expect(fileLabels[0]).toBe('Settings')
+    expect(fileLabels[0]).toBe('New Window\tCtrl+Alt+N')
     expect(fileLabels).toEqual(expect.arrayContaining(['Settings', 'Exit']))
 
     const helpLabels = getSubmenu(template, 'Help').map((item) => item.label)
