@@ -326,6 +326,26 @@ describe('resolveNativeChatFileLink', () => {
     ).toEqual({ absolutePath: '/D:/repo/guide.md', line: null, column: null })
   })
 
+  it.each([
+    ['C:/repo', '/D:/build/output/', 'D:/build/output'],
+    [String.raw`C:\repo`, '/D:/build/output/', 'D:/build/output'],
+    ['//server/share/repo', '/D:/build/output/', 'D:/build/output'],
+    ['C:/repo', '//server/share/output/', '//server/share/output'],
+    ['/home/me/repo', '/home/me/output/', '/home/me/output'],
+    ['/home/me/repo', '/mnt/d/build/output/', '/mnt/d/build/output'],
+    ['/home/me/repo', '/D:/build/output/', '/D:/build/output'],
+    ['/home/me/repo', 'output/', '/home/me/repo/output'],
+    ['C:/repo', 'output/', 'C:/repo/output'],
+    ['//wsl.localhost/Ubuntu/home/me/repo', '/D:/build/output/', '/D:/build/output'],
+    [String.raw`\\wsl$\Ubuntu\home\me\repo`, '/D:/build/output/', '/D:/build/output']
+  ])('keeps directory link %s -> %s on its own filesystem', (worktreePath, href, absolutePath) => {
+    expect(resolveNativeChatFileLink(href, { ...context, worktreePath })).toEqual({
+      absolutePath,
+      line: null,
+      column: null
+    })
+  })
+
   it('resolves encoded file URIs', () => {
     expect(resolveNativeChatFileLink('file:///repo/worktree/My%20File.md#L7', context)).toEqual({
       absolutePath: '/repo/worktree/My File.md',
