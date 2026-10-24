@@ -48,7 +48,8 @@ export function forwardGuestShortcutInput(
   if (input.isAutoRepeat) {
     if (
       (action?.type === 'dictationKeyDown' && shouldForwardDictationShortcut?.()) ||
-      action?.type === 'deleteCurrentWorkspace'
+      action?.type === 'deleteCurrentWorkspace' ||
+      action?.type === 'newWindow'
     ) {
       event.preventDefault()
       return true

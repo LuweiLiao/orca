@@ -38,6 +38,33 @@ export async function expectNativeTabOrder(
     .toEqual(order)
 }
 
+export async function registeredNativeBrowserGuest(
+  page: Page,
+  target: { tabId: string; pageId: string }
+): Promise<boolean> {
+  return page.evaluate(async ({ tabId, pageId }) => {
+    const guest = document.querySelector(`[data-browser-overlay-tab-id="${tabId}"] webview`)
+    if (
+      !(guest instanceof HTMLElement) ||
+      !('getWebContentsId' in guest) ||
+      typeof guest.getWebContentsId !== 'function'
+    ) {
+      return false
+    }
+    try {
+      return window.api.browser.isGuestRegistered({
+        browserPageId: pageId,
+        webContentsId: guest.getWebContentsId()
+      })
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('dom-ready')) {
+        return false
+      }
+      throw error
+    }
+  }, target)
+}
+
 export async function captureNativeBrowserGuest(
   app: ElectronApplication,
   page: Page,
