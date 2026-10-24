@@ -9,13 +9,10 @@ import {
   waitForTerminalOutput
 } from './helpers/terminal'
 import { splitMarkerEchoCommand } from './terminal-marker-echo-command'
-import { registeredNativeBrowserGuest } from './helpers/native-desktop-window'
-
-function nativePages(app: ElectronApplication): Page[] {
-  return app
-    .windows()
-    .filter((page) => !page.isClosed() && /\/index\.html(?:[?#]|$)/.test(page.url()))
-}
+import {
+  registeredNativeBrowserGuest,
+  nativeDesktopPages as nativePages
+} from './helpers/native-desktop-window'
 
 async function openWindow(
   app: ElectronApplication,
