@@ -385,7 +385,8 @@ describe('structured agent session message sender', () => {
           { type: 'image-ref', path: STORED }
         ]
       },
-      undefined
+      undefined,
+      JSON.stringify(['structured', target, SESSION])
     )
     expect(getStructuredAgentSessionSendNotice(SESSION)).toBe(
       'This attachment expired. Your message was not sent. Remove it and attach it again.'
@@ -498,7 +499,8 @@ describe('structured agent session message sender', () => {
       SESSION,
       a.clientMessageId,
       expect.objectContaining({ blocks: expect.any(Array) }),
-      ['ssh-1']
+      ['ssh-1'],
+      JSON.stringify(['structured', target, SESSION])
     )
     expect(JSON.stringify(mocks.call.mock.calls[0][2])).not.toContain('ssh-1')
   })

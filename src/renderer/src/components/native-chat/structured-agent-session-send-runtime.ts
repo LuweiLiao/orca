@@ -52,11 +52,13 @@ export function finish(
 /** Puts the text back in the chat's composer; false, reported, when the draft write threw. */
 function returnToComposer(entry: StructuredAgentSessionPendingSend): boolean {
   try {
+    const target = runtimes.get(entry.clientMessageId)?.target
     handBackStructuredAgentSessionMessage(
       entry.sessionId,
       entry.clientMessageId,
       entry.body,
-      entry.imageConnectionIds
+      entry.imageConnectionIds,
+      target ? JSON.stringify(['structured', target, entry.sessionId]) : undefined
     )
     return true
   } catch (error) {

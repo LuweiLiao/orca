@@ -19,7 +19,6 @@ export type NativeChatAnnotationDelivery = {
   editor?: NativeChatAnnotationEditor
   annotationText: string
   returned?: true
-  discarded?: true
 }
 
 function isDelivery(value: unknown): value is NativeChatAnnotationDelivery {
@@ -35,7 +34,6 @@ function isDelivery(value: unknown): value is NativeChatAnnotationDelivery {
     'annotationText' in value &&
     typeof value.annotationText === 'string' &&
     (!('returned' in value) || value.returned === true) &&
-    (!('discarded' in value) || value.discarded === true) &&
     (!('editor' in value) || isNativeChatAnnotationEditor(value.editor))
   )
 }
@@ -72,22 +70,27 @@ export function nativeChatAnnotationDeliveryStorage(scopeKey: string) {
   }
 }
 
-export function discardReturnedNativeChatAnnotation(
+export function restoreNativeChatAnnotationMessage(
   scopeKey: string,
-  noteId: string,
-  onError: (error: unknown) => false
-): boolean {
+  messageId: string,
+  text: string
+): string {
+  const store = getNativeChatAnnotationsStore(scopeKey)
   try {
-    const storage = nativeChatAnnotationDeliveryStorage(scopeKey)
-    for (const delivery of storage.read()) {
-      if (delivery.returned && delivery.notes.some((note) => note.id === noteId)) {
-        storage.write({ ...delivery, discarded: true })
-      }
+    const delivery = nativeChatAnnotationDeliveryStorage(scopeKey)
+      .read()
+      .find((entry) => entry.messageId === messageId)
+    if (
+      delivery?.annotationText &&
+      text.trimEnd().endsWith(delivery.annotationText) &&
+      store.settleDelivery(messageId, 'returned')
+    ) {
+      return text.trimEnd().slice(0, -delivery.annotationText.length).trimEnd()
     }
-    return true
-  } catch (error) {
-    return onError(error)
+  } catch {
+    store.retryPersistence()
   }
+  return text
 }
 
 export function removeSupersededNativeChatAnnotationDeliveries(
@@ -157,30 +160,6 @@ export function prepareNativeChatAnnotatedMessage(scopeKey: string | undefined, 
     entries.push({ ...editor.anchor, id: '', createdAt: 0, comment: editor.comment })
   }
   const annotations = formatNativeChatAnnotations(entries)
-  if (scopeKey) {
-    try {
-      for (const delivery of nativeChatAnnotationDeliveryStorage(scopeKey).read()) {
-        if (
-          delivery.returned &&
-          delivery.annotationText &&
-          (delivery.discarded ||
-            entries.some(
-              (entry) =>
-                delivery.notes.some((note) => note.id === entry.id) ||
-                (delivery.editor?.anchor.messageId === entry.messageId &&
-                  delivery.editor.anchor.startOffset === entry.startOffset &&
-                  delivery.editor.anchor.quote === entry.quote)
-            )) &&
-          text.trimEnd().endsWith(delivery.annotationText)
-        ) {
-          text = text.trimEnd().slice(0, -delivery.annotationText.length).trimEnd()
-          break
-        }
-      }
-    } catch {
-      store.retryPersistence()
-    }
-  }
   return {
     hasAnnotations: entries.length > 0,
     text: annotations ? [text.trim(), annotations].filter(Boolean).join('\n\n') : text,
