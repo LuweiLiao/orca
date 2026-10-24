@@ -70,7 +70,7 @@ export abstract class AgentBrowserBridgeQueue extends AgentBrowserBridgeShutdown
     const assertNotRevoked = captureRemoteCliBrowserRevocation()
     const origin = captureRemoteCliBrowserScope()
     assertNotRevoked()
-    const { browserPageId: pageId } = this.resolveCommandTarget(
+    const { browserPageId: pageId, webContentsId } = this.resolveCommandTarget(
       worktreeId,
       browserPageId,
       options.requireScopedTarget
@@ -82,6 +82,7 @@ export abstract class AgentBrowserBridgeQueue extends AgentBrowserBridgeShutdown
       if (!queue) {
         queue = []
         this.commandQueues.set(sessionName, queue)
+        this.commandGuestBySession.set(sessionName, webContentsId)
       }
       queue.push({
         execute: () => {
@@ -118,12 +119,21 @@ export abstract class AgentBrowserBridgeQueue extends AgentBrowserBridgeShutdown
   ): Promise<T> {
     this.assertCommandAdmission()
     const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
+    const queue = this.commandQueues.get(sessionName)
+    const assertQueueStillOwned = (): void => {
+      if (this.commandQueues.get(sessionName) !== queue) {
+        throw new BrowserError('browser_tab_closed', 'Tab was closed while command was running')
+      }
+    }
     // Why: the page's guest can change while queued; bind to the one current at execution.
     const target = this.resolveCommandTarget(worktreeId, browserPageId)
     if (options.ensureSession !== false) {
       await this.ensureSession(sessionName, browserPageId, target.webContentsId)
     }
-    return execute(sessionName, target)
+    assertQueueStillOwned()
+    const result = await execute(sessionName, target)
+    assertQueueStillOwned()
+    return result
   }
 
   /** Holds the page for a host's command, so a revocation stops every later step of it. */
@@ -137,7 +147,7 @@ export abstract class AgentBrowserBridgeQueue extends AgentBrowserBridgeShutdown
     return runWithRemoteCliPageAdmission(webContentsId, gate, execute, {
       revoked,
       hostRevoked,
-      inPageTurn: (work) => this.enqueueDesktopPageWork(sessionName, work),
+      inPageTurn: (work) => this.enqueueDesktopPageWork(sessionName, webContentsId, work),
       // Why keep the queue: commands waiting on the page still run, on a fresh helper session.
       retire: () =>
         this.destroySession(sessionName, {
@@ -156,12 +166,17 @@ export abstract class AgentBrowserBridgeQueue extends AgentBrowserBridgeShutdown
   }
 
   /** Desktop-owned page work, run in the page's turn so it cannot interleave with a command. */
-  private enqueueDesktopPageWork(sessionName: string, work: () => Promise<void>): Promise<unknown> {
+  private enqueueDesktopPageWork(
+    sessionName: string,
+    webContentsId: number,
+    work: () => Promise<void>
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       let queue = this.commandQueues.get(sessionName)
       if (!queue) {
         queue = []
         this.commandQueues.set(sessionName, queue)
+        this.commandGuestBySession.set(sessionName, webContentsId)
       }
       queue.push({ execute: () => runOutsideRemoteCliBrowserScope(work), resolve, reject })
       void this.processQueue(sessionName)
@@ -185,9 +200,12 @@ export abstract class AgentBrowserBridgeQueue extends AgentBrowserBridgeShutdown
       }
     }
 
-    if (queue && queue.length === 0 && this.commandQueues.get(sessionName) === queue) {
-      this.commandQueues.delete(sessionName)
+    if (this.commandQueues.get(sessionName) === queue) {
+      if (queue?.length === 0) {
+        this.commandQueues.delete(sessionName)
+        this.commandGuestBySession.delete(sessionName)
+      }
+      this.processingQueues.delete(sessionName)
     }
-    this.processingQueues.delete(sessionName)
   }
 }

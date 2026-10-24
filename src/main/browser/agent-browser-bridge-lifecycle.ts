@@ -31,8 +31,9 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
       if (creating) {
         await creating.catch(() => {})
       }
-      const session = this.sessions.get(sessionName)
-      if (!session || session.webContentsId === webContentsId) {
+      const owner =
+        this.sessions.get(sessionName)?.webContentsId ?? this.commandGuestBySession.get(sessionName)
+      if (owner === undefined || owner === webContentsId) {
         await this.onPageClosed(browserPageId)
       }
     }
@@ -59,7 +60,10 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
   ): Promise<void> {
     // Why: an Electron process swap keeps browserPageId but gives a new webContentsId — destroy the session so the next command recreates it.
     const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
-    const oldWebContentsId = previousWebContentsId ?? this.sessions.get(sessionName)?.webContentsId
+    const oldWebContentsId =
+      previousWebContentsId ??
+      this.sessions.get(sessionName)?.webContentsId ??
+      this.commandGuestBySession.get(sessionName)
     if (
       oldWebContentsId !== undefined &&
       this.browserManager.getTabIdForWebContentsId(oldWebContentsId) === browserPageId
@@ -71,9 +75,10 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
       await creating.catch(() => {})
     }
     const session = this.sessions.get(sessionName)
+    const owner = session?.webContentsId ?? this.commandGuestBySession.get(sessionName)
     const owningWorktreeId = this.browserManager.getWorktreeIdForTab(browserPageId)
     // Why: save intercept patterns before destroy so the new session can restore them after init.
-    if (!session || oldWebContentsId === undefined || session.webContentsId === oldWebContentsId) {
+    if (owner === undefined || oldWebContentsId === undefined || owner === oldWebContentsId) {
       if (session && session.activeInterceptPatterns.length > 0) {
         this.pendingInterceptRestore.set(sessionName, [...session.activeInterceptPatterns])
       }
@@ -235,6 +240,7 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
   protected rejectQueuedCommandsForClosedSession(sessionName: string): void {
     const queue = this.commandQueues.get(sessionName)
     this.commandQueues.delete(sessionName)
+    this.commandGuestBySession.delete(sessionName)
     this.processingQueues.delete(sessionName)
     if (queue) {
       const err = new BrowserError(

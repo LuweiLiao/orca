@@ -145,13 +145,14 @@ export abstract class AgentBrowserBridgeTabs extends AgentBrowserBridgeState {
     }
 
     const tabs = this.getRegisteredTabs(worktreeId)
-    const session = this.sessions.get(`${ORCA_TAB_SESSION_PREFIX}${browserPageId}`)
+    const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
+    const ownedGuestId =
+      this.sessions.get(sessionName)?.webContentsId ?? this.commandGuestBySession.get(sessionName)
     const webContentsId =
-      session &&
-      this.browserManager.getTabIdForWebContentsId(session.webContentsId) === browserPageId &&
-      this.getWebContents(session.webContentsId) &&
+      ownedGuestId !== undefined &&
+      this.browserManager.getTabIdForWebContentsId(ownedGuestId) === browserPageId &&
       tabs.has(browserPageId)
-        ? session.webContentsId
+        ? ownedGuestId
         : tabs.get(browserPageId)
     if (webContentsId == null) {
       const scope = worktreeId ? ' in this worktree' : ''

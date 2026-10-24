@@ -341,6 +341,67 @@ describe('AgentBrowserBridge', () => {
 
   // ── Process swap ──
 
+  it.each(
+    (['peer-close', 'peer-replace', 'owner-close'] as const).flatMap((change) =>
+      (['evaluate', 'goto'] as const).map((operation) => ({ change, operation }))
+    )
+  )(
+    'keeps sessionless $operation queue ownership during $change',
+    async ({ change, operation }) => {
+      const tabs = new Map([['tab-1', 100]])
+      const registered = new Set([100, 200])
+      const b = new AgentBrowserBridge(
+        mockBrowserManager(tabs, new Map(), {
+          getTabIdForWebContentsId: (id) => (registered.has(id) ? 'tab-1' : null)
+        })
+      )
+      b.setActiveTab(100)
+      const wc = mockWebContents(100)
+      const entered = Promise.withResolvers<void>()
+      const gate = Promise.withResolvers<{ result: { value: string } }>()
+      succeedWith({ snapshot: 'queued B' })
+      wc.loadURL.mockImplementation(() => {
+        entered.resolve()
+        return gate.promise.then(() => {})
+      })
+      wc.debugger.sendCommand.mockImplementation((method) => {
+        if (method === 'Runtime.evaluate') {
+          entered.resolve()
+          return gate.promise
+        }
+        return Promise.resolve({})
+      })
+      webContentsFromIdMock.mockImplementation((id) => (id === 100 ? wc : mockWebContents(id)))
+      const running =
+        operation === 'goto'
+          ? b.goto('https://next.example.test', undefined, 'tab-1')
+          : b.evaluate('document.title', undefined, 'tab-1')
+      await entered.promise
+      const queued = b.snapshot(undefined, 'tab-1')
+      const settled = Promise.allSettled([running, queued])
+      expect(execFileMock).not.toHaveBeenCalled()
+      if (change === 'peer-replace') {
+        registered.delete(200)
+        registered.add(300)
+        tabs.set('tab-1', 300)
+        await b.onProcessSwap('tab-1', 300, 200)
+      } else {
+        const closedId = change === 'owner-close' ? 100 : 200
+        await b.onTabClosed(closedId)
+        registered.delete(closedId)
+        tabs.set('tab-1', 200)
+      }
+      gate.resolve({ result: { value: 'B' } })
+      const results = await settled
+      if (change === 'owner-close') {
+        expect(results.map((result) => result.status)).toEqual(['rejected', 'rejected'])
+      } else {
+        expect(results.map((result) => result.status)).toEqual(['fulfilled', 'fulfilled'])
+      }
+      await b.destroyAllSessions()
+    }
+  )
+
   it.each(['register', 'replace-peer', 'close'] as const)(
     'keeps B running and queued commands when peer A %s happens',
     async (change) => {
