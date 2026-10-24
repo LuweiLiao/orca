@@ -69,7 +69,7 @@ export abstract class BrowserManagerGuestNavigationPolicy extends BrowserManager
       }
       const browserPageId = this.tabIdByWebContentsId.get(guest.id)
       const certificateFailure = browserPageId
-        ? this.certificateTrustController?.getFailure(browserPageId)
+        ? this.certificateTrustController?.getFailure(browserPageId, guest.id)
         : null
       if (
         certificateFailure &&
