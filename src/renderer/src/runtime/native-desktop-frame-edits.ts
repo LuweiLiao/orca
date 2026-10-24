@@ -8,6 +8,9 @@ import type { LayoutFrameSlices } from '../store/workspace-layout-frame-slices'
 import type { LayoutFrameStoreState } from '../store/workspace-layout-frame-store-patch'
 import type { RuntimeClientTarget } from '../../../shared/runtime-client-target'
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../shared/layout-owner-switch'
+import type { AppState } from '../store/types'
+import { withHeldTabsAsDrawn } from '../store/workspace-layout-frame-held-tabs'
+import { isDirtyEditorBufferSide } from '../store/slices/editor/buffers/editor-buffer-join'
 
 export function nativeDesktopFrameEdits(
   initial: LayoutFrameStoreState,
@@ -81,7 +84,7 @@ function snapshot(
 export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
   let before = snapshot(initial, Object.keys(initial.unifiedTabsByWorktree))
   return (
-    state: LayoutFrameStoreState,
+    state: LayoutFrameStoreState & Partial<Pick<AppState, 'editorDrafts'>>,
     built: LayoutFrameSlices,
     keys: readonly string[]
   ): LayoutFrameSlices => {
@@ -191,6 +194,28 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
         ]
       })
     }
-    return next
+    const dirtyFiles = state.openFiles.filter(
+      (file) =>
+        isDirtyEditorBufferSide({ record: file, draft: state.editorDrafts?.[file.id] }) &&
+        state.unifiedTabsByWorktree[file.worktreeId]?.some(
+          (tab) =>
+            tab.entityId === file.id &&
+            !next.unifiedTabsByWorktree[file.worktreeId]?.some((incoming) => incoming.id === tab.id)
+        )
+    )
+    const holdsDirtyFile = (workspace: string, id: string): boolean =>
+      dirtyFiles.some(
+        (file) =>
+          file.worktreeId === workspace &&
+          (file.id === id ||
+            state.unifiedTabsByWorktree[workspace]?.some(
+              (tab) => tab.id === id && tab.entityId === file.id
+            ))
+      )
+    return withHeldTabsAsDrawn(state, next, keys, {
+      isTabHeld: holdsDirtyFile,
+      keepsInMainGroups: holdsDirtyFile,
+      isGroupLayoutHeld: () => false
+    })
   }
 }

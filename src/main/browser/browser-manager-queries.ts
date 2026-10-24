@@ -41,8 +41,11 @@ export abstract class BrowserManagerQueries extends BrowserManagerRegistration {
       : (this.loadErrorsByGuestId.get(webContentsId) ?? null)
   }
 
-  getBrowserPageCertificateFailure(browserPageId: string): BrowserCertificateFailure | null {
-    return this.certificateTrustController?.getFailure(browserPageId) ?? null
+  getBrowserPageCertificateFailure(
+    browserPageId: string,
+    webContentsId = this.webContentsIdByTabId.get(browserPageId)
+  ): BrowserCertificateFailure | null {
+    return this.certificateTrustController?.getFailure(browserPageId, webContentsId) ?? null
   }
 
   getManagedBrowserGuestContext(webContentsId: number): ManagedBrowserGuestContext | null {

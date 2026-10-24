@@ -20,7 +20,6 @@ import { DELEGATED_PHONE_NAME_MAX_CHARS } from '../../../shared/delegated-mobile
 import { allocateTerminalSubscriptionStreamId } from '../rpc/methods/terminal/terminal-subscription-stream-id'
 import { isStructuredNativeChatDefaultFor } from '../rpc/methods/structured-agent-session-policy'
 import {
-  createWebClientEntryUrl,
   createWebClientUrl,
   DEVICE_REGISTRY_UNAVAILABLE_GUIDANCE,
   E2EE_KEY_UNAVAILABLE_GUIDANCE,
@@ -133,16 +132,6 @@ export class RuntimeRpcPairing extends RuntimeRpcNetworkExposure {
   getWebSocketEndpoint(): string | null {
     const ws = this.transports.find((t) => t.kind === 'websocket')
     return ws?.endpoint ?? null
-  }
-
-  // Why: a browser profile that stored its pairing reconnects from storage, so mint no credential.
-  getWebClientEntryUrl(address: string): string | null {
-    const rawEndpoint = this.getWebSocketEndpoint()
-    if (!rawEndpoint || !this.webClientRoot) {
-      return null
-    }
-    const advertised = resolveAdvertisedPairingEndpoint(rawEndpoint, address)
-    return advertised.ok ? createWebClientEntryUrl(advertised.endpoint) : null
   }
 
   createPairingOffer(args: {

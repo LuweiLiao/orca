@@ -13,6 +13,71 @@ import { buildWorkspaceSessionPayload } from '../lib/workspace-session'
 createStoreSessionMockApi()
 
 describe('native window pending layout edits', () => {
+  it.each(
+    [false, true].flatMap((dirtyFlag) =>
+      [false, true].map((replacesGroup) => ({ dirtyFlag, replacesGroup }))
+    )
+  )(
+    'retains a draft after peer close with dirty flag $dirtyFlag and replacement group $replacesGroup',
+    async ({ dirtyFlag, replacesGroup }) => {
+      const session = localDesktopSession()
+      const store = createTestStore()
+      await bootWindowFromPartitions(store, [{ hostId: 'local', session }])
+      const localEdits = createNativeDesktopFrameEdits(store.getState())
+      const holds = {
+        held: NO_HELD_TABS,
+        keepsTerminalLayout: () => false,
+        newRowFields: () => null,
+        localEdits
+      }
+      const cache = mainLoadedLayouts('local', session)
+      store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+      const file = store.getState().openFiles[0]!
+      store.getState().setEditorDraft(file.id, 'Unsaved native peer draft')
+      store.getState().markFileDirty(file.id, dirtyFlag)
+      const tab = store
+        .getState()
+        .unifiedTabsByWorktree[GIT_KEY]!.find((entry) => entry.entityId === file.id)!
+      const peer = structuredClone(cache)
+      peer[GIT_KEY]!.tabs = peer[GIT_KEY]!.tabs.filter((entry) => entry.id !== tab.id)
+      for (const group of peer[GIT_KEY]!.groups) {
+        group.tabIds = group.tabIds.filter((id) => id !== tab.id)
+      }
+      if (replacesGroup) {
+        peer[GIT_KEY]!.groups.find((group) => group.id === tab.groupId)!.id = 'peer-new-group'
+        peer[GIT_KEY]!.groupLayout = {
+          type: 'split',
+          direction: 'horizontal',
+          first: { type: 'leaf', groupId: 'group-b' },
+          second: { type: 'leaf', groupId: 'peer-new-group' }
+        }
+      }
+      store.setState(fullLayoutFrameBuildPatch(store.getState(), peer, [GIT_KEY], holds))
+      expect(store.getState().unifiedTabsByWorktree[GIT_KEY]).toContainEqual(
+        expect.objectContaining({ id: tab.id })
+      )
+      expect(store.getState().openFiles).toContainEqual(expect.objectContaining({ id: file.id }))
+      expect(store.getState().editorDrafts[file.id]).toBe('Unsaved native peer draft')
+      if (replacesGroup) {
+        expect(store.getState().layoutByWorktree[GIT_KEY]).toEqual(peer[GIT_KEY]!.groupLayout)
+        expect(
+          store
+            .getState()
+            .groupsByWorktree[GIT_KEY]?.map((group) => group.id)
+            .sort()
+        ).toEqual(['group-b', 'peer-new-group'])
+        expect(
+          store.getState().unifiedTabsByWorktree[GIT_KEY]?.find((entry) => entry.id === tab.id)
+            ?.groupId
+        ).not.toBe(tab.groupId)
+      }
+      store.getState().markFileDirty(file.id, true)
+      expect(
+        buildWorkspaceSessionPayload(store.getState()).openFilesByWorktree?.[GIT_KEY]
+      ).toContainEqual(expect.objectContaining({ dirtyDraftContent: 'Unsaved native peer draft' }))
+    }
+  )
+
   it.each([false, true])(
     'accepts a peer reorder while the local window only changes a label: %s',
     async (rename) => {

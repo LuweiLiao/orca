@@ -11,7 +11,6 @@ import { flushUnsavedCloudSessions } from '../orca-profiles/profile-cloud-sessio
 import type { Store } from '../persistence'
 import { closeDashboardPopout } from './dashboard-popout-window'
 import { closeWorkspaceSpaceWindow } from './workspace-space-window'
-import { closeAllRuntimeClientWindows } from './runtime-client-windows'
 import {
   installMainWindowCloseLifecycle,
   WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS
@@ -248,9 +247,6 @@ export function createMainWindow(
       closeDashboardPopout()
       closeWorkspaceSpaceWindow()
       browserManager.setDictationShortcutForwardingPredicate(null)
-    }
-    if (!opts?.windowId) {
-      closeAllRuntimeClientWindows()
     }
     state.clearInitialRevealFallbackTimer()
     closeLifecycle.dispose()
