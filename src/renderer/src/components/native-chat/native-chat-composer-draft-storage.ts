@@ -40,6 +40,7 @@ export type StoredNativeChatComposerDraft = NativeChatComposerDraft & {
   readonly owner?: NativeChatComposerDraftOwner
   readonly journalEntryIds?: readonly string[]
   readonly journalAdditions?: readonly NativeChatComposerDraftJournalAddition[]
+  readonly journalAdditionsComplete?: boolean
   readonly editRevision?: string
 }
 
@@ -226,6 +227,9 @@ export function parseStoredNativeChatComposerDraft(
     savedAt,
     ...(typeof value.editRevision === 'string' ? { editRevision: value.editRevision } : {}),
     ...(journalAdditions ? { journalAdditions } : {}),
+    ...(typeof value.journalAdditionsComplete === 'boolean'
+      ? { journalAdditionsComplete: value.journalAdditionsComplete }
+      : {}),
     ...(Array.isArray(value.journalEntryIds) &&
     value.journalEntryIds.every((id) => typeof id === 'string')
       ? { journalEntryIds: [...new Set(value.journalEntryIds)] }

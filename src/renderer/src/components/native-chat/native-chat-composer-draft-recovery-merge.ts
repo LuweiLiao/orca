@@ -7,7 +7,12 @@ import type { StoredNativeChatComposerDraft } from './native-chat-composer-draft
 export function addNativeChatComposerDraftJournalAddition<
   T extends Pick<
     StoredNativeChatComposerDraft,
-    'text' | 'images' | 'document' | 'journalEntryIds' | 'journalAdditions'
+    | 'text'
+    | 'images'
+    | 'document'
+    | 'journalEntryIds'
+    | 'journalAdditions'
+    | 'journalAdditionsComplete'
   >
 >(draft: T, addition: NativeChatComposerDraftAddition, id: string): T {
   if (draft.journalEntryIds?.includes(id)) {
@@ -17,7 +22,12 @@ export function addNativeChatComposerDraftJournalAddition<
     ...draft,
     ...withNativeChatComposerDraftAddition(draft, addition),
     journalEntryIds: [...(draft.journalEntryIds ?? []), id],
-    journalAdditions: [...(draft.journalAdditions ?? []), { id, addition }]
+    journalAdditions: [...(draft.journalAdditions ?? []), { id, addition }],
+    journalAdditionsComplete:
+      draft.journalAdditionsComplete ??
+      (draft.journalEntryIds ?? []).every((held) =>
+        draft.journalAdditions?.some((entry) => entry.id === held)
+      )
   }
 }
 
@@ -30,12 +40,12 @@ export function mergeNativeChatComposerDraftRecovery(
     return recovered
   }
   let merged = recovered
-  for (const { id, addition } of previous.journalAdditions ?? []) {
-    merged = addNativeChatComposerDraftJournalAddition(merged, addition, id)
-  }
+  const known = new Set(previous.journalAdditions?.map(({ id }) => id))
   const unrepresented =
-    previous.journalEntryIds?.filter((id) => !merged.journalEntryIds?.includes(id)) ?? []
-  if (previous.journalAdditions === undefined && unrepresented.length > 0) {
+    previous.journalEntryIds?.filter(
+      (id) => !known.has(id) && !merged.journalEntryIds?.includes(id)
+    ) ?? []
+  if (previous.journalAdditionsComplete !== true && unrepresented.length > 0) {
     // Older drafts have ids but no per-addition contents; retain their text rather than discard it.
     const text = withNativeChatComposerDraftAddition(merged, { text: previous.text })
     const images = withNativeChatComposerDraftAddition(
@@ -50,8 +60,21 @@ export function mergeNativeChatComposerDraftRecovery(
       ...merged,
       ...text,
       ...images,
-      journalEntryIds: [...(merged.journalEntryIds ?? []), ...unrepresented]
+      journalEntryIds: [
+        ...new Set([...(merged.journalEntryIds ?? []), ...(previous.journalEntryIds ?? [])])
+      ],
+      journalAdditions: [
+        ...new Map(
+          [...(merged.journalAdditions ?? []), ...(previous.journalAdditions ?? [])].map(
+            (entry) => [entry.id, entry]
+          )
+        ).values()
+      ],
+      journalAdditionsComplete: false
     }
+  }
+  for (const { id, addition } of previous.journalAdditions ?? []) {
+    merged = addNativeChatComposerDraftJournalAddition(merged, addition, id)
   }
   return { ...merged, ...(!merged.owner && previous.owner ? { owner: previous.owner } : {}) }
 }

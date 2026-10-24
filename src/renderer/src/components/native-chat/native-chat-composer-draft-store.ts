@@ -19,6 +19,24 @@ import {
   mergeNativeChatComposerDraftRecovery
 } from './native-chat-composer-draft-recovery-merge'
 import { journalNativeChatComposerDraftAddition } from './native-chat-composer-draft-journal'
+import { withNativeChatComposerDraftMetadata } from './native-chat-composer-draft-metadata'
+import {
+  resolveNativeChatComposerDraftOwner,
+  resetNativeChatComposerDraftOwnerForTests
+} from './native-chat-composer-draft-owner'
+export {
+  resolveNativeChatComposerDraftOwner,
+  setNativeChatComposerDraftOwnerResolver
+} from './native-chat-composer-draft-owner'
+import {
+  STRUCTURED_AGENT_SESSION_DRAFT_SCOPE_PREFIX,
+  nativeChatDraftScopeTabId
+} from './native-chat-composer-draft-scope'
+export {
+  structuredAgentSessionDraftScopeKey,
+  structuredAgentSessionIdOfDraftScope,
+  nativeChatDraftScopeTabId
+} from './native-chat-composer-draft-scope'
 import {
   clearDraftMemoryForTests,
   dirtyScopes,
@@ -72,6 +90,7 @@ export function hasUnsavedNativeChatComposerDraftChange(scopeKey: string): boole
 export type NativeChatComposerDraftChange = {
   journalEntryIds?: readonly string[]
   journalAdditions?: StoredNativeChatComposerDraft['journalAdditions']
+  journalAdditionsComplete?: boolean
   text?: string
   pastedTextFiles?: Readonly<Record<string, string>>
   /** Present, even as undefined, to replace the document. */
@@ -84,22 +103,6 @@ export type NativeChatComposerDraftChange = {
 }
 
 const EMPTY_DRAFT: DraftRecord = { text: '', images: [], savedAt: 0 }
-
-let resolveOwner: ((scopeKey: string) => NativeChatComposerDraftOwner | undefined) | null = null
-
-/** Names the workspace a scope's chat belongs to, so a new draft can record its owner. */
-export function setNativeChatComposerDraftOwnerResolver(
-  resolver: (scopeKey: string) => NativeChatComposerDraftOwner | undefined
-): void {
-  resolveOwner = resolver
-}
-
-/** The owner a new draft in this scope would record now. */
-export function resolveNativeChatComposerDraftOwner(
-  scopeKey: string
-): NativeChatComposerDraftOwner | undefined {
-  return resolveOwner?.(scopeKey)
-}
 
 /** Composers render from the store; this tells one that its pane's draft changed. */
 export function subscribeToNativeChatComposerDraft(
@@ -122,14 +125,9 @@ export function isNativeChatComposerDraftUnsaved(scopeKey: string): boolean {
   return refusedScopes.has(scopeKey) && records.has(scopeKey)
 }
 
-function isEmptyDraft(draft: NativeChatComposerDraft): boolean {
-  return draft.text === '' && draft.images.length === 0
-}
-
 export function readNativeChatComposerDraft(
   scopeKey: string
-): NativeChatComposerDraft &
-  Pick<StoredNativeChatComposerDraft, 'owner' | 'journalEntryIds' | 'journalAdditions'> {
+): Omit<StoredNativeChatComposerDraft, 'savedAt' | 'editRevision'> {
   return records.get(scopeKey) ?? EMPTY_DRAFT
 }
 
@@ -168,7 +166,7 @@ export function updateNativeChatComposerDraft(
     }
     return
   }
-  if (isEmptyDraft({ text, images })) {
+  if (text === '' && images.length === 0) {
     if (!append) {
       pendingDraftTransforms.delete(scopeKey)
       localDraftEdits.delete(scopeKey)
@@ -180,7 +178,7 @@ export function updateNativeChatComposerDraft(
     return
   }
   // Why stamped once: a conversation never moves to another workspace, so its owner stays true.
-  const owner = current.owner ?? change.owner ?? resolveOwner?.(scopeKey)
+  const owner = current.owner ?? change.owner ?? resolveNativeChatComposerDraftOwner(scopeKey)
   const edited =
     !append &&
     (text !== current.text ||
@@ -199,9 +197,19 @@ export function updateNativeChatComposerDraft(
     savedAt: nextSavedAt(current.savedAt + 1),
     ...(journalEntryIds ? { journalEntryIds } : {}),
     journalAdditions: edited ? [] : (change.journalAdditions ?? current.journalAdditions),
+    journalAdditionsComplete: edited
+      ? true
+      : (change.journalAdditionsComplete ?? current.journalAdditionsComplete),
     ...(editRevision ? { editRevision } : {}),
     ...(owner ? { owner } : {}),
     ...(unsavedText === undefined ? {} : { unsavedText })
+  }
+  const pending = pendingDraftTransforms.get(scopeKey)
+  if (!append && !edited && pending) {
+    pendingDraftTransforms.set(
+      scopeKey,
+      withNativeChatComposerDraftMetadata(pending, current, change)
+    )
   }
   records.set(scopeKey, record)
   reconcileRestoredImageChecks(scopeKey, record.images)
@@ -231,7 +239,7 @@ export function appendToNativeChatComposerDraft(
     before?.editRevision !== undefined && localDraftEdits.get(scopeKey) === before.editRevision
   const placed = placeNativeChatComposerDraftAddition(current, addition)
   const id = createBrowserUuid()
-  const { text, images, document, journalEntryIds, journalAdditions } =
+  const { text, images, document, journalEntryIds, journalAdditions, journalAdditionsComplete } =
     addNativeChatComposerDraftJournalAddition(current, placed, id)
   const append: DraftAppend = (loaded) => {
     const base =
@@ -251,6 +259,7 @@ export function appendToNativeChatComposerDraft(
       document,
       journalEntryIds,
       journalAdditions,
+      journalAdditionsComplete,
       ...(owner ? { owner } : {})
     },
     'immediate',
@@ -286,13 +295,6 @@ export function clearNativeChatComposerDraftIfUnchanged(
   return true
 }
 
-const STRUCTURED_AGENT_SESSION_DRAFT_SCOPE_PREFIX = 'agent-session:'
-
-/** A structured chat's draft belongs to its conversation, so it outlives the tab showing it. */
-export function structuredAgentSessionDraftScopeKey(sessionId: string): string {
-  return `${STRUCTURED_AGENT_SESSION_DRAFT_SCOPE_PREFIX}${sessionId}`
-}
-
 function deleteDraftsWhere(
   matches: (scopeKey: string, draft: StoredNativeChatComposerDraft | undefined) => boolean
 ): void {
@@ -315,18 +317,6 @@ function deleteDraftsWhere(
 /** Drops one scope's draft, for an owner that is gone for good. */
 export function deleteNativeChatComposerDraft(scopeKey: string): void {
   deleteDraftsWhere((key) => key === scopeKey)
-}
-
-/** The conversation a structured chat's draft belongs to, or null for a pane's draft. */
-export function structuredAgentSessionIdOfDraftScope(scopeKey: string): string | null {
-  return scopeKey.startsWith(STRUCTURED_AGENT_SESSION_DRAFT_SCOPE_PREFIX)
-    ? scopeKey.slice(STRUCTURED_AGENT_SESSION_DRAFT_SCOPE_PREFIX.length)
-    : null
-}
-
-/** A pane key is `<tabId>:<leaf>`; the leaf is a UUID, while a tab id may hold ':' itself. */
-export function nativeChatDraftScopeTabId(scopeKey: string): string {
-  return scopeKey.slice(0, scopeKey.lastIndexOf(':'))
 }
 
 /** Drops the drafts of every pane in a tab the user closed; its pane keys never come back. A
@@ -353,5 +343,5 @@ export function clearNativeChatComposerDraftsForTests(): void {
   resetNativeChatComposerDraftPersistenceForTests()
   resetNativeChatComposerDraftLoadForTests()
   setNativeChatComposerDraftStorageForTests(null)
-  resolveOwner = null
+  resetNativeChatComposerDraftOwnerForTests()
 }
