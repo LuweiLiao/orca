@@ -34,15 +34,28 @@ import { installMainWindowWebviewSecurity } from './main-window-webview-security
 import { rectHasVisibleAreaOnAnyDisplay } from './window-bounds-validation'
 import { installWindowsPathRegistryChangeListener } from '../pty/windows-path-registry-change'
 import { recordAgentSessionRuntimeEnd } from '../runtime/agent-session-runtime-end-record'
-import { registerDesktopRenderer, unregisterDesktopRenderer } from './desktop-renderer-registry'
+import { formatNativeDesktopWindowArgument } from '../../shared/native-desktop-window-argument'
+import {
+  listDesktopRenderers,
+  registerDesktopRenderer,
+  unregisterDesktopRenderer
+} from './desktop-renderer-registry'
 
 export { WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS }
 
 export function loadMainWindow(mainWindow: BrowserWindow, observer?: MainWindowLoadObserver): void {
   const load =
     !app.isPackaged && process.env.ELECTRON_RENDERER_URL
-      ? mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
-      : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+      ? mainWindow.loadURL(
+          observer?.worktreeId
+            ? `${process.env.ELECTRON_RENDERER_URL}#worktree=${encodeURIComponent(observer.worktreeId)}`
+            : process.env.ELECTRON_RENDERER_URL
+        )
+      : observer?.worktreeId
+        ? mainWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+            hash: `worktree=${encodeURIComponent(observer.worktreeId)}`
+          })
+        : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   // Observe each load promise so failures cannot leave recovery waiting silently.
   load.then(
     () => observer?.onLoaded?.(),
@@ -63,7 +76,8 @@ export function createMainWindow(
   store: Store | null,
   opts?: CreateMainWindowOptions
 ): BrowserWindow {
-  const rawSavedBounds = store?.getUI().windowBounds
+  const savedWindow = opts?.windowId ? store?.getUI().desktopWindows?.[opts.windowId] : undefined
+  const rawSavedBounds = savedWindow?.bounds ?? store?.getUI().windowBounds
   // Why: reject min-size or substantially off-screen bounds so the titlebar stays reachable after display changes.
   const savedBounds =
     rawSavedBounds &&
@@ -78,7 +92,7 @@ export function createMainWindow(
       rawSavedBounds
     )
   }
-  const savedMaximized = store?.getUI().windowMaximized ?? false
+  const savedMaximized = savedWindow?.maximized ?? store?.getUI().windowMaximized ?? false
   // Why: on first launch fill the primary display work area so the window feels spacious without maximize(); saved bounds win later.
   const defaultBounds = (() => {
     try {
@@ -140,12 +154,26 @@ export function createMainWindow(
       // Why an argument and not an IPC read: this is the window whose webviews host browser guests,
       // and it has to know that before it interprets its first session snapshot — earlier than any
       // handler registration it could wait on.
-      additionalArguments: [formatBrowserClientHostIdArgument(getBrowserClientHostId())]
+      additionalArguments: [
+        formatBrowserClientHostIdArgument(getBrowserClientHostId()),
+        ...(opts?.windowId ? [formatNativeDesktopWindowArgument(opts.windowId)] : [])
+      ]
     }
   })
   const desktopRenderer = mainWindow.webContents
+  if (opts?.windowId && savedBounds && process.platform === 'win32') {
+    mainWindow.setBounds(savedBounds)
+    const restored = mainWindow.getBounds()
+    if (restored.width !== savedBounds.width || restored.height !== savedBounds.height) {
+      mainWindow.setBounds({
+        ...savedBounds,
+        width: savedBounds.width * 2 - restored.width,
+        height: savedBounds.height * 2 - restored.height
+      })
+    }
+  }
   const rendererWebContentsId = desktopRenderer.id
-  registerDesktopRenderer(desktopRenderer)
+  registerDesktopRenderer(desktopRenderer, opts?.windowId)
   installWindowsPathRegistryChangeListener(mainWindow)
   // Why: native paste fallback is privileged IPC; only the top-level renderer may request it.
   setTrustedUIRendererWebContentsId(rendererWebContentsId)
@@ -187,6 +215,7 @@ export function createMainWindow(
 
   const state = installMainWindowStateLifecycle({
     mainWindow,
+    windowId: opts?.windowId,
     revealOnDidFinishLoad: opts?.revealOnDidFinishLoad === true,
     savedMaximized,
     store
@@ -212,16 +241,20 @@ export function createMainWindow(
   })
 
   mainWindow.on('closed', () => {
-    closeDashboardPopout()
-    closeWorkspaceSpaceWindow()
-    closeAllRuntimeClientWindows()
+    unregisterDesktopRenderer(desktopRenderer)
+    if (!opts?.windowId || listDesktopRenderers().length === 0) {
+      closeDashboardPopout()
+      closeWorkspaceSpaceWindow()
+      browserManager.setDictationShortcutForwardingPredicate(null)
+    }
+    if (!opts?.windowId) {
+      closeAllRuntimeClientWindows()
+    }
     state.clearInitialRevealFallbackTimer()
     closeLifecycle.dispose()
     focus.dispose()
-    browserManager.setDictationShortcutForwardingPredicate(null)
     powerMonitor.removeListener('resume', onSystemResume)
     clearTrustedUIRendererWebContentsId(rendererWebContentsId)
-    unregisterDesktopRenderer(desktopRenderer)
     state.dispose()
   })
 

@@ -17,7 +17,7 @@ export const BROWSER_PAGE_PROMPT_TIMEOUT_MS = 120_000
  * server).
  */
 export type BrowserPagePromptTarget =
-  | { browserPageId: string; renderer: Electron.WebContents }
+  | { browserPageId: string; renderer: Electron.WebContents; rootGuestWebContentsId?: number }
   | 'awaiting-registration'
 
 /** Runs once per request: with the user's answer, or null when declined, expired or the page left. */
@@ -30,6 +30,7 @@ type PendingPrompt = {
   /** Null while a new tab's window has not registered it yet; the prompt shows once it does. */
   browserPageId: string | null
   renderer: Electron.WebContents | null
+  rootGuestWebContentsId?: number
   details: () => unknown
   /** Undefined when the window's reply is not a valid answer for this kind. */
   parseAnswer: (value: unknown) => unknown
@@ -140,10 +141,11 @@ function closeWhenGone(
 function showPrompt(
   requestId: string,
   pending: PendingPrompt,
-  context: { browserPageId: string; renderer: Electron.WebContents }
+  context: Exclude<BrowserPagePromptTarget, 'awaiting-registration'>
 ): boolean {
   pending.browserPageId = context.browserPageId
   pending.renderer = context.renderer
+  pending.rootGuestWebContentsId = context.rootGuestWebContentsId
   // Why: no window is left to answer once the one that was asked closes or crashes.
   pending.unwatch.push(closeWhenGone(requestId, context.renderer, { orNavigates: false }))
   try {
@@ -189,7 +191,9 @@ export function openBrowserPagePrompt<K extends BrowserPagePromptKind>(args: {
   for (const pending of pendingPrompts.values()) {
     const samePage =
       pending.requester.id === requester.id ||
-      (context !== null && pending.browserPageId === context.browserPageId)
+      (context !== null &&
+        pending.browserPageId === context.browserPageId &&
+        pending.rootGuestWebContentsId === context.rootGuestWebContentsId)
     if (!samePage) {
       continue
     }
@@ -229,7 +233,7 @@ export function openBrowserPagePrompt<K extends BrowserPagePromptKind>(args: {
 /** Shows what a new tab asked before its window registered it. */
 export function showBrowserPagePromptsAwaitingRegistration(
   guestWebContentsId: number,
-  context: { browserPageId: string; renderer: Electron.WebContents } | null
+  context: Exclude<BrowserPagePromptTarget, 'awaiting-registration'> | null
 ): void {
   for (const [requestId, pending] of pendingPrompts) {
     if (pending.renderer || pending.requester.id !== guestWebContentsId) {
@@ -264,9 +268,16 @@ export async function respondToBrowserPagePrompt(
 }
 
 /** The page is gone, so nothing it asked for may be granted. */
-export function cancelBrowserPagePrompts(browserPageId: string): void {
+export function cancelBrowserPagePrompts(
+  browserPageId: string,
+  rootGuestWebContentsId?: number
+): void {
   for (const [requestId, pending] of pendingPrompts) {
-    if (pending.browserPageId === browserPageId) {
+    if (
+      pending.browserPageId === browserPageId &&
+      (rootGuestWebContentsId === undefined ||
+        (pending.rootGuestWebContentsId ?? pending.requester.id) === rootGuestWebContentsId)
+    ) {
       closePrompt(requestId, false)
     }
   }

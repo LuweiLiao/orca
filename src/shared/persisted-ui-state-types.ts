@@ -27,6 +27,7 @@ import type {
 } from './ui-chrome-types'
 import type { WorkspaceStatusDefinition } from './worktree/types'
 import type { PersistedAutomationHostFilter } from './automation-host-filter'
+import type { PersistedDesktopWindowState } from './desktop-window-state-types'
 
 /** One extra desktop window that runs the bundled web client against this computer's runtime. */
 export type PersistedRuntimeClientWindow = {
@@ -42,6 +43,7 @@ export type PersistedRuntimeClientWindow = {
 }
 
 export type PersistedUIState = {
+  desktopWindows?: Record<string, PersistedDesktopWindowState>
   jiraSavedFilterState?: JiraSavedFilterState
   jiraQuickFilterState?: JiraQuickFilterState
   lastActiveRepoId: string | null

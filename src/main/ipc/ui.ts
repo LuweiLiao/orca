@@ -13,6 +13,7 @@ import {
   isTrustedDesktopRenderer,
   preferredDesktopRenderer
 } from '../window/desktop-renderer-registry'
+import { desktopWindowUI, updateDesktopWindowUI } from '../persistence/desktop-window-state'
 
 let trustedUIRendererWebContentsId: number | null = null
 
@@ -68,7 +69,7 @@ export function registerUIHandlers(
   store.onUIChanged((ui) => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
-        window.webContents.send('ui:stateChanged', ui)
+        window.webContents.send('ui:stateChanged', desktopWindowUI(ui, window.webContents))
       }
     }
   })
@@ -90,12 +91,12 @@ export function registerUIHandlers(
     store.updateUI({ jiraSavedFilterState: state })
     return state
   })
-  ipcMain.handle('ui:get', () => {
-    return store.getUI()
+  ipcMain.handle('ui:get', (event) => {
+    return desktopWindowUI(store.getUI(), event?.sender)
   })
 
-  ipcMain.handle('ui:set', (_event, args: Partial<PersistedUIState>) => {
-    store.updateUI(args)
+  ipcMain.handle('ui:set', (event, args: Partial<PersistedUIState>) => {
+    updateDesktopWindowUI(store, event?.sender, args)
   })
 
   ipcMain.handle('ui:recordFeatureInteraction', (_event, id: unknown) => {

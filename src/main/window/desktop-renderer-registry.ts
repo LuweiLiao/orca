@@ -2,8 +2,12 @@ import { BrowserWindow, type WebContents } from 'electron'
 
 const renderers = new Map<number, WebContents>()
 const rendererIds = new WeakMap<WebContents, number>()
+const windowIds = new WeakMap<WebContents, string>()
 
-export function registerDesktopRenderer(renderer: WebContents): void {
+export function registerDesktopRenderer(renderer: WebContents, windowId?: string): void {
+  if (windowId) {
+    windowIds.set(renderer, windowId)
+  }
   if (rendererIds.has(renderer)) {
     return
   }
@@ -18,6 +22,11 @@ export function unregisterDesktopRenderer(renderer: WebContents): void {
     renderers.delete(id)
   }
   rendererIds.delete(renderer)
+  windowIds.delete(renderer)
+}
+
+export function desktopWindowId(renderer?: WebContents): string | null {
+  return renderer ? (windowIds.get(renderer) ?? null) : null
 }
 
 export function isRegisteredDesktopRenderer(renderer: WebContents): boolean {
@@ -32,6 +41,19 @@ export function listDesktopRenderers(excludedId?: number): WebContents[] {
   return [...renderers.values()].filter(
     (renderer) => isRegisteredDesktopRenderer(renderer) && renderer.id !== excludedId
   )
+}
+
+export function broadcastDesktopRendererEvent(channel: string, ...values: unknown[]): number {
+  let sent = 0
+  for (const renderer of listDesktopRenderers()) {
+    try {
+      renderer.send(channel, ...values)
+      sent += 1
+    } catch {
+      // Another window may already have committed its replacement document.
+    }
+  }
+  return sent
 }
 
 export function preferredDesktopRenderer(excludedId?: number): WebContents | null {

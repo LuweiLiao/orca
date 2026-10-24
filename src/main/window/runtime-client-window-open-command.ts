@@ -1,10 +1,10 @@
 import { BrowserWindow, dialog, type MessageBoxOptions } from 'electron'
 import { translateMain } from '../i18n/main-i18n'
-import { openRuntimeClientWindow } from './runtime-client-windows'
+import { openNativeDesktopWindow } from './native-desktop-windows'
 
 /** Menu and main-process shortcut entry: opens an extra window and says so when it cannot. */
 export function openRuntimeClientWindowFromUserCommand(): void {
-  const result = openRuntimeClientWindow()
+  const result = openNativeDesktopWindow()
   if (result.ok) {
     return
   }

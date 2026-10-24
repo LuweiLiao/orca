@@ -1,4 +1,3 @@
-import { resolveRendererWebContents } from './browser-guest-renderer-target'
 import { setupGuestContextMenu } from './browser-guest-context-menu'
 import { setupGrabShortcutForwarding } from './browser-guest-grab-shortcuts'
 import { setupGuestMouseWheelZoomForwarding } from './browser-guest-wheel-zoom'
@@ -12,7 +11,7 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGuestContextMenu({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) => this.resolveRendererForBrowserTab(tabId)
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null
       })
     )
   }
@@ -30,8 +29,7 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGrabShortcutForwarding({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) =>
-          resolveRendererWebContents(this.rendererWebContentsIdByTabId, tabId),
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null,
         hasActiveGrabOp: (tabId) => this.hasActiveGrabOp(tabId),
         getKeybindings: () => this.settingsResolver?.().keybindings
       })
@@ -51,8 +49,7 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGuestShortcutForwarding({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) =>
-          resolveRendererWebContents(this.rendererWebContentsIdByTabId, tabId),
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null,
         shouldForwardDictationShortcut: () => this.shouldForwardDictationShortcut?.() ?? false,
         isMobileEmulatorEnabled: () => this.settingsResolver?.().mobileEmulatorEnabled !== false,
         getKeybindings: () => this.settingsResolver?.().keybindings,
@@ -74,12 +71,11 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGuestMouseWheelZoomForwarding({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) =>
-          resolveRendererWebContents(this.rendererWebContentsIdByTabId, tabId),
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null,
         isViewportPresetActive: () => this.isViewportPresetActive(browserTabId, guest.id),
-        canViewportScroll: (mouse) => this.canViewportScroll(browserTabId, mouse),
+        canViewportScroll: (mouse) => this.canViewportScroll(guest.id, mouse),
         onViewportWheelConsumed: (deltaX, deltaY) =>
-          this.recordViewportScrollDelta(browserTabId, deltaX, deltaY)
+          this.recordViewportScrollDelta(guest.id, deltaX, deltaY)
       })
     )
   }

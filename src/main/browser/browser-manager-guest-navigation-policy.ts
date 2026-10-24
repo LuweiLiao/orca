@@ -149,6 +149,7 @@ export abstract class BrowserManagerGuestNavigationPolicy extends BrowserManager
     guest.on('did-fail-load', didFailLoadHandler)
     guest.on('will-prevent-unload', allowPageUnload)
     const handleDestroyed = (): void => {
+      this.selectGuestForEvent(guest.id)
       const browserTabId = this.tabIdByWebContentsId.get(guest.id)
       // A destroyed primary guest also owns per-page callbacks that capture its WebContents.
       if (browserTabId && this.webContentsIdByTabId.get(browserTabId) === guest.id) {

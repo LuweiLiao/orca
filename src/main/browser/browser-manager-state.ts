@@ -1,3 +1,4 @@
+import { webContents } from 'electron'
 import { BrowserGrabSessionController } from './browser-grab-session-controller'
 import type { BrowserCertificateTrustController } from './browser-certificate-trust-controller'
 import type { BrowserSiteDisplayController } from './browser-site-display-controller'
@@ -27,6 +28,8 @@ import type { BrowserGrabCancelReason } from '../../shared/browser-grab-types'
 import { BrowserManagerViewportScrollState } from './browser-manager-viewport-scroll-state'
 
 export abstract class BrowserManagerState extends BrowserManagerViewportScrollState {
+  protected readonly nativeRendererByGuestId = new Map<number, number>()
+  protected abstract selectGuestForEvent(guestId: number): void
   protected abstract attachGuestPolicies(
     guest: Electron.WebContents,
     inheritedOwnerContext?: PopupOwnerContext | null,
@@ -111,7 +114,8 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
   protected abstract openLinkInOrcaTab(
     browserTabId: string,
     rawUrl: string,
-    activate?: boolean
+    activate?: boolean,
+    rootGuestWebContentsId?: number
   ): boolean
 
   protected settingsResolver:
@@ -120,17 +124,13 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
         mobileEmulatorEnabled?: boolean
       })
     | null = null
-  protected readonly webContentsIdByTabId = new Map<string, number>()
-  // Why: reverse map gives O(1) guest→tab lookups on every mouse/load/permission/popup event.
-  protected readonly tabIdByWebContentsId = new Map<number, string>()
   protected readonly popupOwnerContextByGuestId = new Map<number, PopupOwnerContext>()
   // Why: keyed by the opener tree's root so named child popups can't each mint a fresh tab quota.
   protected readonly pageInitiatedTabBudgetByRootGuestId = new Map<number, PageInitiatedTabBudget>()
   // Why: guests are keyed by page id but renderer visibility by workspace id; bridge the mismatch to activate the right tab before capture.
   protected readonly workspaceIdByPageId = new Map<string, string>()
   protected readonly sessionProfileIdByPageId = new Map<string, string | null>()
-  // Why: serialize per-tab setViewportOverride so rapid toggles don't interleave CDP commands and leave emulation in a wrong state.
-  protected readonly viewportOpsByTabId = new Map<string, Promise<unknown>>()
+  protected readonly viewportOpsByGuestId = new Map<number, Promise<unknown>>()
   // Why: the confirmed CDP identity outranks getUserAgent; pending intent keeps rapid navigations
   // ordered without claiming a failed write was installed.
   protected readonly cdpUserAgentOverrideStateByGuestId = new Map<
@@ -145,6 +145,17 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
   protected readonly shortcutForwardingCleanupByTabId = new Map<string, () => void>()
   protected readonly mouseWheelZoomCleanupByTabId = new Map<string, () => void>()
   protected readonly annotationViewportBridgeOpsByTabId = new Map<string, Promise<unknown>>()
+
+  protected guestIdForRenderer(pageId: string, rendererId: number): number | undefined {
+    return this.rendererWebContentsIdByTabId.get(pageId) === rendererId
+      ? this.webContentsIdByTabId.get(pageId)
+      : undefined
+  }
+
+  protected annotationViewportBridgeKey(pageId: string, guestId: number): string {
+    const rendererId = this.nativeRendererByGuestId.get(guestId)
+    return rendererId === undefined ? pageId : `${rendererId}:${pageId}`
+  }
   protected readonly worktreeIdByTabId = new Map<string, string>()
   protected readonly policyAttachedGuestIds = new Set<number>()
   protected readonly offscreenGuestIds = new Set<number>()
@@ -223,15 +234,29 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     }
   }
 
-  getRendererContextForGuest(
-    guestWebContentsId: number
-  ): { browserPageId: string; renderer: Electron.WebContents } | null {
-    const browserPageId = this.resolveBrowserTabIdForGuestWebContentsId(guestWebContentsId)
-    if (!browserPageId) {
+  getRendererContextForGuest(guestWebContentsId: number): {
+    browserPageId: string
+    renderer: Electron.WebContents
+    rootGuestWebContentsId?: number
+  } | null {
+    const owner = this.resolvePopupOwnerContext(guestWebContentsId)
+    if (!owner) {
       return null
     }
-    const renderer = this.resolveRendererForBrowserTab(browserPageId)
-    return renderer ? { browserPageId, renderer } : null
+    const browserPageId = owner.browserTabId
+    const ownerGuestId = owner.rootGuestWebContentsId
+    const rendererId = this.nativeRendererByGuestId.get(ownerGuestId)
+    const renderer =
+      rendererId === undefined
+        ? this.resolveRendererForBrowserTab(browserPageId)
+        : webContents.fromId(rendererId)
+    return renderer && !renderer.isDestroyed()
+      ? {
+          browserPageId,
+          renderer,
+          ...(rendererId === undefined ? {} : { rootGuestWebContentsId: ownerGuestId })
+        }
+      : null
   }
 
   /** Where a prompt from this page or popup shows; null when it has no window on this machine. */
@@ -271,7 +296,11 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     const inherited = this.popupOwnerContextByGuestId.get(guestWebContentsId)
     if (
       inherited &&
-      this.webContentsIdByTabId.get(inherited.browserTabId) === inherited.rootGuestWebContentsId
+      (this.webContentsIdByTabId.get(inherited.browserTabId) === inherited.rootGuestWebContentsId ||
+        (this.nativeRendererByGuestId.has(inherited.rootGuestWebContentsId) &&
+          this.policyAttachedGuestIds.has(inherited.rootGuestWebContentsId) &&
+          this.tabIdByWebContentsId.get(inherited.rootGuestWebContentsId) ===
+            inherited.browserTabId))
     ) {
       return inherited
     }

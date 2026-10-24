@@ -19,7 +19,8 @@ import {
   getRendererInFlightCharsForPty,
   schedulePendingDataAfterCreditReport,
   setPendingPtyData,
-  writeOffLostRendererDelivery
+  writeOffLostRendererDelivery,
+  resetPtyRendererDeliveryAccounting
 } from './accounting'
 import {
   readCurrentPtyRendererDeliveryDebugSnapshot,
@@ -98,6 +99,11 @@ export function wirePtyIpcSession(session: PtyIpcSession): void {
   session.writeOffLostRendererDelivery = (report) => writeOffLostRendererDelivery(session, report)
   session.getRendererInFlightCharsForPty = (id) => getRendererInFlightCharsForPty(session, id)
 
+  if (session.options?.rendererDeliveryOnly) {
+    session.updateProducerFlowControl = () => {}
+    return
+  }
+
   setClearBackgroundedDeliverySyncForPty((id: string) => {
     session.backgroundedDeliverySyncByPty.delete(id)
   })
@@ -118,22 +124,7 @@ export function wirePtyIpcSession(session: PtyIpcSession): void {
     seedPtyRendererDeliveryPeaksFromCurrentState(session)
   })
   setResetRendererDeliveryAccountingForLifecycleReset(() => {
-    // Why lossless: pendingData bytes were bound for the dead page; the replacement repaints from main's authoritative sources, which superset it.
-    session.lastLifecycleResetClearedChars = session.rendererInFlightTotalChars
-    session.rendererLifecycleResetCount += 1
-    // Why release before clearing: pending bytes and credits belonged to the dead page; releasing producer pauses first keeps no shell wedged.
-    session.producerFlowControl.releaseAll()
-    session.clearDeliveryResyncProbe()
-    session.deliveryResyncUnansweredWarnLogged = false
-    session.rendererDeliveryAccountingByPty.clear()
-    session.rendererInFlightTotalChars = 0
-    session.clearPendingPtyData()
-    session.pendingOverflowMarkedPtys.clear()
-    session.rendererDeliveryRestoreNeededPtys.clear()
-    // Why hold sends: the reloading page's pty:data listener is gone until it re-registers/handshakes, so bytes would drop into a listener-less page and re-pin the gate.
-    session.rendererPtyDispatcherReady = false
-    // Why: arm the self-heal watchdog so a never-arriving handshake can't hold the gate forever; the real handshake cancels it.
-    session.armDispatcherReadyWatchdog()
+    resetPtyRendererDeliveryAccounting(session, true)
   })
   // Why the bridge: let a later re-registration cancel this closure's watchdog (armed via a hoisted fn, so this assignment can precede its definition).
   setClearRendererDispatcherReadyWatchdog(session.clearDispatcherReadyWatchdog)

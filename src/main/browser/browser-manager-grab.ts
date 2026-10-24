@@ -31,17 +31,14 @@ export abstract class BrowserManagerGrab extends BrowserManagerViewport {
     if (docGuest) {
       return docGuest
     }
-    const registeredRenderer = this.rendererWebContentsIdByTabId.get(browserTabId)
-    if (registeredRenderer == null || registeredRenderer !== senderWebContentsId) {
-      return null
-    }
-    const guestId = this.webContentsIdByTabId.get(browserTabId)
+    const guestId = this.guestIdForRenderer(browserTabId, senderWebContentsId)
     if (guestId == null) {
       return null
     }
     const guest = webContents.fromId(guestId)
     if (!guest || guest.isDestroyed()) {
       // Why: a stale guest must clear every per-tab registry entry, not just the WebContents maps.
+      this.selectGuestForEvent(guestId)
       this.unregisterGuest(browserTabId)
       return null
     }

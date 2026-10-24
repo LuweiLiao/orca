@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { isTrustedUIRenderer } from './ui'
-import { openRuntimeClientWindow } from '../window/runtime-client-windows'
+import { openNativeDesktopWindow } from '../window/native-desktop-windows'
 import type { RuntimeClientWindowOpenResult } from '../../shared/runtime-client-window-open-result'
 
 export function registerRuntimeClientWindowHandlers(): void {
@@ -13,7 +13,7 @@ export function registerRuntimeClientWindowHandlers(): void {
       }
       const worktreeId =
         args && typeof args === 'object' && 'worktreeId' in args ? args.worktreeId : undefined
-      const result = openRuntimeClientWindow(
+      const result = openNativeDesktopWindow(
         typeof worktreeId === 'string' && worktreeId ? { worktreeId } : undefined
       )
       // Why not the window: a BrowserWindow cannot cross IPC, and the renderer only needs the outcome.

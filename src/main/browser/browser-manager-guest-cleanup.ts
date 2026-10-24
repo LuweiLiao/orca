@@ -1,4 +1,5 @@
 import { BrowserManagerGuestNavigationPolicy } from './browser-manager-guest-navigation-policy'
+import { cancelBrowserWebAuthnAccountRequests } from './browser-webauthn-account-picker'
 
 export abstract class BrowserManagerGuestCleanup extends BrowserManagerGuestNavigationPolicy {
   protected retireStaleGuestWebContents(previousWebContentsId: number): void {
@@ -9,6 +10,9 @@ export abstract class BrowserManagerGuestCleanup extends BrowserManagerGuestNavi
   protected cleanupGuestPolicyAttachment(guestWebContentsId: number): void {
     const browserTabId = this.tabIdByWebContentsId.get(guestWebContentsId)
     const isPrimaryGuest = browserTabId !== undefined
+    if (browserTabId) {
+      cancelBrowserWebAuthnAccountRequests(browserTabId, guestWebContentsId)
+    }
     if (browserTabId && this.webContentsIdByTabId.get(browserTabId) === guestWebContentsId) {
       this.webContentsIdByTabId.delete(browserTabId)
     }
@@ -25,6 +29,9 @@ export abstract class BrowserManagerGuestCleanup extends BrowserManagerGuestNavi
     this.popupOwnerContextByGuestId.delete(guestWebContentsId)
     this.pageInitiatedTabBudgetByRootGuestId.delete(guestWebContentsId)
     this.cdpUserAgentOverrideStateByGuestId.delete(guestWebContentsId)
+    this.viewportPresetsByGuestId.delete(guestWebContentsId)
+    this.viewportScrollStatesByGuestId.delete(guestWebContentsId)
+    this.viewportOpsByGuestId.delete(guestWebContentsId)
     this.pendingNavigationByGuestId.delete(guestWebContentsId)
     // Why: a popup must stop inheriting authorization the moment its owner retires, before Chromium destroys the child.
     if (isPrimaryGuest) {

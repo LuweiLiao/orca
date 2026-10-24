@@ -2,13 +2,13 @@ import { webContents } from 'electron'
 import { browserDownloadDestinationReservations } from './browser-download-destination'
 import { isWorkspaceDocPageId } from './doc-preview-guest-policy'
 import type { BrowserGuestRegistration } from './browser-manager-types'
-import { BrowserManagerGuestPolicy } from './browser-manager-guest-policy'
+import { BrowserManagerNativeGuests } from './browser-manager-native-guests'
 import {
   cancelBrowserPagePrompts,
   showBrowserPagePromptsAwaitingRegistration
 } from './browser-page-prompts'
 
-export abstract class BrowserManagerRegistration extends BrowserManagerGuestPolicy {
+export abstract class BrowserManagerRegistration extends BrowserManagerNativeGuests {
   registerGuest(
     {
       browserPageId,
@@ -27,15 +27,6 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     if (!browserTabId || isWorkspaceDocPageId(browserTabId)) {
       return false
     }
-    // Why: on guest-surface swap, cancel any grab bound to the old guest's listeners so it doesn't strand on a stale webContents.
-    this.cancelGrabOp(browserTabId, 'evicted')
-
-    const previousCleanup = this.contextMenuCleanupByTabId.get(browserTabId)
-    if (previousCleanup) {
-      previousCleanup()
-      this.contextMenuCleanupByTabId.delete(browserTabId)
-    }
-
     const guest = webContents.fromId(webContentsId)
     if (!guest || guest.isDestroyed()) {
       return false
@@ -49,17 +40,30 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       // Why: only trust guests that passed attach-time policy install, or a renderer could point us at an arbitrary webview.
       return false
     }
+    const preservePeer = this.rememberNativeGuest(
+      browserTabId,
+      {
+        browserPageId: browserTabId,
+        workspaceId,
+        worktreeId,
+        sessionProfileId,
+        webContentsId,
+        rendererWebContentsId
+      },
+      options
+    )
+    this.cancelGrabOp(browserTabId, 'evicted')
+    this.contextMenuCleanupByTabId.get(browserTabId)?.()
+    this.contextMenuCleanupByTabId.delete(browserTabId)
 
     const previousWebContentsId = this.webContentsIdByTabId.get(browserTabId)
     if (previousWebContentsId !== undefined && previousWebContentsId !== webContentsId) {
-      if (options?.retainPreviousGuestPolicies) {
+      if (!preservePeer && options?.retainPreviousGuestPolicies) {
         // A staged swap must be able to restore this still-live guest on failure.
         this.tabIdByWebContentsId.delete(previousWebContentsId)
-      } else {
+      } else if (!preservePeer) {
         this.retireStaleGuestWebContents(previousWebContentsId)
       }
-      this.viewportPresetByTabId.delete(browserTabId)
-      this.viewportScrollStateByTabId.delete(browserTabId)
     }
     this.webContentsIdByTabId.set(browserTabId, webContentsId)
     this.tabIdByWebContentsId.set(webContentsId, browserTabId)
@@ -86,6 +90,7 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       webContentsId,
       this.getRendererContextForGuest(webContentsId)
     )
+    this.saveNativeGuestState(browserTabId)
     return true
   }
 
@@ -99,12 +104,25 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     if (isWorkspaceDocPageId(browserTabId)) {
       return
     }
+    const guestWebContentsId = this.webContentsIdByTabId.get(browserTabId)
+    const nativeRenderer =
+      guestWebContentsId === undefined
+        ? undefined
+        : this.nativeRendererByGuestId.get(guestWebContentsId)
+    if (guestWebContentsId !== undefined) {
+      this.annotationViewportBridgeOpsByTabId.delete(
+        this.annotationViewportBridgeKey(browserTabId, guestWebContentsId)
+      )
+    }
+    this.forgetNativeGuest(browserTabId)
     // Why: teardown mid-grab must cancel it so the renderer gets a signal, not a dangling Promise.
     this.cancelGrabOp(browserTabId, 'evicted')
-    cancelBrowserPagePrompts(browserTabId)
+    cancelBrowserPagePrompts(
+      browserTabId,
+      nativeRenderer === undefined ? undefined : guestWebContentsId
+    )
 
     // Why: remove attachGuestPolicies listeners so their guest-WebContents closures don't block GC.
-    const guestWebContentsId = this.webContentsIdByTabId.get(browserTabId)
     if (guestWebContentsId !== undefined) {
       this.cleanupGuestPolicyAttachment(guestWebContentsId)
     }
@@ -131,7 +149,11 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     }
     let hasActiveDownloads = false
     for (const [downloadId, download] of this.downloadsById.entries()) {
-      if (download.browserTabId === browserTabId && !download.terminalEvent) {
+      if (
+        download.browserTabId === browserTabId &&
+        !download.terminalEvent &&
+        (nativeRenderer === undefined || download.rendererWebContentsId === nativeRenderer)
+      ) {
         if (reason === 'page-closed') {
           this.cancelDownloadInternal(downloadId, 'Tab closed before download completed.')
         } else {
@@ -152,13 +174,11 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     this.sessionProfileIdByPageId.delete(browserTabId)
     this.worktreeIdByTabId.delete(browserTabId)
     // Why: drop the viewport-op chain so the Map doesn't retain a promise keyed to a destroyed guest.
-    this.viewportOpsByTabId.delete(browserTabId)
-    this.viewportPresetByTabId.delete(browserTabId)
-    this.viewportScrollStateByTabId.delete(browserTabId)
     if (wcId !== undefined) {
       this.pendingNavigationByGuestId.delete(wcId)
     }
     this.annotationViewportBridgeOpsByTabId.delete(browserTabId)
+    this.restoreNativePeer(browserTabId)
   }
 
   // Why: headless orca serve has no <webview> window; back pages with offscreen WebContents and skip the webview-only setup.
@@ -188,8 +208,6 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     const previousWebContentsId = this.webContentsIdByTabId.get(browserPageId)
     if (previousWebContentsId !== undefined && previousWebContentsId !== webContentsId) {
       this.retireStaleGuestWebContents(previousWebContentsId)
-      this.viewportPresetByTabId.delete(browserPageId)
-      this.viewportScrollStateByTabId.delete(browserPageId)
     }
     this.webContentsIdByTabId.set(browserPageId, webContentsId)
     this.tabIdByWebContentsId.set(webContentsId, browserPageId)
@@ -208,8 +226,11 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       this.cancelDownloadInternal(downloadId, 'Orca is shutting down.')
     }
     browserDownloadDestinationReservations.clear()
+    this.unregisterAllNativeGuests()
     for (const browserTabId of this.webContentsIdByTabId.keys()) {
-      this.unregisterGuest(browserTabId)
+      while (this.webContentsIdByTabId.has(browserTabId)) {
+        this.unregisterGuest(browserTabId)
+      }
     }
     this.policyAttachedGuestIds.clear()
     this.offscreenGuestIds.clear()
@@ -223,8 +244,9 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     this.pageInitiatedTabBudgetByRootGuestId.clear()
     this.worktreeIdByTabId.clear()
     this.sessionProfileIdByPageId.clear()
-    this.viewportPresetByTabId.clear()
-    this.viewportScrollStateByTabId.clear()
+    this.viewportPresetsByGuestId.clear()
+    this.viewportScrollStatesByGuestId.clear()
+    this.viewportOpsByGuestId.clear()
     this.cdpUserAgentOverrideStateByGuestId.clear()
     this.pendingNavigationByGuestId.clear()
     this.pendingLoadFailuresByGuestId.clear()

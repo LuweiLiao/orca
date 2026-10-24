@@ -97,7 +97,7 @@ export abstract class BrowserManagerQueries extends BrowserManagerRegistration {
       this.notifyBrowserGuestStateChanged(webContentsId)
       return
     }
-    const renderer = this.resolveRendererForBrowserTab(browserPageId)
+    const renderer = this.getRendererContextForGuest(webContentsId)?.renderer
     renderer?.send('browser:certificate-failure-changed', { browserPageId, failure })
   }
 
