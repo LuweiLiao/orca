@@ -6,6 +6,10 @@ import type {
   NativeChatAnnotationsSnapshot
 } from './native-chat-annotations-store'
 
+export function nativeChatAnnotationStorageError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Annotations could not be saved.'
+}
+
 function hasValidRevision(value: object): boolean {
   return !('revision' in value) || (typeof value.revision === 'string' && value.revision.length > 0)
 }
@@ -141,7 +145,7 @@ export function nativeChatAnnotationStorage(scopeKey: string) {
     } catch (error) {
       return {
         ...legacy,
-        persistenceError: error instanceof Error ? error.message : 'Annotations could not be saved.'
+        persistenceError: nativeChatAnnotationStorageError(error)
       }
     }
   }
