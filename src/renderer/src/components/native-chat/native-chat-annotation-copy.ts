@@ -9,6 +9,7 @@ export function nativeChatAnnotationCopy() {
     cancel: translate('components.native-chat.annotations.cancel', 'Cancel'),
     edit: translate('components.native-chat.annotations.edit', 'Edit annotation'),
     remove: translate('components.native-chat.annotations.remove', 'Delete annotation'),
+    retry: translate('components.native-chat.annotations.retry', 'Retry saving annotations'),
     locate: translate('components.native-chat.annotations.locate', 'Show original text'),
     collapse: translate('components.native-chat.annotations.collapse', 'Collapse annotations'),
     expand: translate('components.native-chat.annotations.expand', 'Expand annotations'),
@@ -19,6 +20,10 @@ export function nativeChatAnnotationCopy() {
     notSaved: translate(
       'components.native-chat.annotations.notSaved',
       'Annotations could not be saved on this device.'
+    ),
+    transferFailed: translate(
+      'components.native-chat.annotations.transferFailed',
+      'The message draft could not be saved. Your annotations have been kept.'
     ),
     originalUnavailable: translate(
       'components.native-chat.annotations.originalUnavailable',

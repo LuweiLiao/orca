@@ -3,7 +3,6 @@
 // draft, and an append is applied again on top of it.
 
 import {
-  dirtyScopes,
   load,
   nextSavedAt,
   notifyScope,
@@ -12,7 +11,8 @@ import {
 } from './native-chat-composer-draft-memory'
 import {
   flushNativeChatComposerDrafts,
-  installNativeChatComposerDraftBroadcast
+  installNativeChatComposerDraftBroadcast,
+  persistNativeChatComposerDraftRecovery
 } from './native-chat-composer-draft-persistence'
 import {
   replayNativeChatComposerDraftJournal,
@@ -47,7 +47,7 @@ function withAppends(
     return { draft: loaded, changed: false }
   }
   const merged = missing.reduce((draft, entry) => entry.append(draft), loaded)
-  return { draft: { ...merged, savedAt: nextSavedAt() }, changed: true }
+  return { draft: { ...merged, savedAt: nextSavedAt(merged.savedAt + 1) }, changed: true }
 }
 
 type DraftLoadResult = { draft: StoredNativeChatComposerDraft; changed: boolean }
@@ -61,9 +61,8 @@ function applyLoaded(
   for (const [scopeKey, value] of loaded) {
     drafts.set(scopeKey, parseStoredNativeChatComposerDraft(value))
   }
-  for (const scopeKey of replayNativeChatComposerDraftJournal(drafts, journal)) {
-    dirtyScopes.add(scopeKey)
-  }
+  const recoveredScopes = replayNativeChatComposerDraftJournal(drafts, journal)
+  const recoveries: (() => void)[] = []
   for (const [scopeKey, appends] of load.appendsBeforeLoad) {
     // Appended with nothing saved before: an empty draft is what the load would have read.
     if (!drafts.has(scopeKey) && appends.some((entry) => !entry.committed)) {
@@ -76,21 +75,41 @@ function applyLoaded(
     }
     if (!stored || load.deletionsBeforeLoad.some((matches) => matches(scopeKey, stored))) {
       // An unreadable record, a journaled removal, or one deleted here while loading.
-      dirtyScopes.add(scopeKey)
+      recoveredScopes.add(scopeKey)
+    } else {
+      const { draft, changed } = withAppends(scopeKey, stored, readAtSequence)
+      reconcileRestoredImageChecks(scopeKey, draft.images, records.get(scopeKey)?.images ?? [])
+      records.set(scopeKey, draft)
+      if (changed) {
+        recoveredScopes.add(scopeKey)
+      }
+      notifyScope(scopeKey)
+    }
+    if (!recoveredScopes.has(scopeKey)) {
       continue
     }
-    const { draft, changed } = withAppends(scopeKey, stored, readAtSequence)
-    reconcileRestoredImageChecks(scopeKey, draft.images, records.get(scopeKey)?.images ?? [])
-    records.set(scopeKey, draft)
-    if (changed) {
-      dirtyScopes.add(scopeKey)
-    }
-    notifyScope(scopeKey)
+    const entries = journal.filter(({ entry }) => entry.scopeKey === scopeKey)
+    const appends = (load.appendsBeforeLoad.get(scopeKey) ?? []).filter(
+      (entry) => !entry.committed || entry.sequence > readAtSequence
+    )
+    const deletions = [...load.deletionsBeforeLoad]
+    recoveries.push(() =>
+      persistNativeChatComposerDraftRecovery(scopeKey, (base) => {
+        const latest = new Map<string, StoredNativeChatComposerDraft | null>([[scopeKey, base]])
+        replayNativeChatComposerDraftJournal(latest, entries)
+        const recovered = latest.get(scopeKey) ?? null
+        if (recovered === null || deletions.some((matches) => matches(scopeKey, recovered))) {
+          return null
+        }
+        return appends.reduce((draft, entry) => entry.append(draft), recovered)
+      })
+    )
   }
   load.hydrated = true
   load.editedBeforeLoad.clear()
   load.appendsBeforeLoad.clear()
   load.deletionsBeforeLoad.length = 0
+  recoveries.forEach((persist) => persist())
   flushNativeChatComposerDrafts()
 }
 

@@ -65,8 +65,13 @@ export function withNativeChatComposerDraftAddition(
   const text = appendReturnedDraftText(draft.text, addition.text ?? '')
   const images = [...draft.images]
   let at = addition.before ? images.findIndex((held) => held.id === addition.before) : -1
-  for (const { id, path, connectionId } of addition.images ?? []) {
-    const image = { id, path, ...(connectionId ? { connectionId } : {}) }
+  for (const { id, path, connectionId, unavailableName } of addition.images ?? []) {
+    const image = {
+      id,
+      path,
+      ...(connectionId ? { connectionId } : {}),
+      ...(unavailableName ? { unavailableName } : {})
+    }
     const held = images.findIndex((candidate) => candidate.id === id)
     if (fills.has(id) && held !== -1) {
       // One already filled stays as it is.

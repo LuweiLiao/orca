@@ -155,6 +155,8 @@ export type NativeChatComposerHandle = {
   /** Adds text after the draft, a blank line apart, and leaves the caret at its end. Text the
    *  draft already ends with is not added again. */
   appendText: (text: string) => void
+  /** True once the appended text is saved, so its source may be removed. */
+  appendTextDurably?: (text: string) => boolean
   /** Routes pane-level paste events back to the composer field. */
   handlePasteEvent: (event: {
     clipboardData: DataTransfer | null

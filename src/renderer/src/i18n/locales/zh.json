@@ -18558,7 +18558,9 @@
         "expand": "展开批注",
         "addToMessage": "汇总到输入框",
         "notSaved": "批注未能保存到本机。",
-        "originalUnavailable": "对应原文目前未显示。"
+        "originalUnavailable": "对应原文目前未显示。",
+        "transferFailed": "消息草稿未能保存，批注已保留。",
+        "retry": "重试保存批注"
       },
       "install": {
         "checking": "正在检查 {{agent}} 是否已在此主机上就绪…"

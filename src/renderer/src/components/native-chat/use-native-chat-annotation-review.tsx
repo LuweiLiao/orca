@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { ChevronDown, ChevronUp, MessageSquarePlus, Pencil, TextSearch, Trash2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronUp,
+  MessageSquarePlus,
+  Pencil,
+  RotateCw,
+  TextSearch,
+  Trash2
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  useNativeChatAnnotationLocate,
+  type NativeChatAnnotationNavigation
+} from './use-native-chat-annotation-locate'
 import type { NativeChatComposerHandle } from './native-chat-composer-types'
 import { nativeChatAnnotationCopy } from './native-chat-annotation-copy'
 import { formatNativeChatAnnotations } from './native-chat-annotations-store'
-import {
-  resolveNativeChatAnnotationRange,
-  type NativeChatAnnotationAnchor
-} from './native-chat-annotation-anchor'
+import type { NativeChatAnnotationAnchor } from './native-chat-annotation-anchor'
 import {
   useNativeChatAnnotations,
   useNativeChatAnnotationHighlights
@@ -19,19 +28,27 @@ export function useNativeChatAnnotationReview({
   scopeKey,
   rootRef,
   composerRef,
-  enabled
+  enabled,
+  messageListRef
 }: {
   scopeKey?: string
   rootRef: RefObject<HTMLElement | null>
   composerRef: RefObject<NativeChatComposerHandle | null>
   enabled: boolean
+  messageListRef?: RefObject<NativeChatAnnotationNavigation | null>
 }) {
   const review = useNativeChatAnnotations(scopeKey)
   const highlightName = useNativeChatAnnotationHighlights(rootRef, review.notes, enabled)
   const editor = review.editor
   const setEditor = review.setEditor
   const [expanded, setExpanded] = useState(true)
-  const [missingOriginal, setMissingOriginal] = useState(false)
+  const [transferErrorScope, setTransferErrorScope] = useState<string>()
+  const { locate, missingOriginal, resetMissingOriginal } = useNativeChatAnnotationLocate(
+    rootRef,
+    scopeKey,
+    enabled,
+    messageListRef
+  )
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const copy = nativeChatAnnotationCopy()
   const editorIdentity = editor ? JSON.stringify([scopeKey, editor.id, editor.anchor]) : null
@@ -61,7 +78,7 @@ export function useNativeChatAnnotationReview({
     save()
     setEditor({ anchor, comment: '' })
     setExpanded(true)
-    setMissingOriginal(false)
+    resetMissingOriginal()
   }
   const transfer = (): void => {
     const composer = composerRef.current
@@ -75,8 +92,12 @@ export function useNativeChatAnnotationReview({
     if (entries.length === 0) {
       return
     }
-    composer.appendText(`${copy.title}\n\n${formatNativeChatAnnotations(entries)}`)
-    review.clear()
+    if (!composer.appendTextDurably?.(`${copy.title}\n\n${formatNativeChatAnnotations(entries)}`)) {
+      setTransferErrorScope(scopeKey)
+      return
+    }
+    setTransferErrorScope(undefined)
+    review.consume(review.notes, editor)
     composer.focus()
   }
   const count =
@@ -95,7 +116,7 @@ export function useNativeChatAnnotationReview({
   return {
     begin: scopeKey ? begin : undefined,
     tray:
-      scopeKey && count > 0 ? (
+      scopeKey && (count > 0 || review.persistenceError) ? (
         <section
           data-native-chat-annotations=""
           aria-label={copy.title}
@@ -123,8 +144,18 @@ export function useNativeChatAnnotationReview({
             )}
           </div>
           {review.persistenceError ? (
+            <div className="flex items-center gap-1 py-1 text-xs text-chat-warning">
+              <p role="status" className="min-w-0 flex-1">
+                {copy.notSaved}
+              </p>
+              {iconButton(copy.retry, <RotateCw />, () => {
+                review.retryPersistence()
+              })}
+            </div>
+          ) : null}
+          {transferErrorScope === scopeKey ? (
             <p role="status" className="py-1 text-xs text-chat-warning">
-              {copy.notSaved}
+              {copy.transferFailed}
             </p>
           ) : null}
           {missingOriginal ? (
@@ -150,7 +181,7 @@ export function useNativeChatAnnotationReview({
                     aria-label={copy.comment}
                     value={editor.comment}
                     rows={3}
-                    className="max-h-40 min-h-16 resize-y text-sm"
+                    className="max-h-40 min-h-16 resize-y"
                     onChange={(event) => setEditor({ ...editor, comment: event.target.value })}
                     onKeyDown={(event) => {
                       if (event.nativeEvent.isComposing) {
@@ -196,13 +227,7 @@ export function useNativeChatAnnotationReview({
                           {note.quote}
                         </blockquote>
                         <div className="flex shrink-0">
-                          {iconButton(copy.locate, <TextSearch />, () => {
-                            const root = rootRef.current
-                            const range = root ? resolveNativeChatAnnotationRange(root, note) : null
-                            const element = range?.startContainer.parentElement
-                            setMissingOriginal(!element)
-                            element?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-                          })}
+                          {iconButton(copy.locate, <TextSearch />, () => locate(note))}
                           {iconButton(copy.edit, <Pencil />, () => {
                             save()
                             if (scopeKey) {

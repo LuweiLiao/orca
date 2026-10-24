@@ -10,10 +10,15 @@ import { getNativeChatAnnotationsStore } from './native-chat-annotations-store'
 vi.mock('@/i18n/i18n', () => ({ translate: (_key: string, fallback: string) => fallback }))
 
 const appendText = vi.fn<(text: string) => void>()
+const appendTextDurably = vi.fn((text: string) => {
+  appendText(text)
+  return true
+})
 const acceptsText = vi.fn(() => true)
 const focus = vi.fn(() => true)
 const composer: NativeChatComposerHandle = {
   appendText,
+  appendTextDurably,
   acceptsText,
   focus,
   insertTypedText: () => true,
@@ -63,11 +68,61 @@ function comment(text: string): void {
 afterEach(() => {
   cleanup()
   appendText.mockClear()
+  appendTextDurably.mockReset().mockImplementation((text) => {
+    appendText(text)
+    return true
+  })
   focus.mockClear()
   acceptsText.mockReturnValue(true)
+  vi.restoreAllMocks()
 })
 
 describe('conversation annotation review', () => {
+  it('shows legacy notes, the unfinished editor and retry when migration cannot write', () => {
+    const scope = 'review-refused-migration'
+    const anchor = { messageId: 'reply', quote: 'first sentence.', startOffset: 0 }
+    localStorage.setItem(
+      `orca:native-chat-annotations:v1:${scope}`,
+      JSON.stringify({
+        version: 1,
+        notes: [{ ...anchor, id: 'legacy', comment: 'Saved legacy comment', createdAt: 1 }],
+        editor: { anchor, comment: 'Unfinished legacy editor' }
+      })
+    )
+    const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Full')
+    })
+    render(<Harness scopeKey={scope} />)
+    expect(screen.getByText('Saved legacy comment')).toBeTruthy()
+    const input = screen.getByRole('textbox', { name: 'Comment' })
+    expect(input instanceof HTMLTextAreaElement && input.value).toBe('Unfinished legacy editor')
+    expect(screen.getByRole('status').textContent).toContain('Annotations could not be saved')
+    blocked.mockRestore()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByText('Saved legacy comment')).toBeTruthy()
+  })
+
+  it('keeps an error and retry visible even when no annotations could be read', () => {
+    const scope = 'review-unreadable-migration'
+    localStorage.setItem(`orca:native-chat-annotations:v1:${scope}`, '{invalid')
+    render(<Harness scopeKey={scope} />)
+    expect(screen.getByRole('region', { name: 'Annotations' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retry saving annotations' })).toBeTruthy()
+    localStorage.removeItem(`orca:native-chat-annotations:v1:${scope}`)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
+    expect(screen.queryByRole('region', { name: 'Annotations' })).toBeNull()
+  })
+  it('retains notes when saving to the composer fails', () => {
+    render(<Harness scopeKey="review-transfer-failure" />)
+    fireEvent.click(screen.getByRole('button', { name: 'First' }))
+    comment('Keep this saved comment.')
+    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
+    appendTextDurably.mockReturnValue(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Add annotations to message' }))
+    expect(screen.getByText('Keep this saved comment.')).toBeTruthy()
+    expect(focus).not.toHaveBeenCalled()
+  })
   it('keeps several notes editable and transfers their quotes together without sending', () => {
     render(<Harness scopeKey="review-flow" />)
     fireEvent.click(screen.getByRole('button', { name: 'First' }))

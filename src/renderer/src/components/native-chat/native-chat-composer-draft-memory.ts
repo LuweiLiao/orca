@@ -66,6 +66,11 @@ export const scopeListeners = new Map<string, Set<() => void>>()
 /** How a change before the startup load lands meets the loaded draft: an edit replaces it, an
  *  append (text or images given back, a paste) is applied again on top of it. */
 export type DraftAppend = (draft: StoredNativeChatComposerDraft) => StoredNativeChatComposerDraft
+export type DraftTransform = (
+  draft: StoredNativeChatComposerDraft
+) => StoredNativeChatComposerDraft | null
+export const pendingDraftTransforms = new Map<string, DraftTransform>()
+export const localDraftEdits = new Map<string, string>()
 
 /** An append made before the load landed: written onto the stored draft in one change, and made
  *  again on the loaded draft when that load could not have read it. */
@@ -100,8 +105,8 @@ export const load: LoadBookkeeping = {
 let lastSavedAt = 0
 
 /** Monotonic within a run, so drafts changed in the same millisecond still age in order. */
-export function nextSavedAt(): number {
-  lastSavedAt = Math.max(Date.now(), lastSavedAt + 1)
+export function nextSavedAt(minimum = 0): number {
+  lastSavedAt = Math.max(Date.now(), lastSavedAt + 1, minimum)
   return lastSavedAt
 }
 
@@ -116,6 +121,8 @@ export function hasLocalChange(scopeKey: string): boolean {
 
 export function clearDraftMemoryForTests(): void {
   records.clear()
+  pendingDraftTransforms.clear()
+  localDraftEdits.clear()
   dirtyScopes.clear()
   unconfirmed.clear()
   refusedScopes.clear()

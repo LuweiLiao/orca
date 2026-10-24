@@ -22,6 +22,7 @@ export function useNativeChatAnnotations(scopeKey: string | undefined) {
     remove: store.remove,
     setEditor: store.setEditor,
     clear: store.clear,
+    consume: store.consume,
     retryPersistence: store.retryPersistence
   }
 }

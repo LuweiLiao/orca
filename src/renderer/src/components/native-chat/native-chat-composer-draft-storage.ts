@@ -5,6 +5,12 @@
 import type { JSONContent } from '@tiptap/react'
 import { parseExecutionHostId, type ExecutionHostId } from '../../../../shared/execution-host'
 import { createIndexedDbNativeChatComposerDraftStorage } from './native-chat-composer-draft-indexeddb'
+import type { NativeChatComposerDraftAddition } from './native-chat-composer-draft-addition'
+
+export type NativeChatComposerDraftJournalAddition = {
+  readonly id: string
+  readonly addition: NativeChatComposerDraftAddition
+}
 
 export type NativeChatComposerDraftImage = {
   id: string
@@ -32,6 +38,10 @@ export type NativeChatComposerDraftOwner = {
 export type StoredNativeChatComposerDraft = NativeChatComposerDraft & {
   readonly savedAt: number
   readonly owner?: NativeChatComposerDraftOwner
+  readonly journalEntryIds?: readonly string[]
+  readonly journalAdditions?: readonly NativeChatComposerDraftJournalAddition[]
+  readonly journalAdditionsComplete?: boolean
+  readonly editRevision?: string
 }
 
 /** Where drafts are kept. Every write and removal settles once storage has committed it, and
@@ -145,6 +155,45 @@ function parseOwner(value: unknown): NativeChatComposerDraftOwner | undefined {
     : undefined
 }
 
+export function parseNativeChatComposerDraftAddition(
+  value: unknown
+): NativeChatComposerDraftAddition | null {
+  if (!isRecord(value)) {
+    return null
+  }
+  const { text, images, before, fills, fromUser } = value
+  if (text !== undefined && typeof text !== 'string') {
+    return null
+  }
+  if (images !== undefined && !Array.isArray(images)) {
+    return null
+  }
+  return {
+    ...(typeof text === 'string' ? { text } : {}),
+    ...(Array.isArray(images)
+      ? { images: images.flatMap((image) => parseImage(image) ?? []) }
+      : {}),
+    ...(typeof before === 'string' ? { before } : {}),
+    ...(Array.isArray(fills) ? { fills: fills.filter((id) => typeof id === 'string') } : {}),
+    ...(fromUser === true ? { fromUser: true } : {})
+  }
+}
+
+function parseJournalAdditions(
+  value: unknown
+): NativeChatComposerDraftJournalAddition[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+  return value.flatMap((entry): NativeChatComposerDraftJournalAddition[] => {
+    if (!isRecord(entry) || typeof entry.id !== 'string') {
+      return []
+    }
+    const addition = parseNativeChatComposerDraftAddition(entry.addition)
+    return addition ? [{ id: entry.id, addition }] : []
+  })
+}
+
 /** A stored value as a draft, or null when it isn't one (a newer or damaged record). */
 export function parseStoredNativeChatComposerDraft(
   value: unknown
@@ -169,12 +218,22 @@ export function parseStoredNativeChatComposerDraft(
       )
     : undefined
   const owner = parseOwner(value.owner)
+  const journalAdditions = parseJournalAdditions(value.journalAdditions)
   return {
     text,
     ...(pastedTextFiles ? { pastedTextFiles } : {}),
     ...(isEditorDocument(document) ? { document } : {}),
     images: images.flatMap((image) => parseImage(image) ?? []),
     savedAt,
+    ...(typeof value.editRevision === 'string' ? { editRevision: value.editRevision } : {}),
+    ...(journalAdditions ? { journalAdditions } : {}),
+    ...(typeof value.journalAdditionsComplete === 'boolean'
+      ? { journalAdditionsComplete: value.journalAdditionsComplete }
+      : {}),
+    ...(Array.isArray(value.journalEntryIds) &&
+    value.journalEntryIds.every((id) => typeof id === 'string')
+      ? { journalEntryIds: [...new Set(value.journalEntryIds)] }
+      : {}),
     ...(owner ? { owner } : {})
   }
 }

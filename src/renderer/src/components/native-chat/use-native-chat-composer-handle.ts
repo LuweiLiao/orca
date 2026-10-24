@@ -1,4 +1,5 @@
-import { useImperativeHandle, type ForwardedRef } from 'react'
+import { useCallback, useImperativeHandle, type ForwardedRef } from 'react'
+import { appendNativeChatDraftCache } from './native-chat-draft-cache'
 import type { ClipboardEventLike } from './native-chat-clipboard-payload'
 import type { NativeChatComposerHandle } from './native-chat-composer-types'
 import {
@@ -47,6 +48,16 @@ export function useNativeChatComposerHandle(
     insertTypedText: insertPastedTextOrFile
   })
 
+  const appendTextDurably = useCallback(
+    (text: string): boolean => {
+      if (!args.attachmentScopeKey || !acceptsText()) {
+        return false
+      }
+      return appendNativeChatDraftCache(args.attachmentScopeKey, text)
+    },
+    [acceptsText, args.attachmentScopeKey]
+  )
+
   useImperativeHandle(
     ref,
     () => ({
@@ -54,6 +65,7 @@ export function useNativeChatComposerHandle(
       insertTypedText,
       acceptsText,
       appendText,
+      appendTextDurably,
       handlePasteEvent,
       pasteFromClipboard,
       contains
@@ -63,6 +75,7 @@ export function useNativeChatComposerHandle(
       insertTypedText,
       acceptsText,
       appendText,
+      appendTextDurably,
       handlePasteEvent,
       pasteFromClipboard,
       contains

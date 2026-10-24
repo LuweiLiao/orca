@@ -83,18 +83,18 @@ describe('native chat annotation hooks', () => {
     act(() => {
       first.result.current.setEditor(firstDraft)
     })
-    expect(other.result.current.editor).toEqual(firstDraft)
+    expect(other.result.current.editor).toMatchObject(firstDraft)
     first.rerender({ scope: 'editor-hook-b' })
     expect(first.result.current.editor).toBeUndefined()
     act(() => {
       first.result.current.setEditor(secondDraft)
     })
-    expect(other.result.current.editor).toEqual(firstDraft)
+    expect(other.result.current.editor).toMatchObject(firstDraft)
     first.rerender({ scope: 'editor-hook-a' })
-    expect(first.result.current.editor).toEqual(firstDraft)
+    expect(first.result.current.editor).toMatchObject(firstDraft)
     first.unmount()
     const remount = renderHook(() => useNativeChatAnnotations('editor-hook-b'))
-    expect(remount.result.current.editor).toEqual(secondDraft)
+    expect(remount.result.current.editor).toMatchObject(secondDraft)
   })
 
   it('retains editor edits after failed writes and retries the whole snapshot after remount', async () => {
@@ -114,9 +114,10 @@ describe('native chat annotation hooks', () => {
       expect(first.result.current.setEditor({ ...draft, comment: '' })).toBe(true)
       expect(first.result.current.setEditor(draft)).toBe(true)
     })
+    const savedDraft = first.result.current.editor
     first.unmount()
     const remount = renderHook(() => useNativeChatAnnotations('editor-hook-unsaved'))
-    expect(remount.result.current.editor).toEqual(draft)
+    expect(remount.result.current.editor).toEqual(savedDraft)
     expect(remount.result.current.notes).toEqual(notes)
     expect(remount.result.current.persistenceError).toBe('full')
     write.mockRestore()
@@ -128,7 +129,7 @@ describe('native chat annotation hooks', () => {
     const fresh = await import('./native-chat-annotations-store')
     expect(fresh.getNativeChatAnnotationsStore('editor-hook-unsaved').getSnapshot()).toEqual({
       notes,
-      editor: draft
+      editor: savedDraft
     })
   })
 

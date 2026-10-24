@@ -1,6 +1,13 @@
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import type { NativeChatAnnotationAnchor } from './native-chat-annotation-anchor'
 import { formatNativeChatQuote } from './native-chat-quote-selection'
+import {
+  isNativeChatAnnotationAnchor,
+  isNativeChatAnnotationEditor,
+  nativeChatAnnotationRevision,
+  nativeChatAnnotationEditorRevision,
+  nativeChatAnnotationStorage
+} from './native-chat-annotation-storage'
 
 export type { NativeChatAnnotationAnchor } from './native-chat-annotation-anchor'
 
@@ -8,12 +15,14 @@ export type NativeChatAnnotation = NativeChatAnnotationAnchor & {
   id: string
   comment: string
   createdAt: number
+  revision?: string
 }
 
 export type NativeChatAnnotationEditor = {
   anchor: NativeChatAnnotationAnchor
   id?: string
   comment: string
+  revision?: string
 }
 
 export type NativeChatAnnotationsSnapshot = {
@@ -29,88 +38,13 @@ export type NativeChatAnnotationsStore = {
   update: (id: string, comment: string) => boolean
   remove: (id: string) => boolean
   setEditor: (editor: NativeChatAnnotationEditor | undefined) => boolean
+  consume: (notes: readonly NativeChatAnnotation[], editor?: NativeChatAnnotationEditor) => boolean
   clear: () => boolean
   retryPersistence: () => boolean
 }
 
 const EMPTY: NativeChatAnnotationsSnapshot = { notes: [] }
 const stores = new Map<string, NativeChatAnnotationsStore>()
-const STORAGE_PREFIX = 'orca:native-chat-annotations:v1:'
-
-function isAnchor(value: unknown): value is NativeChatAnnotationAnchor {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'quote' in value &&
-    typeof value.quote === 'string' &&
-    value.quote.trim().length > 0 &&
-    'messageId' in value &&
-    typeof value.messageId === 'string' &&
-    value.messageId.length > 0 &&
-    'startOffset' in value &&
-    typeof value.startOffset === 'number' &&
-    Number.isSafeInteger(value.startOffset) &&
-    value.startOffset >= 0
-  )
-}
-
-function isNote(value: unknown): value is NativeChatAnnotation {
-  return (
-    isAnchor(value) &&
-    'id' in value &&
-    typeof value.id === 'string' &&
-    value.id.length > 0 &&
-    'comment' in value &&
-    typeof value.comment === 'string' &&
-    value.comment.trim().length > 0 &&
-    'createdAt' in value &&
-    typeof value.createdAt === 'number' &&
-    Number.isFinite(value.createdAt)
-  )
-}
-
-function isEditor(value: unknown): value is NativeChatAnnotationEditor {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'anchor' in value &&
-    isAnchor(value.anchor) &&
-    'comment' in value &&
-    typeof value.comment === 'string' &&
-    (!('id' in value) ||
-      value.id === undefined ||
-      (typeof value.id === 'string' && value.id.length > 0))
-  )
-}
-
-function readSnapshot(key: string): NativeChatAnnotationsSnapshot {
-  try {
-    const stored = localStorage.getItem(key)
-    if (stored === null) {
-      return EMPTY
-    }
-    const value: unknown = JSON.parse(stored)
-    if (
-      typeof value !== 'object' ||
-      value === null ||
-      !('version' in value) ||
-      value.version !== 1 ||
-      !('notes' in value) ||
-      !Array.isArray(value.notes) ||
-      !value.notes.every(isNote) ||
-      new Set(value.notes.map((note) => note.id)).size !== value.notes.length ||
-      ('editor' in value && value.editor !== undefined && !isEditor(value.editor))
-    ) {
-      throw new Error('Saved annotations could not be read.')
-    }
-    return {
-      notes: value.notes,
-      ...('editor' in value && isEditor(value.editor) ? { editor: value.editor } : {})
-    }
-  } catch (error) {
-    return { notes: [], persistenceError: errorMessage(error) }
-  }
-}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Annotations could not be saved.'
@@ -123,6 +57,7 @@ const disabledStore: NativeChatAnnotationsStore = {
   update: () => false,
   remove: () => false,
   setEditor: () => false,
+  consume: () => false,
   clear: () => false,
   retryPersistence: () => false
 }
@@ -130,92 +65,193 @@ const disabledStore: NativeChatAnnotationsStore = {
 export function getNativeChatAnnotationsStore(
   scopeKey: string | undefined
 ): NativeChatAnnotationsStore {
-  if (scopeKey === undefined || scopeKey === '') {
+  if (!scopeKey) {
     return disabledStore
   }
   const existing = stores.get(scopeKey)
   if (existing) {
     return existing
   }
-  const key = `${STORAGE_PREFIX}${scopeKey}`
-  let snapshot = readSnapshot(key)
+  const storage = nativeChatAnnotationStorage(scopeKey)
+  let snapshot = EMPTY
+  const pending = new Map<string, NativeChatAnnotation>()
+  const consumedNotes = new Map<string, NativeChatAnnotation>()
+  const consumedEditors = new Map<string, NativeChatAnnotationEditor>()
+  let pendingEditor: NativeChatAnnotationEditor | undefined
   const listeners = new Set<() => void>()
-  const publish = ({
-    notes,
-    editor
-  }: Pick<NativeChatAnnotationsSnapshot, 'notes' | 'editor'>): boolean => {
-    let persistenceError: string | undefined
+  const refresh = (): void => {
+    let next: NativeChatAnnotationsSnapshot
     try {
-      localStorage.setItem(key, JSON.stringify({ version: 1, notes, editor }))
+      next = storage.read()
     } catch (error) {
-      persistenceError = errorMessage(error)
+      next = { ...snapshot, persistenceError: errorMessage(error) }
     }
-    // Keep this copy across unmounts even when the browser cannot save it.
-    snapshot = {
-      notes,
-      ...(editor === undefined ? {} : { editor }),
-      ...(persistenceError === undefined ? {} : { persistenceError })
+    const notes = new Map(next.notes.map((note) => [note.id, note]))
+    for (const [id, note] of pending) {
+      notes.set(id, note)
     }
-    listeners.forEach((listener) => listener())
-    return persistenceError === undefined
+    for (const note of consumedNotes.values()) {
+      const current = notes.get(note.id)
+      if (current && nativeChatAnnotationRevision(current) === nativeChatAnnotationRevision(note)) {
+        notes.delete(note.id)
+      }
+    }
+    next = {
+      ...next,
+      notes: [...notes.values()].sort(
+        (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id)
+      ),
+      ...(pendingEditor ? { editor: pendingEditor } : {}),
+      ...((pending.size > 0 ||
+        pendingEditor ||
+        consumedNotes.size > 0 ||
+        consumedEditors.size > 0) &&
+      snapshot.persistenceError
+        ? { persistenceError: snapshot.persistenceError }
+        : {})
+    }
+    if (
+      next.editor === undefined ||
+      consumedEditors.has(nativeChatAnnotationEditorRevision(next.editor))
+    ) {
+      delete next.editor
+    }
+    if (JSON.stringify(next) !== JSON.stringify(snapshot)) {
+      snapshot = next
+      listeners.forEach((listener) => listener())
+    }
   }
+  const persist = (): boolean => {
+    try {
+      // Migrate before mutating; a failed migration must leave the legacy copy intact.
+      const saved = storage.read()
+      if (saved.persistenceError) {
+        throw new Error(saved.persistenceError)
+      }
+      for (const [id, note] of pending) {
+        storage.writeNote(note)
+        pending.delete(id)
+      }
+      for (const [revision, note] of consumedNotes) {
+        storage.consumeNote(note)
+        consumedNotes.delete(revision)
+      }
+      for (const [revision, editor] of consumedEditors) {
+        storage.consumeEditor(editor)
+        consumedEditors.delete(revision)
+      }
+      if (pendingEditor) {
+        storage.writeEditor(pendingEditor)
+        pendingEditor = undefined
+      }
+      refresh()
+      return true
+    } catch (error) {
+      refresh()
+      snapshot = { ...snapshot, persistenceError: errorMessage(error) }
+      listeners.forEach((listener) => listener())
+      return false
+    }
+  }
+  const consume: NativeChatAnnotationsStore['consume'] = (notes, editor) => {
+    refresh()
+    for (const note of notes) {
+      const unconfirmed = pending.get(note.id)
+      if (
+        unconfirmed &&
+        nativeChatAnnotationRevision(unconfirmed) === nativeChatAnnotationRevision(note)
+      ) {
+        pending.delete(note.id)
+      }
+      consumedNotes.set(JSON.stringify([note.id, nativeChatAnnotationRevision(note)]), note)
+    }
+    if (editor) {
+      if (
+        pendingEditor &&
+        nativeChatAnnotationEditorRevision(pendingEditor) ===
+          nativeChatAnnotationEditorRevision(editor)
+      ) {
+        pendingEditor = undefined
+      }
+      consumedEditors.set(nativeChatAnnotationEditorRevision(editor), editor)
+    }
+    return persist()
+  }
+  const onStorage = (event: StorageEvent): void => {
+    if (storage.matches(event.key)) {
+      refresh()
+    }
+  }
+  refresh()
   const store: NativeChatAnnotationsStore = {
     getSnapshot: () => snapshot,
     subscribe: (listener) => {
+      if (listeners.size === 0) {
+        window.addEventListener('storage', onStorage)
+        refresh()
+      }
       listeners.add(listener)
       return () => {
         listeners.delete(listener)
+        if (listeners.size === 0) {
+          window.removeEventListener('storage', onStorage)
+        }
       }
     },
     add: (anchor, comment) => {
-      if (!isAnchor(anchor) || !comment.trim()) {
+      if (!isNativeChatAnnotationAnchor(anchor) || !comment.trim()) {
         return null
       }
+      refresh()
       const note: NativeChatAnnotation = {
-        quote: anchor.quote,
-        messageId: anchor.messageId,
-        startOffset: anchor.startOffset,
+        ...anchor,
         id: createBrowserUuid(),
+        revision: createBrowserUuid(),
         comment: comment.trim(),
-        createdAt: Date.now()
+        createdAt: Math.max(Date.now(), ...snapshot.notes.map((note) => note.createdAt + 1))
       }
-      publish({ ...snapshot, notes: [...snapshot.notes, note] })
+      pending.set(note.id, note)
+      persist()
       return note
     },
     update: (id, comment) => {
-      if (!comment.trim() || !snapshot.notes.some((note) => note.id === id)) {
+      refresh()
+      const note = snapshot.notes.find((entry) => entry.id === id)
+      if (!note || !comment.trim()) {
         return false
       }
-      publish({
-        ...snapshot,
-        notes: snapshot.notes.map((note) =>
-          note.id === id ? { ...note, comment: comment.trim() } : note
-        )
-      })
+      pending.set(id, { ...note, comment: comment.trim(), revision: createBrowserUuid() })
+      persist()
       return true
     },
     remove: (id) => {
-      if (!snapshot.notes.some((note) => note.id === id)) {
+      refresh()
+      const note = snapshot.notes.find((entry) => entry.id === id)
+      if (!note) {
         return false
       }
-      publish({ ...snapshot, notes: snapshot.notes.filter((note) => note.id !== id) })
+      consume([note])
       return true
     },
     setEditor: (editor) => {
-      if (editor !== undefined && !isEditor(editor)) {
+      if (editor !== undefined && !isNativeChatAnnotationEditor(editor)) {
         return false
       }
-      publish({
-        ...snapshot,
-        editor: editor === undefined ? undefined : { ...editor, anchor: { ...editor.anchor } }
-      })
+      if (editor === undefined) {
+        refresh()
+        consume([], snapshot.editor)
+      } else {
+        pendingEditor = { ...editor, anchor: { ...editor.anchor }, revision: createBrowserUuid() }
+        persist()
+      }
       return true
     },
+    consume,
     clear: () => {
-      publish({ notes: [] })
-      return true
+      refresh()
+      return consume(snapshot.notes, snapshot.editor)
     },
-    retryPersistence: () => publish(snapshot)
+    retryPersistence: persist
   }
   stores.set(scopeKey, store)
   return store

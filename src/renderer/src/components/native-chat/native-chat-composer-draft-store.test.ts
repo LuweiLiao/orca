@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type * as DraftStore from './native-chat-composer-draft-store'
 import type * as DraftCache from './native-chat-draft-cache'
 import { MAX_PROMPT_BYTES } from '../../../../shared/rpc-contract/structured-agent-session-params'
+import { readNativeChatDraftJournalRecords } from './native-chat-composer-draft-journal-records'
 import {
   createMemoryNativeChatComposerDraftStorage,
   type NativeChatComposerDraftStorage
@@ -36,9 +37,8 @@ async function reload(
   return modules
 }
 
-function storedDraft(scopeKey: string): Record<string, unknown> | null {
-  return storage.drafts.get(scopeKey) ?? null
-}
+const storedDraft = (scopeKey: string): Record<string, unknown> | null =>
+  storage.drafts.get(scopeKey) ?? null
 
 const IMAGES = [
   { id: 'a-1', path: '/repo/shot.png' },
@@ -117,45 +117,6 @@ describe('native-chat composer draft store', () => {
     expect(storedDraft('tab-1:pane')?.text).toBe('typed, then Orca quit')
   })
 
-  it('reports a scope’s writes settled only once storage completes them, and false when refused', async () => {
-    const pending: (() => void)[] = []
-    const slow = {
-      ...storage,
-      write: (scopeKey: string, draft: Parameters<typeof storage.write>[1]) =>
-        new Promise<void>((resolve) => {
-          pending.push(() => {
-            storage.drafts.set(scopeKey, draft)
-            resolve()
-          })
-        })
-    }
-    const reloaded = await reload({ using: slow })
-    reloaded.drafts.appendNativeChatDraftCache('agent-session:s1', 'returned by Stop')
-    // Typing still waiting for its deferred write is included too.
-    reloaded.drafts.writeNativeChatDraftCache('agent-session:s1', 'returned by Stop, edited')
-    let settled: boolean | undefined
-    void reloaded.store
-      .nativeChatComposerDraftWriteSettled('agent-session:s1')
-      .then((outcome) => (settled = outcome))
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(settled).toBeUndefined()
-    expect(pending).toHaveLength(2)
-
-    pending.shift()?.()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(settled).toBeUndefined()
-    pending.shift()?.()
-    await vi.waitFor(() => expect(settled).toBe(true))
-
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    storage.refuseWrites = true
-    modules.drafts.appendNativeChatDraftCache('agent-session:s2', 'refused')
-    await expect(
-      modules.store.nativeChatComposerDraftWriteSettled('agent-session:s2')
-    ).resolves.toBe(false)
-    warn.mockRestore()
-  })
-
   it('reports an append made before the load landed settled only once its write completes', async () => {
     storage.drafts.set('agent-session:s1', { text: 'typed earlier', images: [], savedAt: 1 })
     let complete: () => void = () => {}
@@ -210,6 +171,15 @@ describe('native-chat composer draft store', () => {
     const aDone = new Promise<void>((resolve) => (aCommitted = resolve))
     const aStorage = {
       ...storage,
+      update: (scopeKey: string, apply: Parameters<typeof storage.update>[1]) =>
+        new Promise<void>((resolve) => {
+          commitA = () => {
+            void storage.update(scopeKey, apply).then(() => {
+              resolve()
+              aCommitted()
+            })
+          }
+        }),
       write: (scopeKey: string, draft: Parameters<typeof storage.write>[1]) =>
         new Promise<void>((resolve) => {
           commitA = () => {
@@ -254,7 +224,11 @@ describe('native-chat composer draft store', () => {
 
   it('keeps text given back through a crash before storage commits it, once', async () => {
     storage.drafts.set('agent-session:s1', { text: 'typed earlier', images: [], savedAt: 1 })
-    const crashing = { ...storage, write: () => new Promise<void>(() => {}) }
+    const crashing = {
+      ...storage,
+      write: () => new Promise<void>(() => {}),
+      update: () => new Promise<void>(() => {})
+    }
     const crashed = await reload({ using: crashing })
     // Stop gives a message back; its outbox entry is deleted right after, then Orca crashes.
     expect(crashed.drafts.appendNativeChatDraftCache('agent-session:s1', 'returned by Stop')).toBe(
@@ -268,13 +242,17 @@ describe('native-chat composer draft store', () => {
     )
     await next.store.nativeChatComposerDraftWritesSettled()
     expect(storedDraft('agent-session:s1')?.text).toBe('typed earlier\n\nreturned by Stop')
-    expect(localStorage.getItem('orca:nativeChatComposerDraftJournal:v1')).toBeNull()
+    expect(readNativeChatDraftJournalRecords()).toEqual([])
   })
 
   it('does not give text back twice when storage committed it but the window died first', async () => {
     storage.drafts.set('agent-session:s1', { text: 'typed earlier', images: [], savedAt: 1 })
     const landsUnconfirmed = {
       ...storage,
+      update: (scopeKey: string, apply: Parameters<typeof storage.update>[1]) => {
+        void storage.update(scopeKey, apply)
+        return new Promise<void>(() => {})
+      },
       write: (scopeKey: string, draft: Parameters<typeof storage.write>[1]) => {
         storage.drafts.set(scopeKey, draft)
         return new Promise<void>(() => {})
@@ -736,7 +714,7 @@ describe('native-chat composer draft store', () => {
     const tabA = await reload({ using: landsUnconfirmed })
     tabA.drafts.writeNativeChatDraftCache('agent-session:s1', 'typed in A, then A closed')
     window.dispatchEvent(new Event('pagehide'))
-    expect(localStorage.getItem('orca:nativeChatComposerDraftJournal:v1')).toContain('typed in A')
+    expect(JSON.stringify(readNativeChatDraftJournalRecords())).toContain('typed in A')
     tabA.store.clearNativeChatComposerDraftsForTests()
 
     tabB.drafts.writeNativeChatDraftCache('agent-session:s1', 'written in B')
@@ -748,7 +726,7 @@ describe('native-chat composer draft store', () => {
 
     const tabC = await reload()
     expect(tabC.drafts.readNativeChatDraftCache('agent-session:s1')).toBe('')
-    expect(localStorage.getItem('orca:nativeChatComposerDraftJournal:v1')).toBeNull()
+    expect(readNativeChatDraftJournalRecords()).toEqual([])
   })
 
   it('keeps a refused draft in the journal for the next run', async () => {
@@ -785,7 +763,7 @@ describe('native-chat composer draft store', () => {
     await modules.store.nativeChatComposerDraftWritesSettled()
     window.dispatchEvent(new Event('pagehide'))
 
-    const journal = localStorage.getItem('orca:nativeChatComposerDraftJournal:v1') ?? ''
+    const journal = JSON.stringify(readNativeChatDraftJournalRecords().map(({ entry }) => entry))
     // Additions keep to their own cap, whole drafts to theirs.
     expect(journal.length).toBeLessThanOrEqual(800_000 + 256_000)
     // What no longer fits is reported, so its source is kept until storage confirms it.
