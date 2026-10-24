@@ -217,6 +217,62 @@ it('preserves pasted returned text after its annotations were accepted by anothe
   )
 })
 
+it('removes an explicitly deleted final annotation from returned draft text after reload', async () => {
+  const context = await open()
+  const note = context.store.add(anchor, 'Remove this comment.')
+  if (!note) {
+    throw new Error('Missing note')
+  }
+  const returned = context.prepare('Original draft.')
+  returned.reserve('first-send')
+  returned.release('first-send')
+  expect(context.store.remove(note.id)).toBe(true)
+  vi.resetModules()
+  const reopened = await open()
+  expect(reopened.store.getSnapshot().notes).toHaveLength(0)
+  expect(reopened.prepare(returned.text).text).toBe('Original draft.')
+})
+
+it('keeps the note editable if its returned-text deletion intent cannot be saved', async () => {
+  const context = await open()
+  const note = context.store.add(anchor, 'Keep this comment.')
+  if (!note) {
+    throw new Error('Missing note')
+  }
+  const returned = context.prepare('Original draft.')
+  returned.reserve('first-send')
+  returned.release('first-send')
+  const write = localStorage.setItem.bind(localStorage)
+  const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+    if (key.includes(':delivery:')) {
+      throw new Error('Deletion intent blocked')
+    }
+    write(key, value)
+  })
+  expect(context.store.remove(note.id)).toBe(false)
+  expect(context.store.getSnapshot().notes).toEqual([note])
+  expect(context.store.getSnapshot().persistenceError).toBe('Deletion intent blocked')
+  blocked.mockRestore()
+})
+
+it('retires a discarded returned suffix when another send accepts its remaining annotations', async () => {
+  const context = await open()
+  const removed = context.store.add(anchor, 'Remove this comment.')
+  context.store.add({ ...anchor, messageId: 'another-reply' }, 'Keep this comment.')
+  if (!removed) {
+    throw new Error('Missing note')
+  }
+  const returned = context.prepare('Original draft.')
+  returned.reserve('first-send')
+  returned.release('first-send')
+  context.store.remove(removed.id)
+  context.prepare('Another draft.').reserve('second-send')
+  context.reconcile([
+    submission('accepted', { clientMessageId: 'second-send', queuedMessageId: undefined })
+  ])
+  expect(context.prepare(returned.text).text).toBe(returned.text)
+})
+
 it('bounds failed cleanup attempts while mounted and retries after the user restores storage', async () => {
   const context = await open()
   context.store.add(anchor, 'Durable comment.')

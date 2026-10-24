@@ -1,7 +1,9 @@
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import type { NativeChatAnnotationAnchor } from './native-chat-annotation-anchor'
 import {
+  discardReturnedNativeChatAnnotation,
   nativeChatAnnotationDeliveryStorage,
+  removeSupersededNativeChatAnnotationDeliveries,
   withoutReservedNativeChatAnnotations,
   type NativeChatAnnotationDelivery
 } from './native-chat-annotation-delivery'
@@ -10,6 +12,7 @@ import {
   isNativeChatAnnotationEditor,
   nativeChatAnnotationRevision,
   nativeChatAnnotationEditorRevision,
+  nativeChatAnnotationStorageError,
   nativeChatAnnotationStorage
 } from './native-chat-annotation-storage'
 
@@ -56,10 +59,6 @@ export type NativeChatAnnotationsStore = {
 const EMPTY: NativeChatAnnotationsSnapshot = { notes: [] }
 const stores = new Map<string, NativeChatAnnotationsStore>()
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Annotations could not be saved.'
-}
-
 const disabledStore: NativeChatAnnotationsStore = {
   getSnapshot: () => EMPTY,
   subscribe: () => () => {},
@@ -91,7 +90,7 @@ export function getNativeChatAnnotationsStore(scopeKey?: string): NativeChatAnno
   let pendingEditor: NativeChatAnnotationEditor | undefined
   const listeners = new Set<() => void>()
   const reportError = (error: unknown): false => {
-    snapshot = { ...snapshot, persistenceError: errorMessage(error) }
+    snapshot = { ...snapshot, persistenceError: nativeChatAnnotationStorageError(error) }
     listeners.forEach((listener) => listener())
     return false
   }
@@ -100,7 +99,7 @@ export function getNativeChatAnnotationsStore(scopeKey?: string): NativeChatAnno
     try {
       next = storage.read()
     } catch (error) {
-      next = { ...snapshot, persistenceError: errorMessage(error) }
+      next = { ...snapshot, persistenceError: nativeChatAnnotationStorageError(error) }
     }
     const notes = new Map(next.notes.map((note) => [note.id, note]))
     for (const [id, note] of pending) {
@@ -135,7 +134,7 @@ export function getNativeChatAnnotationsStore(scopeKey?: string): NativeChatAnno
     try {
       next = withoutReservedNativeChatAnnotations(next, deliveries.read())
     } catch (error) {
-      next = { ...next, persistenceError: errorMessage(error) }
+      next = { ...next, persistenceError: nativeChatAnnotationStorageError(error) }
     }
     if (JSON.stringify(next) !== JSON.stringify(snapshot)) {
       snapshot = next
@@ -246,7 +245,7 @@ export function getNativeChatAnnotationsStore(scopeKey?: string): NativeChatAnno
     remove: (id) => {
       refresh()
       const note = snapshot.notes.find((entry) => entry.id === id)
-      if (!note) {
+      if (!note || !discardReturnedNativeChatAnnotation(scopeKey, id, reportError)) {
         return false
       }
       consume([note])
@@ -293,7 +292,7 @@ export function getNativeChatAnnotationsStore(scopeKey?: string): NativeChatAnno
           if (!consume(delivery.notes, delivery.editor)) {
             return false
           }
-          deliveries.remove(messageId)
+          removeSupersededNativeChatAnnotationDeliveries(deliveries, delivery)
         } else if ((delivery.returned === true) !== (outcome === 'returned')) {
           const { returned: _returned, ...waiting } = delivery
           deliveries.write(outcome === 'returned' ? { ...waiting, returned: true } : waiting)
