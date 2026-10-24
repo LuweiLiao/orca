@@ -6,27 +6,22 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { useNativeChatAnnotationReview } from './use-native-chat-annotation-review'
 import type { NativeChatComposerHandle } from './native-chat-composer-types'
 import { getNativeChatAnnotationsStore } from './native-chat-annotations-store'
+vi.mock('react-i18next', () => ({ useTranslation: () => ({}) }))
 
-vi.mock('@/i18n/i18n', () => ({ translate: (_key: string, fallback: string) => fallback }))
-
-const appendText = vi.fn<(text: string) => void>()
-const appendTextDurably = vi.fn((text: string) => {
-  appendText(text)
-  return true
-})
-const acceptsText = vi.fn(() => true)
-const focus = vi.fn(() => true)
+vi.mock('@/i18n/i18n', () => ({
+  translate: (_key: string, fallback: string, values?: { count: number }) =>
+    fallback.replace('{{count}}', String(values?.count))
+}))
+const appendText = vi.fn()
 const composer: NativeChatComposerHandle = {
   appendText,
-  appendTextDurably,
-  acceptsText,
-  focus,
+  acceptsText: () => true,
+  focus: () => true,
   insertTypedText: () => true,
   handlePasteEvent: () => {},
   pasteFromClipboard: () => {},
   contains: () => false
 }
-
 function Harness({ scopeKey }: { scopeKey: string }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const review = useNativeChatAnnotationReview({
@@ -60,115 +55,57 @@ function Harness({ scopeKey }: { scopeKey: string }) {
     </TooltipProvider>
   )
 }
-
 function comment(text: string): void {
   fireEvent.change(screen.getByRole('textbox', { name: 'Comment' }), { target: { value: text } })
 }
-
+function openNotes(count = 1): void {
+  fireEvent.click(
+    screen.getByRole('button', { name: count === 1 ? '1 annotation' : `${count} annotations` })
+  )
+}
+function save(): void {
+  fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
+}
 afterEach(() => {
   cleanup()
-  appendText.mockClear()
-  appendTextDurably.mockReset().mockImplementation((text) => {
-    appendText(text)
-    return true
-  })
-  focus.mockClear()
-  acceptsText.mockReturnValue(true)
+  localStorage.clear()
   vi.restoreAllMocks()
+  appendText.mockClear()
 })
 
 describe('conversation annotation review', () => {
-  it('shows legacy notes, the unfinished editor and retry when migration cannot write', () => {
-    const scope = 'review-refused-migration'
-    const anchor = { messageId: 'reply', quote: 'first sentence.', startOffset: 0 }
-    localStorage.setItem(
-      `orca:native-chat-annotations:v1:${scope}`,
-      JSON.stringify({
-        version: 1,
-        notes: [{ ...anchor, id: 'legacy', comment: 'Saved legacy comment', createdAt: 1 }],
-        editor: { anchor, comment: 'Unfinished legacy editor' }
-      })
-    )
-    const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
-      throw new Error('Full')
-    })
-    render(<Harness scopeKey={scope} />)
-    expect(screen.getByText('Saved legacy comment')).toBeTruthy()
-    const input = screen.getByRole('textbox', { name: 'Comment' })
-    expect(input instanceof HTMLTextAreaElement && input.value).toBe('Unfinished legacy editor')
-    expect(screen.getByRole('status').textContent).toContain('Annotations could not be saved')
-    blocked.mockRestore()
-    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
-    expect(screen.queryByRole('status')).toBeNull()
-    expect(screen.getByText('Saved legacy comment')).toBeTruthy()
-  })
-
-  it('keeps an error and retry visible even when no annotations could be read', () => {
-    const scope = 'review-unreadable-migration'
-    localStorage.setItem(`orca:native-chat-annotations:v1:${scope}`, '{invalid')
-    render(<Harness scopeKey={scope} />)
-    expect(screen.getByRole('region', { name: 'Annotations' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Retry saving annotations' })).toBeTruthy()
-    localStorage.removeItem(`orca:native-chat-annotations:v1:${scope}`)
-    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
-    expect(screen.queryByRole('region', { name: 'Annotations' })).toBeNull()
-  })
-  it('retains notes when saving to the composer fails', () => {
-    render(<Harness scopeKey="review-transfer-failure" />)
+  it('edits beside the passage and keeps saved notes behind a count without inserting text', () => {
+    render(<Harness scopeKey="review-count" />)
     fireEvent.click(screen.getByRole('button', { name: 'First' }))
-    comment('Keep this saved comment.')
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
-    appendTextDurably.mockReturnValue(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Add annotations to message' }))
-    expect(screen.getByText('Keep this saved comment.')).toBeTruthy()
-    expect(focus).not.toHaveBeenCalled()
-  })
-  it('keeps several notes editable and transfers their quotes together without sending', () => {
-    render(<Harness scopeKey="review-flow" />)
-    fireEvent.click(screen.getByRole('button', { name: 'First' }))
-    comment('Explain the first mechanism.')
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Second' }))
-    comment('Add the units.')
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit annotation' })[0])
-    comment('Explain the control mechanism.')
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Add annotations to message' }))
-    expect(appendText).toHaveBeenCalledTimes(1)
-    const message = appendText.mock.calls[0][0]
-    expect(message).toContain('> first sentence.\n\nExplain the control mechanism.')
-    expect(message).toContain('> second sentence.\n\nAdd the units.')
-    expect(message).not.toContain('Explain the first mechanism.')
-    expect(screen.queryByRole('region', { name: 'Annotations' })).toBeNull()
-    expect(focus).toHaveBeenCalledOnce()
+    expect(screen.getByRole('dialog', { name: 'Comment' })).toBeTruthy()
+    comment('Explain the mechanism.')
+    save()
+    expect(screen.getByRole('button', { name: '1 annotation' })).toBeTruthy()
+    expect(screen.queryByRole('textbox', { name: 'Comment' })).toBeNull()
+    expect(screen.queryByText('Explain the mechanism.')).toBeNull()
+    expect(appendText).not.toHaveBeenCalled()
+    openNotes()
+    expect(screen.getByText('Explain the mechanism.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit annotation' }))
+    comment('Explain the control effect.')
+    save()
+    openNotes()
+    expect(screen.getByText('Explain the control effect.')).toBeTruthy()
+    expect(screen.queryByText('Explain the mechanism.')).toBeNull()
   })
 
   it('restores saved notes, isolates conversations and deletes only the chosen note', () => {
     const view = render(<Harness scopeKey="review-restore" />)
     fireEvent.click(screen.getByRole('button', { name: 'First' }))
     comment('Keep this note.')
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
+    save()
     view.rerender(<Harness scopeKey="another-conversation" />)
-    expect(screen.queryByRole('region', { name: 'Annotations' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '1 annotation' })).toBeNull()
     view.rerender(<Harness scopeKey="review-restore" />)
+    openNotes()
     expect(screen.getByText('Keep this note.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Delete annotation' }))
-    expect(screen.queryByRole('region', { name: 'Annotations' })).toBeNull()
-  })
-
-  it('keeps notes while the composer cannot accept text and transfers them after it unlocks', () => {
-    render(<Harness scopeKey="review-held" />)
-    fireEvent.click(screen.getByRole('button', { name: 'First' }))
-    comment('Keep while answering a question.')
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
-    acceptsText.mockReturnValue(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Add annotations to message' }))
-    expect(appendText).not.toHaveBeenCalled()
-    expect(screen.getByText('Keep while answering a question.')).toBeTruthy()
-    acceptsText.mockReturnValue(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Add annotations to message' }))
-    expect(appendText).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: '1 annotation' })).toBeNull()
   })
 
   it('saves an unfinished nonempty comment when annotating another passage', () => {
@@ -176,9 +113,10 @@ describe('conversation annotation review', () => {
     fireEvent.click(screen.getByRole('button', { name: 'First' }))
     comment('Preserve my current comment.')
     fireEvent.click(screen.getByRole('button', { name: 'Second' }))
-    expect(screen.getByText('Preserve my current comment.')).toBeTruthy()
-    const input = screen.getByRole('textbox', { name: 'Comment' })
-    expect(input instanceof HTMLTextAreaElement && input.value).toBe('')
+    expect(
+      getNativeChatAnnotationsStore('review-selection-change').getSnapshot().notes[0]?.comment
+    ).toBe('Preserve my current comment.')
+    expect(screen.getByRole('textbox', { name: 'Comment' }).getAttribute('value') ?? '').toBe('')
   })
 
   it('restores unfinished comments after remount and when switching conversations', () => {
@@ -205,15 +143,53 @@ describe('conversation annotation review', () => {
     render(<Harness scopeKey="review-deleted-while-editing" />)
     fireEvent.click(screen.getByRole('button', { name: 'First' }))
     comment('Original comment.')
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
+    save()
+    openNotes()
     fireEvent.click(screen.getByRole('button', { name: 'Edit annotation' }))
     comment('Keep the current edit.')
     const store = getNativeChatAnnotationsStore('review-deleted-while-editing')
     act(() => {
       store.remove(store.getSnapshot().notes[0].id)
     })
-    expect(screen.getByRole('textbox', { name: 'Comment' })).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Save annotation' }))
+    save()
+    openNotes()
     expect(screen.getByText('Keep the current edit.')).toBeTruthy()
+  })
+
+  it('shows legacy notes, the unfinished editor and retry when migration cannot write', () => {
+    const scope = 'review-refused-migration'
+    const anchor = { messageId: 'reply', quote: 'first sentence.', startOffset: 0 }
+    localStorage.setItem(
+      `orca:native-chat-annotations:v1:${scope}`,
+      JSON.stringify({
+        version: 1,
+        notes: [{ ...anchor, id: 'legacy', comment: 'Saved legacy comment', createdAt: 1 }],
+        editor: { anchor, comment: 'Unfinished legacy editor' }
+      })
+    )
+    const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Full')
+    })
+    render(<Harness scopeKey={scope} />)
+    expect(screen.getByRole('button', { name: '1 annotation' })).toBeTruthy()
+    const input = screen.getByRole('textbox', { name: 'Comment' })
+    expect(input instanceof HTMLTextAreaElement && input.value).toBe('Unfinished legacy editor')
+    expect(screen.getByRole('status').textContent).toContain('Annotations could not be saved')
+    blocked.mockRestore()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
+    expect(screen.queryByRole('status')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    openNotes()
+    expect(screen.getByText('Saved legacy comment')).toBeTruthy()
+  })
+
+  it('keeps an error and retry visible even when no annotations could be read', () => {
+    const scope = 'review-unreadable-migration'
+    localStorage.setItem(`orca:native-chat-annotations:v1:${scope}`, '{invalid')
+    render(<Harness scopeKey={scope} />)
+    expect(screen.getByRole('status')).toBeTruthy()
+    localStorage.removeItem(`orca:native-chat-annotations:v1:${scope}`)
+    fireEvent.click(screen.getByRole('button', { name: 'Retry saving annotations' }))
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })
