@@ -181,13 +181,13 @@ export function NativeChatComposerField({
   onInsertOrchestrationInstruction
 }: NativeChatComposerFieldProps): React.JSX.Element {
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
-  const conversationDrop = useConversationReferenceDrop(
-    draftScopeKey,
-    textareaRef,
+  const conversationDrop = useConversationReferenceDrop({
+    scope: draftScopeKey,
+    input: textareaRef,
     disabled,
-    imeEnterGesture.isComposing,
-    attachmentEnvironmentId
-  )
+    composing: imeEnterGesture.isComposing,
+    targetEnvironmentId: attachmentEnvironmentId
+  })
   const optionCount =
     autocomplete.mode === 'slash'
       ? autocomplete.items.length
@@ -271,6 +271,7 @@ export function NativeChatComposerField({
             className="mb-1.5"
           />
           <div
+            ref={conversationDrop.ref}
             data-conversation-reference-drop="true"
             onDragOver={conversationDrop.onDragOver}
             onDragLeave={conversationDrop.onDragLeave}

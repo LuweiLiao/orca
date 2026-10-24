@@ -1,38 +1,70 @@
-import { useEffect, useRef, useState, type DragEvent, type RefObject } from 'react'
-import { toast } from 'sonner'
-import { translate } from '@/i18n/i18n'
-import { toRuntimeExecutionHostId } from '../../../../shared/execution-host'
-import { readConversationReferenceDrag } from '@/lib/conversation-reference-drag'
 import {
-  CONVERSATION_REFERENCE_DRAG_TYPE,
-  conversationReferenceToken
-} from '../../../../shared/conversation-reference'
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type DragEvent,
+  type RefObject
+} from 'react'
+import { readConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import { CONVERSATION_REFERENCE_DRAG_TYPE } from '../../../../shared/conversation-reference'
 import type { NativeChatComposerInput } from './native-chat-composer-input'
 import {
-  readNativeChatComposerDraft,
-  updateNativeChatComposerDraft
-} from './native-chat-composer-draft-store'
+  addConversationReferenceToComposer,
+  isConversationReferencePending,
+  registerConversationReferenceComposer,
+  subscribeToConversationReferencePending,
+  type ConversationReferenceComposer
+} from './conversation-reference-insertion'
 
-export function useConversationReferenceDrop(
-  scope: string,
-  input: RefObject<NativeChatComposerInput | null>,
-  disabled: boolean,
-  composing: () => boolean,
+export type ConversationReferenceDropArgs = {
+  scope: string
+  input: RefObject<NativeChatComposerInput | null>
+  disabled: boolean
+  composing: () => boolean
   targetEnvironmentId?: string
-) {
-  const [pending, setPending] = useState(0)
+}
+
+/** A composer's drop target for conversation references; `ref` also offers it to menus. */
+export function useConversationReferenceDrop({
+  scope,
+  input,
+  disabled,
+  composing,
+  targetEnvironmentId
+}: ConversationReferenceDropArgs) {
   const [hover, setHover] = useState(false)
-  const mounted = useRef(true)
-  useEffect(() => {
-    mounted.current = true
-    return () => {
-      mounted.current = false
-    }
+  const element = useRef<HTMLElement | null>(null)
+  const live = useRef({ scope, disabled, composing, targetEnvironmentId })
+  useLayoutEffect(() => {
+    live.current = { scope, disabled, composing, targetEnvironmentId }
+  })
+  const composer = useMemo<ConversationReferenceComposer>(
+    () => ({
+      scope: () => live.current.scope,
+      input,
+      element: () => element.current,
+      environmentId: () => live.current.targetEnvironmentId,
+      disabled: () => live.current.disabled,
+      composing: () => live.current.composing()
+    }),
+    [input]
+  )
+  useEffect(() => registerConversationReferenceComposer(composer), [composer])
+  const pending = useSyncExternalStore(subscribeToConversationReferencePending, () =>
+    isConversationReferencePending(scope)
+  )
+  const ref = useCallback((node: HTMLElement | null) => {
+    element.current = node
   }, [])
   const hasReference = (event: DragEvent): boolean =>
     Array.from(event.dataTransfer.types).includes(CONVERSATION_REFERENCE_DRAG_TYPE)
   return {
-    pending: pending > 0,
+    ref,
+    pending,
     hover,
     onDragOver: (event: DragEvent<HTMLDivElement>) => {
       if (!hasReference(event)) {
@@ -62,47 +94,9 @@ export function useConversationReferenceDrop(
         return
       }
       const source = readConversationReferenceDrag(event.dataTransfer)
-      if (!source) {
-        return
+      if (source) {
+        void addConversationReferenceToComposer(composer, source)
       }
-      if (
-        targetEnvironmentId &&
-        source.executionHostId !== toRuntimeExecutionHostId(targetEnvironmentId)
-      ) {
-        toast.error(
-          translate(
-            'components.native-chat.conversationReference.differentHost',
-            'This agent cannot reach the conversation on its source host. Open the chat on that host to reference it.'
-          )
-        )
-        return
-      }
-      const target = input.current
-      setPending((count) => count + 1)
-      void window.api.aiVault
-        .createConversationReference(source)
-        .then((reference) => {
-          const token = `${conversationReferenceToken(reference)} `
-          if (mounted.current && input.current === target && target && !composing()) {
-            target.focus()
-            target.insertText?.(token)
-          } else {
-            const draft = readNativeChatComposerDraft(scope)
-            updateNativeChatComposerDraft(
-              scope,
-              { text: `${draft.text}${draft.text ? ' ' : ''}${token}`, document: undefined },
-              'immediate'
-            )
-          }
-        })
-        .catch((error: unknown) =>
-          toast.error(error instanceof Error ? error.message : String(error))
-        )
-        .finally(() => {
-          if (mounted.current) {
-            setPending((count) => count - 1)
-          }
-        })
     }
   }
 }

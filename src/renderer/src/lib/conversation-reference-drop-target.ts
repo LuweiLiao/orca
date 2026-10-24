@@ -5,6 +5,10 @@ export function conversationReferenceDropTarget(point: {
   for (const element of document.querySelectorAll<HTMLElement>(
     '[data-conversation-reference-drop]'
   )) {
+    // Why: a hidden retained pane can keep its box while measuring, stacked under the shown one.
+    if (element.closest('[inert], [hidden]')) {
+      continue
+    }
     const rect = element.getBoundingClientRect()
     if (
       rect.width > 0 &&
