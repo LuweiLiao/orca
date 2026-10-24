@@ -30,7 +30,10 @@ import { findEditablePrimarySelectionPasteTarget } from '@/lib/primary-selection
 import { NativeChatCopyOrcaSessionIdMenuItem } from './NativeChatCopyOrcaSessionIdMenuItem'
 import { NativeChatSelectionQuote } from './NativeChatSelectionQuote'
 import { NativeChatPaneMenuItems } from './NativeChatPaneMenuItems'
-import type { NativeChatComposerHandle } from './native-chat-composer-types'
+import type {
+  NativeChatComposerHandle,
+  NativeChatComposerProps
+} from './native-chat-composer-types'
 import type { TabSplitDirection } from '@/store/slices/tabs'
 import { AgentSessionContinuationMenuItem } from '@/components/terminal-pane/AgentSessionContinuationMenuItem'
 import { AgentSessionContextCopyMenuItem } from '@/components/terminal-pane/AgentSessionContextCopyMenuItem'
@@ -164,7 +167,7 @@ export function useNativeChatContextMenu({
   onContextMenuCapture: MouseEventHandler<HTMLElement>
   onPointerDownCapture: PointerEventHandler<HTMLElement>
   menu: React.JSX.Element
-  annotationTray: React.JSX.Element | null
+  annotationComposerProps: Pick<NativeChatComposerProps, 'annotationScopeKey' | 'annotations'>
 } {
   const annotationReview = useNativeChatAnnotationReview({
     scopeKey: annotationScopeKey,
@@ -250,7 +253,7 @@ export function useNativeChatContextMenu({
   }, [])
 
   return {
-    annotationTray: annotationReview.tray,
+    annotationComposerProps: { annotationScopeKey, annotations: annotationReview.tray },
     onContextMenuCapture,
     onPointerDownCapture: keepSelectionThroughMenuPress,
     menu: (

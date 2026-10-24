@@ -38,6 +38,7 @@ function harness(options: {
   caret?: number
   threadGoal?: NativeChatStructuredComposerTransport['threadGoal']
   imageAttachments?: NativeChatComposerImageAttachment[]
+  hasAnnotations?: boolean
   /** The PTY lane has no structured transport at all. */
   lane?: 'pty'
 }) {
@@ -64,6 +65,7 @@ function harness(options: {
         draft: props.draft,
         caret: props.caret,
         imageAttachments: options.imageAttachments ?? [],
+        hasAnnotations: options.hasAnnotations,
         disabled: false,
         ...calls
       }),
@@ -78,6 +80,11 @@ function harness(options: {
 }
 
 describe('composer goal mode', () => {
+  it('submits annotations when the typed message is empty', () => {
+    const { hook, calls } = harness({ draft: '', hasAnnotations: true })
+    act(() => hook.result.current.send())
+    expect(calls.sendStructured).toHaveBeenCalledWith('', [])
+  })
   it.each([false, true])(
     'admits the actual ordinary/goal candidate only after completion, goal=%s',
     async (goal) => {

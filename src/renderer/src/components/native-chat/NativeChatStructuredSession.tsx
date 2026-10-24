@@ -336,7 +336,6 @@ export function NativeChatStructuredSession(
       </NativeChatContextClearFade>
       {readFailedFinally ? null : (
         <>
-          {paneCommands.annotationTray}
           <NativeChatQueuedMessageList
             controller={submits.queuedMessages}
             chatWorktreeId={ownerWorktreeId ?? null}
@@ -395,6 +394,7 @@ export function NativeChatStructuredSession(
           {composerShown && <NativeChatInstallSlot slot={install.slot} agentLabel={agentLabel} />}
           {composerShown ? (
             <NativeChatComposer
+              {...paneCommands.annotationComposerProps}
               ref={composerRef}
               terminalTabId={props.tabId}
               paneKey={paneKey}

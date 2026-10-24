@@ -18383,6 +18383,8 @@
     "native-chat": {
       "annotations": {
         "add": "添加批注",
+        "count": "{{count}} 条注释",
+        "countOne": "1 条注释",
         "title": "批注",
         "comment": "批注内容",
         "save": "保存批注",

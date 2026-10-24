@@ -18776,6 +18776,8 @@
     "native-chat": {
       "annotations": {
         "add": "Add annotation",
+        "count": "{{count}} annotations",
+        "countOne": "1 annotation",
         "title": "Annotations",
         "comment": "Comment",
         "save": "Save annotation",

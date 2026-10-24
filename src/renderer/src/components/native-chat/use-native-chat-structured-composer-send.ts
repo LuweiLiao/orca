@@ -5,6 +5,7 @@ import { MAX_SKILL_REFS } from '../../../../shared/rpc-contract/structured-agent
 import { SkillRefLimitError } from '../../../../shared/structured-agent-session-send-mutation'
 import { promptSkillRefs } from './native-chat-prompt-document'
 import { useCallback } from 'react'
+import { prepareNativeChatAnnotatedMessage } from './native-chat-annotations-store'
 import { completeNativeChatStructuredUserAction } from './native-chat-structured-user-action'
 import {
   isStructuredAgentSessionComposerCommand,
@@ -32,6 +33,7 @@ import {
 export type UseNativeChatStructuredComposerSendArgs = {
   agent: AgentType
   draftScopeKey: string
+  annotationScopeKey?: string
   imageAttachments: readonly NativeChatComposerImageAttachment[]
   structuredTransport?: NativeChatStructuredComposerTransport
   isComposing: () => boolean
@@ -62,6 +64,7 @@ export type NativeChatStructuredComposerSend = (
 export function useNativeChatStructuredComposerSend({
   agent,
   draftScopeKey,
+  annotationScopeKey,
   imageAttachments,
   structuredTransport,
   isComposing,
@@ -108,9 +111,12 @@ export function useNativeChatStructuredComposerSend({
         structuredTransport.onSubmitted?.()
       }
       const submitted = readNativeChatComposerDraft(draftScopeKey)
+      const annotated = hostCommand
+        ? null
+        : prepareNativeChatAnnotatedMessage(annotationScopeKey, text)
       await dispatchNativeChatStructuredComposerText(
         structuredTransport,
-        text,
+        annotated?.text ?? text,
         attachments,
         promptSkillRefs(submitted.document)
       )
@@ -119,6 +125,7 @@ export function useNativeChatStructuredComposerSend({
           if (!accepted) {
             return
           }
+          annotated?.consume()
           completeNativeChatStructuredUserAction(agent, structuredTransport, revealsTranscript)
           // Why: the send settles after a round trip, while this or another composer of the same
           // conversation may have changed the draft; only what was sent leaves it.
@@ -155,6 +162,7 @@ export function useNativeChatStructuredComposerSend({
     },
     [
       agent,
+      annotationScopeKey,
       clearSkillOrigin,
       draftScopeKey,
       imageAttachments,

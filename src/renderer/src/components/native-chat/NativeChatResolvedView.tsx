@@ -419,8 +419,8 @@ export function NativeChatResolvedView({
           mobile driver (R8). Under a card it stays mounted but hidden, so its state survives;
           detaching the ref keeps root typing, paste and reveal focus off it. */}
       <div hidden={shownPromptCard !== null} className="contents">
-        {contextMenu.annotationTray}
         <NativeChatComposer
+          {...contextMenu.annotationComposerProps}
           ref={shownPromptCard ? undefined : composerRef}
           inputOwnedByCard={shownPromptCard !== null}
           terminalTabId={terminalTabId}

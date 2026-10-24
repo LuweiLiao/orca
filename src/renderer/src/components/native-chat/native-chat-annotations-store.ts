@@ -264,3 +264,20 @@ export function formatNativeChatAnnotations(
     .map((note) => `${formatNativeChatQuote(note.quote)}${note.comment.trim()}`)
     .join('\n\n')
 }
+
+export function prepareNativeChatAnnotatedMessage(scopeKey: string | undefined, text: string) {
+  const store = getNativeChatAnnotationsStore(scopeKey)
+  const { notes, editor } = store.getSnapshot()
+  const entries = notes.map((note) =>
+    note.id === editor?.id && editor.comment.trim() ? { ...note, comment: editor.comment } : note
+  )
+  if (editor?.comment.trim() && !notes.some((note) => note.id === editor.id)) {
+    entries.push({ ...editor.anchor, id: '', createdAt: 0, comment: editor.comment })
+  }
+  const annotations = formatNativeChatAnnotations(entries)
+  return {
+    hasAnnotations: entries.length > 0,
+    text: annotations ? [text.trim(), annotations].filter(Boolean).join('\n\n') : text,
+    consume: () => store.consume(notes, editor)
+  }
+}

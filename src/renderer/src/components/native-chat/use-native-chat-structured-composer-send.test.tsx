@@ -12,6 +12,7 @@ import type { AgentType } from '../../../../shared/agent-status-types'
 import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
 import type { NativeChatComposerImageAttachment } from './NativeChatComposerField'
 import { useNativeChatStructuredComposerSend } from './use-native-chat-structured-composer-send'
+import { getNativeChatAnnotationsStore } from './native-chat-annotations-store'
 
 vi.mock('@/lib/native-chat-telemetry', () => ({ emitNativeChatMessageSent: vi.fn() }))
 vi.mock('@/lib/worker-terminal-takeover-report', () => ({
@@ -23,7 +24,8 @@ const ATTACHMENT = { id: 'a1', path: '/tmp/shot.png' } as NativeChatComposerImag
 function harness(
   agent: AgentType,
   threadGoal?: NativeChatStructuredComposerTransport['threadGoal'],
-  onSubmitted?: () => void
+  onSubmitted?: () => void,
+  annotationScopeKey?: string
 ) {
   const structuredTransport = {
     send: vi.fn(() => true),
@@ -51,6 +53,7 @@ function harness(
     useNativeChatStructuredComposerSend({
       agent,
       draftScopeKey: 'tab-1:pane',
+      annotationScopeKey,
       imageAttachments: [ATTACHMENT],
       structuredTransport,
       isComposing: () => false,
@@ -61,6 +64,36 @@ function harness(
   )
   return { send: result.current, structuredTransport, setDraft }
 }
+
+it('attaches comments at send time, keeps them on refusal and consumes only accepted revisions', async () => {
+  const scope = 'structured-annotation-send'
+  const store = getNativeChatAnnotationsStore(scope)
+  store.clear()
+  const note = store.add(
+    { quote: 'Measured disturbance.', messageId: 'reply', startOffset: 0 },
+    'Explain the units.'
+  )
+  if (!note) {
+    throw new Error('Annotation unavailable')
+  }
+  const { send, structuredTransport } = harness('codex', undefined, undefined, scope)
+  vi.mocked(structuredTransport.send).mockReturnValue(false)
+  await send('Revise this.', [])
+  expect(structuredTransport.send).toHaveBeenCalledWith(
+    'Revise this.\n\n> Measured disturbance.\n\nExplain the units.',
+    []
+  )
+  expect(store.getSnapshot().notes).toHaveLength(1)
+  vi.mocked(structuredTransport.send).mockImplementation(() => {
+    store.update(note.id, 'Keep this newer edit.')
+    return true
+  })
+  await send('', [])
+  expect(store.getSnapshot().notes[0]?.comment).toBe('Keep this newer edit.')
+  vi.mocked(structuredTransport.send).mockReturnValue(true)
+  await send('', [])
+  expect(store.getSnapshot().notes).toHaveLength(0)
+})
 
 // The guard exists because a host command sends no message, so its attachments
 // would be dropped without a word. A pass-through command IS the message, so the

@@ -15,6 +15,7 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   electronApp
 }, testInfo) => {
   await waitForSessionReady(orcaPage)
+  await orcaPage.emulateMedia({ reducedMotion: 'reduce' })
   await electronApp.evaluate(({ BrowserWindow }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.setSize(1280, 900)
@@ -77,13 +78,33 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   await first.click({ clickCount: 3 })
   await orcaPage.getByRole('button', { name: 'Add annotation', exact: true }).click()
   const tray = root.getByRole('region', { name: 'Annotations', exact: true })
-  await tray
+  const editor = root.getByRole('dialog', { name: 'Comment', exact: true })
+  await editor
     .getByRole('textbox', { name: 'Comment', exact: true })
     .fill('Explain how the measured signal enters the controller.')
-  await tray.getByRole('button', { name: 'Save annotation', exact: true }).click()
+  const editorBounds = await editor.boundingBox()
+  const passageBounds = await first.boundingBox()
+  expect(
+    editorBounds &&
+      passageBounds &&
+      Math.abs(editorBounds.y + editorBounds.height - passageBounds.y) < 100
+  ).toBe(true)
+  await expect.poll(() => editor.evaluate((element) => getComputedStyle(element).opacity)).toBe('1')
+  await editor.screenshot({
+    path: testInfo.outputPath('annotation-editor-closeup.png'),
+    animations: 'disabled'
+  })
+  await expect(root.locator('[data-native-chat-annotation-marker="1"]')).toBeVisible()
+  await orcaPage.screenshot({ path: testInfo.outputPath('annotation-floating-editor.png') })
+  await editor.getByRole('button', { name: 'Save annotation', exact: true }).click()
+  await expect(tray).toHaveCount(0)
   await expect(
-    tray.getByText('Explain how the measured signal enters the controller.', { exact: true })
+    root
+      .locator('.bg-chat-composer-surface')
+      .getByRole('button', { name: '1 annotation', exact: true })
   ).toBeVisible()
+  await expect(root.locator('[data-native-chat-annotation-marker="1"]')).toBeVisible()
+  await expect(root.getByRole('textbox')).toBeEmpty()
   await expect
     .poll(() =>
       orcaPage.evaluate(() =>
@@ -95,16 +116,18 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   await second.click({ clickCount: 3 })
   await second.click({ button: 'right' })
   await orcaPage.getByRole('menuitem', { name: 'Add annotation', exact: true }).click()
-  await tray
+  await editor
     .getByRole('textbox', { name: 'Comment', exact: true })
     .fill('State the physical units of the estimate.')
-  await tray.getByRole('button', { name: 'Save annotation', exact: true }).click()
+  await editor.getByRole('button', { name: 'Save annotation', exact: true }).click()
+  await root.getByRole('button', { name: '2 annotations', exact: true }).click()
   await expect(tray.getByRole('listitem')).toHaveCount(2)
   await tray.getByRole('button', { name: 'Edit annotation', exact: true }).first().click()
-  await tray
+  await editor
     .getByRole('textbox', { name: 'Comment', exact: true })
     .fill('Explain the measured signal and its control effect.')
-  await tray.getByRole('button', { name: 'Save annotation', exact: true }).click()
+  await editor.getByRole('button', { name: 'Save annotation', exact: true }).click()
+  await orcaPage.screenshot({ path: testInfo.outputPath('annotations-collapsed-desktop.png') })
   await orcaPage.emulateMedia({ reducedMotion: 'reduce' })
   appendFileSync(
     transcriptPath,
@@ -124,6 +147,7 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   await scroller.evaluate((element) => element.scrollTo({ top: element.scrollHeight }))
   const original = root.locator('[data-native-chat-quote-source]').filter({ hasText: FIRST })
   await expect(original).toHaveCount(0)
+  await root.getByRole('button', { name: '2 annotations', exact: true }).click()
   await tray.getByRole('button', { name: 'Show original text', exact: true }).first().click()
   await expect(original).toBeVisible()
   await expect
@@ -153,14 +177,27 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(721)
   expect(await tray.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
   await orcaPage.screenshot({ path: testInfo.outputPath('annotations-narrow.png') })
-  await tray.getByRole('button', { name: 'Add annotations to message', exact: true }).click()
-  await expect(tray).toHaveCount(0)
-  await expect(root.getByRole('textbox')).toContainText(
-    'Explain the measured signal and its control effect.'
+  await tray.getByRole('button', { name: 'Edit annotation', exact: true }).first().click()
+  const narrowEditor = await editor.boundingBox()
+  expect(narrowEditor && narrowEditor.x >= 0 && narrowEditor.x + narrowEditor.width <= 721).toBe(
+    true
   )
-  await expect(root.getByRole('textbox')).toContainText('State the physical units of the estimate.')
-  await expect(root.getByRole('textbox')).toContainText(FIRST)
-  await expect(root.getByRole('textbox')).toContainText(SECOND)
+  await editor.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter')
+  await expect(editor).toHaveCount(0)
+  await root.getByRole('button', { name: '2 annotations', exact: true }).click()
+  await orcaPage.evaluate(async () => {
+    const settings = await window.api.settings.set({ uiLanguage: 'zh-CN', theme: 'light' })
+    window.__store?.setState({ settings })
+  })
+  await expect(root.getByRole('button', { name: '2 条注释', exact: true })).toBeVisible()
+  await orcaPage.screenshot({ path: testInfo.outputPath('annotations-light-chinese.png') })
+  await orcaPage.evaluate(async () => {
+    const settings = await window.api.settings.set({ uiLanguage: 'en', theme: 'dark' })
+    window.__store?.setState({ settings })
+  })
+  await tray.getByRole('button', { name: 'Delete annotation', exact: true }).first().click()
+  await tray.getByRole('button', { name: 'Delete annotation', exact: true }).first().click()
+  await expect(root.getByRole('textbox')).toBeEmpty()
   await orcaPage.evaluate(
     ({ quote }) => {
       const savedKey = Object.keys(localStorage).find(
@@ -218,13 +255,10 @@ test('conversation annotations preserve quotes, highlight passages and collect e
     },
     { quote: FIRST }
   )
-  await expect(
-    tray.getByText('Legacy note stays visible when migration fails.', { exact: true })
-  ).toBeVisible()
-  await expect(tray.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue(
+  await expect(editor.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue(
     'Legacy unfinished comment.'
   )
-  await expect(tray.getByRole('status')).toContainText('Annotations could not be saved')
+  await expect(root.getByRole('status')).toContainText('Annotations could not be saved')
   await orcaPage.screenshot({ path: testInfo.outputPath('annotations-migration-refused.png') })
   await orcaPage.evaluate(() => {
     const restore: unknown = Reflect.get(window, '__restoreAnnotationMigrationStorage')
@@ -234,8 +268,10 @@ test('conversation annotations preserve quotes, highlight passages and collect e
     restore()
     Reflect.deleteProperty(window, '__restoreAnnotationMigrationStorage')
   })
-  await tray.getByRole('button', { name: 'Retry saving annotations', exact: true }).click()
-  await expect(tray.getByRole('status')).toHaveCount(0)
+  await root.getByRole('button', { name: 'Retry saving annotations', exact: true }).click()
+  await expect(root.getByRole('status')).toHaveCount(0)
+  await editor.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await root.getByRole('button', { name: '1 annotation', exact: true }).click()
   await expect(
     tray.getByText('Legacy note stays visible when migration fails.', { exact: true })
   ).toBeVisible()
