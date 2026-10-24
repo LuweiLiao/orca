@@ -13,9 +13,13 @@ import { buildWorkspaceSessionPayload } from '../lib/workspace-session'
 createStoreSessionMockApi()
 
 describe('native window pending layout edits', () => {
-  it.each([false, true])(
-    'retains a draft when a peer closes its clean copy before dirty flag flush: %s',
-    async (dirtyFlag) => {
+  it.each(
+    [false, true].flatMap((dirtyFlag) =>
+      [false, true].map((replacesGroup) => ({ dirtyFlag, replacesGroup }))
+    )
+  )(
+    'retains a draft after peer close with dirty flag $dirtyFlag and replacement group $replacesGroup',
+    async ({ dirtyFlag, replacesGroup }) => {
       const session = localDesktopSession()
       const store = createTestStore()
       await bootWindowFromPartitions(store, [{ hostId: 'local', session }])
@@ -39,12 +43,34 @@ describe('native window pending layout edits', () => {
       for (const group of peer[GIT_KEY]!.groups) {
         group.tabIds = group.tabIds.filter((id) => id !== tab.id)
       }
+      if (replacesGroup) {
+        peer[GIT_KEY]!.groups.find((group) => group.id === tab.groupId)!.id = 'peer-new-group'
+        peer[GIT_KEY]!.groupLayout = {
+          type: 'split',
+          direction: 'horizontal',
+          first: { type: 'leaf', groupId: 'group-b' },
+          second: { type: 'leaf', groupId: 'peer-new-group' }
+        }
+      }
       store.setState(fullLayoutFrameBuildPatch(store.getState(), peer, [GIT_KEY], holds))
       expect(store.getState().unifiedTabsByWorktree[GIT_KEY]).toContainEqual(
         expect.objectContaining({ id: tab.id })
       )
       expect(store.getState().openFiles).toContainEqual(expect.objectContaining({ id: file.id }))
       expect(store.getState().editorDrafts[file.id]).toBe('Unsaved native peer draft')
+      if (replacesGroup) {
+        expect(store.getState().layoutByWorktree[GIT_KEY]).toEqual(peer[GIT_KEY]!.groupLayout)
+        expect(
+          store
+            .getState()
+            .groupsByWorktree[GIT_KEY]?.map((group) => group.id)
+            .sort()
+        ).toEqual(['group-b', 'peer-new-group'])
+        expect(
+          store.getState().unifiedTabsByWorktree[GIT_KEY]?.find((entry) => entry.id === tab.id)
+            ?.groupId
+        ).not.toBe(tab.groupId)
+      }
       store.getState().markFileDirty(file.id, true)
       expect(
         buildWorkspaceSessionPayload(store.getState()).openFilesByWorktree?.[GIT_KEY]

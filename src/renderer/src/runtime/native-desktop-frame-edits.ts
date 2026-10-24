@@ -203,16 +203,18 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
             !next.unifiedTabsByWorktree[file.worktreeId]?.some((incoming) => incoming.id === tab.id)
         )
     )
+    const holdsDirtyFile = (workspace: string, id: string): boolean =>
+      dirtyFiles.some(
+        (file) =>
+          file.worktreeId === workspace &&
+          (file.id === id ||
+            state.unifiedTabsByWorktree[workspace]?.some(
+              (tab) => tab.id === id && tab.entityId === file.id
+            ))
+      )
     return withHeldTabsAsDrawn(state, next, keys, {
-      isTabHeld: (workspace, id) =>
-        dirtyFiles.some(
-          (file) =>
-            file.worktreeId === workspace &&
-            (file.id === id ||
-              state.unifiedTabsByWorktree[workspace]?.some(
-                (tab) => tab.id === id && tab.entityId === file.id
-              ))
-        ),
+      isTabHeld: holdsDirtyFile,
+      keepsInMainGroups: holdsDirtyFile,
       isGroupLayoutHeld: () => false
     })
   }
