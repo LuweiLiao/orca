@@ -12,9 +12,12 @@ import {
 } from './native-chat-composer-draft-comparison'
 import {
   placeNativeChatComposerDraftAddition,
-  withNativeChatComposerDraftAddition,
   type NativeChatComposerDraftAddition
 } from './native-chat-composer-draft-addition'
+import {
+  addNativeChatComposerDraftJournalAddition,
+  mergeNativeChatComposerDraftRecovery
+} from './native-chat-composer-draft-recovery-merge'
 import { journalNativeChatComposerDraftAddition } from './native-chat-composer-draft-journal'
 import {
   clearDraftMemoryForTests,
@@ -68,6 +71,7 @@ export function hasUnsavedNativeChatComposerDraftChange(scopeKey: string): boole
 
 export type NativeChatComposerDraftChange = {
   journalEntryIds?: readonly string[]
+  journalAdditions?: StoredNativeChatComposerDraft['journalAdditions']
   text?: string
   pastedTextFiles?: Readonly<Record<string, string>>
   /** Present, even as undefined, to replace the document. */
@@ -124,7 +128,8 @@ function isEmptyDraft(draft: NativeChatComposerDraft): boolean {
 
 export function readNativeChatComposerDraft(
   scopeKey: string
-): NativeChatComposerDraft & Pick<StoredNativeChatComposerDraft, 'owner' | 'journalEntryIds'> {
+): NativeChatComposerDraft &
+  Pick<StoredNativeChatComposerDraft, 'owner' | 'journalEntryIds' | 'journalAdditions'> {
   return records.get(scopeKey) ?? EMPTY_DRAFT
 }
 
@@ -176,8 +181,13 @@ export function updateNativeChatComposerDraft(
   }
   // Why stamped once: a conversation never moves to another workspace, so its owner stays true.
   const owner = current.owner ?? change.owner ?? resolveOwner?.(scopeKey)
-  const editRevision = append ? current.editRevision : createBrowserUuid()
-  if (!append && editRevision) {
+  const edited =
+    !append &&
+    (text !== current.text ||
+      unsavedText !== current.unsavedText ||
+      !sameNativeChatComposerDraftImages(images, current.images))
+  const editRevision = edited ? createBrowserUuid() : current.editRevision
+  if (edited && editRevision) {
     pendingDraftTransforms.delete(scopeKey)
     localDraftEdits.set(scopeKey, editRevision)
   }
@@ -188,6 +198,7 @@ export function updateNativeChatComposerDraft(
     images: [...images],
     savedAt: nextSavedAt(current.savedAt + 1),
     ...(journalEntryIds ? { journalEntryIds } : {}),
+    journalAdditions: edited ? [] : (change.journalAdditions ?? current.journalAdditions),
     ...(editRevision ? { editRevision } : {}),
     ...(owner ? { owner } : {}),
     ...(unsavedText === undefined ? {} : { unsavedText })
@@ -199,19 +210,6 @@ export function updateNativeChatComposerDraft(
   if (!load.hydrated) {
     // Why: a window whose startup never started the load still gets its saved drafts.
     void hydrateNativeChatComposerDrafts()
-  }
-}
-
-function withAddition<
-  T extends NativeChatComposerDraft & Pick<StoredNativeChatComposerDraft, 'journalEntryIds'>
->(draft: T, addition: NativeChatComposerDraftAddition, id: string): T {
-  if (draft.journalEntryIds?.includes(id)) {
-    return draft
-  }
-  return {
-    ...draft,
-    ...withNativeChatComposerDraftAddition(draft, addition),
-    journalEntryIds: [...(draft.journalEntryIds ?? []), id]
   }
 }
 
@@ -233,13 +231,17 @@ export function appendToNativeChatComposerDraft(
     before?.editRevision !== undefined && localDraftEdits.get(scopeKey) === before.editRevision
   const placed = placeNativeChatComposerDraftAddition(current, addition)
   const id = createBrowserUuid()
-  const { text, images, document, journalEntryIds } = withAddition(current, placed, id)
+  const { text, images, document, journalEntryIds, journalAdditions } =
+    addNativeChatComposerDraftJournalAddition(current, placed, id)
   const append: DraftAppend = (loaded) => {
     const base =
       load.hydrated && preserveLocalDraft && before && loaded.editRevision !== before.editRevision
-        ? before
+        ? (mergeNativeChatComposerDraftRecovery(loaded, before) ?? before)
         : loaded
-    return { ...withAddition(base, placed, id), ...(!base.owner && owner ? { owner } : {}) }
+    return {
+      ...addNativeChatComposerDraftJournalAddition(base, placed, id),
+      ...(!base.owner && owner ? { owner } : {})
+    }
   }
   updateNativeChatComposerDraft(
     scopeKey,
@@ -248,6 +250,7 @@ export function appendToNativeChatComposerDraft(
       images,
       document,
       journalEntryIds,
+      journalAdditions,
       ...(owner ? { owner } : {})
     },
     'immediate',
@@ -261,7 +264,7 @@ export function appendToNativeChatComposerDraft(
   if (after === before && !hasLocalChange(scopeKey) && !refusedScopes.has(scopeKey)) {
     return true
   }
-  return journalNativeChatComposerDraftAddition(scopeKey, placed, after.savedAt, id)
+  return journalNativeChatComposerDraftAddition(scopeKey, placed, after.savedAt, id, after.owner)
 }
 
 /**
