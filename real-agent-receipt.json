@@ -1,0 +1,9 @@
+{
+  "agent": "codex",
+  "initialMessage": "hi",
+  "greeting": "Hi! What would you like to work on?",
+  "selectedQuote": "Hi! What would you like to work on?\n\n\n",
+  "comment": "This comment is attached to the selected words in your greeting. Explain what those words mean in context, then give one concrete example of a coding task I could ask you to do. Start your answer with \"Annotation understood:\".",
+  "response": "Annotation understood: “Hi! What would you like to work on?” is a friendly greeting inviting you to describe the task you want help with.\n\nFor example, you could ask: “Fix the bug in my Python function that crashes when the input list is empty, and add a test for that case.”",
+  "hidden": true
+}
