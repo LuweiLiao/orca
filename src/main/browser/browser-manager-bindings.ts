@@ -73,9 +73,9 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
         guest,
         resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null,
         isViewportPresetActive: () => this.isViewportPresetActive(browserTabId, guest.id),
-        canViewportScroll: (mouse) => this.canViewportScroll(browserTabId, mouse),
+        canViewportScroll: (mouse) => this.canViewportScroll(guest.id, mouse),
         onViewportWheelConsumed: (deltaX, deltaY) =>
-          this.recordViewportScrollDelta(browserTabId, deltaX, deltaY)
+          this.recordViewportScrollDelta(guest.id, deltaX, deltaY)
       })
     )
   }

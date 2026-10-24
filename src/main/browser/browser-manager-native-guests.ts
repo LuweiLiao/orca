@@ -30,11 +30,7 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
       capture(this.contextMenuCleanupByTabId, pageId),
       capture(this.grabShortcutCleanupByTabId, pageId),
       capture(this.shortcutForwardingCleanupByTabId, pageId),
-      capture(this.mouseWheelZoomCleanupByTabId, pageId),
-      capture(this.viewportPresetByTabId, pageId),
-      capture(this.viewportScrollStateByTabId, pageId),
-      capture(this.viewportOpsByTabId, pageId),
-      capture(this.annotationViewportBridgeOpsByTabId, pageId)
+      capture(this.mouseWheelZoomCleanupByTabId, pageId)
     ]
   }
 
@@ -132,6 +128,16 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
         this.selectNativeGuest(pageId, owned[0])
       }
     }
+  }
+
+  protected override guestIdForRenderer(pageId: string, rendererId: number): number | undefined {
+    const guests = this.nativeGuests.get(pageId)
+    if (!guests) {
+      return super.guestIdForRenderer(pageId, rendererId)
+    }
+    return [...guests].findLast(
+      ([, entry]) => entry.registration.rendererWebContentsId === rendererId
+    )?.[0]
   }
 
   ownsNativeGuest(pageId: string, rendererId: number): boolean {

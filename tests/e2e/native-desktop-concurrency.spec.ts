@@ -192,10 +192,17 @@ async function registered(page: Page, target: { tabId: string; pageId: string })
     ) {
       return false
     }
-    return window.api.browser.isGuestRegistered({
-      browserPageId: pageId,
-      webContentsId: guest.getWebContentsId()
-    })
+    try {
+      return window.api.browser.isGuestRegistered({
+        browserPageId: pageId,
+        webContentsId: guest.getWebContentsId()
+      })
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('dom-ready')) {
+        return false
+      }
+      throw error
+    }
   }, target)
 }
 

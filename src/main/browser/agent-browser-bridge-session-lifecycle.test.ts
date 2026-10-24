@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { join } from 'node:path'
 
 const {
   execFileMock,
@@ -115,7 +116,7 @@ describe('AgentBrowserBridge', () => {
 
     expect(await bridge.snapshot()).toMatchObject({ snapshot: 'ready' })
     expect(closeCallCount()).toBe(0)
-    expect(lstatSyncMock).toHaveBeenCalledWith('/tmp/orca-ab-test/orca-tab-tab-1.sock')
+    expect(lstatSyncMock).toHaveBeenCalledWith(join('/tmp/orca-ab-test', 'orca-tab-tab-1.sock'))
   })
 
   it('fails closed when stale agent-browser session ownership cannot be reset', async () => {
@@ -339,6 +340,53 @@ describe('AgentBrowserBridge', () => {
   })
 
   // ── Process swap ──
+
+  it.each(['register', 'replace-peer', 'close'] as const)(
+    'keeps B running and queued commands when peer A %s happens',
+    async (change) => {
+      const tabs = new Map([['tab-1', 100]])
+      const b = new AgentBrowserBridge(
+        mockBrowserManager(tabs, new Map(), {
+          getTabIdForWebContentsId: (id) =>
+            [100, 300].includes(id) || (change === 'close' && id === 200) ? 'tab-1' : null
+        })
+      )
+      b.setActiveTab(100)
+      const entered = Promise.withResolvers<void>()
+      let complete: (() => void) | undefined
+      const kill = vi.fn(() => complete?.())
+      execFileMock.mockImplementation(
+        (_bin: string, args: string[], _opts: unknown, cb: ExecFileCallback) => {
+          if (args.includes('snapshot')) {
+            complete = () =>
+              cb(null, JSON.stringify({ success: true, data: { snapshot: 'B' } }), '')
+            entered.resolve()
+            return createFakeAgentBrowserChild({ kill })
+          }
+          cb(null, JSON.stringify({ success: true, data: { ok: true } }), '')
+          return createFakeAgentBrowserChild({ kill: vi.fn() })
+        }
+      )
+      const running = b.snapshot(undefined, 'tab-1')
+      await entered.promise
+      const queued = b.exec('get title', undefined, 'tab-1')
+      const settled = Promise.allSettled([running, queued])
+      if (change !== 'close') {
+        tabs.set('tab-1', 300)
+        await b.onProcessSwap('tab-1', 300, change === 'register' ? 100 : 200)
+      } else {
+        await b.onTabClosed(200)
+      }
+      expect(kill).not.toHaveBeenCalled()
+      expect(b.getActiveWebContentsId()).toBe(100)
+      expect(b.getPageInfo(undefined, 'tab-1')).toMatchObject({ browserPageId: 'tab-1' })
+      expect(b.getPageInfo()).toMatchObject({ browserPageId: 'tab-1' })
+      expect(b.getActiveWebContentsId()).toBe(100)
+      complete?.()
+      expect((await settled).map((result) => result.status)).toEqual(['fulfilled', 'fulfilled'])
+      await b.destroyAllSessions()
+    }
+  )
 
   it('destroys session on process swap and re-inits with --cdp', async () => {
     const tabs = new Map([['tab-1', 100]])

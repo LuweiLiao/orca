@@ -16,15 +16,21 @@ type ViewportPresetState = {
  * whether a scroll belongs to the emulated viewport or to the guest page.
  */
 export abstract class BrowserManagerViewportScrollState {
+  protected readonly webContentsIdByTabId = new Map<string, number>()
+  protected readonly tabIdByWebContentsId = new Map<number, string>()
   protected readonly rendererWebContentsIdByTabId = new Map<string, number>()
   // Why both: host-side wheel panning follows the requested preset, while the tab's identity follows
   // the one Chromium actually applied. Replacement guests must not inherit a retired guest's preset.
-  protected readonly viewportPresetByTabId = new Map<string, ViewportPresetState>()
-  protected readonly viewportScrollStateByTabId = new Map<string, BrowserViewportScrollState>()
+  protected readonly viewportPresetsByGuestId = new Map<number, ViewportPresetState>()
+  protected readonly viewportScrollStatesByGuestId = new Map<number, BrowserViewportScrollState>()
 
   protected isViewportPresetActive(browserTabId: string, guestWebContentsId: number): boolean {
-    const state = this.viewportPresetByTabId.get(browserTabId)
-    return state?.guestWebContentsId === guestWebContentsId && state.requested !== null
+    const state = this.viewportPresetsByGuestId.get(guestWebContentsId)
+    return this.isRegisteredPageGuest(browserTabId, guestWebContentsId) && state?.requested != null
+  }
+
+  protected isRegisteredPageGuest(browserTabId: string, guestId: number): boolean {
+    return this.tabIdByWebContentsId.get(guestId) === browserTabId
   }
 
   setViewportScrollState(
@@ -42,23 +48,26 @@ export abstract class BrowserManagerViewportScrollState {
     ) {
       return
     }
-    this.viewportScrollStateByTabId.set(browserTabId, state)
+    const guestId = this.webContentsIdByTabId.get(browserTabId)
+    if (guestId !== undefined) {
+      this.viewportScrollStatesByGuestId.set(guestId, state)
+    }
   }
 
-  recordViewportScrollDelta(browserTabId: string, deltaX: number, deltaY: number): void {
-    const state = this.viewportScrollStateByTabId.get(browserTabId)
+  recordViewportScrollDelta(guestId: number, deltaX: number, deltaY: number): void {
+    const state = this.viewportScrollStatesByGuestId.get(guestId)
     if (!state) {
       return
     }
-    this.viewportScrollStateByTabId.set(browserTabId, {
+    this.viewportScrollStatesByGuestId.set(guestId, {
       ...state,
       scrollLeft: Math.min(state.maxScrollLeft, Math.max(0, state.scrollLeft + deltaX)),
       scrollTop: Math.min(state.maxScrollTop, Math.max(0, state.scrollTop + deltaY))
     })
   }
 
-  protected canViewportScroll(browserTabId: string, mouse: Electron.MouseWheelInputEvent): boolean {
-    const state = this.viewportScrollStateByTabId.get(browserTabId)
+  protected canViewportScroll(guestId: number, mouse: Electron.MouseWheelInputEvent): boolean {
+    const state = this.viewportScrollStatesByGuestId.get(guestId)
     if (!state) {
       return false
     }
@@ -84,9 +93,9 @@ export abstract class BrowserManagerViewportScrollState {
     guestWebContentsId: number,
     applied: BrowserViewportOverride | null
   ): void {
-    const preset = this.viewportPresetByTabId.get(browserTabId)
-    if (preset?.guestWebContentsId === guestWebContentsId) {
-      this.viewportPresetByTabId.set(browserTabId, { ...preset, applied })
+    const preset = this.viewportPresetsByGuestId.get(guestWebContentsId)
+    if (preset && this.isRegisteredPageGuest(browserTabId, guestWebContentsId)) {
+      this.viewportPresetsByGuestId.set(guestWebContentsId, { ...preset, applied })
     }
   }
 

@@ -26,7 +26,15 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
       this.activeWebContentsId = nextWorktreeActiveWebContentsId
     }
     if (browserPageId) {
-      await this.onPageClosed(browserPageId)
+      const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
+      const creating = this.pendingSessionCreation.get(sessionName)
+      if (creating) {
+        await creating.catch(() => {})
+      }
+      const session = this.sessions.get(sessionName)
+      if (!session || session.webContentsId === webContentsId) {
+        await this.onPageClosed(browserPageId)
+      }
     }
     this.options.onTabsChanged?.(owningWorktreeId)
   }
@@ -51,14 +59,26 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
   ): Promise<void> {
     // Why: an Electron process swap keeps browserPageId but gives a new webContentsId — destroy the session so the next command recreates it.
     const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
+    const oldWebContentsId = previousWebContentsId ?? this.sessions.get(sessionName)?.webContentsId
+    if (
+      oldWebContentsId !== undefined &&
+      this.browserManager.getTabIdForWebContentsId(oldWebContentsId) === browserPageId
+    ) {
+      return
+    }
+    const creating = this.pendingSessionCreation.get(sessionName)
+    if (creating) {
+      await creating.catch(() => {})
+    }
     const session = this.sessions.get(sessionName)
-    const oldWebContentsId = previousWebContentsId ?? session?.webContentsId
     const owningWorktreeId = this.browserManager.getWorktreeIdForTab(browserPageId)
     // Why: save intercept patterns before destroy so the new session can restore them after init.
-    if (session && session.activeInterceptPatterns.length > 0) {
-      this.pendingInterceptRestore.set(sessionName, [...session.activeInterceptPatterns])
+    if (!session || oldWebContentsId === undefined || session.webContentsId === oldWebContentsId) {
+      if (session && session.activeInterceptPatterns.length > 0) {
+        this.pendingInterceptRestore.set(sessionName, [...session.activeInterceptPatterns])
+      }
+      await this.destroySession(sessionName)
     }
-    await this.destroySession(sessionName)
     if (oldWebContentsId != null && this.activeWebContentsId === oldWebContentsId) {
       this.activeWebContentsId = newWebContentsId
     }

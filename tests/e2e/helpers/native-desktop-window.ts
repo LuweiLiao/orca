@@ -51,27 +51,50 @@ export async function captureNativeBrowserGuest(
     }
     return guest.getWebContentsId()
   }, tabId)
-  const capture = await app.evaluate(async ({ webContents }, id) => {
-    const guest = webContents.fromId(id)
-    if (!guest || guest.isDestroyed()) {
-      throw new Error('Native browser guest closed before capture')
-    }
-    const image = await guest.capturePage(undefined, { stayHidden: true })
-    const bitmap = image.toBitmap()
-    let dark = 0
-    let light = 0
-    for (let offset = 0; offset < bitmap.length; offset += 4) {
-      const channels = [bitmap[offset]!, bitmap[offset + 1]!, bitmap[offset + 2]!]
-      if (channels.every((channel) => channel < 100)) {
-        dark += 1
+  const captureGuest = () =>
+    app.evaluate(async ({ webContents }, id) => {
+      const guest = webContents.fromId(id)
+      if (!guest || guest.isDestroyed()) {
+        throw new Error('Native browser guest closed before capture')
       }
-      if (channels.every((channel) => channel > 240)) {
-        light += 1
+      const image = await guest.capturePage(undefined, { stayHidden: true })
+      const bitmap = image.toBitmap()
+      let dark = 0
+      let light = 0
+      for (let offset = 0; offset < bitmap.length; offset += 4) {
+        const channels = [bitmap[offset]!, bitmap[offset + 1]!, bitmap[offset + 2]!]
+        if (channels.every((channel) => channel < 100)) {
+          dark += 1
+        }
+        if (channels.every((channel) => channel > 240)) {
+          light += 1
+        }
       }
-    }
-    return { png: image.toPNG().toString('base64'), dark, light }
-  }, guestId)
-  expect(capture.dark).toBeGreaterThan(100)
-  expect(capture.light).toBeGreaterThan(1_000)
-  await writeFile(screenshotPath, Buffer.from(capture.png, 'base64'))
+      return { png: image.toPNG().toString('base64'), dark, light }
+    }, guestId)
+  let png: string | undefined
+  await expect
+    .poll(
+      async () => {
+        try {
+          const capture = await captureGuest()
+          if (capture.dark > 100 && capture.light > 1_000) {
+            png = capture.png
+            return true
+          }
+          return false
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('UnknownVizError')) {
+            return false
+          }
+          throw error
+        }
+      },
+      { timeout: 10_000, message: 'Native browser guest must paint nonblank content' }
+    )
+    .toBe(true)
+  if (!png) {
+    throw new Error('Missing native browser pixels')
+  }
+  await writeFile(screenshotPath, Buffer.from(png, 'base64'))
 }

@@ -64,8 +64,6 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
       } else if (!preservePeer) {
         this.retireStaleGuestWebContents(previousWebContentsId)
       }
-      this.viewportPresetByTabId.delete(browserTabId)
-      this.viewportScrollStateByTabId.delete(browserTabId)
     }
     this.webContentsIdByTabId.set(browserTabId, webContentsId)
     this.tabIdByWebContentsId.set(webContentsId, browserTabId)
@@ -111,6 +109,11 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
       guestWebContentsId === undefined
         ? undefined
         : this.nativeRendererByGuestId.get(guestWebContentsId)
+    if (guestWebContentsId !== undefined) {
+      this.annotationViewportBridgeOpsByTabId.delete(
+        this.annotationViewportBridgeKey(browserTabId, guestWebContentsId)
+      )
+    }
     this.forgetNativeGuest(browserTabId)
     // Why: teardown mid-grab must cancel it so the renderer gets a signal, not a dangling Promise.
     this.cancelGrabOp(browserTabId, 'evicted')
@@ -171,9 +174,6 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
     this.sessionProfileIdByPageId.delete(browserTabId)
     this.worktreeIdByTabId.delete(browserTabId)
     // Why: drop the viewport-op chain so the Map doesn't retain a promise keyed to a destroyed guest.
-    this.viewportOpsByTabId.delete(browserTabId)
-    this.viewportPresetByTabId.delete(browserTabId)
-    this.viewportScrollStateByTabId.delete(browserTabId)
     if (wcId !== undefined) {
       this.pendingNavigationByGuestId.delete(wcId)
     }
@@ -208,8 +208,6 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
     const previousWebContentsId = this.webContentsIdByTabId.get(browserPageId)
     if (previousWebContentsId !== undefined && previousWebContentsId !== webContentsId) {
       this.retireStaleGuestWebContents(previousWebContentsId)
-      this.viewportPresetByTabId.delete(browserPageId)
-      this.viewportScrollStateByTabId.delete(browserPageId)
     }
     this.webContentsIdByTabId.set(browserPageId, webContentsId)
     this.tabIdByWebContentsId.set(webContentsId, browserPageId)
@@ -246,8 +244,9 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
     this.pageInitiatedTabBudgetByRootGuestId.clear()
     this.worktreeIdByTabId.clear()
     this.sessionProfileIdByPageId.clear()
-    this.viewportPresetByTabId.clear()
-    this.viewportScrollStateByTabId.clear()
+    this.viewportPresetsByGuestId.clear()
+    this.viewportScrollStatesByGuestId.clear()
+    this.viewportOpsByGuestId.clear()
     this.cdpUserAgentOverrideStateByGuestId.clear()
     this.pendingNavigationByGuestId.clear()
     this.pendingLoadFailuresByGuestId.clear()

@@ -2,6 +2,7 @@ import type { BrowserTabInfo, BrowserTabListResult } from '../../shared/runtime-
 import { BrowserError } from './cdp-bridge'
 import type { ResolvedBrowserCommandTarget } from './agent-browser-bridge-types'
 import { AgentBrowserBridgeState } from './agent-browser-bridge-state'
+import { ORCA_TAB_SESSION_PREFIX } from './agent-browser-orphan-sweep'
 
 export abstract class AgentBrowserBridgeTabs extends AgentBrowserBridgeState {
   // ── Tab tracking ──
@@ -144,7 +145,14 @@ export abstract class AgentBrowserBridgeTabs extends AgentBrowserBridgeState {
     }
 
     const tabs = this.getRegisteredTabs(worktreeId)
-    const webContentsId = tabs.get(browserPageId)
+    const session = this.sessions.get(`${ORCA_TAB_SESSION_PREFIX}${browserPageId}`)
+    const webContentsId =
+      session &&
+      this.browserManager.getTabIdForWebContentsId(session.webContentsId) === browserPageId &&
+      this.getWebContents(session.webContentsId) &&
+      tabs.has(browserPageId)
+        ? session.webContentsId
+        : tabs.get(browserPageId)
     if (webContentsId == null) {
       const scope = worktreeId ? ' in this worktree' : ''
       throw new BrowserError(
@@ -175,7 +183,11 @@ export abstract class AgentBrowserBridgeTabs extends AgentBrowserBridgeState {
     const preferredWcId =
       (worktreeId && this.activeWebContentsPerWorktree.get(worktreeId)) ?? this.activeWebContentsId
 
-    if (preferredWcId != null) {
+    if (typeof preferredWcId === 'number') {
+      const pageId = this.resolveTabIdSafe(preferredWcId)
+      if (pageId && tabs.has(pageId) && this.getWebContents(preferredWcId)) {
+        return { browserPageId: pageId, webContentsId: preferredWcId }
+      }
       for (const [tabId, wcId] of tabs) {
         if (wcId === preferredWcId && this.getWebContents(wcId)) {
           return { browserPageId: tabId, webContentsId: wcId }

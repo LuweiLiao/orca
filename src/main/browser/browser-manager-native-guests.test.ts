@@ -25,6 +25,7 @@ import { DestroyedGuestTestContents } from './browser-manager-destroyed-guest-te
 import { createDownloadItem } from './browser-manager-test-harness'
 import { createBrowserClientPageGuestBinding } from './browser-client-page-guest-binding'
 import { openBrowserPagePrompt, respondToBrowserPagePrompt } from './browser-page-prompts'
+import type { PopupChildWindowOptions } from './popup-origin-bar-window'
 
 class Renderer extends DestroyedGuestTestContents {
   send = vi.fn()
@@ -66,6 +67,61 @@ afterEach(() => {
 })
 
 describe('native browser page guests', () => {
+  it.each([
+    { fromPopup: false, fallback: false },
+    { fromPopup: true, fallback: false },
+    { fromPopup: false, fallback: true },
+    { fromPopup: true, fallback: true }
+  ])(
+    'routes a new tab from A to A after selecting B: $fromPopup/$fallback',
+    ({ fromPopup, fallback }) => {
+      const { first, second, a } = fixture()
+      const opener = fromPopup ? new DestroyedGuestTestContents(106) : a
+      if (fromPopup) {
+        mocks.contents.set(opener.id, opener.asWebContents())
+        manager.attachGuestPolicies(opener.asWebContents(), {
+          browserTabId: 'shared-page',
+          rootGuestWebContentsId: a.id
+        })
+      }
+      manager.selectNativeRenderer(second.id)
+      const url = fallback
+        ? 'https://example.test/auth?client_id=orca&redirect_uri=https://example.test&response_type=code'
+        : 'https://example.test/new'
+      const response = opener.windowOpenHandler?.({
+        url,
+        frameName: '',
+        disposition: 'background-tab',
+        features: fallback ? 'width=400' : '',
+        referrer: { url: '', policy: 'default' }
+      })
+      if (fallback) {
+        expect(response?.action).toBe('allow')
+        if (response?.action !== 'allow' || !response.createWindow) {
+          throw new Error('Missing popup create callback')
+        }
+        const options: PopupChildWindowOptions = {
+          webContents: new DestroyedGuestTestContents(107).asWebContents()
+        }
+        response.createWindow(options)
+      } else {
+        expect(response).toEqual({ action: 'deny' })
+      }
+      expect(first.send).toHaveBeenCalledWith('browser:open-link-in-orca-tab', {
+        browserPageId: 'shared-page',
+        url,
+        activate: false
+      })
+      expect(second.send).not.toHaveBeenCalledWith(
+        'browser:open-link-in-orca-tab',
+        expect.anything()
+      )
+      if (fromPopup) {
+        opener.destroy()
+      }
+    }
+  )
+
   it('keeps a peer prompt answerable when the other guest of the shared page is destroyed', async () => {
     const { first, second, a, b } = fixture()
     const request = (guest: DestroyedGuestTestContents, settle: (answer: true | null) => void) =>
