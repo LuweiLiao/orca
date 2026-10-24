@@ -1,4 +1,10 @@
 {
+  "multiWindow": {
+    "newWindow": "New Window",
+    "openInNewWindow": "Open in New Window",
+    "openFailed": "Could not open a new window",
+    "openFailedDetail": "Reason: {{reason}}"
+  },
   "csv": {
     "detectingDelimiter": "Detecting delimiter…",
     "indexProgress": "Indexing CSV… {{percent}}%",
@@ -18905,6 +18911,38 @@
       "useKnownId": "Use known user ID \"{{value0}}\""
     },
     "native-chat": {
+      "annotations": {
+        "add": "Add annotation",
+        "count": "{{count}} annotations",
+        "countOne": "1 annotation",
+        "title": "Annotations",
+        "comment": "Comment",
+        "save": "Save annotation",
+        "cancel": "Cancel",
+        "edit": "Edit annotation",
+        "remove": "Delete annotation",
+        "locate": "Show original text",
+        "collapse": "Collapse annotations",
+        "expand": "Expand annotations",
+        "addToMessage": "Add annotations to message",
+        "notSaved": "Annotations could not be saved on this device.",
+        "originalUnavailable": "Original text is not currently displayed.",
+        "transferFailed": "The message draft could not be saved. Your annotations have been kept.",
+        "retry": "Retry saving annotations"
+      },
+      "conversationReference": {
+        "source": "Referenced conversation",
+        "differentHost": "This agent cannot reach the conversation on its source host. Open the chat on that host to reference it.",
+        "loading": "Reading conversation",
+        "retry": "Retry",
+        "more": "Load more",
+        "drag": "Drag into a message to reference this conversation",
+        "copy": "Copy conversation reference",
+        "user": "User",
+        "assistant": "Assistant",
+        "tool": "Tool",
+        "empty": "This conversation has no readable text."
+      },
       "install": {
         "checking": "Checking whether {{agent}} is ready on this host…"
       },
@@ -20074,6 +20112,8 @@
         "inlineVisualsToggleLabel": "Toggle inline visuals",
         "queueFollowUpsCopy": "Messages you send while the agent is working wait as cards you can steer, edit, or delete. Messages with images send right away.",
         "queueFollowUpsToggleLabel": "Toggle queue follow-ups",
+        "queueFollowUpsUnsupported": "This host does not support queued follow-ups. This setting is unavailable.",
+        "queueFollowUpsUnconfirmed": "Queue support has not been confirmed for this host. This setting is unavailable until support is confirmed.",
         "behaviorTitle": "Behavior",
         "resumeSearchUpdate": "update",
         "resumeSearchRelaunch": "relaunch",

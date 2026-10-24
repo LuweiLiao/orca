@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react'
+import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import { agentRowConversationReference } from '@/lib/agent-row-conversation-reference'
 import { DashboardAgentChildDisclosure } from '@/components/dashboard/DashboardAgentChildDisclosure'
 import { AgentStateDot, agentStateLabel } from '@/components/AgentStateDot'
 import { AgentChildRowContent } from '@/components/AgentChildRowContent'
@@ -289,7 +291,10 @@ export const CompactAgentRow = React.memo(function CompactAgentRow({
 
   return (
     <div
-      draggable={false}
+      draggable={
+        !sendTargetStatus &&
+        (agent.entry.structuredHostOwned === true || Boolean(agent.entry.providerSession))
+      }
       className={cn(
         'compact-agent-row agent-disclosure-row group/compact-agent-row min-w-0 cursor-pointer rounded-sm px-1 text-[11px] leading-none',
         'text-muted-foreground worktree-agent-row-hover',
@@ -304,7 +309,15 @@ export const CompactAgentRow = React.memo(function CompactAgentRow({
       onClick={handleActivate}
       onMouseDown={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
-      onDragStart={(e) => e.stopPropagation()}
+      onDragStart={(event) => {
+        event.stopPropagation()
+        const reference = agentRowConversationReference(agent, primary)
+        if (!reference || sendTargetStatus) {
+          event.preventDefault()
+          return
+        }
+        writeConversationReferenceDrag(event.dataTransfer, reference)
+      }}
       data-focused-agent-pane={isFocusedPane ? 'true' : undefined}
       data-agent-send-target={sendTargetStatus}
       role={agent.lineage ? 'treeitem' : undefined}

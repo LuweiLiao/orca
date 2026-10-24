@@ -1,5 +1,6 @@
 import {
   Copy,
+  MessageCircle,
   FileJson,
   FolderOpen,
   LocateFixed,
@@ -29,6 +30,7 @@ export function SessionActionMenuItems({
   jumpWorkspaceId,
   onJumpToWorktree,
   onCopyResume,
+  onCopyReference,
   onCopyId,
   onCopyPath,
   onOpenLog,
@@ -53,6 +55,7 @@ export function SessionActionMenuItems({
   // Absent for zero-turn sessions: copying a resume command that lands in an
   // empty conversation would contradict the "not saved" state.
   onCopyResume?: () => void
+  onCopyReference?: () => void
   onCopyId: () => void
   onCopyPath?: () => void
   onOpenLog?: () => void
@@ -91,6 +94,15 @@ export function SessionActionMenuItems({
 
   return (
     <>
+      {onCopyReference ? (
+        <Item onSelect={onCopyReference}>
+          <MessageCircle className="size-3.5" />
+          {translate(
+            'components.native-chat.conversationReference.copy',
+            'Copy conversation reference'
+          )}
+        </Item>
+      ) : null}
       {onJumpToOriginalPane ? (
         <Item onSelect={onJumpToOriginalPane}>
           <LocateFixed className="size-3.5" />

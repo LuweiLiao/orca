@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from 'react'
+import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import { agentRowConversationReference } from '@/lib/agent-row-conversation-reference'
 import { cn } from '@/lib/utils'
 import {
   AgentStateDot,
@@ -212,6 +214,19 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
   return (
     // Why: no role="button" — nested interactive children (buttons, tooltip triggers) would violate ARIA nesting rules.
     <div
+      draggable={
+        !sendTargetStatus &&
+        (agent.entry.structuredHostOwned === true || Boolean(agent.entry.providerSession))
+      }
+      onDragStart={(event) => {
+        event.stopPropagation()
+        const reference = agentRowConversationReference(agent, displayLabel)
+        if (!reference || sendTargetStatus) {
+          event.preventDefault()
+          return
+        }
+        writeConversationReferenceDrag(event.dataTransfer, reference)
+      }}
       onClickCapture={handleSendTargetClickCapture}
       onClick={handleActivate}
       className={cn(

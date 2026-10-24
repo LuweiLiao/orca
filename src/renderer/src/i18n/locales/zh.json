@@ -1,4 +1,10 @@
 {
+  "multiWindow": {
+    "newWindow": "新建窗口",
+    "openInNewWindow": "在新窗口打开",
+    "openFailed": "无法打开新窗口",
+    "openFailedDetail": "原因：{{reason}}"
+  },
   "app": {
     "saving": {
       "delayedTitle": "配置存储操作耗时比平时更长",
@@ -18577,6 +18583,38 @@
   },
   "components": {
     "native-chat": {
+      "annotations": {
+        "add": "添加批注",
+        "count": "{{count}} 条注释",
+        "countOne": "1 条注释",
+        "title": "批注",
+        "comment": "批注内容",
+        "save": "保存批注",
+        "cancel": "取消",
+        "edit": "修改批注",
+        "remove": "删除批注",
+        "locate": "定位原文",
+        "collapse": "收起批注",
+        "expand": "展开批注",
+        "addToMessage": "汇总到输入框",
+        "notSaved": "批注未能保存到本机。",
+        "originalUnavailable": "对应原文目前未显示。",
+        "transferFailed": "消息草稿未能保存，批注已保留。",
+        "retry": "重试保存批注"
+      },
+      "conversationReference": {
+        "source": "引用的对话",
+        "differentHost": "当前智能体无法访问该对话所在的主机，请在来源主机上打开聊天后引用。",
+        "loading": "正在读取对话",
+        "retry": "重试",
+        "more": "继续读取",
+        "drag": "拖入输入框引用此对话",
+        "copy": "复制对话引用",
+        "user": "用户",
+        "assistant": "助手",
+        "tool": "工具",
+        "empty": "此对话没有可读取的文字。"
+      },
       "install": {
         "checking": "正在检查 {{agent}} 是否已在此主机上就绪…"
       },
@@ -19784,6 +19822,8 @@
         "queueFollowUpsTitle": "将后续消息加入队列",
         "queueFollowUpsCopy": "智能体工作时发送的消息会以卡片形式等待，你可以立即发送、编辑或删除。带图片的消息会立即发送。",
         "queueFollowUpsToggleLabel": "切换后续消息队列",
+        "queueFollowUpsUnsupported": "此主机不支持后续消息队列，暂时无法更改此设置。",
+        "queueFollowUpsUnconfirmed": "尚未确认此主机是否支持后续消息队列，确认支持后才能更改此设置。",
         "inlineVisualsTitle": "内联可视化",
         "inlineVisualsCopy": "允许智能体在其回复中显示图表、示意图和原型图。适用于新启动的聊天。",
         "inlineVisualsToggleLabel": "切换内联可视化",
