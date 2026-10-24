@@ -83,3 +83,22 @@ it('keeps the selected draft owner and inherits it only when absent', () => {
     owner
   )
 })
+
+it('does not promote partial legacy addition history to complete when a new append is added', () => {
+  const old = { text: 'Legacy K', images: [], savedAt: 1, journalEntryIds: ['k'] }
+  const partial = addNativeChatComposerDraftJournalAddition(old, { text: 'New L' }, 'l')
+  expect(partial).toMatchObject({ journalAdditionsComplete: false })
+  const parsed = parseStoredNativeChatComposerDraft(JSON.parse(JSON.stringify(partial)))
+  expect(parsed?.journalAdditionsComplete).toBe(false)
+  const next = mergeNativeChatComposerDraftRecovery(parsed, {
+    text: 'Manual J',
+    images: [],
+    savedAt: 2,
+    journalEntryIds: [],
+    journalAdditions: [],
+    journalAdditionsComplete: true
+  })
+  expect(next?.text).toContain('Legacy K')
+  expect(next?.text).toContain('New L')
+  expect(mergeNativeChatComposerDraftRecovery(parsed, next)).toEqual(next)
+})
