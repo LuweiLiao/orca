@@ -13,6 +13,10 @@ import {
   conversationReferenceUri,
   withConversationReferenceInstructions
 } from '../../../../shared/conversation-reference'
+import {
+  getNativeChatAnnotationsStore,
+  prepareNativeChatAnnotatedMessage
+} from './native-chat-annotations-store'
 
 afterEach(() => clearNativeChatComposerDraftsForTests())
 
@@ -43,4 +47,34 @@ it('returns a conversation reference without exposing its agent reading instruct
   expect(
     readNativeChatComposerDraft(structuredAgentSessionDraftScopeKey('session-reference')).text
   ).toBe(prompt)
+})
+
+it('returns only the original composer text while restoring its exact editable annotations', () => {
+  const sessionId = 'annotated-session'
+  const annotationScope = JSON.stringify(['structured', { kind: 'local' }, sessionId])
+  const store = getNativeChatAnnotationsStore(annotationScope)
+  const note = store.add(
+    { messageId: 'reply', quote: 'Greeting.', startOffset: 0 },
+    'Explain this.'
+  )
+  if (!note) {
+    throw new Error('Missing note')
+  }
+  const prepared = prepareNativeChatAnnotatedMessage(annotationScope, 'Original text.')
+  prepared.reserve('annotated-send')
+  expect(
+    handBackStructuredAgentSessionMessage(
+      sessionId,
+      'annotated-send',
+      structuredAgentSessionSendBody(prepared.text, []),
+      undefined,
+      annotationScope
+    )
+  ).toBe(true)
+  const draft = readNativeChatComposerDraft(structuredAgentSessionDraftScopeKey(sessionId))
+  expect(draft.text).toBe('Original text.')
+  expect(store.getSnapshot().notes).toEqual([note])
+  store.remove(note.id)
+  expect(prepareNativeChatAnnotatedMessage(annotationScope, draft.text).text).toBe('Original text.')
+  expect(prepareNativeChatAnnotatedMessage(annotationScope, prepared.text).text).toBe(prepared.text)
 })

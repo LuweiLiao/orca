@@ -20,9 +20,12 @@ async function open() {
   const { reconcileNativeChatAnnotationDeliveries, useNativeChatAnnotationDelivery } =
     await import('./use-native-chat-annotation-delivery')
   const { nativeChatAnnotationStorage } = await import('./native-chat-annotation-storage')
+  const { restoreNativeChatAnnotationMessage } = await import('./native-chat-annotation-delivery')
   return {
     store: getNativeChatAnnotationsStore(scope),
     prepare: (text = '') => prepareNativeChatAnnotatedMessage(scope, text),
+    restore: (messageId: string, text: string) =>
+      restoreNativeChatAnnotationMessage(scope, messageId, text),
     reconcile: (
       submissions: AgentJournalSubmission[],
       cards: { messageId: string; state: 'waiting' | 'returned' }[] = []
@@ -192,9 +195,9 @@ it('replaces the restored serialized annotation rather than adding it twice on c
   }
   const sent = context.prepare('Original draft.')
   sent.reserve('direct-send')
-  sent.release('direct-send')
+  const restored = context.restore('direct-send', sent.text)
   context.store.update(note.id, 'Edited after failure.')
-  expect(context.prepare(sent.text).text).toBe(
+  expect(context.prepare(restored).text).toBe(
     'Original draft.\n\n> Selected passage.\n\nEdited after failure.'
   )
 })
@@ -225,15 +228,28 @@ it('removes an explicitly deleted final annotation from returned draft text afte
   }
   const returned = context.prepare('Original draft.')
   returned.reserve('first-send')
-  returned.release('first-send')
+  const restored = context.restore('first-send', returned.text)
   expect(context.store.remove(note.id)).toBe(true)
   vi.resetModules()
   const reopened = await open()
   expect(reopened.store.getSnapshot().notes).toHaveLength(0)
-  expect(reopened.prepare(returned.text).text).toBe('Original draft.')
+  expect(reopened.prepare(restored).text).toBe('Original draft.')
 })
 
-it('keeps the note editable if its returned-text deletion intent cannot be saved', async () => {
+it('preserves copied returned text in a fresh draft after explicit annotation deletion', async () => {
+  const context = await open()
+  const note = context.store.add(anchor, 'Copied comment.')
+  if (!note) {
+    throw new Error('Missing note')
+  }
+  const returned = context.prepare('Original draft.')
+  returned.reserve('first-send')
+  returned.release('first-send')
+  context.store.remove(note.id)
+  expect(context.prepare(returned.text).text).toBe(returned.text)
+})
+
+it('preserves full returned text if restoring its editable annotations cannot be saved', async () => {
   const context = await open()
   const note = context.store.add(anchor, 'Keep this comment.')
   if (!note) {
@@ -241,21 +257,20 @@ it('keeps the note editable if its returned-text deletion intent cannot be saved
   }
   const returned = context.prepare('Original draft.')
   returned.reserve('first-send')
-  returned.release('first-send')
   const write = localStorage.setItem.bind(localStorage)
   const blocked = vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
     if (key.includes(':delivery:')) {
-      throw new Error('Deletion intent blocked')
+      throw new Error('Restoration blocked')
     }
     write(key, value)
   })
-  expect(context.store.remove(note.id)).toBe(false)
-  expect(context.store.getSnapshot().notes).toEqual([note])
-  expect(context.store.getSnapshot().persistenceError).toBe('Deletion intent blocked')
+  expect(context.restore('first-send', returned.text)).toBe(returned.text)
+  expect(context.stored.read().notes).toEqual([note])
+  expect(context.store.getSnapshot().persistenceError).toBe('Restoration blocked')
   blocked.mockRestore()
 })
 
-it('retires a discarded returned suffix when another send accepts its remaining annotations', async () => {
+it('preserves copied returned text when another send accepts its remaining annotations', async () => {
   const context = await open()
   const removed = context.store.add(anchor, 'Remove this comment.')
   context.store.add({ ...anchor, messageId: 'another-reply' }, 'Keep this comment.')

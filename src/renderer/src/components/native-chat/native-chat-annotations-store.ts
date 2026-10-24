@@ -1,7 +1,6 @@
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import type { NativeChatAnnotationAnchor } from './native-chat-annotation-anchor'
 import {
-  discardReturnedNativeChatAnnotation,
   nativeChatAnnotationDeliveryStorage,
   removeSupersededNativeChatAnnotationDeliveries,
   withoutReservedNativeChatAnnotations,
@@ -245,7 +244,7 @@ export function getNativeChatAnnotationsStore(scopeKey?: string): NativeChatAnno
     remove: (id) => {
       refresh()
       const note = snapshot.notes.find((entry) => entry.id === id)
-      if (!note || !discardReturnedNativeChatAnnotation(scopeKey, id, reportError)) {
+      if (!note) {
         return false
       }
       consume([note])
