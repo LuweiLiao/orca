@@ -1,4 +1,4 @@
-import { createBrowserUuid } from '@/lib/browser-uuid'
+import { readNativeChatAnnotationRecord } from './native-chat-annotation-quarantine'
 import { getNativeChatAnnotationsStore } from './native-chat-annotations-store'
 import { formatNativeChatQuote } from './native-chat-quote-selection'
 import {
@@ -52,23 +52,14 @@ export function nativeChatAnnotationDeliveryStorage(scopeKey: string) {
         if (!key?.startsWith(prefix)) {
           continue
         }
-        const raw = localStorage.getItem(key)
-        if (raw === null) {
-          continue
-        }
-        let value: unknown
-        try {
-          value = JSON.parse(raw)
-        } catch {
-          value = undefined
-        }
-        if (isDelivery(value) && key === keyFor(value.messageId)) {
+        const value = readNativeChatAnnotationRecord(
+          key,
+          quarantinePrefix,
+          (entry): entry is NativeChatAnnotationDelivery =>
+            isDelivery(entry) && key === keyFor(entry.messageId)
+        )
+        if (value) {
           deliveries.push(value)
-        } else {
-          localStorage.setItem(`${quarantinePrefix}delivery-${createBrowserUuid()}`, raw)
-          if (localStorage.getItem(key) === raw) {
-            localStorage.removeItem(key)
-          }
         }
       }
       return deliveries
