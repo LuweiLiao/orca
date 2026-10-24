@@ -370,6 +370,7 @@ test('adds a WSL distro as a host, adds a project on it, and runs a terminal the
     await waitForActiveTerminalManager(page, 30_000)
     const ptyId = await waitForActivePanePtyId(page, 30_000)
     expect(ptyId).toMatch(/^remote:/)
+    await waitForTerminalOutput(page, path.basename(projectPath), 30_000)
     await focusActiveTerminalInput(page)
     await page.keyboard.type("printf 'WSL_HOST_TERMINAL_%s\\n' ready")
     await page.keyboard.press('Enter')
