@@ -40,14 +40,18 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
       // Why: only trust guests that passed attach-time policy install, or a renderer could point us at an arbitrary webview.
       return false
     }
-    const preservePeer = this.rememberNativeGuest(browserTabId, {
-      browserPageId: browserTabId,
-      workspaceId,
-      worktreeId,
-      sessionProfileId,
-      webContentsId,
-      rendererWebContentsId
-    })
+    const preservePeer = this.rememberNativeGuest(
+      browserTabId,
+      {
+        browserPageId: browserTabId,
+        workspaceId,
+        worktreeId,
+        sessionProfileId,
+        webContentsId,
+        rendererWebContentsId
+      },
+      options
+    )
     this.cancelGrabOp(browserTabId, 'evicted')
     this.contextMenuCleanupByTabId.get(browserTabId)?.()
     this.contextMenuCleanupByTabId.delete(browserTabId)
@@ -110,7 +114,10 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
     this.forgetNativeGuest(browserTabId)
     // Why: teardown mid-grab must cancel it so the renderer gets a signal, not a dangling Promise.
     this.cancelGrabOp(browserTabId, 'evicted')
-    cancelBrowserPagePrompts(browserTabId)
+    cancelBrowserPagePrompts(
+      browserTabId,
+      nativeRenderer === undefined ? undefined : guestWebContentsId
+    )
 
     // Why: remove attachGuestPolicies listeners so their guest-WebContents closures don't block GC.
     if (guestWebContentsId !== undefined) {

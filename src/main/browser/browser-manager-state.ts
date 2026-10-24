@@ -226,22 +226,29 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     }
   }
 
-  getRendererContextForGuest(
-    guestWebContentsId: number
-  ): { browserPageId: string; renderer: Electron.WebContents } | null {
-    const browserPageId = this.resolveBrowserTabIdForGuestWebContentsId(guestWebContentsId)
-    if (!browserPageId) {
+  getRendererContextForGuest(guestWebContentsId: number): {
+    browserPageId: string
+    renderer: Electron.WebContents
+    rootGuestWebContentsId?: number
+  } | null {
+    const owner = this.resolvePopupOwnerContext(guestWebContentsId)
+    if (!owner) {
       return null
     }
-    const ownerGuestId =
-      this.popupOwnerContextByGuestId.get(guestWebContentsId)?.rootGuestWebContentsId ??
-      guestWebContentsId
+    const browserPageId = owner.browserTabId
+    const ownerGuestId = owner.rootGuestWebContentsId
     const rendererId = this.nativeRendererByGuestId.get(ownerGuestId)
     const renderer =
       rendererId === undefined
         ? this.resolveRendererForBrowserTab(browserPageId)
         : webContents.fromId(rendererId)
-    return renderer && !renderer.isDestroyed() ? { browserPageId, renderer } : null
+    return renderer && !renderer.isDestroyed()
+      ? {
+          browserPageId,
+          renderer,
+          ...(rendererId === undefined ? {} : { rootGuestWebContentsId: ownerGuestId })
+        }
+      : null
   }
 
   /** Where a prompt from this page or popup shows; null when it has no window on this machine. */
@@ -281,7 +288,11 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     const inherited = this.popupOwnerContextByGuestId.get(guestWebContentsId)
     if (
       inherited &&
-      this.webContentsIdByTabId.get(inherited.browserTabId) === inherited.rootGuestWebContentsId
+      (this.webContentsIdByTabId.get(inherited.browserTabId) === inherited.rootGuestWebContentsId ||
+        (this.nativeRendererByGuestId.has(inherited.rootGuestWebContentsId) &&
+          this.policyAttachedGuestIds.has(inherited.rootGuestWebContentsId) &&
+          this.tabIdByWebContentsId.get(inherited.rootGuestWebContentsId) ===
+            inherited.browserTabId))
     ) {
       return inherited
     }

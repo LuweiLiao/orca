@@ -51,7 +51,11 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
     return current
   }
 
-  protected rememberNativeGuest(pageId: string, registration: BrowserGuestRegistration): boolean {
+  protected rememberNativeGuest(
+    pageId: string,
+    registration: BrowserGuestRegistration,
+    options?: { retainPreviousGuestPolicies?: boolean }
+  ): boolean {
     const renderer = webContents.fromId(registration.rendererWebContentsId)
     if (!renderer || !desktopWindowId(renderer)) {
       return false
@@ -60,7 +64,8 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
     for (const [id, entry] of guests) {
       if (
         id !== registration.webContentsId &&
-        entry.registration.rendererWebContentsId === registration.rendererWebContentsId
+        entry.registration.rendererWebContentsId === registration.rendererWebContentsId &&
+        !options?.retainPreviousGuestPolicies
       ) {
         this.selectNativeGuest(pageId, id, true)
         this.unregisterGuest(pageId, 'guest-destroyed')
@@ -70,7 +75,10 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
     const current =
       currentId === undefined ? undefined : this.nativeGuests.get(pageId)?.get(currentId)
     const preservePeer = Boolean(
-      current && current.registration.rendererWebContentsId !== registration.rendererWebContentsId
+      current &&
+      current.registration.webContentsId !== registration.webContentsId &&
+      (current.registration.rendererWebContentsId !== registration.rendererWebContentsId ||
+        options?.retainPreviousGuestPolicies)
     )
     if (preservePeer) {
       this.stashNativePage(pageId)
@@ -117,7 +125,7 @@ export abstract class BrowserManagerNativeGuests extends BrowserManagerGuestPoli
 
   selectNativeRenderer(rendererId: number): void {
     for (const [pageId, guests] of this.nativeGuests) {
-      const owned = [...guests].find(
+      const owned = [...guests].findLast(
         ([, entry]) => entry.registration.rendererWebContentsId === rendererId
       )
       if (owned) {

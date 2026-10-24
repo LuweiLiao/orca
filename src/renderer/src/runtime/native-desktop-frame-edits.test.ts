@@ -13,6 +13,44 @@ import { buildWorkspaceSessionPayload } from '../lib/workspace-session'
 createStoreSessionMockApi()
 
 describe('native window pending layout edits', () => {
+  it.each([false, true])(
+    'accepts a peer reorder while the local window only changes a label: %s',
+    async (rename) => {
+      const session = localDesktopSession()
+      const store = createTestStore()
+      await bootWindowFromPartitions(store, [{ hostId: 'local', session }])
+      const localEdits = createNativeDesktopFrameEdits(store.getState())
+      const holds = {
+        held: NO_HELD_TABS,
+        keepsTerminalLayout: () => false,
+        newRowFields: () => null,
+        localEdits
+      }
+      const cache = mainLoadedLayouts('local', session)
+      store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+      if (rename) {
+        store.getState().setTabCustomLabel('tab-shell', 'Local label')
+      }
+      const peer = structuredClone(cache)
+      const group = peer[GIT_KEY]!.groups[0]!
+      group.tabIds = group.tabIds.toReversed()
+      store.setState(fullLayoutFrameBuildPatch(store.getState(), peer, [GIT_KEY], holds))
+      expect(
+        store.getState().groupsByWorktree[GIT_KEY]!.find((candidate) => candidate.id === group.id)
+          ?.tabOrder
+      ).toEqual(group.tabIds)
+      const saved = buildWorkspaceSessionPayload(store.getState())
+      expect(
+        saved.tabGroups?.[GIT_KEY]?.find((candidate) => candidate.id === group.id)?.tabOrder
+      ).toEqual(group.tabIds)
+      if (rename) {
+        expect(
+          saved.unifiedTabs?.[GIT_KEY]?.find((tab) => tab.id === 'tab-shell')?.customLabel
+        ).toBe('Local label')
+      }
+    }
+  )
+
   it('keeps a newly opened browser and its page when an earlier peer frame arrives before its save', async () => {
     const session = localDesktopSession()
     const store = createTestStore()

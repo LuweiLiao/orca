@@ -18,6 +18,12 @@ function changedTabOrder(
     const preceding = after.slice(0, index).findLast((candidate) => result.includes(candidate))
     result.splice(preceding ? result.indexOf(preceding) + 1 : 0, 0, id)
   }
+  const original = new Set(before)
+  const commonBefore = before.filter((id) => retained.has(id))
+  const commonAfter = after.filter((id) => original.has(id))
+  if (commonBefore.every((id, index) => id === commonAfter[index])) {
+    return result
+  }
   const selected = after.filter((id) => result.includes(id))
   let index = 0
   return result.map((id) => (retained.has(id) ? selected[index++]! : id))

@@ -1,26 +1,11 @@
-import type { ElectronApplication, Page } from '@stablyai/playwright-test'
+import type { Page } from '@stablyai/playwright-test'
 import { expect, test } from './helpers/orca-app'
-import { waitForSessionReady } from './helpers/store'
+import {
+  peerNativeWindow as peerWindow,
+  expectNativeTabOrder,
+  captureNativeBrowserGuest
+} from './helpers/native-desktop-window'
 import { startBrowserSplitPageServer } from './helpers/browser-split-page-server'
-
-async function peerWindow(app: ElectronApplication, first: Page): Promise<Page> {
-  const known = new Set(app.windows())
-  expect(await first.evaluate(() => window.api.ui.openRuntimeClientWindow())).toEqual({ ok: true })
-  await expect
-    .poll(() =>
-      app.windows().some((page) => !known.has(page) && /\/index\.html(?:[?#]|$)/.test(page.url()))
-    )
-    .toBe(true)
-  const peer = app
-    .windows()
-    .find((page) => !known.has(page) && /\/index\.html(?:[?#]|$)/.test(page.url()))
-  if (!peer) {
-    throw new Error('Missing peer native window')
-  }
-  await peer.waitForFunction(() => Boolean(window.__store), null, { timeout: 30_000 })
-  await waitForSessionReady(peer)
-  return peer
-}
 
 test('an unsaved rename and reorder survive a peer saving to the same workspace first', async ({
   electronApp,
@@ -88,35 +73,48 @@ test('an unsaved rename and reorder survive a peer saving to the same workspace 
       const state = window.__store?.getState()
       const group = state?.groupsByWorktree[key]?.find((group) => group.tabOrder.length >= 2)
       const id = group?.tabOrder[0]
-      if (!state || !group || !id) {
+      const tab = state?.unifiedTabsByWorktree[key]?.find((candidate) => candidate.id === id)
+      if (!state || !group || !id || tab?.contentType !== 'terminal') {
         throw new Error('No reorderable tabs')
       }
-      state.setTabCustomLabel(id, 'Pending native rename')
+      state.setTabCustomTitle(tab.entityId, 'Pending native rename')
       state.reorderUnifiedTabs(group.id, group.tabOrder.toReversed())
       return {
         id,
+        entityId: tab.entityId,
         groupId: group.id,
-        order: window.__store
-          ?.getState()
-          .groupsByWorktree[key]?.find((candidate) => candidate.id === group.id)?.tabOrder
+        initialOrder: group.tabOrder,
+        order:
+          window.__store
+            ?.getState()
+            .groupsByWorktree[key]?.find((candidate) => candidate.id === group.id)?.tabOrder ?? []
       }
     }, workspace)
+    const renamed = orcaPage.locator(`[data-testid="sortable-tab"][data-tab-id="${target.id}"]`)
+    await expect(renamed).toBeVisible()
+    await expect(renamed).toHaveAttribute('data-tab-title', 'Pending native rename')
+    await expect(renamed).toContainText('Pending native rename')
+    await expectNativeTabOrder(orcaPage, target.groupId, target.order)
     await peer.evaluate(
-      (id) => window.__store?.getState().setUnifiedTabColor(id, '#008800'),
-      target.id
+      (entityId) => window.__store?.getState().setTabColor(entityId, '#008800'),
+      target.entityId
     )
     await expect
       .poll(
         () =>
           peer.evaluate(
-            async ({ key, id }) =>
-              (await window.api.session.get()).unifiedTabs?.[key]?.find((tab) => tab.id === id)
-                ?.color,
-            { key: workspace, id: target.id }
+            async ({ key, id, entityId }) => {
+              const session = await window.api.session.get()
+              return [
+                session.unifiedTabs?.[key]?.find((tab) => tab.id === id)?.color,
+                session.tabsByWorktree[key]?.find((tab) => tab.id === entityId)?.color
+              ]
+            },
+            { key: workspace, id: target.id, entityId: target.entityId }
           ),
         { timeout: 15_000 }
       )
-      .toBe('#008800')
+      .toEqual(['#008800', '#008800'])
     await expect
       .poll(
         async () => {
@@ -146,6 +144,21 @@ test('an unsaved rename and reorder survive a peer saving to the same workspace 
         { key: workspace, groupId: target.groupId }
       )
     ).toEqual(target.order)
+    await expect(renamed).toHaveAttribute('data-tab-title', 'Pending native rename')
+    await expect(renamed).toContainText('Pending native rename')
+    await expectNativeTabOrder(orcaPage, target.groupId, target.order)
+    const savedBeforeRelease = await peer.evaluate(
+      async ({ key, id, groupId }) => {
+        const session = await window.api.session.get()
+        return {
+          label: session.unifiedTabs?.[key]?.find((tab) => tab.id === id)?.customLabel,
+          order: session.tabGroups?.[key]?.find((group) => group.id === groupId)?.tabOrder
+        }
+      },
+      { key: workspace, id: target.id, groupId: target.groupId }
+    )
+    expect(savedBeforeRelease.label).not.toBe('Pending native rename')
+    expect(savedBeforeRelease.order).toEqual(target.initialOrder)
     await orcaPage.evaluate(() => window.dispatchEvent(new Event('release-native-session-writes')))
     await expect
       .poll(
@@ -159,6 +172,11 @@ test('an unsaved rename and reorder survive a peer saving to the same workspace 
         { timeout: 30_000 }
       )
       .toBe('Pending native rename')
+    const peerRenamed = peer.locator(`[data-testid="sortable-tab"][data-tab-id="${target.id}"]`)
+    await expect(peerRenamed).toBeVisible()
+    await expect(peerRenamed).toHaveAttribute('data-tab-title', 'Pending native rename')
+    await expect(peerRenamed).toContainText('Pending native rename')
+    await expectNativeTabOrder(peer, target.groupId, target.order)
   } finally {
     await orcaPage.evaluate(() => window.dispatchEvent(new Event('release-native-session-writes')))
   }
@@ -263,6 +281,12 @@ test('the same saved browser page stays registered in both native windows throug
   await expect.poll(() => peer.isClosed()).toBe(true)
   await expect.poll(() => registered(reopened, target)).toBe(true)
   await expect.poll(() => guestTitle(reopened, target.tabId)).toBe('native-shared 1')
+  const guestScreenshot = testInfo.outputPath('native-shared-browser-guest.png')
+  await captureNativeBrowserGuest(electronApp, reopened, target.tabId, guestScreenshot)
+  await testInfo.attach('native-shared-browser-guest', {
+    path: guestScreenshot,
+    contentType: 'image/png'
+  })
   const screenshot = testInfo.outputPath('native-shared-browser.png')
   await reopened.screenshot({ path: screenshot })
   await testInfo.attach('native-shared-browser', { path: screenshot, contentType: 'image/png' })
