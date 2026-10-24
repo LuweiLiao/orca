@@ -7,7 +7,7 @@ import {
   createLocalConversationReference,
   readLocalConversationReference
 } from '../../../ai-vault/conversation-reference-reader'
-import { forwardConversationReference } from '../../../ai-vault/conversation-reference-routing'
+import { getRuntimeDesktopSurface } from '../../runtime-desktop-surface'
 
 export const CONVERSATION_METHODS = [
   defineMethod({
@@ -37,7 +37,11 @@ export const CONVERSATION_METHODS = [
       if (params.localOnly) {
         throw new Error('The referenced conversation is unavailable on its source host.')
       }
-      return forwardConversationReference('conversation.read', params)
+      const forward = getRuntimeDesktopSurface().forwardConversationReference
+      if (!forward) {
+        throw new Error('The referenced conversation is not available on this host.')
+      }
+      return forward('conversation.read', params)
     }
   })
 ]

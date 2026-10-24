@@ -17,6 +17,7 @@ import type { AgentJournalRenderItem } from '../../../../shared/agent-session-jo
 import type * as ScannerService from '../../../ai-vault/session-scanner-service-spawn'
 import type { readConversationTranscript } from '../../../ai-vault/conversation-transcript-reader'
 import { parseAgentSessionFile } from '../../../ai-vault/session-scanner-agent-parser'
+import { getRuntimeDesktopSurface, setRuntimeDesktopSurface } from '../../runtime-desktop-surface'
 import {
   ConversationReferenceSchema,
   ConversationReferencePageSchema
@@ -39,6 +40,40 @@ afterEach(async () => {
 })
 
 describe('conversation reference RPC', () => {
+  it('forwards missing source references only through the installed desktop connection owner', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-reference-routing-'))
+    roots.push(root)
+    installFakeAppEnvironment({ getPath: () => root })
+    const original = getRuntimeDesktopSurface()
+    const dispatcher = structuredDispatcher({}, CONVERSATION_METHODS)
+    const request = {
+      id: 'foreign-read',
+      authToken: 'test',
+      method: 'conversation.read',
+      params: {
+        reference:
+          'orca-conversation://reference/12345678-1234-4234-8234-123456789abc?host=runtime%3Asource'
+      }
+    }
+    const forward = vi.fn(async () => ({ messages: [], nextCursor: null, warnings: [] }))
+    try {
+      setRuntimeDesktopSurface(null)
+      expect(await dispatcher.dispatch(request)).toMatchObject({ ok: false })
+      setRuntimeDesktopSurface({ ...original, forwardConversationReference: forward })
+      expect(await dispatcher.dispatch(request)).toMatchObject({ ok: true })
+      expect(forward).toHaveBeenCalledWith('conversation.read', request.params)
+      expect(
+        await dispatcher.dispatch({
+          ...request,
+          params: { ...request.params, localOnly: true }
+        })
+      ).toMatchObject({ ok: false })
+      expect(forward).toHaveBeenCalledTimes(1)
+    } finally {
+      setRuntimeDesktopSurface(original)
+    }
+  })
+
   it('reads a native conversation through its journal without resuming its agent', async () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-native-reference-'))
     roots.push(root)
