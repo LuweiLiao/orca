@@ -280,6 +280,52 @@ describe('resolveNativeChatFileLink', () => {
     })
   })
 
+  it('resolves a slash-prefixed Windows Markdown link to its drive path', () => {
+    const windowsContext = { ...context, worktreePath: 'C:/repo' }
+    expect(resolveNativeChatFileLink('/D:/build/orca_amd64.deb', windowsContext)).toEqual({
+      absolutePath: 'D:/build/orca_amd64.deb',
+      line: null,
+      column: null
+    })
+  })
+
+  it.each([
+    ['/C:/My%20Project/%E6%8A%A5%E5%91%8A.md#L7', 'C:/My Project/报告.md', 7, null],
+    ['/d:/repo/report%2520final.md:12:4', 'D:/repo/report%20final.md', 12, 4],
+    ['C:/repo/guide.md', 'C:/repo/guide.md', null, null],
+    ['file:///C:/My%20Project/guide.md#L9', 'C:/My Project/guide.md', 9, null],
+    ['//server/share/guide.md', '//server/share/guide.md', null, null]
+  ])(
+    'resolves Windows link %s without changing escapes or locations',
+    (href, absolutePath, line, column) => {
+      expect(resolveNativeChatFileLink(href, { ...context, worktreePath: 'D:/repo' })).toEqual({
+        absolutePath,
+        line,
+        column
+      })
+    }
+  )
+
+  it('keeps POSIX paths and known literal tool paths unchanged', () => {
+    expect(resolveNativeChatFileLink('/D:/repo/guide.md', context)).toEqual({
+      absolutePath: '/D:/repo/guide.md',
+      line: null,
+      column: null
+    })
+    expect(
+      resolveNativeChatFileLink('/D:/repo/guide.md', {
+        ...context,
+        worktreePath: '//wsl.localhost/Ubuntu/home/me/repo'
+      })
+    ).toEqual({ absolutePath: '/D:/repo/guide.md', line: null, column: null })
+    expect(
+      resolveNativeChatFileLink(createNativeChatFileHref('/D:/repo/guide.md', 'literal'), {
+        ...context,
+        worktreePath: 'D:/repo'
+      })
+    ).toEqual({ absolutePath: '/D:/repo/guide.md', line: null, column: null })
+  })
+
   it('resolves encoded file URIs', () => {
     expect(resolveNativeChatFileLink('file:///repo/worktree/My%20File.md#L7', context)).toEqual({
       absolutePath: '/repo/worktree/My File.md',
