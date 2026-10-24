@@ -63,7 +63,7 @@ export function useNativeChatAnnotationLocate(
       return true
     }
     const requested = messageListRef?.current?.revealAnnotationMessage?.(anchor.messageId)
-    if (requested === undefined && reveal()) {
+    if (!requested && reveal()) {
       return
     }
     if (!requested) {

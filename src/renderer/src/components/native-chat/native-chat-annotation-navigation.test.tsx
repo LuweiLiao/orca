@@ -118,3 +118,33 @@ it('waits for the requested message to mount and respects reduced motion', async
   expect(scroll).toHaveBeenCalledWith({ block: 'center', behavior: 'auto' })
   expect(screen.queryByText('Missing')).toBeNull()
 })
+
+it('locates a mounted passage even when it is absent from the navigable slots', () => {
+  const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {})
+  const reveal = vi.fn(() => false)
+  function Harness() {
+    const rootRef = useRef<HTMLDivElement>(null)
+    const { locate, missingOriginal } = useNativeChatAnnotationLocate(rootRef, 'nested', true, {
+      current: { revealAnnotationMessage: reveal }
+    })
+    return (
+      <div ref={rootRef}>
+        <div data-native-chat-message-id="nested-reply">
+          <p data-native-chat-quote-source="">Visible subagent reply.</p>
+        </div>
+        <button
+          onClick={() =>
+            locate({ messageId: 'nested-reply', quote: 'Visible subagent reply.', startOffset: 0 })
+          }
+        >
+          Locate
+        </button>
+        {missingOriginal ? 'Missing' : null}
+      </div>
+    )
+  }
+  render(<Harness />)
+  fireEvent.click(screen.getByRole('button', { name: 'Locate' }))
+  expect(scroll).toHaveBeenCalled()
+  expect(screen.queryByText('Missing')).toBeNull()
+})
