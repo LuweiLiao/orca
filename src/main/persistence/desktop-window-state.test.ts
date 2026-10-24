@@ -51,10 +51,21 @@ import {
   updateDesktopWindowState,
   updateDesktopWindowUI
 } from './desktop-window-state'
+import { registerWslMoveDesktopWindowRewrite } from './moving-wsl-projects/wsl-move-desktop-windows'
+import { resetWslMoveDesktopRewriteStoresForTests } from './moving-wsl-projects/wsl-move-desktop-rewrite-stores'
+import { runWslMoveDesktopRewritePass } from './moving-wsl-projects/wsl-move-desktop-rewrite'
+import { listWslMoveCutovers } from './moving-wsl-projects/wsl-move-cutover-journal'
+import { wslMoveCutoverFixture } from './__fixtures__/wsl-mover/wsl-move-cutover-fixture'
+import { seedWslMoveCutover } from './__fixtures__/wsl-mover/wsl-move-journal-seeding'
+import { emptyLayoutViewRecord } from '../../shared/workspace-layout/workspace-layout-views'
+import { ownedEditorFileId } from '../../shared/workspace-session-pane-ownership'
+import { toRuntimeExecutionHostId } from '../../shared/execution-host'
+import { worktreeWorkspaceKey } from '../../shared/workspace-scope'
 
 let databaseDirectory: string | null = null
 
 afterEach(async () => {
+  resetWslMoveDesktopRewriteStoresForTests()
   for (const renderer of listDesktopRenderers()) {
     unregisterDesktopRenderer(renderer)
   }
@@ -89,6 +100,195 @@ function fixture() {
 }
 
 describe('native desktop window persistence', () => {
+  function wslMoveFixture() {
+    databaseDirectory = mkdtempSync(join(tmpdir(), 'orca-desktop-window-wsl-'))
+    testState.dir = databaseDirectory
+    const store = createStore()
+    const sourceKey = 'repo-1::\\\\wsl.localhost\\Ubuntu\\home\\dev\\repo-1'
+    const targetKey = 'repo-1::/home/dev/repo-1'
+    const sourceFile = '\\\\wsl.localhost\\Ubuntu\\home\\dev\\repo-1\\notes.md'
+    const targetFile = '/home/dev/repo-1/notes.md'
+    const sourceFileId = ownedEditorFileId(sourceFile, sourceKey, null)
+    const targetFileId = ownedEditorFileId(targetFile, targetKey, 'wsl:Ubuntu')
+    const host = toRuntimeExecutionHostId('wsl:Ubuntu')
+    const draft = { dirtyDraftContent: `Keep user text: ${sourceFile}` }
+    const session = addWorkspace(getDefaultWorkspaceSession(), sourceKey, [
+      {
+        id: 'g',
+        tabs: [{ id: 'terminal-1', leaves: [[leaf(1)]] }]
+      }
+    ])
+    session.openFilesByWorktree = {
+      [sourceKey]: [
+        {
+          filePath: sourceFile,
+          relativePath: 'notes.md',
+          worktreeId: sourceKey,
+          language: 'markdown'
+        }
+      ]
+    }
+    store.setWorkspaceSession(session)
+    updateDesktopWindowState(store, 'first', {
+      ui: { lastActiveWorktreeId: `local|${sourceKey}` },
+      bounds: { x: 20, y: 30, width: 1000, height: 700 },
+      viewsByHostId: {
+        local: {
+          ...emptyLayoutViewRecord(),
+          activeRepoId: 'repo-1',
+          activeWorktreeId: sourceKey,
+          activeWorkspaceKey: worktreeWorkspaceKey(sourceKey),
+          activeWorkspaceExecutionHostId: 'local',
+          activeTabId: 'terminal-1',
+          groups: {
+            [sourceKey]: { g: { activeTabId: sourceFileId, recentTabIds: [sourceFileId] } },
+            [FOLDER_KEY]: { f: { activeTabId: 'folder-tab' } },
+            [GIT_KEY.replace('repo-1', 'repo-other')]: { other: { activeTabId: 'other-tab' } }
+          },
+          editorDrafts: { [sourceKey]: { [ownedEditorFileId(sourceFile, '', null)]: draft } },
+          activeFileIdByWorktree: { [sourceKey]: sourceFileId },
+          activeGroupIdByWorktree: { [sourceKey]: 'g' },
+          lastVisitedAtByWorktreeId: { [`local|${sourceKey}`]: 42 }
+        },
+        'ssh:peer': { ...emptyLayoutViewRecord(), activeWorktreeId: sourceKey }
+      }
+    })
+    updateDesktopWindowState(store, 'closed', {
+      open: false,
+      ui: { lastActiveWorktreeId: FOLDER_KEY },
+      viewsByHostId: {
+        local: {
+          ...emptyLayoutViewRecord(),
+          activeWorkspaceKey: FOLDER_KEY,
+          activeWorkspaceExecutionHostId: 'local',
+          activeTabId: 'folder-tab'
+        }
+      }
+    })
+    updateDesktopWindowState(store, 'unrelated', {
+      ui: { lastActiveWorktreeId: 'ssh:peer|repo-1::/home/dev/repo-1' },
+      viewsByHostId: { local: emptyLayoutViewRecord() }
+    })
+    const cutover = wslMoveCutoverFixture(
+      'desktop-window-move',
+      'destination-committed',
+      {},
+      {
+        folderWorkspaceIds: ['notes-1']
+      }
+    )
+    seedWslMoveCutover(databaseDirectory, cutover)
+    registerWslMoveDesktopWindowRewrite(store)
+    return {
+      store,
+      userDataPath: databaseDirectory,
+      sourceKey,
+      targetKey,
+      sourceFile,
+      targetFile,
+      targetFileId,
+      host,
+      draft
+    }
+  }
+
+  it('moves pane and file selections even when the window has no workspace group or active owner', async () => {
+    const { store, userDataPath, sourceFile, targetFile, host } = wslMoveFixture()
+    const fileId = ownedEditorFileId(sourceFile, '', null)
+    updateDesktopWindowState(store, 'first', {
+      ui: {},
+      viewsByHostId: {
+        local: {
+          ...emptyLayoutViewRecord(),
+          panes: { 'terminal-1': { activeLeafId: leaf(1), expandedLeafId: null } },
+          markdownFrontmatterVisible: { [fileId]: true }
+        }
+      }
+    })
+    await runWslMoveDesktopRewritePass({ userDataPath })
+    expect(listWslMoveCutovers(userDataPath)[0]?.rewrittenStores).toEqual(['desktopWindows'])
+    const windows = store.getUI().desktopWindows
+    expect(windows?.first?.viewsByHostId?.[host]?.panes['terminal-1']?.activeLeafId).toBe(leaf(1))
+    expect(windows?.first?.viewsByHostId?.[host]?.markdownFrontmatterVisible).toEqual({
+      [ownedEditorFileId(targetFile, '', 'wsl:Ubuntu')]: true
+    })
+    expect(windows?.first?.viewsByHostId?.local?.panes).toEqual({})
+  })
+
+  it('durably rewrites every scoped window view while preserving other hosts, projects and geometry', async () => {
+    const { store, userDataPath, sourceKey, targetKey, targetFileId, host, draft } =
+      wslMoveFixture()
+    const before = structuredClone(store.getUI().desktopWindows)
+    await runWslMoveDesktopRewritePass({ userDataPath })
+    expect(listWslMoveCutovers(userDataPath)[0]?.rewrittenStores).toEqual(['desktopWindows'])
+    await closeTestStores()
+    const windows = createStore().getUI().desktopWindows
+    expect(windows?.first?.ui?.lastActiveWorktreeId).toBe(`${host}|${targetKey}`)
+    expect(windows?.first?.bounds).toEqual(before?.first?.bounds)
+    expect(windows?.first?.viewsByHostId?.['ssh:peer']).toEqual(
+      before?.first?.viewsByHostId?.['ssh:peer']
+    )
+    expect(windows?.unrelated).toEqual(before?.unrelated)
+    const view = windows?.first?.viewsByHostId?.[host]
+    expect(view?.activeWorkspaceExecutionHostId).toBe(host)
+    expect(view?.activeWorkspaceKey).toBe(worktreeWorkspaceKey(targetKey))
+    expect(view?.activeWorktreeId).toBe(targetKey)
+    expect(view?.activeFileIdByWorktree?.[targetKey]).toBe(targetFileId)
+    expect(view?.groups[targetKey]?.g?.activeTabId).toBe(targetFileId)
+    expect(view?.editorDrafts[targetKey]).toEqual({
+      [ownedEditorFileId('/home/dev/repo-1/notes.md', '', 'wsl:Ubuntu')]: draft
+    })
+    expect(view?.lastVisitedAtByWorktreeId?.[`${host}|${targetKey}`]).toBe(42)
+    expect(view?.groups[FOLDER_KEY]).toEqual({ f: { activeTabId: 'folder-tab' } })
+    expect(windows?.first?.viewsByHostId?.local?.groups[sourceKey]).toBeUndefined()
+    expect(
+      windows?.first?.viewsByHostId?.local?.groups[GIT_KEY.replace('repo-1', 'repo-other')]
+    ).toEqual({
+      other: { activeTabId: 'other-tab' }
+    })
+    expect(windows?.closed?.open).toBe(false)
+    expect(windows?.closed?.ui?.lastActiveWorktreeId).toBe(`${host}|${FOLDER_KEY}`)
+    expect(windows?.closed?.viewsByHostId?.[host]?.activeWorkspaceKey).toBe(FOLDER_KEY)
+  })
+
+  it('retries an unflushed window rewrite without duplicating or losing moved views', async () => {
+    const { store, userDataPath } = wslMoveFixture()
+    const flush = vi
+      .spyOn(store, 'flushPendingOrThrowAsync')
+      .mockRejectedValueOnce(new Error('disk full'))
+    const warn = vi.fn()
+    await runWslMoveDesktopRewritePass({ userDataPath, warn })
+    expect(listWslMoveCutovers(userDataPath)[0]?.rewrittenStores).toEqual([])
+    const afterFirstPass = structuredClone(store.getUI().desktopWindows)
+    await runWslMoveDesktopRewritePass({ userDataPath, warn })
+    expect(flush).toHaveBeenCalledTimes(2)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(listWslMoveCutovers(userDataPath)[0]?.rewrittenStores).toEqual(['desktopWindows'])
+    expect(store.getUI().desktopWindows).toEqual(afterFirstPass)
+  })
+
+  it('refuses conflicting destination views before changing persisted window state', async () => {
+    const { store, userDataPath, host, targetKey } = wslMoveFixture()
+    const current = store.getUI().desktopWindows?.first
+    updateDesktopWindowState(store, 'first', {
+      viewsByHostId: {
+        ...current?.viewsByHostId,
+        [host]: {
+          ...emptyLayoutViewRecord(),
+          groups: { [targetKey]: { existing: { activeTabId: 'keep-me' } } }
+        }
+      }
+    })
+    const before = structuredClone(store.getUI().desktopWindows)
+    const warn = vi.fn()
+    await runWslMoveDesktopRewritePass({ userDataPath, warn })
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('wsl_move_desktop_window_view_collision')
+    )
+    expect(listWslMoveCutovers(userDataPath)[0]?.rewrittenStores).toEqual([])
+    expect(store.getUI().desktopWindows).toEqual(before)
+  })
+
   it('reads each window selection and geometry back from the SQLite profile after reopening', async () => {
     const { first, second } = fixture()
     databaseDirectory = mkdtempSync(join(tmpdir(), 'orca-desktop-window-'))

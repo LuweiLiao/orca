@@ -3,7 +3,8 @@ import { expect, test } from './helpers/orca-app'
 import {
   peerNativeWindow as peerWindow,
   expectNativeTabOrder,
-  captureNativeBrowserGuest
+  captureNativeBrowserGuest,
+  registeredNativeBrowserGuest as registered
 } from './helpers/native-desktop-window'
 import { startBrowserSplitPageServer } from './helpers/browser-split-page-server'
 
@@ -181,30 +182,6 @@ test('an unsaved rename and reorder survive a peer saving to the same workspace 
     await orcaPage.evaluate(() => window.dispatchEvent(new Event('release-native-session-writes')))
   }
 })
-
-async function registered(page: Page, target: { tabId: string; pageId: string }): Promise<boolean> {
-  return page.evaluate(async ({ tabId, pageId }) => {
-    const guest = document.querySelector(`[data-browser-overlay-tab-id="${tabId}"] webview`)
-    if (
-      !(guest instanceof HTMLElement) ||
-      !('getWebContentsId' in guest) ||
-      typeof guest.getWebContentsId !== 'function'
-    ) {
-      return false
-    }
-    try {
-      return window.api.browser.isGuestRegistered({
-        browserPageId: pageId,
-        webContentsId: guest.getWebContentsId()
-      })
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('dom-ready')) {
-        return false
-      }
-      throw error
-    }
-  }, target)
-}
 
 async function guestTitle(page: Page, tabId: string): Promise<unknown> {
   return page.evaluate(async (id) => {

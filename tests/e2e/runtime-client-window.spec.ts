@@ -9,6 +9,7 @@ import {
   waitForTerminalOutput
 } from './helpers/terminal'
 import { splitMarkerEchoCommand } from './terminal-marker-echo-command'
+import { registeredNativeBrowserGuest } from './helpers/native-desktop-window'
 
 function nativePages(app: ElectronApplication): Page[] {
   return app
@@ -247,47 +248,11 @@ test('keeps a browser page usable in a surviving native window', async ({
     state?.setActiveBrowserTab(tabId, worktreeId)
   }, target)
   await expect
-    .poll(
-      () =>
-        second.evaluate(async ({ tabId, pageId }) => {
-          const guest =
-            document.querySelector(`webview[data-browser-page-id="${pageId}"]`) ??
-            document.querySelector(`[data-browser-overlay-tab-id="${tabId}"] webview`)
-          if (
-            !(guest instanceof HTMLElement) ||
-            !('getWebContentsId' in guest) ||
-            typeof guest.getWebContentsId !== 'function'
-          ) {
-            return false
-          }
-          return window.api.browser.isGuestRegistered({
-            browserPageId: pageId,
-            webContentsId: guest.getWebContentsId()
-          })
-        }, target),
-      { timeout: 30_000 }
-    )
+    .poll(() => registeredNativeBrowserGuest(second, target), { timeout: 30_000 })
     .toBe(true)
   await closeWindow(electronApp, orcaPage)
   await expect
-    .poll(
-      () =>
-        second.evaluate(async ({ tabId, pageId }) => {
-          const guest = document.querySelector(`[data-browser-overlay-tab-id="${tabId}"] webview`)
-          if (
-            !(guest instanceof HTMLElement) ||
-            !('getWebContentsId' in guest) ||
-            typeof guest.getWebContentsId !== 'function'
-          ) {
-            return false
-          }
-          return window.api.browser.isGuestRegistered({
-            browserPageId: pageId,
-            webContentsId: guest.getWebContentsId()
-          })
-        }, target),
-      { timeout: 30_000 }
-    )
+    .poll(() => registeredNativeBrowserGuest(second, target), { timeout: 30_000 })
     .toBe(true)
   await screenshot(second, testInfo, 'surviving-browser-window')
 })

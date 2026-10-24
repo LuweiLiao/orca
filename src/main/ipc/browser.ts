@@ -198,7 +198,11 @@ export function registerBrowserHandlers(): void {
         isNative ? (wcId ?? undefined) : undefined
       )
     }
-    if (!browserManager.unregisterGuestForRenderer(args.browserPageId, event.sender.id)) {
+    const unregistered = browserManager.unregisterGuestForRenderer(
+      args.browserPageId,
+      event.sender.id
+    )
+    if (!unregistered && isNative) {
       return false
     }
     disposeGrabModeStateForPage(args.browserPageId)

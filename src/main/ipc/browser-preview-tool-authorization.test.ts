@@ -489,6 +489,26 @@ describe('doc preview tool authorization', () => {
     )
   })
 
+  it('disposes pending browser grabs even when a non-native page has no registered guest', async () => {
+    getAuthorizedGuestMock.mockReturnValue({ isDestroyed: () => false })
+    vi.mocked(browserManager.getGuestWebContentsId).mockReturnValueOnce(null)
+    vi.mocked(browserManager.unregisterGuestForRenderer).mockReturnValueOnce(false)
+    const handlers = registeredHandlers()
+    const pending = handlers.get('browser:setGrabMode')?.(trustedSender(HOST_RENDERER_ID), {
+      browserPageId: 'unregistered-browser-page',
+      enabled: true
+    })
+
+    const unregistered = handlers.get('browser:unregisterGuest')?.(
+      trustedSender(HOST_RENDERER_ID),
+      { browserPageId: 'unregistered-browser-page' }
+    )
+
+    expect(unregistered).toBe(true)
+    await expect(pending).resolves.toEqual({ ok: true })
+    expect(setGrabModeMock).not.toHaveBeenCalled()
+  })
+
   // An open document must not answer for a browsing page ID.
   it('never hands a browsing page id the guest of a document that is open', async () => {
     const preview = liveRenderedPreview()

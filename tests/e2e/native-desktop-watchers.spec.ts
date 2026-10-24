@@ -35,7 +35,12 @@ test('a surviving native window observes external git init for a folder project'
   registerPostElectronShutdownCleanup
 }, testInfo) => {
   test.setTimeout(120_000)
-  await orcaPage.evaluate(() => window.__store?.getState().updateSettings({ uiLanguage: 'en' }))
+  await orcaPage.evaluate(() => {
+    void window.__store?.getState().updateSettings({ uiLanguage: 'en' })
+  })
+  await expect
+    .poll(() => orcaPage.evaluate(() => window.__store?.getState().settings?.uiLanguage))
+    .toBe('en')
   const folderPath = realpathSync(mkdtempSync(join(tmpdir(), 'orca-native-folder-')))
   registerPostElectronShutdownCleanup(() => rm(folderPath, { recursive: true, force: true }))
   const repoId = await orcaPage.evaluate(async (path) => {

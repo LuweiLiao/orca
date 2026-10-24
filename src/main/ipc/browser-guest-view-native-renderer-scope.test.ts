@@ -291,6 +291,29 @@ describe('native multi-window guest-view IPC scoping', () => {
     expect(browserManager.getManagedBrowserGuestContext(guestB.id)).toBeNull()
   })
 
+  it('refuses unregister from a native renderer with no guest without touching its peer', () => {
+    const { rendererA, rendererB, guestA } = fixture()
+    browserManager.unregisterGuestForRenderer('shared-page', rendererB.id)
+    browserManager.selectNativeRenderer(rendererA.id)
+    const onTabClosed = vi.fn(async () => {})
+    setAgentBrowserBridgeRef({
+      onTabClosed,
+      onProcessSwap: vi.fn(async () => {}),
+      onTabChanged: vi.fn()
+    })
+    registerBrowserHandlers()
+
+    expect(
+      handlers().get('browser:unregisterGuest')?.(
+        { sender: rendererB.asWebContents() },
+        { browserPageId: 'shared-page' }
+      )
+    ).toBe(false)
+    expect(onTabClosed).not.toHaveBeenCalled()
+    expect(browserManager.getGuestWebContentsId('shared-page')).toBe(guestA.id)
+    expect(guestA.isDestroyed()).toBe(false)
+  })
+
   it('records the B scroll report without changing the A scroll state', () => {
     const { rendererA, rendererB, guestA, guestB } = fixture()
     browserManager.selectNativeRenderer(rendererA.id)

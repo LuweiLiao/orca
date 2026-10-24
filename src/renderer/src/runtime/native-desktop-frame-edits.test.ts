@@ -13,6 +13,29 @@ import { buildWorkspaceSessionPayload } from '../lib/workspace-session'
 createStoreSessionMockApi()
 
 describe('native window pending layout edits', () => {
+  it('keeps a locally closed editor record out of a stale peer frame', async () => {
+    const session = localDesktopSession()
+    const store = createTestStore()
+    await bootWindowFromPartitions(store, [{ hostId: 'local', session }])
+    const localEdits = createNativeDesktopFrameEdits(store.getState())
+    const holds = {
+      held: NO_HELD_TABS,
+      keepsTerminalLayout: () => false,
+      newRowFields: () => null,
+      localEdits
+    }
+    const cache = mainLoadedLayouts('local', session)
+    store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+    const file = store.getState().openFiles[0]!
+    store.getState().closeFile(file.id)
+    expect(store.getState().openFiles.some((entry) => entry.id === file.id)).toBe(false)
+    store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+    expect(
+      store.getState().unifiedTabsByWorktree[GIT_KEY]?.some((tab) => tab.entityId === file.id)
+    ).toBe(false)
+    expect(store.getState().openFiles.some((entry) => entry.id === file.id)).toBe(false)
+  })
+
   it.each(
     [false, true].flatMap((dirtyFlag) =>
       [false, true].map((replacesGroup) => ({ dirtyFlag, replacesGroup }))
@@ -38,6 +61,14 @@ describe('native window pending layout edits', () => {
       const tab = store
         .getState()
         .unifiedTabsByWorktree[GIT_KEY]!.find((entry) => entry.entityId === file.id)!
+      store.getState().activateTab(tab.id, { preservePreview: true, recordFocus: false })
+      store.setState({
+        activeFileIdByWorktree: { ...store.getState().activeFileIdByWorktree, [GIT_KEY]: file.id },
+        activeTabTypeByWorktree: {
+          ...store.getState().activeTabTypeByWorktree,
+          [GIT_KEY]: 'editor'
+        }
+      })
       const peer = structuredClone(cache)
       peer[GIT_KEY]!.tabs = peer[GIT_KEY]!.tabs.filter((entry) => entry.id !== tab.id)
       for (const group of peer[GIT_KEY]!.groups) {
@@ -58,6 +89,8 @@ describe('native window pending layout edits', () => {
       )
       expect(store.getState().openFiles).toContainEqual(expect.objectContaining({ id: file.id }))
       expect(store.getState().editorDrafts[file.id]).toBe('Unsaved native peer draft')
+      expect(store.getState().activeFileIdByWorktree[GIT_KEY]).toBe(file.id)
+      expect(store.getState().activeTabTypeByWorktree[GIT_KEY]).toBe('editor')
       if (replacesGroup) {
         expect(store.getState().layoutByWorktree[GIT_KEY]).toEqual(peer[GIT_KEY]!.groupLayout)
         expect(

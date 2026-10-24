@@ -270,7 +270,7 @@ describe('setupGuestShortcutForwarding', () => {
     triggerBeforeInput(baseInput)
     const repeatPreventDefault = triggerBeforeInput({ ...baseInput, isAutoRepeat: true })
 
-    expect(repeatPreventDefault).not.toHaveBeenCalled()
+    expect(repeatPreventDefault).toHaveBeenCalledTimes(1)
     expect(openRuntimeClientWindowFromUserCommandMock).toHaveBeenCalledTimes(1)
   })
 
