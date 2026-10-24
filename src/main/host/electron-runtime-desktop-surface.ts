@@ -8,8 +8,10 @@ import { fetchRepoIconWithManualRedirects } from './electron-repo-icon-fetch'
 import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../shared/sidebar-inputs-switch'
 import { preferredDesktopRenderer } from '../window/desktop-renderer-registry'
 import { NATIVE_DESKTOP_GRAPH_ID } from '../runtime/native-desktop-window-graphs'
+import { forwardConversationReference } from '../ai-vault/conversation-reference-routing'
 
 export const electronRuntimeDesktopSurface: RuntimeDesktopSurface = {
+  forwardConversationReference,
   translateNotification: translateMain,
   isAwayForMobileNotifications: () => readDesktopAwayState(powerMonitor),
   showNotification: ({ title, body }) => {
