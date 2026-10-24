@@ -38,6 +38,7 @@ describe('native window pending layout edits', () => {
       const tab = store
         .getState()
         .unifiedTabsByWorktree[GIT_KEY]!.find((entry) => entry.entityId === file.id)!
+      store.getState().activateTab(tab.id)
       const peer = structuredClone(cache)
       peer[GIT_KEY]!.tabs = peer[GIT_KEY]!.tabs.filter((entry) => entry.id !== tab.id)
       for (const group of peer[GIT_KEY]!.groups) {
@@ -58,6 +59,14 @@ describe('native window pending layout edits', () => {
       )
       expect(store.getState().openFiles).toContainEqual(expect.objectContaining({ id: file.id }))
       expect(store.getState().editorDrafts[file.id]).toBe('Unsaved native peer draft')
+      store.setState(fullLayoutFrameBuildPatch(store.getState(), peer, [GIT_KEY], holds))
+      expect(
+        store
+          .getState()
+          .groupsByWorktree[GIT_KEY]?.find(
+            (group) => group.id === store.getState().getTab(tab.id)?.groupId
+          )?.activeTabId
+      ).toBe(tab.id)
       if (replacesGroup) {
         expect(store.getState().layoutByWorktree[GIT_KEY]).toEqual(peer[GIT_KEY]!.groupLayout)
         expect(

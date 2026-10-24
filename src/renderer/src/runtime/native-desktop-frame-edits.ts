@@ -194,13 +194,16 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
         ]
       })
     }
+    // The local merge can reinsert a dirty tab; its hold must still follow the raw frame.
     const dirtyFiles = state.openFiles.filter(
       (file) =>
         isDirtyEditorBufferSide({ record: file, draft: state.editorDrafts?.[file.id] }) &&
         state.unifiedTabsByWorktree[file.worktreeId]?.some(
           (tab) =>
             tab.entityId === file.id &&
-            !next.unifiedTabsByWorktree[file.worktreeId]?.some((incoming) => incoming.id === tab.id)
+            !built.unifiedTabsByWorktree[file.worktreeId]?.some(
+              (incoming) => incoming.id === tab.id
+            )
         )
     )
     const holdsDirtyFile = (workspace: string, id: string): boolean =>

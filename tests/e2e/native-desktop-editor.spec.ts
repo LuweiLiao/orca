@@ -10,6 +10,8 @@ test('a peer closing its clean editor leaves another window draft open and savea
   testRepoPath
 }, testInfo) => {
   test.setTimeout(180_000)
+  await waitForSessionReady(orcaPage)
+  await orcaPage.emulateMedia({ reducedMotion: 'reduce' })
   const explorer = orcaPage.locator('[data-orca-explorer-shell]')
   await explorer
     .locator('[data-file-explorer-row]')
@@ -74,6 +76,22 @@ test('a peer closing its clean editor leaves another window draft open and savea
       }, fileId)
     )
     .toBe(true)
+  await testInfo.attach('retained-editor-state', {
+    body: JSON.stringify(
+      await orcaPage.evaluate((id) => {
+        const state = window.__store!.getState()
+        return {
+          activeTabId: state.activeTabId,
+          files: state.openFiles.map((file) => ({ id: file.id, dirty: file.isDirty })),
+          tabs: Object.values(state.unifiedTabsByWorktree).flat(),
+          groups: state.groupsByWorktree,
+          drafts: Object.keys(state.editorDrafts),
+          fileId: id
+        }
+      }, fileId)
+    ),
+    contentType: 'application/json'
+  })
   await editor.click()
   await orcaPage.keyboard.press('ControlOrMeta+S')
   await expect
