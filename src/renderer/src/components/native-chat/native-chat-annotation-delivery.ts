@@ -133,6 +133,13 @@ export function prepareNativeChatAnnotatedMessage(scopeKey: string | undefined, 
         if (
           delivery.returned &&
           delivery.annotationText &&
+          entries.some(
+            (entry) =>
+              delivery.notes.some((note) => note.id === entry.id) ||
+              (delivery.editor?.anchor.messageId === entry.messageId &&
+                delivery.editor.anchor.startOffset === entry.startOffset &&
+                delivery.editor.anchor.quote === entry.quote)
+          ) &&
           text.trimEnd().endsWith(delivery.annotationText)
         ) {
           text = text.trimEnd().slice(0, -delivery.annotationText.length).trimEnd()

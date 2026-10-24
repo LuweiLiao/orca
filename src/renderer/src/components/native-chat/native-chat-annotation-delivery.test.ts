@@ -199,6 +199,24 @@ it('replaces the restored serialized annotation rather than adding it twice on c
   )
 })
 
+it('preserves pasted returned text after its annotations were accepted by another send', async () => {
+  const context = await open()
+  context.store.add(anchor, 'Original comment.')
+  const returned = context.prepare('Original draft.')
+  returned.reserve('first-send')
+  returned.release('first-send')
+  context.prepare('Another draft.').reserve('second-send')
+  context.reconcile([
+    submission('accepted', { clientMessageId: 'second-send', queuedMessageId: undefined })
+  ])
+  expect(context.store.getSnapshot().notes).toHaveLength(0)
+  expect(context.prepare(returned.text).text).toBe(returned.text)
+  context.store.add({ ...anchor, messageId: 'another-reply' }, 'Unrelated comment.')
+  expect(context.prepare(returned.text).text).toBe(
+    `${returned.text}\n\n> Selected passage.\n\nUnrelated comment.`
+  )
+})
+
 it('bounds failed cleanup attempts while mounted and retries after the user restores storage', async () => {
   const context = await open()
   context.store.add(anchor, 'Durable comment.')
