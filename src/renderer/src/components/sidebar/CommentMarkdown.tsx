@@ -1,5 +1,6 @@
 import React from 'react'
 import { parseConversationReferenceUri } from '../../../../shared/conversation-reference'
+import { parseOrchestrationReferenceUri } from '../../../../shared/native-chat-orchestration-reference'
 import {
   CommentMarkdownMermaidContext,
   CommentMarkdownMermaidSourceContext
@@ -67,7 +68,10 @@ type MarkdownNode = {
 }
 
 const commentMarkdownUrlTransform: UrlTransform = (value, key, node) => {
-  if (key === 'href' && parseConversationReferenceUri(value)) {
+  if (
+    key === 'href' &&
+    (parseConversationReferenceUri(value) || parseOrchestrationReferenceUri(value))
+  ) {
     return value
   }
   if (key === 'src' && node?.tagName === 'img' && isTrustedCompactImageSrc(value)) {
@@ -207,7 +211,12 @@ const commentMarkdownSanitizeSchema = {
     ...defaultSchema.protocols,
     // Why: native chat opts into file URI links after sanitize; the URL
     // transform below still strips them for all other markdown surfaces.
-    href: [...(defaultSchema.protocols?.href ?? []), 'file', 'orca-conversation'],
+    href: [
+      ...(defaultSchema.protocols?.href ?? []),
+      'file',
+      'orca-conversation',
+      'orca-orchestration'
+    ],
     src: [...(defaultSchema.protocols?.src ?? []), 'data', 'blob', 'orca-jira-image']
   }
 }

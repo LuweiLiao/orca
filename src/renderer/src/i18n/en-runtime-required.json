@@ -760,6 +760,7 @@
             "workingDir": "Working dir"
           },
           "AiVaultSessionRow": {
+            "dragToResume": "Drag to resume in a new tab",
             "resumeAgentSession": "Resume {{value0}} session",
             "tokenCount": "{{value0}} tok"
           },
@@ -819,7 +820,8 @@
           "GitHistoryPanel": {
             "111e1d0db4": "error",
             "62e685d5ec": "idle",
-            "9a8b85882d": "loading"
+            "9a8b85882d": "loading",
+            "openGitGraph": "Open Git Graph"
           },
           "HostedReviewActions": {
             "59b4dccf70": "destructive",

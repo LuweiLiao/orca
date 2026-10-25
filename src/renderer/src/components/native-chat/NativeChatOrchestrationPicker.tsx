@@ -168,6 +168,7 @@ export function OrchestrationPickerContent({
           agents.map(({ id, label }) => {
             const choice = selected.find((entry) => entry.agent === id)
             const listed = models[id]
+            const efforts = listed?.find((model) => model.id === choice?.model?.id)?.efforts
             return (
               <div key={id} className="space-y-1 rounded-md px-1 py-1 hover:bg-accent">
                 <label className="flex min-h-7 cursor-pointer items-center gap-2">
@@ -177,24 +178,22 @@ export function OrchestrationPickerContent({
                 </label>
                 {choice ? (
                   <div className="ml-6 flex flex-col gap-1.5">
-                    {!single ? (
-                      <Input
-                        density="compact"
-                        value={choice.task}
-                        placeholder={translate(
-                          'components.native-chat.composer.orchestrationTask',
-                          'Task (optional)'
-                        )}
-                        aria-label={`${label} ${translate('components.native-chat.composer.orchestrationTask', 'Task (optional)')}`}
-                        onChange={(event) =>
-                          setSelected((current) =>
-                            current.map((entry) =>
-                              entry.agent === id ? { ...entry, task: event.target.value } : entry
-                            )
+                    <Input
+                      density="compact"
+                      value={choice.task}
+                      placeholder={translate(
+                        'components.native-chat.composer.orchestrationTask',
+                        'Task (optional)'
+                      )}
+                      aria-label={`${label} ${translate('components.native-chat.composer.orchestrationTask', 'Task (optional)')}`}
+                      onChange={(event) =>
+                        setSelected((current) =>
+                          current.map((entry) =>
+                            entry.agent === id ? { ...entry, task: event.target.value } : entry
                           )
-                        }
-                      />
-                    ) : null}
+                        )
+                      }
+                    />
                     <div className="flex items-center gap-1.5">
                       <Input
                         density="compact"
@@ -219,20 +218,29 @@ export function OrchestrationPickerContent({
                       />
                       <Select
                         value={choice.model?.id ?? '__default__'}
-                        onValueChange={(value) =>
+                        onValueChange={(value) => {
+                          const model = listed?.find((model) => model.id === value)
                           setSelected((current) =>
                             current.map((entry) =>
                               entry.agent === id
-                                ? { ...entry, model: listed?.find((model) => model.id === value) }
+                                ? {
+                                    ...entry,
+                                    model: model ? { id: model.id, label: model.label } : undefined,
+                                    effort: model?.efforts?.some(
+                                      (effort) => effort.value === entry.effort
+                                    )
+                                      ? entry.effort
+                                      : undefined
+                                  }
                                 : entry
                             )
                           )
-                        }
+                        }}
                       >
                         <SelectTrigger
                           size="sm"
                           className="min-w-0 flex-1"
-                          aria-label={`${label} model`}
+                          aria-label={`${label} ${translate('components.native-chat.composer.model', 'Model')}`}
                         >
                           <SelectValue />
                         </SelectTrigger>
@@ -270,6 +278,46 @@ export function OrchestrationPickerContent({
                         </SelectContent>
                       </Select>
                     </div>
+                    {choice.model ? (
+                      <Select
+                        value={choice.effort ?? '__default__'}
+                        disabled={!efforts?.length && !choice.effort}
+                        onValueChange={(value) =>
+                          setSelected((current) =>
+                            current.map((entry) =>
+                              entry.agent === id
+                                ? { ...entry, effort: value === '__default__' ? undefined : value }
+                                : entry
+                            )
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          size="sm"
+                          className="w-full min-w-0"
+                          aria-label={`${label} ${translate('components.native-chat.composer.effort', 'Effort')}`}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__default__">
+                            {translate(
+                              'components.native-chat.composer.defaultEffort',
+                              'Effort: default'
+                            )}
+                          </SelectItem>
+                          {choice.effort &&
+                          !efforts?.some((effort) => effort.value === choice.effort) ? (
+                            <SelectItem value={choice.effort}>{choice.effort}</SelectItem>
+                          ) : null}
+                          {efforts?.map((effort) => (
+                            <SelectItem key={effort.value} value={effort.value}>
+                              {effort.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

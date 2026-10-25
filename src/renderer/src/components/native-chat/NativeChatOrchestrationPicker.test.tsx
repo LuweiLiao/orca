@@ -197,4 +197,65 @@ describe('NativeChatOrchestrationPicker', () => {
       'local'
     )
   })
+
+  it('offers model-specific effort, clears an incompatible selection, and edits the task', async () => {
+    mocks.catalog.mockResolvedValue({
+      origin: 'probe',
+      models: [
+        {
+          id: 'gpt-5.6-sol',
+          label: 'GPT-5.6 Sol',
+          efforts: [
+            { value: 'high', label: 'High' },
+            { value: 'max', label: 'Max' }
+          ]
+        },
+        { id: 'small', label: 'Small', efforts: [{ value: 'low', label: 'Low' }] },
+        { id: 'none', label: 'No reasoning', efforts: [] }
+      ]
+    })
+    const onInsert = vi.fn()
+    render(
+      <OrchestrationPickerContent
+        host={{ target: { kind: 'local' }, detection: { kind: 'local' }, preferHostCatalog: true }}
+        initialSelections={[
+          {
+            agent: 'codex',
+            label: 'Codex',
+            task: 'Review',
+            count: 1,
+            model: { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
+            effort: 'max'
+          }
+        ]}
+        single
+        onInsert={onInsert}
+      />
+    )
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Max' })).toBeTruthy())
+    expect(screen.getAllByRole('combobox')[1]).toHaveProperty('value', 'max')
+    fireEvent.change(screen.getByRole('textbox', { name: 'Codex Task (optional)' }), {
+      target: { value: 'Review and test' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Update orchestration' }))
+    expect(onInsert).toHaveBeenLastCalledWith([
+      expect.objectContaining({ task: 'Review and test', effort: 'max' })
+    ])
+    fireEvent.change(screen.getAllByRole('combobox')[0]!, { target: { value: 'small' } })
+    expect(screen.getAllByRole('combobox')[1]).toHaveProperty('value', '__default__')
+    expect(screen.queryByRole('option', { name: 'Max' })).toBeNull()
+    fireEvent.change(screen.getAllByRole('combobox')[1]!, { target: { value: 'low' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Update orchestration' }))
+    expect(onInsert).toHaveBeenLastCalledWith([
+      expect.objectContaining({
+        effort: 'low',
+        task: 'Review and test',
+        model: { id: 'small', label: 'Small' }
+      })
+    ])
+    fireEvent.change(screen.getAllByRole('combobox')[0]!, { target: { value: 'none' } })
+    expect(screen.getAllByRole('combobox')[1]).toHaveProperty('value', '__default__')
+    fireEvent.click(screen.getByRole('button', { name: 'Update orchestration' }))
+    expect(onInsert.mock.lastCall?.[0][0].effort).toBeUndefined()
+  })
 })
