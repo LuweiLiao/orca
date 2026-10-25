@@ -10,7 +10,6 @@ import {
   CommandList
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import type { GitHistoryItemRef, GitHistoryRefCategory } from '../../../../shared/git-history-types'
@@ -76,14 +75,12 @@ export function GitGraphBranchFilterPicker({
   filter,
   onFilterChange,
   showRemoteBranches,
-  onShowRemoteBranchesChange,
   isDetachedHead
 }: {
   refs: readonly GitHistoryItemRef[]
   filter: GitGraphBranchFilter
   onFilterChange: (next: GitGraphBranchFilter) => void
   showRemoteBranches: boolean
-  onShowRemoteBranchesChange: (next: boolean) => void
   isDetachedHead: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
@@ -98,11 +95,17 @@ export function GitGraphBranchFilterPicker({
     () => (showRemoteBranches ? refs : refs.filter((ref) => ref.category !== 'remote branches')),
     [refs, showRemoteBranches]
   )
+  const allLabel = translate('auto.components.gitGraph.filter.allBranches', 'All branches')
+  const currentLabel = isDetachedHead
+    ? translate('auto.components.gitGraph.filter.detachedHead', 'HEAD (detached)')
+    : translate('auto.components.gitGraph.filter.currentBranch', 'Current branch')
+  const needle = query.trim().toLowerCase()
+  // Why: like VS Code Git Graph, the presets sit in the same filtered list as the branches.
+  const presets = [
+    { filter: ALL_BRANCHES_FILTER, label: allLabel },
+    { filter: CURRENT_BRANCH_FILTER, label: currentLabel }
+  ].filter((preset) => !needle || preset.label.toLowerCase().includes(needle))
   const { groups, hiddenCount } = useMemo(() => {
-    if (!open) {
-      return { groups: [], hiddenCount: 0 }
-    }
-    const needle = query.trim().toLowerCase()
     const matching = needle
       ? visibleRefs.filter((ref) => ref.name.toLowerCase().includes(needle))
       : visibleRefs
@@ -118,7 +121,7 @@ export function GitGraphBranchFilterPicker({
       })).filter((group) => group.refs.length > 0),
       hiddenCount: matching.length - shown.length
     }
-  }, [open, query, visibleRefs])
+  }, [needle, visibleRefs])
 
   const handleToggleRef = useCallback(
     (refId: string) => onFilterChange(toggleGitGraphFilterRef(filter, refId)),
@@ -160,74 +163,38 @@ export function GitGraphBranchFilterPicker({
             placeholder={translate('auto.components.gitGraph.refPicker.search', 'Search branches…')}
             aria-label={translate('auto.components.gitGraph.refPicker.search', 'Search branches…')}
           />
-          <div className="border-b border-border">
-            <button
-              type="button"
-              onClick={() => {
-                if (filter.mode !== 'all') {
-                  onFilterChange(ALL_BRANCHES_FILTER)
-                }
-                setOpen(false)
-              }}
-              className={cn(
-                'flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground',
-                filter.mode === 'all' && 'opacity-80'
-              )}
-            >
-              <Check
-                className={cn(
-                  'size-3 text-muted-foreground',
-                  filter.mode === 'all' ? 'opacity-70' : 'opacity-0'
-                )}
-              />
-              <span>
-                {translate('auto.components.gitGraph.filter.allBranches', 'All branches')}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (filter.mode !== 'head') {
-                  onFilterChange(CURRENT_BRANCH_FILTER)
-                }
-                setOpen(false)
-              }}
-              className={cn(
-                'flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-accent hover:text-accent-foreground',
-                filter.mode === 'head' && 'opacity-80'
-              )}
-            >
-              <Check
-                className={cn(
-                  'size-3 text-muted-foreground',
-                  filter.mode === 'head' ? 'opacity-70' : 'opacity-0'
-                )}
-              />
-              <span>
-                {isDetachedHead
-                  ? translate('auto.components.gitGraph.filter.detachedHead', 'HEAD (detached)')
-                  : translate('auto.components.gitGraph.filter.currentBranch', 'Current branch')}
-              </span>
-            </button>
-            <label className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-xs">
-              <span className="text-muted-foreground">
-                {translate(
-                  'auto.components.gitGraph.filter.showRemoteBranches',
-                  'Show remote branches'
-                )}
-              </span>
-              <Switch
-                checked={showRemoteBranches}
-                onCheckedChange={onShowRemoteBranchesChange}
-                thumbClassName="size-3"
-                className="h-4 w-7"
-              />
-            </label>
-          </div>
           <CommandList>
             <CommandEmpty>
               {translate('auto.components.gitGraph.refPicker.empty', 'No matching refs')}
             </CommandEmpty>
+            {presets.length > 0 && (
+              <CommandGroup>
+                {presets.map((preset) => {
+                  const isActive = filter.mode === preset.filter.mode
+                  return (
+                    <CommandItem
+                      key={preset.filter.mode}
+                      value={`preset:${preset.filter.mode}`}
+                      selection="palette"
+                      onSelect={() => {
+                        if (!isActive) {
+                          onFilterChange(preset.filter)
+                        }
+                        setOpen(false)
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          'size-3 shrink-0 text-muted-foreground',
+                          isActive ? 'opacity-70' : 'opacity-0'
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{preset.label}</span>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            )}
             {groups.map((group) => (
               <CommandGroup key={group.category} heading={categoryHeading(group.category)}>
                 {group.refs.map((ref) => {

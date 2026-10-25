@@ -1,6 +1,7 @@
 import React from 'react'
 import { ChevronDown, ChevronUp, LocateFixed, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -92,9 +93,17 @@ export function GitGraphToolbar({
         filter={filter}
         onFilterChange={onFilterChange}
         showRemoteBranches={showRemoteBranches}
-        onShowRemoteBranchesChange={onShowRemoteBranchesChange}
         isDetachedHead={isDetachedHead}
       />
+      {/* Why outside the dropdown: VS Code Git Graph keeps this toggle beside the branch picker. */}
+      <label className="flex shrink-0 cursor-pointer items-center gap-1.5 px-1 text-xs text-muted-foreground select-none">
+        <Checkbox
+          checked={showRemoteBranches}
+          onCheckedChange={(checked) => onShowRemoteBranchesChange(checked === true)}
+          className="size-3.5"
+        />
+        {translate('auto.components.gitGraph.filter.showRemoteBranches', 'Show remote branches')}
+      </label>
       <div className="order-last flex min-w-0 basis-full items-center gap-1 @2xl/git-graph:order-none @2xl/git-graph:ml-auto @2xl/git-graph:max-w-80 @2xl/git-graph:flex-1 @2xl/git-graph:basis-80">
         <Search aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         <Input
