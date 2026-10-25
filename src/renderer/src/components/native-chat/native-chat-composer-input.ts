@@ -1,3 +1,5 @@
+import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
+
 /** Text coordinates keep transport, attachments, and picker logic independent of the editor. */
 export type NativeChatComposerInput = Pick<
   HTMLTextAreaElement,
@@ -11,6 +13,7 @@ export type NativeChatComposerInput = Pick<
 > & {
   contains?: (node: Node | null) => boolean
   insertText?: (text: string) => void
+  insertOrchestration?: (selections: readonly OrchestrationAgentSelection[]) => void
   insertSkill?: (from: number, to: number, token: string, path?: string) => void
   /** Deletes every chip of one image, as when its thumbnail goes. */
   removeImageReferences?: (attachmentId: string) => void

@@ -9,6 +9,20 @@ export type NativeChatResolvedTarget = {
   ptyId: string
 }
 
+export function nativeChatComposerTargetKey(
+  paneKey: string,
+  ptyId: string | null,
+  session?: { sessionId: string; worktreeId?: string; runtimeEnvironmentId: string | null }
+): string {
+  return JSON.stringify([
+    paneKey,
+    ptyId,
+    session?.sessionId,
+    session?.worktreeId,
+    session?.runtimeEnvironmentId
+  ])
+}
+
 /** Upper bound for clipboard text pulled into the composer via Cmd/Ctrl+V, so a
  *  pathological clipboard can't stall the round-trip. */
 export const NATIVE_CHAT_CONTEXT_PASTE_MAX_BYTES = 16 * 1024 * 1024

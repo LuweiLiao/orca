@@ -47,6 +47,59 @@ async function openChat(page: Page, claudeCommand: string) {
 test.describe('native chat composer focus', () => {
   test.skip(!SUPPORTED, 'the Claude stub wrapper is POSIX-only')
 
+  test('adds a selected orchestration agent to the message draft', async ({
+    orcaPage: page,
+    claudeStub
+  }, testInfo) => {
+    const { composer } = await openChat(page, claudeStub.command)
+    await composer.fill('请处理：，然后检查结果')
+    await composer.evaluate((element) => {
+      const text = element.querySelector('p')?.firstChild
+      if (!text) {
+        throw new Error('Missing prompt text')
+      }
+      const selection = window.getSelection()
+      selection?.setBaseAndExtent(text, 4, text, 4)
+    })
+    await page.evaluate(() => {
+      window.__store?.setState({ detectedAgentIds: ['claude', 'codex'] })
+    })
+    await page.getByRole('button', { name: /^(Orchestration agents|编排智能体)$/ }).click()
+    const picker = page.getByRole('dialog')
+    await expect(picker.getByText('Claude', { exact: true })).toBeVisible()
+    await picker.getByText('Claude', { exact: true }).locator('..').getByRole('checkbox').check()
+    await picker.getByRole('textbox', { name: /Claude (Task|负责事项)/ }).fill('编译')
+    await picker.getByRole('spinbutton', { name: /Claude (Agent count|智能体数量)/ }).fill('2')
+    const bounds = await picker.boundingBox()
+    expect(bounds?.width).toBeGreaterThan(0)
+    expect(bounds?.height).toBeGreaterThan(0)
+    await picker.screenshot({ path: testInfo.outputPath('orchestration-picker.png') })
+    await picker.getByRole('button', { name: /^(Add to message|加入消息)$/ }).click()
+    const chip = composer.locator('[data-native-chat-orchestration="claude"]')
+    await expect(chip).toBeVisible()
+    await expect(chip).not.toContainText('编译')
+    await expect(chip).toContainText(/2 个 Claude|2 Claude agent\(s\)/)
+    await expect(composer).toContainText(
+      /请处理：(?:编译用 2 个 Claude|编译: 2 Claude agent\(s\)).*，然后检查结果/
+    )
+    await expect(composer).toBeFocused()
+    await composer.screenshot({ path: testInfo.outputPath('orchestration-inserted.png') })
+    await chip.click()
+    const editPicker = page.getByRole('dialog')
+    await expect(editPicker.getByRole('textbox', { name: /Claude (Task|负责事项)/ })).toHaveCount(0)
+    await editPicker.screenshot({ path: testInfo.outputPath('orchestration-edit.png') })
+    await expect(
+      editPicker.getByRole('spinbutton', { name: /Claude (Agent count|智能体数量)/ })
+    ).toHaveValue('2')
+    await editPicker.getByRole('spinbutton', { name: /Claude (Agent count|智能体数量)/ }).fill('3')
+    await editPicker.getByText('Codex', { exact: true }).locator('..').getByRole('checkbox').check()
+    await editPicker.getByRole('button', { name: /^(Update orchestration|更新编排)$/ }).click()
+    await expect(composer.locator('[data-native-chat-orchestration="codex"]')).toBeVisible()
+    await expect(composer).toContainText(/编译用 3 个 Codex|编译: 3 Codex agent\(s\)/)
+    await expect(composer).not.toContainText(/编译用 2 个 Claude|编译: 2 Claude agent\(s\)/)
+    await expect(composer).toBeFocused()
+  })
+
   test('keyboard tab rename returns input to the native chat composer', async ({
     orcaPage: page,
     claudeStub

@@ -34,6 +34,54 @@ function setup(value = '') {
 }
 
 describe('native chat skill editor', () => {
+  it('inserts orchestration as editable document atoms and restores them from the draft', async () => {
+    const scopeKey = 'orchestration-pane'
+    const inputRef = createRef<NativeChatComposerInput>()
+    const props = {
+      inputRef,
+      scopeKey,
+      initialValue: 'Before after',
+      disabled: false,
+      placeholder: 'Message',
+      onChange: vi.fn(),
+      onSelect: vi.fn()
+    }
+    const first = render(<NativeChatPromptEditor {...props} />)
+    act(() => inputRef.current!.setSelectionRange(7, 7))
+    act(() =>
+      inputRef.current!.insertOrchestration?.([
+        { agent: 'claude', label: 'Claude', task: 'Flash', count: 1 },
+        { agent: 'grok', label: 'Grok', task: 'Compile', count: 2 }
+      ])
+    )
+    const text = inputRef.current!.value
+    expect(text).toContain('Flash: 1 Claude agent(s)')
+    expect(text).toContain('Compile: 2 Grok agent(s)')
+    await waitFor(() =>
+      expect(first.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(2)
+    )
+    const chips = first.container.querySelectorAll('[data-native-chat-orchestration]')
+    expect(chips[0]?.textContent).toBe('1 Claude agent(s) (Default model)')
+    expect(chips[1]?.textContent).toBe('2 Grok agent(s) (Default model)')
+    expect(chips[0]?.textContent).not.toContain('Flash')
+    const editor = promptEditor(within(first.container).getByRole('textbox'))
+    act(() => {
+      inputRef.current!.setSelectionRange(7, 12)
+      editor.view.dispatch(editor.state.tr.insertText('Burn'))
+    })
+    expect(inputRef.current!.value).toContain('Burn: 1 Claude agent(s)')
+    expect(first.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(2)
+    expect(text.startsWith('Before ')).toBe(true)
+    expect(text.endsWith('after')).toBe(true)
+    first.unmount()
+    const revised = text.replace('Flash', 'Burn')
+    const second = render(<NativeChatPromptEditor {...props} initialValue={revised} />)
+    await waitFor(() =>
+      expect(second.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(2)
+    )
+    expect(inputRef.current!.value).toBe(revised)
+  })
+
   it('renders only picker insertions as pills and serializes the exact invocation', async () => {
     const { input, container } = setup('Please $rev')
     await act(async () => input.insertSkill!(7, 11, '$review'))

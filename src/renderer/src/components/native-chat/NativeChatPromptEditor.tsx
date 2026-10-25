@@ -27,6 +27,7 @@ import {
   NativeChatFileReference,
   NativeChatConversationReference,
   NativeChatImageReference,
+  NativeChatOrchestration,
   NativeChatSkill,
   promptLeafText,
   promptText,
@@ -34,6 +35,16 @@ import {
   promptTextOffset,
   promptTextPosition
 } from './native-chat-prompt-document'
+import {
+  nativeChatOrchestrationAttributes,
+  nativeChatOrchestrationSeparator,
+  nativeChatOrchestrationTaskPrefix,
+  type OrchestrationAgentSelection
+} from './native-chat-orchestration-instruction'
+import {
+  NativeChatOrchestrationContext,
+  type NativeChatOrchestrationContextValue
+} from './native-chat-orchestration-context'
 import type { NativeChatComposerInput } from './native-chat-composer-input'
 import { NativeChatImageRowProvider } from './NativeChatImageReferencePill'
 
@@ -47,6 +58,7 @@ type Props = Omit<HTMLAttributes<HTMLDivElement>, 'onChange' | 'onSelect'> & {
   placeholder: string
   onChange: (input: NativeChatComposerInput) => void
   onSelect: (input: NativeChatComposerInput) => void
+  orchestrationContext?: NativeChatOrchestrationContextValue
 }
 
 const NO_IMAGES: readonly string[] = []
@@ -60,6 +72,7 @@ export function NativeChatPromptEditor({
   placeholder,
   onChange,
   onSelect,
+  orchestrationContext,
   className,
   ...events
 }: Props): React.JSX.Element {
@@ -88,6 +101,7 @@ export function NativeChatPromptEditor({
           trailingNode: false
         }),
         NativeChatSkill,
+        NativeChatOrchestration,
         NativeChatFileReference,
         NativeChatConversationReference,
         NativeChatImageReference,
@@ -188,6 +202,21 @@ export function NativeChatPromptEditor({
               const content = editor.schema.nodeFromJSON(promptTextContent(text))
               editor.view.dispatch(
                 editor.state.tr.replaceSelection(new Slice(content.content, 1, 1))
+              )
+            },
+            insertOrchestration: (selections: readonly OrchestrationAgentSelection[]) => {
+              const separator = nativeChatOrchestrationSeparator()
+              editor.commands.insertContent(
+                selections.flatMap((selection, index) => [
+                  ...(index > 0 ? [{ type: 'text', text: separator }] : []),
+                  ...(selection.task.trim()
+                    ? [{ type: 'text', text: nativeChatOrchestrationTaskPrefix(selection.task) }]
+                    : []),
+                  {
+                    type: NativeChatOrchestration.name,
+                    attrs: nativeChatOrchestrationAttributes(selection)
+                  }
+                ])
               )
             },
             get value() {
@@ -337,14 +366,16 @@ export function NativeChatPromptEditor({
 
   return (
     <NativeChatPastedTextScopeProvider value={scopeKey ?? ''}>
-      <NativeChatImageRowProvider value={imageRow}>
-        <EditorContent
-          editor={editor}
-          {...events}
-          data-disabled={disabled || undefined}
-          className="data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
-        />
-      </NativeChatImageRowProvider>
+      <NativeChatOrchestrationContext.Provider value={orchestrationContext ?? null}>
+        <NativeChatImageRowProvider value={imageRow}>
+          <EditorContent
+            editor={editor}
+            {...events}
+            data-disabled={disabled || undefined}
+            className="data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          />
+        </NativeChatImageRowProvider>
+      </NativeChatOrchestrationContext.Provider>
     </NativeChatPastedTextScopeProvider>
   )
 }

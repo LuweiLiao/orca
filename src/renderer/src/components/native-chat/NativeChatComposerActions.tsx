@@ -12,6 +12,9 @@ import { NativeChatComposerGoalChip } from './NativeChatComposerGoalChip'
 import { NativeChatContextUsageRing } from './NativeChatContextUsageRing'
 import type { NativeChatContextUsageSummary } from './native-chat-context-usage-summary'
 import type { NativeChatOptionPickerRequest } from './native-chat-composer-types'
+import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
+import { NativeChatOrchestrationPicker } from './NativeChatOrchestrationPicker'
+import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
 
 export type NativeChatComposerActionsProps = {
   attachDisabled: boolean
@@ -42,6 +45,9 @@ export type NativeChatComposerActionsProps = {
   contextUsage?: NativeChatContextUsageSummary | null
   /** The chat's agent, whose permission modes the picker describes. */
   agent?: string
+  terminalTabId?: string
+  structuredTransport?: NativeChatStructuredComposerTransport
+  onInsertOrchestrationInstruction?: (selections: OrchestrationAgentSelection[]) => boolean
 }
 
 export function NativeChatComposerActions({
@@ -66,7 +72,10 @@ export function NativeChatComposerActions({
   onExitGoalMode,
   contextUsage,
   focusComposer,
-  agent
+  agent,
+  terminalTabId,
+  structuredTransport,
+  onInsertOrchestrationInstruction
 }: NativeChatComposerActionsProps): React.JSX.Element {
   const stops = isWorking
   const handleCriticalAction = (event: React.MouseEvent<HTMLButtonElement>): void => {
@@ -129,6 +138,13 @@ export function NativeChatComposerActions({
             {translate('components.native-chat.composer.attach', 'Attach file')}
           </TooltipContent>
         </Tooltip>
+        {terminalTabId && onInsertOrchestrationInstruction ? (
+          <NativeChatOrchestrationPicker
+            terminalTabId={terminalTabId}
+            structuredTransport={structuredTransport}
+            onInsert={onInsertOrchestrationInstruction}
+          />
+        ) : null}
         <NativeChatComposerPermissionPicker
           surface={sessionOptionsSurface}
           snapshot={sessionOptionsSnapshot}
