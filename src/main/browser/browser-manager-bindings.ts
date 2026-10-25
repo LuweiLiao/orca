@@ -2,6 +2,7 @@ import { setupGuestContextMenu } from './browser-guest-context-menu'
 import { setupGrabShortcutForwarding } from './browser-guest-grab-shortcuts'
 import { setupGuestMouseWheelZoomForwarding } from './browser-guest-wheel-zoom'
 import { setupGuestShortcutForwarding } from './browser-guest-shortcut-forwarding'
+import { setupGuestTargetUrlForwarding } from './browser-guest-target-url'
 import { BrowserManagerGrab } from './browser-manager-grab'
 
 export abstract class BrowserManagerBindings extends BrowserManagerGrab {
@@ -74,6 +75,18 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
         canViewportScroll: (mouse) => this.canViewportScroll(guest.id, mouse),
         onViewportWheelConsumed: (deltaX, deltaY) =>
           this.recordViewportScrollDelta(guest.id, deltaX, deltaY)
+      })
+    )
+  }
+
+  protected setupTargetUrlForwarding(browserTabId: string, guest: Electron.WebContents): void {
+    this.targetUrlCleanupByTabId.get(browserTabId)?.()
+    this.targetUrlCleanupByTabId.set(
+      browserTabId,
+      setupGuestTargetUrlForwarding({
+        browserTabId,
+        guest,
+        resolveRenderer: (tabId) => this.resolveRendererForBrowserTab(tabId)
       })
     )
   }

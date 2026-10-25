@@ -19,7 +19,7 @@ import {
   visibleRendererPtys,
   rendererVisibilityKnownPtys
 } from './visibility-state'
-import { setRendererPtyDeliveryInterest } from '../../pty-hidden-delivery-gate'
+import { setRendererPtyDeliveryInterest } from './pty-hidden-delivery-gate'
 
 type NativeDelivery = {
   id: number

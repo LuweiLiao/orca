@@ -78,6 +78,10 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     browserTabId: string,
     guest: Electron.WebContents
   ): void
+  protected abstract setupTargetUrlForwarding(
+    browserTabId: string,
+    guest: Electron.WebContents
+  ): void
   protected abstract cancelGrabOp(browserTabId: string, reason: BrowserGrabCancelReason): void
   protected abstract hasActiveGrabOp(browserTabId: string): boolean
   protected abstract unregisterGuest(
@@ -143,6 +147,7 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
   protected readonly grabShortcutCleanupByTabId = new Map<string, () => void>()
   protected readonly shortcutForwardingCleanupByTabId = new Map<string, () => void>()
   protected readonly mouseWheelZoomCleanupByTabId = new Map<string, () => void>()
+  protected readonly targetUrlCleanupByTabId = new Map<string, () => void>()
   protected readonly annotationViewportBridgeOpsByTabId = new Map<string, Promise<unknown>>()
 
   protected override guestIdForRenderer(pageId: string, rendererId: number): number | undefined {

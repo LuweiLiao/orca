@@ -76,11 +76,14 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
     }
     this.certificateTrustController?.onGuestRegistered(webContentsId, browserTabId)
     this.siteDisplayController?.onGuestRegistered(guest, sessionProfileId ?? null)
+    // Earlier audio events had no page; this report also cues the renderer to re-apply a tab's mute.
+    this.notifyAudioStateChanged(browserTabId, guest.isCurrentlyAudible())
 
     this.setupContextMenu(browserTabId, guest)
     this.setupGrabShortcut(browserTabId, guest)
     this.setupShortcutForwarding(browserTabId, guest)
     this.setupMouseWheelZoomForwarding(browserTabId, guest)
+    this.setupTargetUrlForwarding(browserTabId, guest)
     this.flushPendingLoadFailure(browserTabId, webContentsId)
     this.flushPendingPermissionEvents(browserTabId, webContentsId)
     this.flushPendingPopupEvents(browserTabId, webContentsId)
@@ -118,6 +121,7 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
       browserTabId,
       nativeRenderer === undefined ? undefined : guestWebContentsId
     )
+    this.notifyAudioStateChanged(browserTabId, false)
 
     if (guestWebContentsId !== undefined) {
       this.cleanupGuestPolicyAttachment(guestWebContentsId)
@@ -143,6 +147,8 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
       mouseWheelZoomCleanup()
       this.mouseWheelZoomCleanupByTabId.delete(browserTabId)
     }
+    this.targetUrlCleanupByTabId.get(browserTabId)?.()
+    this.targetUrlCleanupByTabId.delete(browserTabId)
     let hasActiveDownloads = false
     for (const [downloadId, download] of this.downloadsById.entries()) {
       if (
@@ -248,6 +254,7 @@ export abstract class BrowserManagerRegistration extends BrowserManagerNativeGue
     this.pendingPopupEventsByGuestId.clear()
     this.pendingDownloadIdsByGuestId.clear()
     this.mouseWheelZoomCleanupByTabId.clear()
+    this.targetUrlCleanupByTabId.clear()
     this.annotationViewportBridgeOpsByTabId.clear()
   }
 }

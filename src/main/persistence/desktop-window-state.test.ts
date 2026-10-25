@@ -29,7 +29,7 @@ vi.mock('../ssh/config/ssh-config-parser', () => ({
 }))
 
 import { BrowserWindow } from 'electron'
-import { closeTestStores, createStore, testState } from '../persistence-test-harness'
+import { closeTestStores, createStore, testState } from './persistence-test-harness'
 import { getDefaultUIState, getDefaultWorkspaceSession } from '../../shared/constants'
 import type { PersistedUIState } from '../../shared/persisted-ui-state-types'
 import {

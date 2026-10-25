@@ -82,7 +82,7 @@ function makeRepo(overrides: Partial<Repo> = {}): Repo {
     badgeColor: '#000000',
     addedAt: 1,
     ...overrides
-  } as Repo
+  }
 }
 
 function makeStore(repos: Repo[]) {

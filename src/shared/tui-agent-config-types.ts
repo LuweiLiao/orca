@@ -13,6 +13,7 @@ export type DraftPasteMarkerSignal =
   | 'render-cursor-after-bracketed-paste'
   | 'grok-composer-prompt'
   | 'dsh-composer-prompt'
+  | 'claude-composer-prompt'
   | 'zcode-composer-prompt'
 
 /** Submit signals may also ask for a grace (`readyAfterMs`); only the paste waiters honour it. */
@@ -47,6 +48,8 @@ export type TuiAgentConfig = {
   draftPasteReadySignal?: DraftPasteMarkerSignal
   /** Signal before a paste that Enter follows, for agents that show their composer before it can submit; defaults to `draftPasteReadySignal`. */
   submitPasteReadySignal?: DraftPasteReadySignal
+  /** A worker start also answers on the composer marker, for an agent whose rest title the user can turn off. */
+  workerStartReadsComposerMarker?: true
   /** Hard deadline for the agent's composer readiness signal. */
   draftPasteReadyTimeoutMs?: number
   /** Captured boots proving the composer marker used for fresh worker dispatch (the submit signal where set). */
@@ -61,4 +64,10 @@ export type TuiAgentConfig = {
   windowsInputRecordPasteNewline?: 'alt-enter' | 'csi-u'
   /** Ctrl+Enter encoding for agents that consume CSI-u without active kitty flags. */
   ctrlEnterEncoding?: 'csi-u'
+}
+
+/** Authoring form: `launchCmd` and `expectedProcess` default to `detectCmd` (true for most agents). */
+export type TuiAgentConfigSource = Omit<TuiAgentConfig, 'launchCmd' | 'expectedProcess'> & {
+  launchCmd?: string
+  expectedProcess?: string
 }

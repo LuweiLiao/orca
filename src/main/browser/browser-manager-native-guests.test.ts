@@ -264,8 +264,10 @@ describe('native browser page guests', () => {
       shift: false
     }
     a.emit('before-input-event', { preventDefault: vi.fn() }, input)
-    expect(first.send).toHaveBeenCalled()
-    expect(second.send).not.toHaveBeenCalled()
+    expect(first.send).toHaveBeenCalledWith('ui:focusBrowserAddressBar', {
+      browserPageId: 'shared-page'
+    })
+    expect(second.send).not.toHaveBeenCalledWith('ui:focusBrowserAddressBar', expect.anything())
     manager.selectNativeRenderer(first.id)
     expect(manager.getGuestWebContentsId('shared-page')).toBe(a.id)
     b.destroy()

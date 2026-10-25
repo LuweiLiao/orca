@@ -64,6 +64,9 @@ export class DestroyedGuestTestContents extends EventEmitter {
     this.windowOpenHandler = handler
   }
   setBackgroundThrottling(): void {}
+  isCurrentlyAudible(): boolean {
+    return false
+  }
 
   destroy(): void {
     this.destroyed = true
