@@ -1,4 +1,5 @@
 import type { Tab } from '../../../shared/tab-types'
+import { toVisibleTabType } from '../../../shared/tab-types'
 import type { WorkspaceSessionState } from '../../../shared/workspace-session-state-types'
 import { stableJson } from '../../../shared/workspace-layout/workspace-layout-load-report'
 import { pickStoredFields } from '../../../shared/workspace-layout/stored-record-fields'
@@ -194,6 +195,11 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
         ]
       })
     }
+    next.openFiles = built.openFiles.filter(
+      (file) =>
+        !built.unifiedTabsByWorktree[file.worktreeId]?.some((tab) => tab.entityId === file.id) ||
+        next.unifiedTabsByWorktree[file.worktreeId]?.some((tab) => tab.entityId === file.id)
+    )
     // The local merge can reinsert a dirty tab; its hold must still follow the raw frame.
     const dirtyFiles = state.openFiles.filter(
       (file) =>
@@ -215,10 +221,37 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
               (tab) => tab.id === id && tab.entityId === file.id
             ))
       )
-    return withHeldTabsAsDrawn(state, next, keys, {
+    const retained = withHeldTabsAsDrawn(state, next, keys, {
       isTabHeld: holdsDirtyFile,
       keepsInMainGroups: holdsDirtyFile,
       isGroupLayoutHeld: () => false
     })
+    for (const key of keys) {
+      const active = state.groupsByWorktree[key]?.find(
+        (group) => group.id === state.activeGroupIdByWorktree[key]
+      )?.activeTabId
+      const tab = retained.unifiedTabsByWorktree[key]?.find((entry) => entry.id === active)
+      const file = tab && state.openFiles.find((entry) => entry.id === tab.entityId)
+      if (
+        !tab ||
+        !file ||
+        !isDirtyEditorBufferSide({ record: file, draft: state.editorDrafts?.[file.id] })
+      ) {
+        continue
+      }
+      retained.groupsByWorktree = {
+        ...retained.groupsByWorktree,
+        [key]: retained.groupsByWorktree[key]!.map((group) =>
+          group.id === tab.groupId ? { ...group, activeTabId: tab.id } : group
+        )
+      }
+      retained.activeGroupIdByWorktree = { ...retained.activeGroupIdByWorktree, [key]: tab.groupId }
+      retained.activeFileIdByWorktree = { ...retained.activeFileIdByWorktree, [key]: file.id }
+      retained.activeTabTypeByWorktree = {
+        ...retained.activeTabTypeByWorktree,
+        [key]: toVisibleTabType(tab.contentType)
+      }
+    }
+    return retained
   }
 }
