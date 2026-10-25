@@ -1,3 +1,4 @@
+import { getMainHttpClient } from '../network/http-client'
 import type { OrcaAccountMachinePlatform } from '../../shared/orca-account-server-sign-in'
 import type { OrcaCloudAuthConfig } from './cloud-auth/profile-cloud-auth-config'
 
@@ -123,7 +124,7 @@ async function post(
 ): Promise<{ status: number; json: unknown }> {
   let response: Response
   try {
-    response = await fetch(new URL(path, `${config.apiBaseUrl}/`), {
+    response = await getMainHttpClient().fetch(new URL(path, `${config.apiBaseUrl}/`).href, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),

@@ -1,3 +1,4 @@
+import { getMainHttpClient } from '../network/http-client'
 import type { OrcaCloudAuthConfig } from './cloud-auth/profile-cloud-auth-config'
 
 const PROBE_TIMEOUT_MS = 10_000
@@ -19,7 +20,9 @@ export async function probeOrcaServerSignIn(
   )
   let response: Response
   try {
-    response = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
+    response = await getMainHttpClient().fetch(url.href, {
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS)
+    })
   } catch {
     throw new Error("Couldn't reach Orca Cloud. Check this server's network and try again.")
   }

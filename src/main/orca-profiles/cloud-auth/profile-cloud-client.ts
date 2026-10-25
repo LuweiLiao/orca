@@ -1,3 +1,4 @@
+import { getMainHttpClient } from '../../network/http-client'
 import type {
   OrcaCloudCapabilities,
   OrcaCloudOrgSummary,
@@ -187,7 +188,7 @@ async function readCloudErrorCode(response: Response): Promise<string | undefine
 }
 
 async function postJson<T>(url: string, body: unknown, options?: PostJsonOptions): Promise<T> {
-  const response = await fetch(url, {
+  const response = await getMainHttpClient().fetch(url, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

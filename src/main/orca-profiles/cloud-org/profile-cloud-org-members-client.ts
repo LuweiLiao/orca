@@ -1,3 +1,4 @@
+import { getMainHttpClient } from '../../network/http-client'
 import type {
   OrcaOrgMember,
   OrcaOrgMembersRoster,
@@ -137,7 +138,7 @@ async function requestOrgMembers<T>(
   init: RequestInit,
   parse: (value: unknown) => T
 ): Promise<T> {
-  const response = await fetch(url, init)
+  const response = await getMainHttpClient().fetch(url, init)
   if (!response.ok) {
     throw new OrcaCloudRequestError(response.status, await extractErrorCode(response))
   }

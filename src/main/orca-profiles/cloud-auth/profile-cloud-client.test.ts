@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { setMainHttpClient } from '../../network/http-client'
 import type { OrcaCloudAuthConfig } from './profile-cloud-auth-config'
 import { createOrcaCloudProfile, OrcaCloudRequestError } from './profile-cloud-client'
 import type { OrcaCloudSession } from '../cloud-session/profile-cloud-session-store'
 
 afterEach(() => {
+  setMainHttpClient(null)
   vi.unstubAllGlobals()
 })
 
@@ -12,7 +14,9 @@ describe('createOrcaCloudProfile', () => {
     const fetchImpl = vi.fn<typeof globalThis.fetch>(
       async () => new Response(null, { status: 403 })
     )
-    vi.stubGlobal('fetch', fetchImpl)
+    // Login requests go through the desktop client, which carries the user's proxy.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Node fetch must not be used')))
+    setMainHttpClient({ fetch: fetchImpl, proxySession: () => null })
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the call reads only this endpoint.
     const config = {
       profileEndpoint: 'https://login.test/v1/desktop/auth/profile'
