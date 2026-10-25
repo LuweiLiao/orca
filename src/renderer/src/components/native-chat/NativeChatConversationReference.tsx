@@ -8,18 +8,21 @@ import {
   DialogDescription
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { NativeChatPromptPill } from './NativeChatPromptPill'
+import { NativeChatPromptPillRemoveButton } from './NativeChatPromptPillRemoveButton'
+import { Badge } from '@/components/ui/badge'
 import { translate } from '@/i18n/i18n'
 import type { ConversationReferenceMessage } from '../../../../shared/conversation-reference'
 
 export function NativeChatConversationReference({
   uri,
   title,
-  selected = false
+  selected = false,
+  onRemove
 }: {
   uri: string
   title: string
   selected?: boolean
+  onRemove?: () => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ConversationReferenceMessage[]>([])
@@ -61,25 +64,33 @@ export function NativeChatConversationReference({
   )
   return (
     <>
-      <button
-        type="button"
-        className="inline max-w-full align-baseline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
-        data-native-chat-conversation-reference={uri}
-        onMouseDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          setOpen(true)
-          void load()
-        }}
-      >
-        <NativeChatPromptPill
-          icon={MessageCircle}
-          label={title}
-          selected={selected}
+      <Badge variant="promptPill" data-selected={selected}>
+        <button
+          type="button"
+          className="inline-flex min-w-0 items-center gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          data-native-chat-conversation-reference={uri}
           title={title}
-        />
-      </button>
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            setOpen(true)
+            void load()
+          }}
+        >
+          <MessageCircle aria-hidden="true" className="size-3 shrink-0" />
+          <span className="truncate">{title}</span>
+        </button>
+        {onRemove ? (
+          <NativeChatPromptPillRemoveButton
+            label={translate(
+              'components.native-chat.conversationReference.remove',
+              'Remove conversation reference'
+            )}
+            onRemove={onRemove}
+          />
+        ) : null}
+      </Badge>
       <Dialog
         open={open}
         onOpenChange={(value) => {

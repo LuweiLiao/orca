@@ -3,7 +3,9 @@ import { NativeChatConversationReference } from './NativeChatConversationReferen
 
 export function NativeChatConversationReferencePill({
   node,
-  selected
+  selected,
+  deleteNode,
+  editor
 }: NodeViewProps): React.JSX.Element {
   return (
     <NodeViewWrapper as="span" className="inline" contentEditable={false}>
@@ -11,6 +13,7 @@ export function NativeChatConversationReferencePill({
         uri={String(node.attrs.uri)}
         title={String(node.attrs.title)}
         selected={selected}
+        onRemove={editor.isEditable ? deleteNode : undefined}
       />
     </NodeViewWrapper>
   )

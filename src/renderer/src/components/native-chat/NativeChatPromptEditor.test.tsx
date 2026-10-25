@@ -1,7 +1,8 @@
 import { readNativeChatDraftDocument } from './native-chat-draft-cache'
 // @vitest-environment happy-dom
-import { createRef } from 'react'
+import { createRef, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NativeChatPromptEditor } from './NativeChatPromptEditor'
 import {
@@ -12,10 +13,14 @@ import { promptEditor } from './native-chat-prompt-editor.test-support'
 
 afterEach(cleanup)
 
+function renderEditor(node: ReactNode) {
+  return render(<TooltipProvider>{node}</TooltipProvider>)
+}
+
 function setup(value = '') {
   const inputRef = createRef<NativeChatComposerInput>()
   const onChange = vi.fn()
-  const view = render(
+  const view = renderEditor(
     <NativeChatPromptEditor
       inputRef={inputRef}
       initialValue={value}
@@ -46,7 +51,7 @@ describe('native chat skill editor', () => {
       onChange: vi.fn(),
       onSelect: vi.fn()
     }
-    const first = render(<NativeChatPromptEditor {...props} />)
+    const first = renderEditor(<NativeChatPromptEditor {...props} />)
     act(() => inputRef.current!.setSelectionRange(7, 7))
     act(() =>
       inputRef.current!.insertOrchestration?.([
@@ -75,11 +80,36 @@ describe('native chat skill editor', () => {
     expect(text.endsWith('after')).toBe(true)
     first.unmount()
     const revised = text.replace('Flash', 'Burn')
-    const second = render(<NativeChatPromptEditor {...props} initialValue={revised} />)
+    const second = renderEditor(<NativeChatPromptEditor {...props} initialValue={revised} />)
     await waitFor(() =>
       expect(second.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(2)
     )
     expect(inputRef.current!.value).toBe(revised)
+  })
+
+  it('removes one chosen orchestration model from the draft with its close button', async () => {
+    const { input, container } = setup('Compare ')
+    act(() => input.setSelectionRange(8, 8))
+    act(() =>
+      input.insertOrchestration?.([
+        {
+          agent: 'claude',
+          label: 'Claude',
+          task: '',
+          count: 1,
+          model: { id: 'opus', label: 'Opus' }
+        }
+      ])
+    )
+    expect(input.value).toContain('model: opus')
+    await waitFor(() =>
+      expect(container.querySelector('[data-native-chat-orchestration]')).not.toBeNull()
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove agent selection' }))
+
+    expect(input.value).toBe('Compare ')
+    expect(container.querySelector('[data-native-chat-orchestration]')).toBeNull()
   })
 
   it('renders only picker insertions as pills and serializes the exact invocation', async () => {
@@ -194,18 +224,18 @@ describe('native chat skill editor', () => {
       onChange: vi.fn(),
       onSelect: vi.fn()
     }
-    const first = render(<NativeChatPromptEditor {...props} />)
+    const first = renderEditor(<NativeChatPromptEditor {...props} />)
     act(() => inputRef.current!.insertSkill!(0, 4, '$review'))
     expect(
       readNativeChatDraftDocument('pill-pane', '$review ')?.content?.[0]?.content?.[0]?.type
     ).toBe('nativeChatSkill')
     first.unmount()
-    const second = render(<NativeChatPromptEditor {...props} initialValue="$review " />)
+    const second = renderEditor(<NativeChatPromptEditor {...props} initialValue="$review " />)
     await waitFor(() =>
       expect(second.container.querySelector('[data-native-chat-skill]')).not.toBeNull()
     )
     second.unmount()
-    const other = render(
+    const other = renderEditor(
       <NativeChatPromptEditor {...props} scopeKey="other-pane" initialValue="$review " />
     )
     expect(other.container.querySelector('[data-native-chat-skill]')).toBeNull()

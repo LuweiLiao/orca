@@ -18604,6 +18604,7 @@
       },
       "conversationReference": {
         "source": "引用的对话",
+        "remove": "移除对话引用",
         "differentHost": "当前智能体无法访问该对话所在的主机，请在来源主机上打开聊天后引用。",
         "loading": "正在读取对话",
         "retry": "重试",
@@ -18832,6 +18833,7 @@
         "addOrchestrationToMessage": "加入消息",
         "updateOrchestration": "更新编排",
         "editOrchestration": "修改编排：{{label}}",
+        "removeOrchestration": "移除智能体选择",
         "startDictation": "开始听写",
         "stopDictation": "停止听写",
         "noSkills": "没有匹配的技能",
