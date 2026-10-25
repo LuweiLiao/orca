@@ -33,6 +33,7 @@ export async function tearDownRuntime(
   recordAgentSessionRuntimeEnd(trigger)
   // Stop delivery before recovery can wake queued sends and start children teardown would kill.
   installed.stopBackgroundWork?.()
+  installed.host.deps.conversationNaming?.stop?.()
   installed.host.stopDelivery()
   // Drain an in-flight recovery before stopping children; recovery may still
   // be writing lifecycle rows or acquiring a replacement child.

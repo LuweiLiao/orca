@@ -131,6 +131,7 @@ export type AgentSessionRecord = {
   conversationCommand?: AgentSessionConversationCommandRecord
   /** The name Orca gave this conversation, so a later acquisition need not name it again. */
   conversationName?: string
+  conversationNameSource?: 'seed' | 'generated' | 'manual'
   /** When the user's Sleep stopped this chat; the next admitted send clears it. */
   sleptAt?: number
   launchArgs?: AgentSessionLaunchArgs
@@ -324,6 +325,10 @@ export function isPersistedAgentSessionRecord(
       isAgentSessionConversationCommandRecord(record.conversationCommand)) &&
     (record.conversationName === undefined ||
       isAgentSessionConversationName(record.conversationName)) &&
+    (record.conversationNameSource === undefined ||
+      record.conversationNameSource === 'seed' ||
+      record.conversationNameSource === 'generated' ||
+      record.conversationNameSource === 'manual') &&
     (record.launchArgs === undefined || isAgentSessionLaunchArgs(record.launchArgs)) &&
     !Object.hasOwn(record, 'launchEnv') &&
     isPersistedAgentSessionLease(record.lease) &&

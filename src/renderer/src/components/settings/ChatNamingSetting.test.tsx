@@ -8,6 +8,13 @@ import { normalizeSourceControlAiSettings } from '../../../../shared/source-cont
 import { ChatNamingSetting } from './ChatNamingSetting'
 import { toast } from 'sonner'
 import { startTransition, StrictMode, Suspense } from 'react'
+import { TooltipProvider } from '../ui/tooltip'
+
+vi.mock('../native-chat/native-chat-session-option-discovery', () => ({
+  discoverNativeChatCatalogModels: vi.fn(async () => [
+    { id: 'account-model', label: 'Account model' }
+  ])
+}))
 
 const state = vi.hoisted(() => ({ settingsSearchQuery: '' }))
 vi.mock('../../store', () => ({
@@ -25,7 +32,11 @@ beforeEach(() => {
 })
 
 function renderSetting(overrides: Partial<GlobalSettings> = {}) {
-  const settings = { ...getDefaultSettings('/tmp'), ...overrides }
+  const settings = {
+    ...getDefaultSettings('/tmp'),
+    defaultTuiAgent: 'codex' as const,
+    ...overrides
+  }
   const updateSettings = vi.fn()
   const onDirtyChange = vi.fn()
   const writeSourceControlAiSettings = vi.fn(async (patch: SourceControlAiSettingsPatch) => {
@@ -37,12 +48,14 @@ function renderSetting(overrides: Partial<GlobalSettings> = {}) {
     settings.sourceControlAi = { ...current, ...resolved }
   })
   const element = () => (
-    <ChatNamingSetting
-      settings={settings}
-      updateSettings={updateSettings}
-      writeSourceControlAiSettings={writeSourceControlAiSettings}
-      onDirtyChange={onDirtyChange}
-    />
+    <TooltipProvider>
+      <ChatNamingSetting
+        settings={settings}
+        updateSettings={updateSettings}
+        writeSourceControlAiSettings={writeSourceControlAiSettings}
+        onDirtyChange={onDirtyChange}
+      />
+    </TooltipProvider>
   )
   const view = render(element())
   return { ...view, element, settings, updateSettings, writeSourceControlAiSettings, onDirtyChange }
@@ -56,12 +69,14 @@ function changeTemplate(value: string): void {
   fireEvent.change(input, { target: { value } })
 }
 
-function changeAgentArgs(value: string): void {
-  const input = screen.getByText('CLI arguments').nextElementSibling
-  if (!(input instanceof HTMLInputElement)) {
-    throw new Error('CLI arguments input is missing')
-  }
-  fireEvent.change(input, { target: { value } })
+async function changeModel(): Promise<void> {
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Refresh models' }).hasAttribute('disabled')).toBe(
+      false
+    )
+  )
+  fireEvent.click(screen.getByRole('combobox', { name: 'Model' }))
+  fireEvent.click(screen.getByRole('option', { name: 'Account model' }))
 }
 
 describe('Chat names setting', () => {
@@ -73,7 +88,7 @@ describe('Chat names setting', () => {
     expect(updateSettings).toHaveBeenCalledWith({ nativeChatAutoName: false })
   })
 
-  it('saves CLI arguments and a template through the shared writer', async () => {
+  it('saves a discovered model and template through the shared writer', async () => {
     const { settings, writeSourceControlAiSettings, onDirtyChange } = renderSetting({
       sourceControlAi: normalizeSourceControlAiSettings({
         ...normalizeSourceControlAiSettings(undefined),
@@ -82,13 +97,14 @@ describe('Chat names setting', () => {
       })
     })
     changeTemplate('Name: {firstPrompt}')
-    changeAgentArgs('--model fast')
+    expect(screen.queryByText('CLI arguments')).toBeNull()
+    await changeModel()
     expect(onDirtyChange).toHaveBeenLastCalledWith(true)
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(writeSourceControlAiSettings).toHaveBeenCalledTimes(1))
     expect(settings.sourceControlAi?.actions?.conversationName).toEqual({
       commandInputTemplate: 'Name: {firstPrompt}',
-      agentArgs: '--model fast'
+      agentArgs: "--model 'account-model'"
     })
     expect(settings.sourceControlAi?.enabled).toBe(false)
     expect(settings.sourceControlAi?.actions?.commitMessage?.commandInputTemplate).toBe(
@@ -104,7 +120,7 @@ describe('Chat names setting', () => {
         actions: { commitMessage: { commandInputTemplate: 'Keep this' } }
       })
     })
-    fireEvent.click(screen.getByRole('combobox'))
+    fireEvent.click(screen.getAllByRole('combobox')[0])
     fireEvent.click(screen.getByRole('option', { name: 'Custom command' }))
     await waitFor(() => {
       expect(settings.sourceControlAi?.actions?.conversationName?.agentId).toBe('custom')
@@ -127,7 +143,7 @@ describe('Chat names setting', () => {
         enabled: false
       })
     })
-    expect(screen.getAllByRole('combobox')).toHaveLength(1)
+    expect(screen.getAllByRole('combobox')).toHaveLength(2)
     expect(screen.getByText('Command template')).toBeTruthy()
     expect(screen.getByRole('button', { name: '{basePrompt}' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '{firstPrompt}' })).toBeTruthy()
@@ -241,12 +257,14 @@ describe('Chat names setting', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     const onDirtyChange = vi.fn()
     rerender(
-      <ChatNamingSetting
-        settings={settings}
-        updateSettings={updateSettings}
-        writeSourceControlAiSettings={writeSourceControlAiSettings}
-        onDirtyChange={onDirtyChange}
-      />
+      <TooltipProvider>
+        <ChatNamingSetting
+          settings={settings}
+          updateSettings={updateSettings}
+          writeSourceControlAiSettings={writeSourceControlAiSettings}
+          onDirtyChange={onDirtyChange}
+        />
+      </TooltipProvider>
     )
     await act(async () => finishWrite())
     expect(onDirtyChange).toHaveBeenLastCalledWith(false)
@@ -277,15 +295,17 @@ describe('Chat names setting', () => {
       return null
     }
     const element = (blocked: boolean) => (
-      <Suspense fallback={<span>Settings loading</span>}>
-        <ChatNamingSetting
-          settings={settings}
-          updateSettings={vi.fn()}
-          writeSourceControlAiSettings={writeSourceControlAiSettings}
-          onDirtyChange={blocked ? speculativeDirty : committedDirty}
-        />
-        <RenderGate blocked={blocked} />
-      </Suspense>
+      <TooltipProvider>
+        <Suspense fallback={<span>Settings loading</span>}>
+          <ChatNamingSetting
+            settings={settings}
+            updateSettings={vi.fn()}
+            writeSourceControlAiSettings={writeSourceControlAiSettings}
+            onDirtyChange={blocked ? speculativeDirty : committedDirty}
+          />
+          <RenderGate blocked={blocked} />
+        </Suspense>
+      </TooltipProvider>
     )
     const { rerender, unmount } = render(element(false))
     changeTemplate('Committed save')

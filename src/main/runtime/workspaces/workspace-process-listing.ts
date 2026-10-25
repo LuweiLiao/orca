@@ -36,6 +36,7 @@ import { maybeAutoRenameWorkspaceOnFirstStructuredTurn } from '../../agent-hooks
 import { firstWorkRenameDeps } from '../../agent-hooks/first-work-rename-runtime'
 import { createStructuredChatNamingHandler } from '../../native-chat/structured-chat-naming'
 import { structuredChatNamingDeps } from '../structured-chat-naming-runtime'
+import { installStructuredChatNamingRecovery } from '../structured-chat-naming-recovery'
 import { getProfileUserDataPath } from '../../orca-profiles/profile-storage-paths'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../shared/execution-host'
 import { escalateChatWorkerError } from '../orchestration/chat-worker-error-escalation'
@@ -231,6 +232,7 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktr
             return { path: target.worktree.path, executionHostId: target.executionHostId }
           },
           getAgentEnvResolvers: () => this.getCommitMessageAgentEnvironmentResolvers(),
+          readWorkspaceSession: (id) => this.getWorkspaceSessionForWorktree(id),
           workerTaskTitle: (record) =>
             structuredWorkerOpenTaskTitle(this.getOrchestrationDbIfAvailable?.() ?? null, record),
           retitleOpenTab: (workspaceId, sessionId) =>
@@ -303,6 +305,10 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktr
       hasOpenDispatch: (record) =>
         structuredWorkerOwesWork(this.getOrchestrationDbIfAvailable?.() ?? null, record)
     })
+    const host = getStructuredAgentSessionHost()
+    if (host?.deps.conversationNaming === nameChat) {
+      installStructuredChatNamingRecovery(this.requireStore(), host, nameChat.recover)
+    }
   }
 
   /** A chat worker whose request settled failed tells the Run that dispatched it. */

@@ -11,6 +11,11 @@ import {
   type SettingsPersistenceModel
 } from './settings-persistence-test-fixture'
 import { normalizeSourceControlAiSettings } from '../../../../shared/source-control-ai'
+import { TooltipProvider } from '../ui/tooltip'
+
+vi.mock('../native-chat/native-chat-session-option-discovery', () => ({
+  discoverNativeChatCatalogModels: vi.fn(async () => null)
+}))
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }))
 
@@ -23,7 +28,7 @@ function GitPersistenceHarness({ model }: { model: SettingsPersistenceModel }) {
     throw new Error('Settings fixture is missing')
   }
   return (
-    <>
+    <TooltipProvider>
       <CommitMessageAiPane
         settings={settings}
         updateSettings={model.updateSettings}
@@ -35,7 +40,7 @@ function GitPersistenceHarness({ model }: { model: SettingsPersistenceModel }) {
         writeSourceControlAiSettings={controller.writeSourceControlAiSettingsOrThrow}
         onDirtyChange={model.setHasUnsavedChatPromptChanges}
       />
-    </>
+    </TooltipProvider>
   )
 }
 
@@ -49,7 +54,7 @@ it('consumes an actual Git toggle failure and lets the following Chat write succ
     expect(console.error).toHaveBeenCalledWith('Failed to update settings:', expect.any(Error))
   )
   expect(toggle.getAttribute('aria-checked')).toBe('false')
-  fireEvent.click(screen.getByRole('combobox'))
+  fireEvent.click(screen.getByRole('combobox', { name: 'Agent' }))
   fireEvent.click(screen.getByRole('option', { name: 'Custom command' }))
   await waitFor(() =>
     expect(
@@ -83,7 +88,7 @@ it('does not let a failed actual Git agent selection roll back a queued Chat sel
   render(<GitPersistenceHarness model={settingsModel()} />)
   const agents = screen.getAllByRole('combobox')
   const gitAgent = agents[0]
-  const chatAgent = agents.at(-1)
+  const chatAgent = screen.getByRole('combobox', { name: 'Agent' })
   if (!gitAgent || !chatAgent || agents.length < 2) {
     throw new Error('Git and Chat agent controls are missing')
   }
