@@ -14,6 +14,7 @@ vi.mock('../../store', () => ({
 vi.mock('../dictation/dictation-control-events', () => ({ dispatchDictationControl: vi.fn() }))
 
 vi.mock('@/i18n/i18n', () => ({
+  i18n: { language: 'en' },
   translate: (_key: string, fallback: string) => fallback
 }))
 

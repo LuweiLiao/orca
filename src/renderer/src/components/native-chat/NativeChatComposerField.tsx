@@ -22,10 +22,12 @@ import type {
   SessionOptionsSurface
 } from '../../../../shared/native-chat-session-options'
 import type { NativeChatOptionPickerRequest } from './native-chat-composer-types'
+import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
 import { NativeChatImageAttachmentPreview } from './NativeChatImageAttachmentPreview'
 import type { NativeChatComposerGoalMode } from './use-native-chat-composer-submit'
 import { translate } from '@/i18n/i18n'
 import { useNativeChatComposerDraftUnsaved } from './use-native-chat-draft-unsaved'
+import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
 
 export type NativeChatComposerFieldProps = {
   /** Pane identity published to the drop pipeline so a native file drop lands
@@ -84,6 +86,9 @@ export type NativeChatComposerFieldProps = {
   sessionOptionsPickerRequest?: NativeChatOptionPickerRequest | null
   goalMode?: NativeChatComposerGoalMode
   agent?: string
+  terminalTabId?: string
+  structuredTransport?: NativeChatStructuredComposerTransport
+  onInsertOrchestrationInstruction?: (selections: OrchestrationAgentSelection[]) => boolean
 }
 
 export type NativeChatComposerImageAttachment = {
@@ -170,7 +175,10 @@ export function NativeChatComposerField({
   contextUsage,
   sessionOptionsPickerRequest,
   goalMode,
-  agent
+  agent,
+  terminalTabId,
+  structuredTransport,
+  onInsertOrchestrationInstruction
 }: NativeChatComposerFieldProps): React.JSX.Element {
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
   const conversationDrop = useConversationReferenceDrop(
@@ -345,6 +353,9 @@ export function NativeChatComposerField({
               }}
               onPasteCapture={onPaste}
               onSelect={onTextareaSelect}
+              orchestrationContext={
+                terminalTabId ? { terminalTabId, structuredTransport } : undefined
+              }
               aria-expanded={autocomplete.mode !== 'none'}
               aria-controls={autocomplete.mode !== 'none' ? pickerListboxId : undefined}
               aria-activedescendant={
@@ -395,6 +406,11 @@ export function NativeChatComposerField({
                 sessionOptionsPickerRequest={sessionOptionsPickerRequest}
                 focusComposer={focusComposer}
                 onExitGoalMode={goalMode?.active ? goalMode.exit : undefined}
+                terminalTabId={terminalTabId}
+                structuredTransport={structuredTransport}
+                onInsertOrchestrationInstruction={
+                  goalMode?.active ? undefined : onInsertOrchestrationInstruction
+                }
                 {...(agent ? { agent } : {})}
               />
             </div>

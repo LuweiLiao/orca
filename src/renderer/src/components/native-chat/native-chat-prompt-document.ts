@@ -3,6 +3,7 @@ import { NativeChatConversationReferencePill } from './NativeChatConversationRef
 import { CONVERSATION_REFERENCE_NODE } from '../../../../shared/conversation-reference'
 import { NativeChatSkillPill, skillLabel } from './NativeChatSkillPill'
 import { NativeChatImageReferencePill } from './NativeChatImageReferencePill'
+import { NativeChatOrchestrationPill } from './NativeChatOrchestrationPill'
 import { formatNativeChatFileReference } from '../../../../shared/agent-image-paste'
 import { imageReferenceToken } from '../../../../shared/native-chat-image-reference'
 import { FILE_REFERENCE_NODE, IMAGE_REFERENCE_NODE } from './native-chat-prompt-document-text'
@@ -44,6 +45,25 @@ export const NativeChatSkill = Node.create({
     ['span', { 'aria-hidden': 'true' }, 'ϟ'],
     ['span', {}, skillLabel(String(node.attrs.token))]
   ]
+})
+
+export const NativeChatOrchestration = Node.create({
+  name: 'nativeChatOrchestration',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addNodeView: () => ReactNodeViewRenderer(NativeChatOrchestrationPill),
+  addAttributes: () => ({
+    agent: { default: '' },
+    label: { default: '' },
+    count: { default: 1 },
+    modelId: { default: '' },
+    modelLabel: { default: '' },
+    token: { default: '' }
+  }),
+  renderText: ({ node }) => node.attrs.token,
+  renderHTML: ({ node }) => ['span', { 'data-native-chat-orchestration': node.attrs.agent }]
 })
 
 /** A file attached by path. `token` is the reference the agent reads; the pill shows the filename. */
