@@ -45,19 +45,25 @@ function rig(provider: 'claude' | 'codex') {
   let record: AgentSessionRecord | null = { ...agentSessionRecordFixture(), provider }
   const getRecord = vi.fn(() => record)
   const setConversationName = vi.fn(
-    async (_id: string, name: string | null, expected: string | null) => {
+    async (
+      _id: string,
+      name: string | null,
+      expected: string | null,
+      source?: AgentSessionRecord['conversationNameSource']
+    ) => {
       if (!record) {
         throw new Error('Missing record')
       }
       if ((record.conversationName ?? null) !== expected) {
         return null
       }
-      record = setAgentSessionRecordConversationName(record, name, Date.now())
+      record = setAgentSessionRecordConversationName(record, name, Date.now(), source)
       return record
     }
   )
   const deps: StructuredChatNamingDeps = {
     getStore: () => ({ getRecord, compareAndSetConversationName: setConversationName }),
+    listRecords: () => (record ? [record] : []),
     getSettings: () => ({}),
     now: () => 100,
     workerTaskTitle: vi.fn(() => null),
@@ -90,6 +96,104 @@ function rig(provider: 'claude' | 'codex') {
 }
 
 describe.each(['claude', 'codex'] as const)('structured %s chat naming', (provider) => {
+  it('stops recovery without saving an in-flight result when the host shuts down', async () => {
+    const state = rig(provider)
+    state.replace({
+      ...agentSessionRecordFixture(),
+      provider,
+      conversationName: 'Please repair the login flow'
+    })
+    const pending = deferred<StructuredChatNameGeneration>()
+    state.deps.generate = vi.fn(() => pending.promise)
+    const recovering = state.handle.recover()
+    await settle()
+    state.handle.stop?.()
+    pending.resolve({ name: 'Late title' })
+    await recovering
+    expect(state.read()?.conversationName).toBe('Please repair the login flow')
+    await state.handle.recover()
+    expect(state.deps.generate).toHaveBeenCalledTimes(1)
+  })
+  it('recovers a legacy first-prompt title after restart without renaming it again', async () => {
+    const state = rig(provider)
+    state.replace({
+      ...agentSessionRecordFixture(),
+      provider,
+      conversationName: 'Please repair the login flow'
+    })
+    await state.handle.recover()
+    expect(state.read()?.conversationName).toBe('auth/login')
+    expect(state.read()?.conversationNameSource).toBe('generated')
+    await state.handle.recover()
+    expect(state.deps.generate).toHaveBeenCalledTimes(1)
+  })
+
+  it('recovers a failed old name after a configuration change', async () => {
+    const state = rig(provider)
+    state.deps.generate = vi.fn(async () => ({ error: 'Unsupported model' }))
+    state.handle(state.summary, { replay: false })
+    await settle()
+    expect(state.handle.failure(state.summary.sessionId)).toBeDefined()
+    state.deps.generate = vi.fn(async () => ({ name: 'Fixed model' }))
+    await state.handle.recover()
+    expect(state.read()?.conversationName).toBe('Fixed model')
+    expect(state.handle.failure(state.summary.sessionId)).toBeUndefined()
+  })
+
+  it.each(['manual', 'generated'] as const)(
+    'preserves a %s title equal to the seed',
+    async (source) => {
+      const state = rig(provider)
+      state.replace({
+        ...agentSessionRecordFixture(),
+        provider,
+        conversationName: 'Please repair the login flow',
+        conversationNameSource: source
+      })
+      await state.handle.recover()
+      expect(state.deps.generate).not.toHaveBeenCalled()
+    }
+  )
+
+  it('preserves a manual rename during recovery', async () => {
+    const state = rig(provider)
+    state.replace({
+      ...agentSessionRecordFixture(),
+      provider,
+      conversationName: 'Please repair the login flow'
+    })
+    const pending = deferred<StructuredChatNameGeneration>()
+    state.deps.generate = vi.fn(() => pending.promise)
+    const recovering = state.handle.recover()
+    await settle()
+    const record = state.read()
+    if (!record) {
+      throw new Error('Missing record')
+    }
+    state.replace(setAgentSessionRecordConversationName(record, 'My title', 200))
+    pending.resolve({ name: 'Automatic title' })
+    await recovering
+    expect(state.read()?.conversationName).toBe('My title')
+  })
+
+  it('skips custom tab titles, disabled naming and workers during recovery', async () => {
+    const state = rig(provider)
+    state.replace({
+      ...agentSessionRecordFixture(),
+      provider,
+      conversationName: 'Please repair the login flow'
+    })
+    state.deps.canRecover = () => false
+    await state.handle.recover()
+    state.deps.canRecover = () => true
+    state.deps.getSettings = () => ({ nativeChatAutoName: false })
+    await state.handle.recover()
+    state.deps.getSettings = () => ({})
+    state.deps.workerTaskTitle = () => ({ title: 'Task' })
+    await state.handle.recover()
+    expect(state.deps.generate).not.toHaveBeenCalled()
+  })
+
   it('names the chat from its first prompt at once, then takes the generated name', async () => {
     const state = rig(provider)
     const generation = deferred<StructuredChatNameGeneration>()
@@ -249,7 +353,9 @@ describe.each(['claude', 'codex'] as const)('structured %s chat naming', (provid
     expect(state.setConversationName).toHaveBeenLastCalledWith(
       state.summary.sessionId,
       'auth/login',
-      'Please repair the login flow'
+      'Please repair the login flow',
+      'generated',
+      'seed'
     )
     expect(state.handle.failure(state.summary.sessionId)).toBeUndefined()
   })

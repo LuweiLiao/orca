@@ -13,6 +13,7 @@ import { translate } from '@/i18n/i18n'
 import { Switch } from '../ui/switch'
 import { Card, CardContent } from '../ui/card'
 import { SourceControlActionRecipeRow } from './SourceControlActionRecipeRow'
+import { ChatNamingModelSelect } from './ChatNamingModelSelect'
 import { CustomAgentCommandField } from './CustomAgentCommandField'
 import { SettingsSubsectionHeader } from './SettingsFormControls'
 import { SearchableSetting } from './SearchableSetting'
@@ -166,6 +167,13 @@ export function ChatNamingSetting({
                   actionId="conversationName"
                   selectedAgent={recipe?.agentId ?? null}
                   draftValue={value}
+                  agentOptionsControl={
+                    <ChatNamingModelSelect
+                      settings={settings}
+                      agentArgs={value.agentArgs}
+                      onChange={(agentArgs) => updateDraft({ ...value, agentArgs })}
+                    />
+                  }
                   baseValue={persisted}
                   hasUnsavedChanges={dirty}
                   defaultTuiAgent={settings.defaultTuiAgent}

@@ -1,4 +1,5 @@
 import { LOCAL_EXECUTION_HOST_ID, type ExecutionHostId } from '../../shared/execution-host'
+import type { WorkspaceSessionState } from '../../shared/workspace-session-state-types'
 import type { CommitMessageAgentEnvironmentResolvers } from '../text-generation/commit-message-agent-environment'
 import type { StructuredChatNamingDeps } from '../native-chat/structured-chat-naming'
 import type { StructuredAgentSessionLogger } from '../native-chat/agent-session-wire/structured-agent-session-logger'
@@ -18,6 +19,7 @@ type StructuredChatNamingRuntime = {
   ) => Promise<{ path: string; executionHostId: ExecutionHostId }>
   getAgentEnvResolvers: () => CommitMessageAgentEnvironmentResolvers | undefined
   workerTaskTitle: StructuredChatNamingDeps['workerTaskTitle']
+  readWorkspaceSession?: (workspaceId: string) => WorkspaceSessionState | null | undefined
   retitleOpenTab: StructuredChatNamingDeps['onNamed']
 }
 
@@ -31,6 +33,18 @@ export function structuredChatNamingDeps(
 ): StructuredChatNamingDeps {
   return {
     getStore: () => getStructuredAgentSessionHost()?.deps.store ?? null,
+    listRecords: () => getStructuredAgentSessionHost()?.deps.store.listRecords() ?? [],
+    canRecover: (record) => {
+      const workspaceId = record.location.workspaceId
+      return !runtime
+        .readWorkspaceSession?.(workspaceId)
+        ?.unifiedTabs?.[workspaceId]?.some(
+          (tab) =>
+            tab.contentType === 'agent-session' &&
+            tab.entityId === record.sessionId &&
+            tab.customLabel
+        )
+    },
     getSettings: () => getStore().getSettings(),
     readFirstPrompt: async (sessionId, hostStartedAt) => {
       const host = getStructuredAgentSessionHost()

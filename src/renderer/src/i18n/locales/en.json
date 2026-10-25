@@ -259,6 +259,10 @@
       "permissionsDescription": "New chats only. Agent-specific defaults are in Settings → Agents.",
       "description": "Choose how chats look and behave.",
       "names": {
+        "agent": "Agent",
+        "model": "Model",
+        "refreshModels": "Refresh models",
+        "modelsUnavailable": "Could not refresh models. Showing saved and built-in models.",
         "title": "Chat names",
         "description": "Use an agent to name new chats from their first message. Until a name is generated, a chat shows its first message.",
         "enable": "Name chats automatically",

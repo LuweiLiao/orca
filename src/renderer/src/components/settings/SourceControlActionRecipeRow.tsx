@@ -35,6 +35,7 @@ type SourceControlActionRecipeRowProps<ActionId extends AiActionId> = {
   isSavingTemplate: boolean
   hasUnsavedChanges?: boolean
   repoOverrideNote?: React.ReactNode
+  agentOptionsControl?: React.ReactNode
   onAgentChange: (actionId: ActionId, value: string) => void
   onTemplateChange: (actionId: ActionId, value: string) => void
   onAgentArgsChange: (actionId: ActionId, value: string) => void
@@ -68,6 +69,7 @@ export function SourceControlActionRecipeRow<ActionId extends AiActionId>({
   isSavingTemplate,
   hasUnsavedChanges,
   repoOverrideNote,
+  agentOptionsControl,
   onAgentChange,
   onTemplateChange,
   onAgentArgsChange,
@@ -83,20 +85,37 @@ export function SourceControlActionRecipeRow<ActionId extends AiActionId>({
   const agentOptions = getAgentCatalogForAction(actionId, selectedAgent)
   const agentWarningText = getSourceControlActionAgentWarningText(actionId, selectedAgent)
   const agentSupportText = getSourceControlActionAgentSupportText(actionId)
+  const chatNaming = actionId === 'conversationName'
 
   return (
-    <div className="rounded-md border border-border px-3 py-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-0.5">
-          <p className="text-xs font-medium text-foreground">{getActionLabel(actionId)}</p>
-          <p className="text-[11px] text-muted-foreground">{getActionDescriptions()[actionId]}</p>
-        </div>
-        <div className="w-full shrink-0 space-y-1 sm:w-[220px]">
+    <div className={chatNaming ? 'space-y-3' : 'rounded-md border border-border px-3 py-3'}>
+      <div
+        className={
+          chatNaming
+            ? 'space-y-2'
+            : 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'
+        }
+      >
+        {chatNaming ? (
+          <Label htmlFor="chat-naming-agent">
+            {translate('settings.chat.names.agent', 'Agent')}
+          </Label>
+        ) : (
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-xs font-medium text-foreground">{getActionLabel(actionId)}</p>
+            <p className="text-[11px] text-muted-foreground">{getActionDescriptions()[actionId]}</p>
+          </div>
+        )}
+        <div className={chatNaming ? 'w-full space-y-1' : 'w-full shrink-0 space-y-1 sm:w-[220px]'}>
           <Select
             value={selectedAgent ?? DEFAULT_AGENT_VALUE}
             onValueChange={(value) => onAgentChange(actionId, value)}
           >
-            <SelectTrigger size="sm" className="h-8 w-full text-xs">
+            <SelectTrigger
+              id={chatNaming ? 'chat-naming-agent' : undefined}
+              size="sm"
+              className="w-full"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -132,27 +151,31 @@ export function SourceControlActionRecipeRow<ActionId extends AiActionId>({
           </Select>
           {agentWarningText ? (
             <p className="text-[11px] text-destructive">{agentWarningText}</p>
-          ) : agentSupportText ? (
+          ) : agentSupportText && !chatNaming ? (
             <p className="text-[11px] text-muted-foreground">{agentSupportText}</p>
           ) : null}
         </div>
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-[220px_1fr]">
-        <div className="space-y-2">
-          <Label className="text-[11px] text-muted-foreground">
-            {translate(
-              'auto.components.settings.SourceControlAiActionRecipeDefaults.2cb4bb7e5d',
-              'CLI arguments'
-            )}
-          </Label>
-          <Input
-            value={draftValue.agentArgs}
-            spellCheck={false}
-            placeholder={agentArgsPlaceholder}
-            onChange={(event) => onAgentArgsChange(actionId, event.target.value)}
-            className="h-8 font-mono text-xs"
-          />
-        </div>
+      <div className={chatNaming ? 'grid gap-3' : 'mt-3 grid gap-3 sm:grid-cols-[220px_1fr]'}>
+        {agentOptionsControl !== undefined ? (
+          agentOptionsControl
+        ) : (
+          <div className="space-y-2">
+            <Label className="text-[11px] text-muted-foreground">
+              {translate(
+                'auto.components.settings.SourceControlAiActionRecipeDefaults.2cb4bb7e5d',
+                'CLI arguments'
+              )}
+            </Label>
+            <Input
+              value={draftValue.agentArgs}
+              spellCheck={false}
+              placeholder={agentArgsPlaceholder}
+              onChange={(event) => onAgentArgsChange(actionId, event.target.value)}
+              className="h-8 font-mono text-xs"
+            />
+          </div>
+        )}
         <div className="space-y-2">
           <Label className="text-[11px] text-muted-foreground">
             {translate(

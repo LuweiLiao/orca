@@ -56,6 +56,30 @@ async function reservedStore(): Promise<AgentSessionRecordStore> {
 }
 
 describe('AgentSessionRecordStore.setConversationName', () => {
+  it('persists generated provenance even when the generated title equals its seed', async () => {
+    const store = await reservedStore()
+    await store.compareAndSetConversationName(SESSION, 'Same title', null, 'seed')
+    await store.compareAndSetConversationName(SESSION, 'Same title', 'Same title', 'generated')
+    const reloaded = await openTestAgentSessionRecordStore(directory)
+    expect(reloaded.getRecord(SESSION)).toMatchObject({
+      conversationName: 'Same title',
+      conversationNameSource: 'generated'
+    })
+    await reloaded.setConversationName(SESSION, 'Same title')
+    expect(reloaded.getRecord(SESSION)?.conversationNameSource).toBe('manual')
+    expect(
+      await reloaded.compareAndSetConversationName(
+        SESSION,
+        'Late title',
+        'Same title',
+        'generated',
+        'generated'
+      )
+    ).toBeNull()
+    expect(reloaded.getRecord(SESSION)?.conversationName).toBe('Same title')
+    await reloaded.setConversationName(SESSION, null)
+    expect(reloaded.getRecord(SESSION)?.conversationNameSource).toBeUndefined()
+  })
   it('stores the name and survives a reload, so the record is where it lives', async () => {
     const store = await reservedStore()
 

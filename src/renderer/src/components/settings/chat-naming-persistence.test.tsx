@@ -23,6 +23,9 @@ import { ActiveSettingsSectionProvider } from './SettingsSection'
 import { TooltipProvider } from '../ui/tooltip'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }))
+vi.mock('../native-chat/native-chat-session-option-discovery', () => ({
+  discoverNativeChatCatalogModels: vi.fn(async () => [{ id: 'fast', label: 'Fast model' }])
+}))
 
 function ChatPersistenceHarness({ model }: { model: SettingsPersistenceModel }) {
   const settings = useAppStore((state) => state.settings)
@@ -59,18 +62,23 @@ it('keeps the Chat draft and guard after actual persistence fails, then saves it
   persist.mockRejectedValueOnce(new Error('Settings disk is unavailable'))
   render(<ChatPersistenceHarness model={model} />)
   const template = screen.getByText('Command template').nextElementSibling
-  const args = screen.getByText('CLI arguments').nextElementSibling
-  if (!(template instanceof HTMLTextAreaElement) || !(args instanceof HTMLInputElement)) {
+  if (!(template instanceof HTMLTextAreaElement)) {
     throw new Error('Chat recipe controls are missing')
   }
   fireEvent.change(template, { target: { value: 'Keep: {firstPrompt}' } })
-  fireEvent.change(args, { target: { value: '--model fast' } })
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Refresh models' }).hasAttribute('disabled')).toBe(
+      false
+    )
+  )
+  fireEvent.click(screen.getByRole('combobox', { name: 'Model' }))
+  fireEvent.click(screen.getByRole('option', { name: 'Fast model' }))
   fireEvent.click(screen.getByRole('button', { name: 'Save' }))
   await waitFor(() =>
     expect(toast.error).toHaveBeenCalledWith('Could not save chat name settings.')
   )
   expect(screen.getByDisplayValue('Keep: {firstPrompt}')).toBeTruthy()
-  expect(screen.getByDisplayValue('--model fast')).toBeTruthy()
+  expect(screen.getByRole('combobox', { name: 'Model' }).textContent).toContain('Fast model')
   expect(model.setHasUnsavedChatPromptChanges).toHaveBeenLastCalledWith(true)
   expect(useAppStore.getState().settings?.sourceControlAi?.actions?.conversationName).toEqual(
     savedRecipe
@@ -79,7 +87,7 @@ it('keeps the Chat draft and guard after actual persistence fails, then saves it
   await waitFor(() =>
     expect(useAppStore.getState().settings?.sourceControlAi?.actions?.conversationName).toEqual({
       commandInputTemplate: 'Keep: {firstPrompt}',
-      agentArgs: '--model fast'
+      agentArgs: "--model 'fast'"
     })
   )
   expect(model.setHasUnsavedChatPromptChanges).toHaveBeenLastCalledWith(false)
@@ -136,7 +144,7 @@ it('retains the legacy Git failure contract and composes later queued naming wri
 it('configures the offered Chat custom command without enabling Git or writing on each keystroke', async () => {
   const model = settingsModel()
   render(<ChatPersistenceHarness model={model} />)
-  fireEvent.click(screen.getByRole('combobox'))
+  fireEvent.click(screen.getAllByRole('combobox')[0])
   fireEvent.click(screen.getByRole('option', { name: 'Custom command' }))
   const command = await screen.findByRole('textbox', { name: 'Custom command' })
   expect(persist).toHaveBeenCalledTimes(1)
