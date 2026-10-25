@@ -26,6 +26,8 @@ export type GitGraphQuery = {
   resolveContext: () => RuntimeGitContext
   scope: GitGraphScope
   ref?: string
+  /** Selected refs for scope 'refs'; order changes are treated as a new query. */
+  refs?: readonly string[]
 }
 
 export type GitGraphHistoryState = {
@@ -88,7 +90,10 @@ export function useGitGraphHistory(query: GitGraphQuery): {
   refresh: () => void
   loadMore: () => void
 } {
-  const { ownerKey, resolveContext, scope, ref } = query
+  const { ownerKey, resolveContext, scope, ref, refs } = query
+  // Why: an array prop is a new reference every render; derive a stable key so effects only
+  // re-fire when the selected ref ids actually change, not on every parent re-render.
+  const refsKey = refs ? refs.join('\u0000') : ''
   const [state, setState] = useState<GitGraphHistoryState>(IDLE_STATE)
   const generationRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
@@ -123,15 +128,21 @@ export function useGitGraphHistory(query: GitGraphQuery): {
     (): GitGraphOptions => ({
       scope,
       ...(scope === 'ref' ? { ref } : {}),
+      // Why: split from refsKey (not the refs prop) so this stays stable across re-renders.
+      ...(scope === 'refs' ? { refs: refsKey ? refsKey.split('\u0000') : [] } : {}),
       limit: GIT_GRAPH_DEFAULT_LIMIT
     }),
-    [ref, scope]
+    [ref, refsKey, scope]
   )
 
   const load = useCallback(
     async (mode: 'initial' | 'refresh'): Promise<void> => {
       const { generation, signal } = startGeneration()
       if (scope === 'ref' && !ref) {
+        publish(generation, () => IDLE_STATE)
+        return
+      }
+      if (scope === 'refs' && !refsKey) {
         publish(generation, () => IDLE_STATE)
         return
       }
@@ -180,7 +191,7 @@ export function useGitGraphHistory(query: GitGraphQuery): {
         })
       }
     },
-    [baseOptions, publish, ref, scope, startGeneration]
+    [baseOptions, publish, ref, refsKey, scope, startGeneration]
   )
 
   useEffect(() => {

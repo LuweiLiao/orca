@@ -2,32 +2,12 @@ import React from 'react'
 import { ChevronDown, ChevronUp, LocateFixed, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
-import { GIT_GRAPH_SCOPES, type GitGraphScope } from '../../../../shared/git-graph-types'
 import type { GitHistoryItemRef } from '../../../../shared/git-history-types'
-import { GitGraphRefPicker } from './git-graph-ref-picker'
-
-export function gitGraphScopeLabel(scope: GitGraphScope): string {
-  switch (scope) {
-    case 'head':
-      return translate('auto.components.gitGraph.scope.head', 'Current branch')
-    case 'local':
-      return translate('auto.components.gitGraph.scope.local', 'Local branches')
-    case 'all':
-      return translate('auto.components.gitGraph.scope.all', 'All branches')
-    case 'ref':
-      return translate('auto.components.gitGraph.scope.ref', 'Branch or tag')
-  }
-}
+import { GitGraphBranchFilterPicker } from './git-graph-ref-picker'
+import type { GitGraphBranchFilter } from './git-graph-branch-filter'
 
 function ToolbarIconButton({
   label,
@@ -65,11 +45,12 @@ function ToolbarIconButton({
 }
 
 export function GitGraphToolbar({
-  scope,
-  onScopeChange,
+  filter,
+  onFilterChange,
+  showRemoteBranches,
+  onShowRemoteBranchesChange,
+  isDetachedHead,
   refs,
-  selectedRefId,
-  onRefChange,
   query,
   onQueryChange,
   onFind,
@@ -77,16 +58,16 @@ export function GitGraphToolbar({
   activeMatchPosition,
   searchInputRef,
   busy,
-  canRefresh,
   onRefresh,
   canLocateHead,
   onLocateHead
 }: {
-  scope: GitGraphScope
-  onScopeChange: (scope: GitGraphScope) => void
+  filter: GitGraphBranchFilter
+  onFilterChange: (next: GitGraphBranchFilter) => void
+  showRemoteBranches: boolean
+  onShowRemoteBranchesChange: (next: boolean) => void
+  isDetachedHead: boolean
   refs: readonly GitHistoryItemRef[]
-  selectedRefId: string | undefined
-  onRefChange: (refId: string) => void
   query: string
   onQueryChange: (query: string) => void
   onFind: (direction: 1 | -1) => void
@@ -94,7 +75,6 @@ export function GitGraphToolbar({
   activeMatchPosition: number
   searchInputRef: React.Ref<HTMLInputElement>
   busy: boolean
-  canRefresh: boolean
   onRefresh: () => void
   canLocateHead: boolean
   onLocateHead: () => void
@@ -107,32 +87,14 @@ export function GitGraphToolbar({
       aria-label={translate('auto.components.gitGraph.toolbar.label', 'Git graph')}
       className="flex min-h-9 shrink-0 flex-wrap items-center gap-1.5 border-b border-border px-2 py-1"
     >
-      <Select
-        value={scope}
-        onValueChange={(next) => {
-          const nextScope = GIT_GRAPH_SCOPES.find((option) => option === next)
-          if (nextScope) {
-            onScopeChange(nextScope)
-          }
-        }}
-      >
-        <SelectTrigger
-          size="sm"
-          aria-label={translate('auto.components.gitGraph.scope.label', 'History scope')}
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {GIT_GRAPH_SCOPES.map((option) => (
-            <SelectItem key={option} value={option}>
-              {gitGraphScopeLabel(option)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {scope === 'ref' && (
-        <GitGraphRefPicker refs={refs} value={selectedRefId} onChange={onRefChange} />
-      )}
+      <GitGraphBranchFilterPicker
+        refs={refs}
+        filter={filter}
+        onFilterChange={onFilterChange}
+        showRemoteBranches={showRemoteBranches}
+        onShowRemoteBranchesChange={onShowRemoteBranchesChange}
+        isDetachedHead={isDetachedHead}
+      />
       <div className="order-last flex min-w-0 basis-full items-center gap-1 @2xl/git-graph:order-none @2xl/git-graph:ml-auto @2xl/git-graph:max-w-80 @2xl/git-graph:flex-1 @2xl/git-graph:basis-80">
         <Search aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         <Input
@@ -198,7 +160,7 @@ export function GitGraphToolbar({
         </ToolbarIconButton>
         <ToolbarIconButton
           label={translate('auto.components.gitGraph.toolbar.refresh', 'Refresh graph')}
-          disabled={!canRefresh || busy}
+          disabled={busy}
           onClick={onRefresh}
         >
           <RefreshCw className={cn(busy && 'animate-spin')} />

@@ -82,8 +82,10 @@ export const GitHistory = WorktreeSelector.extend({
 
 // Ref shape and cursor binding are re-validated host-side before either reaches Git.
 export const GitHistoryGraph = WorktreeSelector.extend({
-  scope: z.enum(['head', 'local', 'all', 'ref']).optional(),
+  scope: z.enum(['head', 'local', 'all', 'ref', 'refs']).optional(),
   ref: z.string().min(1).max(1024).optional(),
+  // 50 mirrors GIT_GRAPH_MAX_SELECTED_REFS in shared/git-graph-types.ts.
+  refs: z.array(z.string().min(1).max(1024)).max(50).optional(),
   limit: z.number().int().min(1).max(200).optional(),
   cursor: z.string().min(1).max(128).optional()
 })

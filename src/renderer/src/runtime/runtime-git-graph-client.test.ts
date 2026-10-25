@@ -68,3 +68,43 @@ it('classifies a web host predating the method the same way', async () => {
   expect(getGitGraphErrorCode(error)).toBe(GIT_GRAPH_UNSUPPORTED_CODE)
   expect(gitHistory).not.toHaveBeenCalled()
 })
+
+it('maps a host rejecting scope refs as invalid_argument to unsupported', async () => {
+  runtimeEnvironmentCall.mockResolvedValue({
+    id: 'rpc-1',
+    ok: false,
+    error: { code: 'invalid_argument', message: 'Invalid params for git.historyGraph' },
+    _meta: { runtimeId: 'remote-runtime' }
+  })
+
+  const error = await getRuntimeGitGraph(
+    {
+      target: { kind: 'environment' as const, environmentId: 'env-1' },
+      worktreeId: 'wt-1',
+      worktreePath: '/repo'
+    },
+    { scope: 'refs', refs: ['main', 'feature'] }
+  ).catch((caught: unknown) => caught)
+
+  expect(getGitGraphErrorCode(error)).toBe(GIT_GRAPH_UNSUPPORTED_CODE)
+})
+
+it('does not reclassify invalid_argument for scopes other than refs', async () => {
+  runtimeEnvironmentCall.mockResolvedValue({
+    id: 'rpc-1',
+    ok: false,
+    error: { code: 'invalid_argument', message: 'Invalid params for git.historyGraph' },
+    _meta: { runtimeId: 'remote-runtime' }
+  })
+
+  const error = await getRuntimeGitGraph(
+    {
+      target: { kind: 'environment' as const, environmentId: 'env-1' },
+      worktreeId: 'wt-1',
+      worktreePath: '/repo'
+    },
+    { scope: 'all' }
+  ).catch((caught: unknown) => caught)
+
+  expect(getGitGraphErrorCode(error)).toBeNull()
+})

@@ -58,6 +58,12 @@ export function createUiPreferenceActions(set: UISliceSet, get: UISliceGet): Par
     showActiveOnly: false,
     setShowActiveOnly: (v) => set({ showActiveOnly: v }),
 
+    gitGraphShowRemoteBranches: true,
+    setGitGraphShowRemoteBranches: (v) => {
+      set({ gitGraphShowRemoteBranches: v })
+      window.api.ui.set({ gitGraphShowRemoteBranches: v }).catch(console.error)
+    },
+
     showSleepingWorkspaces: DEFAULT_SHOW_SLEEPING_WORKSPACES,
     setShowSleepingWorkspaces: (v) => set({ showSleepingWorkspaces: v }),
 

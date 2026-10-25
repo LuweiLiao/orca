@@ -31,6 +31,8 @@ type GitGraphCommitListProps = {
   onSelect: (index: number) => void
   onOpenCommit: (item: GitHistoryItem) => void
   onCommitAction: (action: GitHistoryCommitAction, item: GitHistoryItem) => void
+  filteredRefIds?: ReadonlySet<string>
+  onToggleFilterRef?: (refId: string) => void
   ref?: React.Ref<GitGraphCommitListHandle>
 }
 
@@ -100,6 +102,8 @@ export function GitGraphCommitList({
   onSelect,
   onOpenCommit,
   onCommitAction,
+  filteredRefIds,
+  onToggleFilterRef,
   ref
 }: GitGraphCommitListProps): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -252,6 +256,8 @@ export function GitGraphCommitList({
                 onSelect={onSelect}
                 onOpenCommit={onOpenCommit}
                 onCommitAction={onCommitAction}
+                filteredRefIds={filteredRefIds}
+                onToggleFilterRef={onToggleFilterRef}
               />
             )
           })}

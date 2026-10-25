@@ -97,12 +97,13 @@ export function createGitApi(): NonNullable<Partial<PreloadApi>['git']> {
         baseRef
       })
     },
-    historyGraph: async ({ worktreePath, scope, ref, limit, cursor }) => {
+    historyGraph: async ({ worktreePath, scope, ref, refs, limit, cursor }) => {
       const worktree = await resolveRuntimeWorktreeByPath(worktreePath)
       return callRuntimeResult('git.historyGraph', {
         worktree: toRuntimeWorktreeSelector(worktree.id),
         ...(scope === undefined ? {} : { scope }),
         ...(ref === undefined ? {} : { ref }),
+        ...(refs === undefined ? {} : { refs }),
         ...(limit === undefined ? {} : { limit }),
         ...(cursor === undefined ? {} : { cursor })
       })

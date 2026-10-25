@@ -15,6 +15,10 @@ export type GitGraphSnapshot = {
   repositoryKey: string
   scope: GitGraphScope
   ref?: string
+  /** Normalized, sorted, deduped selection for scope 'refs'; also the cursor's consistency key. */
+  selectedRefs?: readonly string[]
+  /** Requested 'refs' entries that did not resolve, carried onto every later page. */
+  missingRefs?: readonly string[]
   tips: readonly string[]
   refs: readonly GitHistoryItemRef[]
   refsByOid: ReadonlyMap<string, GitHistoryItemRef[]>

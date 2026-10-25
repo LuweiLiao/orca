@@ -4,7 +4,6 @@ import { useAppStore } from '@/store'
 import { getKnownGitHead } from '@/store/slices/editor/git/branch-compare-state'
 import { translate } from '@/i18n/i18n'
 import type { RuntimeGitContext } from '@/runtime/runtime-git-client-context'
-import type { GitGraphScope } from '../../../../shared/git-graph-types'
 import type { GitHistoryItem, GitHistoryItemRef } from '../../../../shared/git-history-types'
 import { buildGitGraphViewModels } from '../../../../shared/git-history-graph'
 import { useGitHistoryCommitActions } from '../right-sidebar/source-control/sync/use-git-history-commit-actions'
@@ -22,6 +21,15 @@ import {
   getGitGraphHeadRef,
   stepGitGraphMatch
 } from './git-graph-model'
+import {
+  ALL_BRANCHES_FILTER,
+  gitGraphFilterToOptions,
+  pruneGitGraphFilterRefs,
+  pruneGitGraphFilterRemoteRefs,
+  toggleGitGraphFilterRef,
+  type GitGraphBranchFilter
+} from './git-graph-branch-filter'
+import { useGitGraphShowRemoteBranches } from './use-git-graph-show-remote-branches'
 import { GitGraphToolbar } from './git-graph-toolbar'
 import { GitGraphCommitList, type GitGraphCommitListHandle } from './git-graph-commit-list'
 import { GitGraphCommitDetail } from './git-graph-commit-detail'
@@ -34,7 +42,6 @@ import {
 // Why: mirrors the graph SVG's 11px lane pitch so every row reserves the same graph column.
 const GRAPH_LANE_WIDTH = 11
 const MAX_GRAPH_COLUMN_WIDTH = 264
-const DEFAULT_SCOPE: GitGraphScope = 'all'
 
 function mergeKnownRefs(
   previous: readonly GitHistoryItemRef[],
@@ -79,8 +86,8 @@ function GitGraphReadyView({
 }): React.JSX.Element {
   const listId = useId()
   const worktreeId = context.worktreeId
-  const [scope, setScope] = useState<GitGraphScope>(DEFAULT_SCOPE)
-  const [refId, setRefId] = useState<string | undefined>(undefined)
+  const [filter, setFilter] = useState<GitGraphBranchFilter>(ALL_BRANCHES_FILTER)
+  const [showRemoteBranches, setShowRemoteBranches] = useGitGraphShowRemoteBranches()
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detailOpen, setDetailOpen] = useState(true)
@@ -88,11 +95,12 @@ function GitGraphReadyView({
   const listRef = useRef<GitGraphCommitListHandle>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  const { scope, refs: requestedRefs } = gitGraphFilterToOptions(filter, showRemoteBranches)
   const { state, refresh, loadMore } = useGitGraphHistory({
     ownerKey,
     resolveContext,
     scope,
-    ref: refId
+    refs: requestedRefs
   })
   const result = state.result
   const items = useMemo(() => result?.items ?? [], [result])
@@ -118,11 +126,55 @@ function GitGraphReadyView({
     if (!result) {
       return
     }
-    // Why: a single-ref result lists fewer refs; keep earlier choices available in the picker.
+    // Why: a narrowed scope lists fewer refs; keep earlier choices available in the picker.
     setKnownRefs((previous) =>
-      result.scope === 'ref' ? mergeKnownRefs(previous, result.refs) : result.refs
+      result.scope === 'all' ? result.refs : mergeKnownRefs(previous, result.refs)
     )
   }, [result])
+  const refsById = useMemo(() => new Map(knownRefs.map((ref) => [ref.id, ref])), [knownRefs])
+
+  // Why: computed during render (not an effect) so the toolbar never flashes a selection the
+  // result just reported missing; the effect below only commits it back into state once.
+  const missingRefs = result?.missingRefs
+  const prunedFilter = useMemo(
+    () => (missingRefs?.length ? pruneGitGraphFilterRefs(filter, new Set(missingRefs)) : filter),
+    [filter, missingRefs]
+  )
+  useEffect(() => {
+    if (!missingRefs || missingRefs.length === 0) {
+      return
+    }
+    // Why: prunedFilter above already derives this render's stale-free value; this only commits
+    // it into state once so the next toggle reuses a clean refIds instead of a rejected one.
+    // oxlint-disable-next-line react-doctor/no-adjust-state-on-prop-change
+    setFilter((previous) => pruneGitGraphFilterRefs(previous, new Set(missingRefs)))
+    toast.info(
+      translate(
+        'auto.components.gitGraph.filter.missingRefs',
+        'Some selected branches no longer exist'
+      )
+    )
+  }, [missingRefs])
+
+  const filteredRefIds = useMemo(
+    () => (prunedFilter.mode === 'selected' ? new Set(prunedFilter.refIds) : undefined),
+    [prunedFilter]
+  )
+
+  const handleFilterChange = useCallback((next: GitGraphBranchFilter) => setFilter(next), [])
+  const handleToggleFilterRef = useCallback(
+    (refId: string) => setFilter((previous) => toggleGitGraphFilterRef(previous, refId)),
+    []
+  )
+  const handleShowRemoteBranchesChange = useCallback(
+    (next: boolean) => {
+      setShowRemoteBranches(next)
+      if (!next) {
+        setFilter((previous) => pruneGitGraphFilterRemoteRefs(previous, refsById))
+      }
+    },
+    [refsById, setShowRemoteBranches]
+  )
 
   const viewModels = useMemo(
     () =>
@@ -204,16 +256,8 @@ function GitGraphReadyView({
     listRef.current?.focus()
   }, [headOid, indexById, revealIndex])
 
-  const currentRefId = result?.currentRef?.id
-  const handleScopeChange = useCallback(
-    (next: GitGraphScope) => {
-      setScope(next)
-      if (next === 'ref' && !refId) {
-        setRefId(currentRefId)
-      }
-    },
-    [currentRefId, refId]
-  )
+  // Why: a detached HEAD has no branch ref; the toolbar and status bar need that to relabel "Current branch".
+  const isDetachedHead = Boolean(result?.headOid) && !result?.currentRef
 
   const isMac = useMemo(() => navigator.userAgent.includes('Mac'), [])
   const resolveSplitTargetGroupId = useGitGraphSplitTarget(worktreeId, isMac)
@@ -240,16 +284,16 @@ function GitGraphReadyView({
     }
   }
 
-  const awaitingRef = scope === 'ref' && !refId
-  const message = renderGitGraphHistoryMessage({ state, awaitingRef, onRetry: refresh })
+  const message = renderGitGraphHistoryMessage({ state, onRetry: refresh })
   return (
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={handleRootKeyDown}>
       <GitGraphToolbar
-        scope={scope}
-        onScopeChange={handleScopeChange}
+        filter={filter}
+        onFilterChange={handleFilterChange}
+        showRemoteBranches={showRemoteBranches}
+        onShowRemoteBranchesChange={handleShowRemoteBranchesChange}
+        isDetachedHead={isDetachedHead}
         refs={knownRefs}
-        selectedRefId={refId}
-        onRefChange={setRefId}
         query={query}
         onQueryChange={setQuery}
         onFind={handleFind}
@@ -257,7 +301,6 @@ function GitGraphReadyView({
         activeMatchPosition={activeMatchPosition}
         searchInputRef={searchInputRef}
         busy={state.refreshing || state.status === 'loading'}
-        canRefresh={!awaitingRef}
         onRefresh={refresh}
         canLocateHead={Boolean(headOid)}
         onLocateHead={handleLocateHead}
@@ -276,10 +319,12 @@ function GitGraphReadyView({
               loadingMore={state.loadingMore}
               loadMoreError={state.loadMoreError}
               ariaLabel={translate('auto.components.gitGraph.list.label', 'Commits')}
+              filteredRefIds={filteredRefIds}
               onLoadMore={loadMore}
               onSelect={selectIndex}
               onOpenCommit={openCommit}
               onCommitAction={handleCommitAction}
+              onToggleFilterRef={handleToggleFilterRef}
             />
           </div>
           {detailOpen && selectedItem && selectedViewModel && (
@@ -309,8 +354,9 @@ function GitGraphReadyView({
       )}
       <GitGraphStatusBar
         state={state}
-        scope={scope}
-        refName={knownRefs.find((ref) => ref.id === refId)?.name ?? refId}
+        filter={filter}
+        refsById={refsById}
+        isDetachedHead={isDetachedHead}
       />
     </div>
   )

@@ -81,6 +81,8 @@ export type UISlicePreferences = {
   setAgentsShowChildAgents: (v: boolean) => void
   agentsCompactMode: boolean
   setAgentsCompactMode: (v: boolean) => void
+  gitGraphShowRemoteBranches: boolean
+  setGitGraphShowRemoteBranches: (v: boolean) => void
   agentsShowSearch: boolean
   setAgentsShowSearch: (v: boolean) => void
   agentsReadFilter: ThreadReadFilter

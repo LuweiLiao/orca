@@ -18554,7 +18554,6 @@
         },
         "panel": {
           "unsupported": "此工作区所属主机的 Orca 运行时版本过旧，请更新后使用 Git 图谱。",
-          "chooseRef": "选择分支或标签以显示其历史记录。",
           "loading": "正在加载提交…",
           "empty": "暂无提交",
           "notGit": "此工作区文件夹不是 Git 仓库，无法显示 Git 图谱。"
@@ -18591,18 +18590,22 @@
           "remoteBranches": "远程分支",
           "tags": "标签",
           "other": "其他引用",
-          "label": "分支或标签",
-          "placeholder": "选择引用…",
-          "search": "搜索分支和标签",
+          "search": "搜索分支…",
           "empty": "没有匹配的引用",
           "more": "还有 {{value0}} 个引用，请输入关键词缩小范围。"
         },
-        "scope": {
-          "head": "当前分支",
-          "local": "本地分支",
-          "all": "全部分支",
-          "ref": "分支或标签",
-          "label": "历史范围"
+        "filter": {
+          "label": "分支过滤器",
+          "allBranches": "全部分支",
+          "currentBranch": "当前分支",
+          "detachedHead": "HEAD（分离）",
+          "selectedAndMore": "{{value0}} 等 {{value1}} 个",
+          "showRemoteBranches": "显示远程分支",
+          "missingRefs": "部分已选分支已不存在"
+        },
+        "branchFilter": {
+          "addToFilter": "添加到分支过滤器",
+          "removeFromFilter": "从分支过滤器移除"
         },
         "search": {
           "label": "搜索已加载的提交",

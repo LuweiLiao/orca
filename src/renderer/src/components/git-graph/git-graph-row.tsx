@@ -1,6 +1,12 @@
 import React from 'react'
-import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import type { GitHistoryItem, GitHistoryItemRef } from '../../../../shared/git-history-types'
 import type { GitHistoryItemViewModel } from '../../../../shared/git-history-graph'
@@ -35,8 +41,17 @@ export function getGitGraphRowDomId(listId: string, commitId: string): string {
   return `${listId}-commit-${commitId}`
 }
 
-export function GitGraphRefBadge({ itemRef }: { itemRef: GitHistoryItemRef }): React.JSX.Element {
-  return (
+export function GitGraphRefBadge({
+  itemRef,
+  isFiltered,
+  onToggleFilter
+}: {
+  itemRef: GitHistoryItemRef
+  /** Whether this ref is in the active branch filter selection; omitted hides the menu. */
+  isFiltered?: boolean
+  onToggleFilter?: (refId: string) => void
+}): React.JSX.Element {
+  const badge = (
     <span
       className="max-w-[10rem] shrink-0 truncate rounded-full border bg-background px-1.5 py-0.5 text-3xs leading-none"
       style={{
@@ -46,6 +61,30 @@ export function GitGraphRefBadge({ itemRef }: { itemRef: GitHistoryItemRef }): R
     >
       {itemRef.name}
     </span>
+  )
+  if (!onToggleFilter) {
+    return badge
+  }
+  return (
+    <ContextMenu>
+      {/* Why: stop the native event so the row's own context menu does not also open. */}
+      <ContextMenuTrigger asChild onContextMenu={(event) => event.stopPropagation()}>
+        {badge}
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={() => onToggleFilter(itemRef.id)}>
+          {isFiltered
+            ? translate(
+                'auto.components.gitGraph.branchFilter.removeFromFilter',
+                'Remove from branch filter'
+              )
+            : translate(
+                'auto.components.gitGraph.branchFilter.addToFilter',
+                'Add to branch filter'
+              )}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -62,6 +101,9 @@ type GitGraphRowProps = {
   onSelect: (index: number) => void
   onOpenCommit: (item: GitHistoryItem) => void
   onCommitAction: (action: GitHistoryCommitAction, item: GitHistoryItem) => void
+  /** Selected ref ids in the toolbar's branch filter; undefined when the filter is not 'selected'. */
+  filteredRefIds?: ReadonlySet<string>
+  onToggleFilterRef?: (refId: string) => void
 }
 
 export const GitGraphRow = React.memo(function GitGraphRow({
@@ -76,7 +118,9 @@ export const GitGraphRow = React.memo(function GitGraphRow({
   listFocused,
   onSelect,
   onOpenCommit,
-  onCommitAction
+  onCommitAction,
+  filteredRefIds,
+  onToggleFilterRef
 }: GitGraphRowProps): React.JSX.Element {
   const item = viewModel.historyItem
   const refs = dedupeRemoteTrackingRefs(item.references ?? [])
@@ -119,7 +163,12 @@ export const GitGraphRow = React.memo(function GitGraphRow({
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
             {visibleRefs.map((ref) => (
-              <GitGraphRefBadge key={ref.id} itemRef={ref} />
+              <GitGraphRefBadge
+                key={ref.id}
+                itemRef={ref}
+                isFiltered={filteredRefIds?.has(ref.id)}
+                onToggleFilter={onToggleFilterRef}
+              />
             ))}
             {hiddenRefs.length > 0 && (
               <Tooltip>

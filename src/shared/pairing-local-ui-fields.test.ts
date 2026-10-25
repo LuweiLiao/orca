@@ -18,6 +18,7 @@ describe('pairing-local UI fields', () => {
       'agentsHideCliCreatedWorkspaces',
       'agentsShowChildAgents',
       'agentsCompactMode',
+      'gitGraphShowRemoteBranches',
       'agentsShowSearch',
       'agentsReadFilter',
       'agentsGroupBy',

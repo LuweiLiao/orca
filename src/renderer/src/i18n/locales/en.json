@@ -18836,7 +18836,6 @@
         },
         "panel": {
           "unsupported": "The Orca runtime that owns this workspace is too old for Git Graph. Update it to browse the graph.",
-          "chooseRef": "Choose a branch or tag to show its history.",
           "loading": "Loading commits…",
           "empty": "No commits yet",
           "notGit": "Git Graph is unavailable because this workspace folder is not a Git repository."
@@ -18873,18 +18872,22 @@
           "remoteBranches": "Remote branches",
           "tags": "Tags",
           "other": "Other refs",
-          "label": "Branch or tag",
-          "placeholder": "Choose a ref…",
-          "search": "Search branches and tags",
+          "search": "Search branches…",
           "empty": "No matching refs",
           "more": "{{value0}} more refs. Type to narrow the list."
         },
-        "scope": {
-          "head": "Current branch",
-          "local": "Local branches",
-          "all": "All branches",
-          "ref": "Branch or tag",
-          "label": "History scope"
+        "filter": {
+          "label": "Branch filter",
+          "allBranches": "All branches",
+          "currentBranch": "Current branch",
+          "detachedHead": "HEAD (detached)",
+          "selectedAndMore": "{{value0}} +{{value1}}",
+          "showRemoteBranches": "Show remote branches",
+          "missingRefs": "Some selected branches no longer exist"
+        },
+        "branchFilter": {
+          "addToFilter": "Add to branch filter",
+          "removeFromFilter": "Remove from branch filter"
         },
         "search": {
           "label": "Search loaded commits",

@@ -92,6 +92,7 @@ export const GIT_METHODS = [
       runtime.getRuntimeGitGraph(params.worktree, {
         ...(params.scope === undefined ? {} : { scope: params.scope }),
         ...(params.ref === undefined ? {} : { ref: params.ref }),
+        ...(params.refs === undefined ? {} : { refs: params.refs }),
         ...(params.limit === undefined ? {} : { limit: params.limit }),
         ...(params.cursor === undefined ? {} : { cursor: params.cursor }),
         ...(signal ? { signal } : {})

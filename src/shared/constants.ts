@@ -223,6 +223,7 @@ export function getDefaultUIState(): PersistedUIState {
     agentsHideCliCreatedWorkspaces: false,
     agentsShowChildAgents: false,
     agentsCompactMode: true,
+    gitGraphShowRemoteBranches: true,
     agentsShowSearch: true,
     agentsReadFilter: DEFAULT_AGENTS_READ_FILTER,
     agentsGroupBy: DEFAULT_AGENTS_GROUP_BY,

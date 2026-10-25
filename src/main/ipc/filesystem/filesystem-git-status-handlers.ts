@@ -192,6 +192,7 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
       const options: GitGraphOptions = {
         ...(args.scope === undefined ? {} : { scope: args.scope }),
         ...(args.ref === undefined ? {} : { ref: args.ref }),
+        ...(args.refs === undefined ? {} : { refs: args.refs }),
         ...(args.limit === undefined ? {} : { limit: args.limit }),
         ...(args.cursor === undefined ? {} : { cursor: args.cursor })
       }

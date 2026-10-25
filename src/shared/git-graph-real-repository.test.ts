@@ -200,6 +200,86 @@ describe('real Git graph scopes', () => {
     )
   })
 
+  it('walks the union of an explicit set of local and remote-tracking refs', async () => {
+    const sandbox = await createSandbox()
+    const { repo } = await createBranchyRepository(sandbox)
+    const read = graphReader(sandbox, repo)
+
+    const selected = await read({
+      scope: 'refs',
+      refs: ['feature', 'origin/side'],
+      limit: 200
+    })
+
+    expect(new Set(selected.items.map((item) => item.subject))).toEqual(
+      new Set(['D', 'M', 'T1', 'C', 'F2', 'F1', 'B', 'R1', 'A'])
+    )
+    expect(selected.missingRefs).toBeUndefined()
+  })
+
+  it('reports a missing ref in a mixed selection while the rest still load', async () => {
+    const sandbox = await createSandbox()
+    const { repo } = await createBranchyRepository(sandbox)
+    const read = graphReader(sandbox, repo)
+
+    const result = await read({
+      scope: 'refs',
+      refs: ['feature', 'does-not-exist'],
+      limit: 200
+    })
+
+    expect(result.missingRefs).toEqual(['does-not-exist'])
+    expect(new Set(result.items.map((item) => item.subject))).toEqual(
+      new Set(['D', 'M', 'T1', 'C', 'F2', 'F1', 'B', 'A'])
+    )
+  })
+
+  it('falls back to HEAD history and reports every entry missing when none resolve', async () => {
+    const sandbox = await createSandbox()
+    const { repo, ids } = await createBranchyRepository(sandbox)
+    const read = graphReader(sandbox, repo)
+
+    const result = await read({ scope: 'refs', refs: ['ghost-one', 'ghost-two'], limit: 200 })
+
+    expect(result.missingRefs).toEqual(['ghost-one', 'ghost-two'])
+    expect(new Set(result.items.map((item) => item.subject))).toEqual(
+      new Set(['D', 'M', 'T1', 'C', 'B', 'A'])
+    )
+    expect(result.items[0]?.id).toBe(ids.D)
+  })
+
+  it('rejects an empty, over-limit, or option-looking refs selection', async () => {
+    const sandbox = await createSandbox()
+    const { repo } = await createBranchyRepository(sandbox)
+    const read = graphReader(sandbox, repo)
+
+    await expect(read({ scope: 'refs', refs: [] })).rejects.toThrow(GIT_GRAPH_REF_NOT_FOUND_CODE)
+    await expect(read({ scope: 'refs' })).rejects.toThrow(GIT_GRAPH_REF_NOT_FOUND_CODE)
+    await expect(
+      read({ scope: 'refs', refs: Array.from({ length: 51 }, (_, index) => `b${index}`) })
+    ).rejects.toThrow(GIT_GRAPH_REF_NOT_FOUND_CODE)
+    await expect(read({ scope: 'refs', refs: ['feature', '--output=/tmp/x'] })).rejects.toThrow(
+      GIT_GRAPH_REF_NOT_FOUND_CODE
+    )
+  })
+
+  it('rejects cursor reuse with a different refs set and accepts order-insensitive paging', async () => {
+    const sandbox = await createSandbox()
+    const { repo } = await createBranchyRepository(sandbox)
+    const read = graphReader(sandbox, repo)
+
+    const first = await read({ scope: 'refs', refs: ['feature', 'topic'], limit: 2 })
+    const cursor = first.nextCursor ?? ''
+    expect(cursor).not.toBe('')
+
+    await expect(read({ scope: 'refs', refs: ['feature'], cursor })).rejects.toThrow(
+      GIT_GRAPH_CURSOR_INVALID_CODE
+    )
+
+    const reordered = await read({ scope: 'refs', refs: ['topic', 'feature'], cursor })
+    expect(reordered.items.length).toBeGreaterThan(0)
+  })
+
   it('caps each ref namespace and reports the omission', async () => {
     const sandbox = await createSandbox()
     const repo = await sandbox.init('many-refs')

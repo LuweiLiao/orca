@@ -85,7 +85,8 @@ function scopeTips(
   headOid: string | undefined,
   heads: readonly GitHistoryItemRef[],
   remotes: readonly GitHistoryItemRef[],
-  selectedRef: GitHistoryItemRef | undefined
+  selectedRef: GitHistoryItemRef | undefined,
+  selectedRefs: readonly GitHistoryItemRef[]
 ): string[] {
   const tipRefs =
     scope === 'local'
@@ -94,7 +95,9 @@ function scopeTips(
         ? [...heads, ...remotes]
         : scope === 'ref' && selectedRef
           ? [selectedRef]
-          : []
+          : scope === 'refs'
+            ? selectedRefs
+            : []
   const tips = new Set<string>()
   // Why HEAD in every scope: a detached HEAD is under no ref namespace but is still the checkout.
   if (headOid) {
@@ -126,20 +129,26 @@ export async function captureGitGraphSnapshot(
   cwd: string,
   scope: GitGraphScope,
   ref: string | undefined,
+  selectedRefNames: readonly string[] | undefined,
   repositoryKey: string
 ): Promise<GitGraphSnapshot> {
   const isShallow = await probeShallowRepository(git, cwd)
   const headOid = (await resolveCommit(git, cwd, 'HEAD')) ?? undefined
-  const [current, heads, remotes, tags, selectedRef] = await Promise.all([
+  const [current, heads, remotes, tags, selectedRef, resolvedRefs] = await Promise.all([
     headOid ? resolveCurrentRef(git, cwd, headOid) : undefined,
     listNamespaceRefs(git, cwd, 'refs/heads'),
     listNamespaceRefs(git, cwd, 'refs/remotes'),
     listNamespaceRefs(git, cwd, 'refs/tags'),
-    ref ? resolveNamedRef(git, cwd, ref) : undefined
+    ref ? resolveNamedRef(git, cwd, ref) : undefined,
+    Promise.all((selectedRefNames ?? []).map((name) => resolveNamedRef(git, cwd, name)))
   ])
   if (ref && !selectedRef) {
     throw new Error(GIT_GRAPH_REF_NOT_FOUND_CODE)
   }
+  const selectedRefs = resolvedRefs.filter((item): item is GitHistoryItemRef => item !== undefined)
+  const missing =
+    selectedRefNames?.filter((_name, index) => resolvedRefs[index] === undefined).sort() ?? []
+  const missingRefs = missing.length > 0 ? missing : undefined
 
   const refsById = new Map<string, GitHistoryItemRef>()
   for (const item of [...heads.refs, ...remotes.refs, ...tags.refs]) {
@@ -149,15 +158,22 @@ export async function captureGitGraphSnapshot(
   if (selectedRef && selectedRef.category !== 'commits' && !refsById.has(selectedRef.id)) {
     refsById.set(selectedRef.id, selectedRef)
   }
-  const refs = [...refsById.values()].sort(compareGitHistoryItemRefsByCategory)
+  for (const item of selectedRefs) {
+    if (item.category !== 'commits' && !refsById.has(item.id)) {
+      refsById.set(item.id, item)
+    }
+  }
+  const resolvedRefList = [...refsById.values()].sort(compareGitHistoryItemRefsByCategory)
 
   return {
     repositoryKey,
     scope,
     ...(ref ? { ref } : {}),
-    tips: scopeTips(scope, headOid, heads.refs, remotes.refs, selectedRef),
-    refs,
-    refsByOid: indexRefsByOid(refs),
+    ...(selectedRefNames ? { selectedRefs: [...selectedRefNames].sort() } : {}),
+    ...(missingRefs ? { missingRefs } : {}),
+    tips: scopeTips(scope, headOid, heads.refs, remotes.refs, selectedRef, selectedRefs),
+    refs: resolvedRefList,
+    refsByOid: indexRefsByOid(resolvedRefList),
     ...(headOid ? { headOid } : {}),
     ...(current ? { currentRef: current.currentRef } : {}),
     isShallow,

@@ -89,6 +89,7 @@ export function mergeHostWebUIState(
     agentsHideCliCreatedWorkspaces: local.agentsHideCliCreatedWorkspaces === true,
     agentsShowChildAgents: local.agentsShowChildAgents,
     agentsCompactMode: local.agentsCompactMode,
+    gitGraphShowRemoteBranches: local.gitGraphShowRemoteBranches,
     agentsShowSearch: local.agentsShowSearch,
     agentsReadFilter: local.agentsReadFilter,
     agentsGroupBy: local.agentsGroupBy,

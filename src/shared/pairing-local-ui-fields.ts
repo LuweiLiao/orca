@@ -23,6 +23,7 @@ export const PAIRING_LOCAL_UI_FIELDS = [
   'agentsHideCliCreatedWorkspaces',
   'agentsShowChildAgents',
   'agentsCompactMode',
+  'gitGraphShowRemoteBranches',
   'agentsShowSearch',
   'agentsReadFilter',
   'agentsGroupBy',

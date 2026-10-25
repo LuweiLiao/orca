@@ -106,6 +106,7 @@ export const UI_STATE_GLOBAL_FIELDS = [
   'agentsHideCliCreatedWorkspaces',
   'agentsShowChildAgents',
   'agentsCompactMode',
+  'gitGraphShowRemoteBranches',
   'agentsShowSearch',
   'agentsReadFilter',
   'agentsGroupBy',

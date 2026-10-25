@@ -32,6 +32,17 @@ test('browses a pinned multi-branch history and opens a real commit diff', async
   const tree = git(testRepoPath, ['rev-parse', 'HEAD^{tree}'])
   const side = git(testRepoPath, ['commit-tree', tree, '-p', base, '-m', 'Unmerged graph branch'])
   git(testRepoPath, ['update-ref', 'refs/heads/graph-side', side])
+  // Why a second independent branch: HEAD's own tip is always walked (scopeTips), so proving the
+  // multi-select filter actually narrows the walk needs two branches that are both off-HEAD.
+  const otherSide = git(testRepoPath, [
+    'commit-tree',
+    tree,
+    '-p',
+    base,
+    '-m',
+    'Another unmerged branch'
+  ])
+  git(testRepoPath, ['update-ref', 'refs/heads/graph-other', otherSide])
   let tip = base
   for (let index = 0; index < 124; index++) {
     tip = git(testRepoPath, ['commit-tree', tree, '-p', tip, '-m', `Graph history ${index}`])
@@ -113,13 +124,69 @@ test('browses a pinned multi-branch history and opens a real commit diff', async
     'Unmerged graph branch'
   )
   await graph.getByRole('searchbox', { name: 'Search loaded commits' }).fill('')
-  await graph.getByRole('combobox', { name: 'History scope' }).click()
-  await orcaPage.getByRole('option', { name: 'Current branch', exact: true }).click()
-  await expect(graph.getByRole('button', { name: 'Refresh graph', exact: true })).toBeEnabled()
-  await expect(commits.getByRole('option').first()).not.toContainText('Unmerged graph branch')
-  await graph.getByRole('combobox', { name: 'History scope' }).click()
-  await orcaPage.getByRole('option', { name: 'All branches', exact: true }).click()
-  await graph.getByRole('button', { name: 'Refresh graph', exact: true }).click()
+
+  const searchBox = graph.getByRole('searchbox', { name: 'Search loaded commits' })
+  // Why search instead of scanning the DOM: `side`/`otherSide` branch off near `base`, deep
+  // past the first page, so scrolling to the end (which auto-loads more, see
+  // LOAD_MORE_THRESHOLD_ROWS) until aria-setsize stops growing, then searching the loaded
+  // commits, is the reliable way to find them.
+  async function currentSetSize(): Promise<number> {
+    return Number(await commits.getByRole('option').first().getAttribute('aria-setsize'))
+  }
+  async function loadAllAndFind(text: string): Promise<boolean> {
+    let setSize = await currentSetSize()
+    for (let guard = 0; guard < 60; guard += 1) {
+      await commits.press('End')
+      // Why poll-then-settle: End only starts an async page fetch; a size bump within the
+      // window means more pages may follow, so loop again instead of stopping early.
+      const grew = await expect
+        .poll(currentSetSize, { timeout: 1500 })
+        .toBeGreaterThan(setSize)
+        .then(() => true)
+        .catch(() => false)
+      if (!grew) {
+        break
+      }
+      setSize = await currentSetSize()
+    }
+    await commits.press('Home')
+    await searchBox.fill(text)
+    const noMatches = graph.getByText('No matches', { exact: true })
+    const found = await noMatches
+      .waitFor({ state: 'visible', timeout: 1000 })
+      .then(() => false)
+      .catch(() => true)
+    await searchBox.fill('')
+    return found
+  }
+
+  const branchFilterTrigger = graph.getByRole('combobox', { name: 'Branch filter' })
+  const branchFilterPopover = orcaPage.locator('[data-slot="popover-content"]').last()
+
+  // Why only graph-side first: proves a single selection narrows the walk (graph-other's commit
+  // is excluded) before the two-branch selection proves the union (both become visible).
+  await branchFilterTrigger.click()
+  await expect(branchFilterPopover).toBeVisible()
+  await orcaPage.screenshot({ path: testInfo.outputPath('git-graph-branch-filter-popover.png') })
+  await branchFilterPopover.getByRole('option', { name: 'graph-side', exact: true }).click()
+  await orcaPage.keyboard.press('Escape')
+  await expect(branchFilterTrigger).toHaveText('graph-side')
+  expect(await loadAllAndFind('Unmerged graph branch')).toBe(true)
+  expect(await loadAllAndFind('Another unmerged branch')).toBe(false)
+
+  await branchFilterTrigger.click()
+  await branchFilterPopover.getByRole('option', { name: 'graph-other', exact: true }).click()
+  await orcaPage.keyboard.press('Escape')
+  await expect(branchFilterTrigger).toHaveText('graph-side, graph-other')
+  expect(await loadAllAndFind('Unmerged graph branch')).toBe(true)
+  expect(await loadAllAndFind('Another unmerged branch')).toBe(true)
+
+  await branchFilterTrigger.click()
+  await branchFilterPopover.getByRole('option', { name: 'graph-side', exact: true }).click()
+  await branchFilterPopover.getByRole('option', { name: 'graph-other', exact: true }).click()
+  await orcaPage.keyboard.press('Escape')
+  await expect(branchFilterTrigger).toHaveText('All branches')
+  await commits.press('Home')
   await expect(commits.getByRole('option').first()).toContainText('Commit after graph snapshot')
   await graph.getByText('Git Graph end-to-end commit', { exact: true }).first().click()
   await expect(

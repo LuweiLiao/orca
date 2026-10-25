@@ -3,10 +3,11 @@ import { AlertCircle, GitBranch, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
-import type { GitGraphScope } from '../../../../shared/git-graph-types'
+import type { GitHistoryItemRef } from '../../../../shared/git-history-types'
 import type { GitGraphOwner } from './git-graph-owner'
 import type { GitGraphHistoryState } from './use-git-graph-history'
-import { gitGraphScopeLabel } from './git-graph-toolbar'
+import type { GitGraphBranchFilter } from './git-graph-branch-filter'
+import { gitGraphBranchFilterLabel } from './git-graph-ref-picker'
 
 function PanelMessage({
   icon,
@@ -67,11 +68,9 @@ export function GitGraphOwnerMessage({
 /** Full-panel state shown instead of the commit list, or null when rows can render. */
 export function renderGitGraphHistoryMessage({
   state,
-  awaitingRef,
   onRetry
 }: {
   state: GitGraphHistoryState
-  awaitingRef: boolean
   onRetry: () => void
 }): React.JSX.Element | null {
   if (state.status === 'unsupported') {
@@ -102,16 +101,6 @@ export function renderGitGraphHistoryMessage({
       </PanelMessage>
     )
   }
-  if (awaitingRef) {
-    return (
-      <PanelMessage icon={<GitBranch className="size-5" />}>
-        {translate(
-          'auto.components.gitGraph.panel.chooseRef',
-          'Choose a branch or tag to show its history.'
-        )}
-      </PanelMessage>
-    )
-  }
   if (!state.result) {
     return (
       <PanelMessage icon={<Loader2 className="size-5 animate-spin" />}>
@@ -131,18 +120,20 @@ export function renderGitGraphHistoryMessage({
 
 export function GitGraphStatusBar({
   state,
-  scope,
-  refName
+  filter,
+  refsById,
+  isDetachedHead
 }: {
   state: GitGraphHistoryState
-  scope: GitGraphScope
-  refName?: string
+  filter: GitGraphBranchFilter
+  refsById: ReadonlyMap<string, GitHistoryItemRef>
+  isDetachedHead: boolean
 }): React.JSX.Element | null {
   const result = state.result
   if (!result) {
     return null
   }
-  const scopeLabel = scope === 'ref' && refName ? refName : gitGraphScopeLabel(scope)
+  const scopeLabel = gitGraphBranchFilterLabel(filter, refsById, isDetachedHead)
   const parts = [
     result.hasMore
       ? translate(

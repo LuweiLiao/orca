@@ -43,12 +43,14 @@ let latest: ReturnType<typeof useGitGraphHistory> | null = null
 
 function Probe({
   ownerKey = 'owner',
-  scope = 'all'
+  scope = 'all',
+  refs
 }: {
   ownerKey?: string
   scope?: GitGraphScope
+  refs?: string[]
 }): null {
-  latest = useGitGraphHistory({ ownerKey, resolveContext, scope })
+  latest = useGitGraphHistory({ ownerKey, resolveContext, scope, refs })
   return null
 }
 
@@ -115,5 +117,40 @@ describe('useGitGraphHistory', () => {
     expect(latest?.state.status).toBe('unsupported')
     expect(latest?.state.result).toBeUndefined()
     expect(mocks.getRuntimeGitGraph).toHaveBeenCalledTimes(1)
+  })
+
+  it('never publishes a response for a refs selection the user already left', async () => {
+    const firstSelection = deferred<GitGraphResult>()
+    const secondSelection = deferred<GitGraphResult>()
+    mocks.getRuntimeGitGraph
+      .mockReturnValueOnce(firstSelection.promise)
+      .mockReturnValueOnce(secondSelection.promise)
+    const root = await mountProbe(<Probe scope="refs" refs={['refs/heads/main']} />)
+    await act(async () => {
+      root.render(<Probe scope="refs" refs={['refs/heads/dev']} />)
+    })
+
+    secondSelection.resolve(graphPage(['dev-tip'], { scope: 'refs' }))
+    await flush()
+    firstSelection.resolve(graphPage(['main-tip'], { scope: 'refs' }))
+    await flush()
+
+    expect(loadedIds()).toEqual(['dev-tip'])
+    expect(mocks.getRuntimeGitGraph.mock.calls[0]?.[1]).toMatchObject({
+      scope: 'refs',
+      refs: ['refs/heads/main']
+    })
+    expect(mocks.getRuntimeGitGraph.mock.calls[1]?.[1]).toMatchObject({
+      scope: 'refs',
+      refs: ['refs/heads/dev']
+    })
+  })
+
+  it('does not request when scope is refs but no refs are selected', async () => {
+    await mountProbe(<Probe scope="refs" />)
+    await flush()
+
+    expect(latest?.state.status).toBe('idle')
+    expect(mocks.getRuntimeGitGraph).not.toHaveBeenCalled()
   })
 })

@@ -109,6 +109,8 @@ export type PersistedUIState = {
   agentsShowChildAgents?: boolean
   /** Agents-view compact thread rows. Absent means on. */
   agentsCompactMode?: boolean
+  /** Git Graph lists and walks remote-tracking branches. Absent means on. */
+  gitGraphShowRemoteBranches?: boolean
   /** Agents sidebar search field visibility. Absent means on. */
   agentsShowSearch?: boolean
   /** Agents-view unread-only thread filter. Absent means 'all'. */

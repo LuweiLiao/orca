@@ -229,6 +229,11 @@ export async function getRuntimeGitGraph(
     if (hasRuntimeRpcErrorCode(error, 'method_not_found')) {
       throw new Error(GIT_GRAPH_UNSUPPORTED_CODE, { cause: error })
     }
+    // Why: a host predating scope 'refs' rejects the unknown enum value as invalid_argument,
+    // not method_not_found; surface it the same way so the UI never shows a raw validation error.
+    if (options.scope === 'refs' && hasRuntimeRpcErrorCode(error, 'invalid_argument')) {
+      throw new Error(GIT_GRAPH_UNSUPPORTED_CODE, { cause: error })
+    }
     throw error
   }
 }

@@ -18,6 +18,7 @@ import {
   GIT_GRAPH_MAX_LIMIT,
   GIT_GRAPH_MAX_REF_LENGTH,
   GIT_GRAPH_MAX_SCAN,
+  GIT_GRAPH_MAX_SELECTED_REFS,
   GIT_GRAPH_SCOPES,
   type GitGraphExecutor,
   type GitGraphOptions,
@@ -64,11 +65,8 @@ function hasControlCharacter(value: string): boolean {
   return false
 }
 
-function normalizeScopeRef(scope: GitGraphScope, ref: string | undefined): string | undefined {
-  if (scope !== 'ref') {
-    return undefined
-  }
-  const normalized = ref?.trim()
+function normalizeOneRef(ref: string): string {
+  const normalized = ref.trim()
   // Why: the ref reaches rev-parse argv; options and control characters are never ref names.
   if (
     !normalized ||
@@ -76,6 +74,28 @@ function normalizeScopeRef(scope: GitGraphScope, ref: string | undefined): strin
     normalized.length > GIT_GRAPH_MAX_REF_LENGTH ||
     hasControlCharacter(normalized)
   ) {
+    throw new Error(GIT_GRAPH_REF_NOT_FOUND_CODE)
+  }
+  return normalized
+}
+
+function normalizeScopeRef(scope: GitGraphScope, ref: string | undefined): string | undefined {
+  if (scope !== 'ref') {
+    return undefined
+  }
+  return ref === undefined ? normalizeOneRef('') : normalizeOneRef(ref)
+}
+
+/** Trims, dedupes and sorts the 'refs' scope's selection; each entry reuses the single-ref rules. */
+function normalizeScopeRefs(
+  scope: GitGraphScope,
+  refs: string[] | undefined
+): string[] | undefined {
+  if (scope !== 'refs') {
+    return undefined
+  }
+  const normalized = [...new Set((refs ?? []).map((ref) => normalizeOneRef(ref)))].sort()
+  if (normalized.length === 0 || normalized.length > GIT_GRAPH_MAX_SELECTED_REFS) {
     throw new Error(GIT_GRAPH_REF_NOT_FOUND_CODE)
   }
   return normalized
@@ -166,6 +186,7 @@ async function readSnapshotPage(
     ...(snapshot.headOid ? { headOid: snapshot.headOid } : {}),
     ...(snapshot.currentRef ? { currentRef: snapshot.currentRef } : {}),
     scope: snapshot.scope,
+    ...(snapshot.missingRefs ? { missingRefs: [...snapshot.missingRefs] } : {}),
     hasMore,
     ...(nextCursor ? { nextCursor } : {}),
     truncated: snapshot.refsTruncated || scanCapped,
@@ -189,7 +210,15 @@ export async function loadGitGraphFromExecutor(
   const scope = normalizeScope(options.scope)
   if (options.cursor === undefined) {
     const ref = normalizeScopeRef(scope, options.ref)
-    const snapshot = await captureGitGraphSnapshot(git, cwd, scope, ref, binding.repositoryKey)
+    const refs = normalizeScopeRefs(scope, options.refs)
+    const snapshot = await captureGitGraphSnapshot(
+      git,
+      cwd,
+      scope,
+      ref,
+      refs,
+      binding.repositoryKey
+    )
     return readSnapshotPage(git, cwd, snapshot, { offset: 0, limit }, binding.snapshots)
   }
 
@@ -199,10 +228,22 @@ export async function loadGitGraphFromExecutor(
     throw new Error(GIT_GRAPH_CURSOR_EXPIRED_CODE)
   }
   const ref = scope === 'ref' ? options.ref?.trim() : undefined
+  // Why no re-validation here: a mismatched set must fail as CURSOR_INVALID, not as a format error.
+  const refs =
+    scope === 'refs'
+      ? [...new Set((options.refs ?? []).map((entry) => entry.trim()))].sort()
+      : undefined
+  const refsMatch =
+    scope !== 'refs' ||
+    (refs !== undefined &&
+      snapshot.selectedRefs !== undefined &&
+      refs.length === snapshot.selectedRefs.length &&
+      refs.every((entry, index) => entry === snapshot.selectedRefs?.[index]))
   if (
     snapshot.repositoryKey !== binding.repositoryKey ||
     snapshot.scope !== scope ||
-    snapshot.ref !== ref
+    snapshot.ref !== ref ||
+    !refsMatch
   ) {
     throw new Error(GIT_GRAPH_CURSOR_INVALID_CODE)
   }
