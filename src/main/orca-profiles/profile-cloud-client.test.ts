@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cancelTrackingResponse } from '../lib/unread-response-body.test-fixtures'
+import { setMainHttpClient } from '../network/http-client'
 import type { OrcaCloudAuthConfig } from './profile-cloud-auth-config'
 import type { OrcaCloudSession } from './profile-cloud-session-store'
 import {
@@ -44,7 +45,13 @@ function mockFetchJson(value: unknown): void {
 describe('Orca cloud client', () => {
   beforeEach(() => {
     fetchMock.mockReset()
-    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Node fetch must not be used')))
+    setMainHttpClient({ fetch: fetchMock, proxySession: () => null })
+  })
+
+  afterEach(() => {
+    setMainHttpClient(null)
+    vi.unstubAllGlobals()
   })
 
   it('normalizes session exchange organizations', async () => {
