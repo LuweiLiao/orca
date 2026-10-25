@@ -18821,6 +18821,8 @@
         "noAvailableAgents": "此主机上没有可用智能体。",
         "agentHostUnavailable": "无法确定智能体所在主机。",
         "defaultModel": "默认模型",
+        "loadingModels": "正在加载智能体模型…",
+        "modelsUnavailable": "暂时无法获取模型列表",
         "orchestrationTask": "负责事项（可选）",
         "orchestrationTaskPrefix": "{{task}}用 ",
         "orchestrationCount": "智能体数量",

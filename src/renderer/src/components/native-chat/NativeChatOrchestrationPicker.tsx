@@ -15,39 +15,42 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { AgentIcon, getAgentCatalog } from '@/lib/agent-catalog'
 import { getConnectionIdFromState } from '@/lib/connection-context'
 import { filterEnabledTuiAgents } from '../../../../shared/tui-agent-selection'
-import { useDetectedAgents, type AgentDetectionTarget } from '@/hooks/useDetectedAgents'
+import { useDetectedAgents } from '@/hooks/useDetectedAgents'
 import { useAppStore } from '@/store'
-import { callStructuredAgentSession } from '@/runtime/structured-agent-session-client'
 import { runtimeTargetForOwnerEnvironment } from '@/runtime/runtime-client-target'
-import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
-import type { AgentSessionModelCatalogResult } from '../../../../shared/agent-session-wire'
+import { structuredAgentSessionHostKey } from '@/runtime/structured-agent-session-host-capability'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import { translate } from '@/i18n/i18n'
 import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
-import {
-  discoverNativeChatCatalogModels,
-  resolveNativeChatModelDiscoveryContext,
-  type NativeChatModelDiscoveryContext
-} from './native-chat-session-option-discovery'
+import { resolveNativeChatModelDiscoveryContext } from './native-chat-session-option-discovery'
 import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
+import {
+  discoverOrchestrationModels,
+  type OrchestrationModel,
+  type PickerHost
+} from './native-chat-orchestration-model-discovery'
 
 const NO_SELECTIONS: OrchestrationAgentSelection[] = []
-
-export type PickerHost = {
-  target: RuntimeClientTarget
-  detection: AgentDetectionTarget
-  discovery?: NativeChatModelDiscoveryContext
-}
 
 export function pickerHost(
   terminalTabId: string,
   transport?: NativeChatStructuredComposerTransport
 ): PickerHost | null {
+  const context = resolveNativeChatModelDiscoveryContext(terminalTabId)
   if (transport) {
     const target = runtimeTargetForOwnerEnvironment(transport.runtimeEnvironmentId)
+    const discovery =
+      context?.runtime.worktreeId === (transport.worktreeId ?? null) &&
+      structuredAgentSessionHostKey(context.runtime.target) ===
+        structuredAgentSessionHostKey(target)
+        ? context
+        : undefined
     if (target.kind === 'environment') {
       return {
         target,
+        discovery,
+        preferHostCatalog: true,
+        worktreeId: transport.worktreeId,
         detection: {
           kind: 'runtime',
           environmentId: target.environmentId,
@@ -63,12 +66,14 @@ export function pickerHost(
     }
     return {
       target,
+      discovery,
+      preferHostCatalog: !connectionId,
+      worktreeId: transport.worktreeId,
       detection: connectionId
         ? { kind: 'ssh', connectionId }
         : { kind: 'local', worktreeId: transport.worktreeId }
     }
   }
-  const context = resolveNativeChatModelDiscoveryContext(terminalTabId)
   if (!context) {
     return null
   }
@@ -76,6 +81,7 @@ export function pickerHost(
   return {
     target,
     discovery: context,
+    preferHostCatalog: false,
     detection:
       target.kind === 'environment'
         ? { kind: 'runtime', environmentId: target.environmentId, worktreeId }
@@ -99,7 +105,7 @@ export function OrchestrationPickerContent({
   const inventory = useDetectedAgents(host ? host.detection : undefined)
   const disabledAgents = useAppStore((state) => state.settings?.disabledTuiAgents)
   const [selected, setSelected] = useState<OrchestrationAgentSelection[]>(initialSelections)
-  const [models, setModels] = useState<Record<string, { id: string; label: string }[] | null>>({})
+  const [models, setModels] = useState<Record<string, OrchestrationModel[] | null>>({})
   const available = new Set([
     ...filterEnabledTuiAgents(inventory.detectedIds ?? [], disabledAgents),
     ...initialSelections.map((entry) => entry.agent)
@@ -112,23 +118,7 @@ export function OrchestrationPickerContent({
         continue
       }
       setModels((current) => ({ ...current, [agent]: null }))
-      const listing = host.discovery
-        ? discoverNativeChatCatalogModels(
-            agent,
-            host.discovery.runtime,
-            host.discovery.hostKey
-          ).then((catalog) => catalog?.map(({ id, label }) => ({ id, label })) ?? [])
-        : host.detection.kind === 'ssh'
-          ? Promise.resolve([])
-          : callStructuredAgentSession<AgentSessionModelCatalogResult>(
-              host.target,
-              'agentSession.modelCatalog',
-              { agent }
-            ).then((catalog) =>
-              catalog.origin === 'unknown'
-                ? []
-                : catalog.models.map(({ id, label }) => ({ id, label }))
-            )
+      const listing = discoverOrchestrationModels(host, agent)
       void listing
         .then((catalog) => setModels((current) => ({ ...current, [agent]: catalog })))
         .catch(() => setModels((current) => ({ ...current, [agent]: [] })))
@@ -253,6 +243,21 @@ export function OrchestrationPickerContent({
                               'Default model'
                             )}
                           </SelectItem>
+                          {listed === null ? (
+                            <SelectItem value="__loading__" disabled>
+                              {translate(
+                                'components.native-chat.composer.loadingModels',
+                                'Loading agent models…'
+                              )}
+                            </SelectItem>
+                          ) : listed?.length === 0 ? (
+                            <SelectItem value="__unavailable__" disabled>
+                              {translate(
+                                'components.native-chat.composer.modelsUnavailable',
+                                'Model list unavailable'
+                              )}
+                            </SelectItem>
+                          ) : null}
                           {choice.model &&
                           !listed?.some((model) => model.id === choice.model?.id) ? (
                             <SelectItem value={choice.model.id}>{choice.model.label}</SelectItem>
