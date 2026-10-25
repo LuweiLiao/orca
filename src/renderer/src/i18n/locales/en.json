@@ -18932,6 +18932,7 @@
       },
       "conversationReference": {
         "source": "Referenced conversation",
+        "remove": "Remove conversation reference",
         "differentHost": "This agent cannot reach the conversation on its source host. Open the chat on that host to reference it.",
         "loading": "Reading conversation",
         "retry": "Retry",
@@ -19204,6 +19205,7 @@
         "addOrchestrationToMessage": "Add to message",
         "updateOrchestration": "Update orchestration",
         "editOrchestration": "Edit orchestration: {{label}}",
+        "removeOrchestration": "Remove agent selection",
         "startDictation": "Start dictation",
         "stopDictation": "Stop dictation",
         "noSkills": "No matching skills",

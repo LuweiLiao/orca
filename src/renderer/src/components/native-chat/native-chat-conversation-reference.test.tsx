@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { NativeChatPromptEditor } from './NativeChatPromptEditor'
 import type { NativeChatComposerInput } from './native-chat-composer-input'
 import { useConversationReferenceDrop } from './use-conversation-reference-drop'
@@ -21,6 +22,10 @@ const source = {
   source: { kind: 'transcript', agent: 'claude', sessionId: 'source-session' },
   title: reference.title,
   executionHostId: 'local'
+}
+
+function renderEditor(node: ReactNode) {
+  return render(<TooltipProvider>{node}</TooltipProvider>)
 }
 
 function Fixture() {
@@ -62,7 +67,7 @@ describe('conversation references in the editor', () => {
   it('drops a conversation into an atomic pill and preserves its text token', async () => {
     const create = vi.fn(async () => reference)
     vi.stubGlobal('api', { aiVault: { createConversationReference: create } })
-    const screen = render(<Fixture />)
+    const screen = renderEditor(<Fixture />)
     const transfer = {
       types: [CONVERSATION_REFERENCE_DRAG_TYPE],
       getData: () => JSON.stringify(source),
@@ -84,7 +89,7 @@ describe('conversation references in the editor', () => {
 
   it('reconstructs a reference pill from a plain text draft', async () => {
     const field: { current: NativeChatComposerInput | null } = { current: null }
-    const screen = render(
+    const screen = renderEditor(
       <NativeChatPromptEditor
         inputRef={field}
         initialValue={`Compare ${conversationReferenceToken(reference)}`}
@@ -99,5 +104,26 @@ describe('conversation references in the editor', () => {
       screen.container.querySelector('[data-native-chat-conversation-reference]')?.textContent
     ).toBe(reference.title)
     expect(field.current!.value).toBe(`Compare ${conversationReferenceToken(reference)}`)
+  })
+
+  it('removes a quoted conversation without opening its preview', async () => {
+    const field: { current: NativeChatComposerInput | null } = { current: null }
+    const screen = renderEditor(
+      <NativeChatPromptEditor
+        inputRef={field}
+        initialValue={`Compare ${conversationReferenceToken(reference)}`}
+        disabled={false}
+        placeholder="Message"
+        onChange={() => {}}
+        onSelect={() => {}}
+      />
+    )
+    await waitFor(() => expect(field.current).not.toBeNull())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove conversation reference' }))
+
+    expect(field.current!.value).toBe('Compare ')
+    expect(screen.container.querySelector('[data-native-chat-conversation-reference]')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

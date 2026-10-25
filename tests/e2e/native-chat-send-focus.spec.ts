@@ -98,6 +98,13 @@ test.describe('native chat composer focus', () => {
     await expect(composer).toContainText(/编译用 3 个 Codex|编译: 3 Codex agent\(s\)/)
     await expect(composer).not.toContainText(/编译用 2 个 Claude|编译: 2 Claude agent\(s\)/)
     await expect(composer).toBeFocused()
+    const remove = composer.getByRole('button', {
+      name: /^(Remove agent selection|移除智能体选择)$/
+    })
+    await expect(remove).toBeVisible()
+    await remove.click()
+    await expect(composer.locator('[data-native-chat-orchestration]')).toHaveCount(0)
+    await composer.screenshot({ path: testInfo.outputPath('orchestration-removed.png') })
   })
 
   test('keyboard tab rename returns input to the native chat composer', async ({
