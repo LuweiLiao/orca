@@ -186,7 +186,7 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   await expect(editor).toHaveCount(0)
   await root.getByRole('button', { name: '2 annotations', exact: true }).click()
   await orcaPage.evaluate(async () => {
-    const settings = await window.api.settings.set({ uiLanguage: 'zh-CN', theme: 'light' })
+    const settings = await window.api.settings.set({ uiLanguage: 'zh', theme: 'light' })
     window.__store?.setState({ settings })
   })
   await expect(root.getByRole('button', { name: '2 条注释', exact: true })).toBeVisible()
@@ -288,7 +288,7 @@ test('Chinese queue search shows why the runtime does not offer follow-up queuei
   await waitForSessionReady(orcaPage)
   await orcaPage.evaluate(async () => {
     const settings = await window.api.settings.set({
-      uiLanguage: 'zh-CN',
+      uiLanguage: 'zh',
       experimentalNativeChat: true,
       theme: 'dark'
     })
