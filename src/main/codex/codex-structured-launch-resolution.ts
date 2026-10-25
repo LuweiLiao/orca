@@ -78,6 +78,7 @@ export function codexStructuredLaunchPart(
     // Match the first turn's model to avoid duplicate prompt injection on a model switch.
     const model = record.options?.model
     const visuals = await basis.visuals()
+    const developerInstructions = basis.replyInstructions()
     await basis.launchDirectory()
     return {
       launch: {
@@ -90,7 +91,8 @@ export function codexStructuredLaunchPart(
         // Omitted policy fields would inherit the resumed thread's previous permissions.
         permissionPolicy: codexStructuredPermissionPolicy(basis.permissionMode ?? 'ask'),
         ...(model ? { model } : {}),
-        ...(visuals ? { visuals } : {})
+        ...(visuals ? { visuals } : {}),
+        ...(developerInstructions ? { developerInstructions } : {})
       },
       env: withNativeChatVisualsEnv(
         { ...environment, ...(accountHome.path ? { CODEX_HOME: accountHome.path } : {}) },

@@ -14,10 +14,13 @@ import {
   isAgentSessionPreSpawnError
 } from './agent-session-wire/structured-agent-session-adapter'
 import { guestNativePathEnv } from '../ipc/wsl-guest-windows-drive-path'
+import type { AgentReplyRuleSettings } from '../../shared/agent-reply-rule-settings'
 
+/** The settings a structured launch reads: command overrides and the agent reply rules. */
 export type StructuredAgentCommandSettings = Partial<
   Pick<GlobalSettings, 'agentCmdOverrides' | 'agentDefaultEnv'>
->
+> &
+  AgentReplyRuleSettings
 type CommandSettings = StructuredAgentCommandSettings
 type CommandOptions = NonNullable<Parameters<typeof resolveExecutableCommand>[1]>
 

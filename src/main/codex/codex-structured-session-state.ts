@@ -56,6 +56,8 @@ export type CodexStructuredLaunch = {
   /** Command values that must survive the user's shell environment policy. */
   commandEnv?: Record<string, string>
   visuals?: NativeChatVisualsLaunch
+  /** Orca's extra developer instructions; Codex keeps a thread's first ones across resumes. */
+  developerInstructions?: string
 }
 
 /** Boundaries retain host receipt time through buffering and retries. */

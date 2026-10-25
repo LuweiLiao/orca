@@ -7535,6 +7535,24 @@
             "modeAriaLabel": "智能体仪表盘打开模式",
             "modeInWindow": "窗口内",
             "modePopout": "弹出窗口"
+          },
+          "agentReplyRules": {
+            "copy": "用于 Chat UI。Codex 在新建聊天时读取；Claude 在每次启动或恢复智能体时读取。",
+            "claudeChinese": {
+              "label": "Claude：中文回复",
+              "copy": "在 Claude 每条消息都会读取的系统提示词中加入简体中文回复要求。思考过程可能仍是英文。",
+              "toggleLabel": "切换 Claude 中文回复"
+            },
+            "codexTrust": {
+              "label": "Codex：信任我的环境说明",
+              "copy": "你说是测试环境或已授权就直接采信，不自作主张加安全措施，不夸大风险。",
+              "toggleLabel": "切换 Codex 信任环境说明"
+            },
+            "codexConcise": {
+              "label": "Codex：回复精炼",
+              "copy": "结论先行，不写开场白、复述和废话；高 effort 时同样适用。",
+              "toggleLabel": "切换 Codex 回复精炼"
+            }
           }
         },
         "FloatingWorkspacePane": {
@@ -10008,6 +10026,14 @@
               "board": "木板",
               "inWindow": "窗口内",
               "worktrees": "工作树"
+            },
+            "agentReplyRules": {
+              "title": "智能体回复约束",
+              "description": "Chat UI 额外发给 Claude 和 Codex 的指令。",
+              "chinese": "中文",
+              "concise": "精炼",
+              "safety": "安全",
+              "prompt": "提示词"
             }
           }
         },

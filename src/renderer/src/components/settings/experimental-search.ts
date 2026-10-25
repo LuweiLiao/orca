@@ -4,6 +4,7 @@ import { translate } from '@/i18n/i18n'
 import { translateSearchKeyword } from './settings-search-keywords'
 import { getNewWorktreeCardStyleSearchEntry } from './new-worktree-card-style-search-entry'
 import { getNativeChatExperimentalSearchEntry } from './native-chat-experimental-search-entry'
+import { getAgentReplyRulesSearchEntry } from './agent-reply-rules-search-entry'
 import { getEphemeralVmsSearchEntry } from './ephemeral-vms-search'
 import { getWslHostsExperimentalSearchEntry } from './wsl-hosts-experimental-search'
 
@@ -48,6 +49,7 @@ export const getExperimentalPaneSearchEntries = createLocalizedCatalog(
       ]
     },
     getNativeChatExperimentalSearchEntry(),
+    getAgentReplyRulesSearchEntry(),
     {
       title: translate(
         'auto.components.settings.experimental.search.agentDashboard.title',
@@ -205,6 +207,12 @@ export function getExperimentalSearchEntry() {
     pet: findEntry(translate('auto.components.settings.experimental.search.87d99e634b', 'Pet')),
     nativeChat: findEntry(
       translate('auto.components.settings.experimental.search.nativeChat.title', 'Chat UI')
+    ),
+    agentReplyRules: findEntry(
+      translate(
+        'auto.components.settings.experimental.search.agentReplyRules.title',
+        'Agent reply rules'
+      )
     ),
     agentDashboard: findEntry(
       translate(

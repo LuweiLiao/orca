@@ -7856,6 +7856,24 @@
             "modeAriaLabel": "Agent Dashboard open mode",
             "modeInWindow": "In-window",
             "modePopout": "Pop-out"
+          },
+          "agentReplyRules": {
+            "copy": "Applies to Chat UI. Codex reads these when a chat is created; Claude reads them each time a chat starts or resumes its agent.",
+            "claudeChinese": {
+              "label": "Claude: reply in Chinese",
+              "copy": "Adds a Simplified Chinese reply instruction to the system prompt Claude reads on every message. Thinking may stay in English.",
+              "toggleLabel": "Toggle Claude Chinese replies"
+            },
+            "codexTrust": {
+              "label": "Codex: trust my environment",
+              "copy": "Takes your word on test environments and authorization, adds no safety measures you did not ask for, and does not overstate risk.",
+              "toggleLabel": "Toggle Codex environment trust"
+            },
+            "codexConcise": {
+              "label": "Codex: concise replies",
+              "copy": "Leads with the conclusion and drops preambles, recaps, and filler, including at high reasoning effort.",
+              "toggleLabel": "Toggle Codex concise replies"
+            }
           }
         },
         "FloatingWorkspacePane": {
@@ -10378,6 +10396,14 @@
               "board": "board",
               "inWindow": "in-window",
               "worktrees": "worktrees"
+            },
+            "agentReplyRules": {
+              "title": "Agent reply rules",
+              "description": "Extra instructions Chat UI sends to Claude and Codex.",
+              "chinese": "chinese",
+              "concise": "concise",
+              "safety": "safety",
+              "prompt": "prompt"
             }
           }
         },

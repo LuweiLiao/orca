@@ -15,6 +15,7 @@ import {
   type NativeChatVisualsLaunch,
   type PrepareNativeChatVisuals
 } from '../native-chat/native-chat-visuals-delivery'
+import { agentReplyInstructions } from '../native-chat/agent-reply-instructions'
 import { resolveAgentSessionLaunchDirectory } from './agent-session-launch-directory'
 import type { AgentSessionRecordStore } from './agent-session-record-store'
 import type { StructuredAgentAdapterContext } from './structured-agent-runtime-registrations'
@@ -51,6 +52,8 @@ export type StructuredAgentLaunchBasis = {
   /** Null when the chat gets no visuals. */
   visuals(): Promise<NativeChatVisualsLaunch | null>
   commandSettings(): StructuredAgentCommandSettings
+  /** Extra reply instructions for this agent; null when none are enabled. */
+  replyInstructions(): string | null
   /** For a part that found no program: refreshes the environment, after which both environment
    *  reads return the refreshed one. Absent when the runtime never retries. */
   refreshAfterMissingProgram?: (askedAt: number) => Promise<void>
@@ -160,6 +163,9 @@ async function composedPart<L>(
     environment: () => environments.agent(),
     visuals: once(async () => (await sources.prepareVisuals?.(record.sessionId)) ?? null),
     commandSettings: once(() => sources.resolveCommandSettings?.() ?? {}),
+    replyInstructions: once(() =>
+      agentReplyInstructions(definition.agent, sources.resolveCommandSettings?.() ?? {})
+    ),
     ...(refresh
       ? {
           refreshAfterMissingProgram: async (askedAt) => {

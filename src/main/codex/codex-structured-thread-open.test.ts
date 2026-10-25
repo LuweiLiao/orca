@@ -15,6 +15,33 @@ function connectionFor(
 }
 
 describe('openCodexThread', () => {
+  it('sends developer instructions as thread config next to the launch config', async () => {
+    const request = vi.fn(async () => ({ thread: { id: 'thread-created' } }))
+
+    await openCodexThread(
+      connectionFor(request),
+      {
+        cwd: '/workspace',
+        resumeThreadId: null,
+        threadConfig: { 'sandbox_workspace_write.writable_roots': ['/chat'] },
+        developerInstructions: 'Lead with the conclusion.'
+      },
+      2_000
+    )
+
+    expect(request).toHaveBeenCalledWith(
+      'thread/start',
+      {
+        cwd: '/workspace',
+        config: {
+          'sandbox_workspace_write.writable_roots': ['/chat'],
+          developer_instructions: 'Lead with the conclusion.'
+        }
+      },
+      { timeoutMs: 2_000 }
+    )
+  })
+
   it('applies the resolved permission policy when starting and resuming a thread', async () => {
     const request = vi.fn(async (method: string) => ({
       thread: { id: method === 'thread/start' ? 'thread-created' : 'thread-existing' }

@@ -9,6 +9,7 @@ import { HiddenExperimentalGroup } from './HiddenExperimentalGroup'
 import { NumberField, SettingsSwitch } from './SettingsFormControls'
 import { translate } from '@/i18n/i18n'
 import { NativeChatExperimentalSetting } from './NativeChatExperimentalSetting'
+import { AgentReplyRulesExperimentalSetting } from './AgentReplyRulesExperimentalSetting'
 import { AgentDashboardExperimentalSetting } from './AgentDashboardExperimentalSetting'
 import { EphemeralVmsExperimentalSetting } from './EphemeralVmsExperimentalSetting'
 import { WslHostsExperimentalSetting } from './WslHostsExperimentalSetting'
@@ -40,6 +41,9 @@ export function ExperimentalPane({
   const showPet = matchesSettingsSearch(searchQuery, [getExperimentalSearchEntry().pet])
   const showNativeChat = matchesSettingsSearch(searchQuery, [
     getExperimentalSearchEntry().nativeChat
+  ])
+  const showAgentReplyRules = matchesSettingsSearch(searchQuery, [
+    getExperimentalSearchEntry().agentReplyRules
   ])
   const showAgentDashboard = matchesSettingsSearch(searchQuery, [
     getExperimentalSearchEntry().agentDashboard
@@ -103,6 +107,10 @@ export function ExperimentalPane({
 
       {showNativeChat ? (
         <NativeChatExperimentalSetting settings={settings} updateSettings={updateSettings} />
+      ) : null}
+
+      {showAgentReplyRules ? (
+        <AgentReplyRulesExperimentalSetting settings={settings} updateSettings={updateSettings} />
       ) : null}
 
       {showTerminalAttention ? (

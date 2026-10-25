@@ -197,6 +197,7 @@ export function claudeStructuredLaunchPart(
       ...(visuals ? [visuals.visuals.folder] : [])
     ]
     const permission = claudeStructuredPermissionOptions(basis.permissionMode ?? 'ask')
+    const replyInstructions = basis.replyInstructions()
     // --resume fails without a transcript; --session-id collides with an existing one.
     const leafUuid = head && continuesChain ? claudeProviderHandleLeafUuid(head) : null
     const resumes = async (claudeConfigDir: string): Promise<boolean> =>
@@ -246,6 +247,10 @@ export function claudeStructuredLaunchPart(
           ...permission,
           ...(additionalDirectories.length ? { additionalDirectories } : {}),
           ...(visuals?.pluginDir ? { plugins: [{ type: 'local', path: visuals.pluginDir }] } : {}),
+          // Claude follows appended system text; per-prompt hook context was ignored in testing.
+          ...(replyInstructions
+            ? { systemPrompt: { type: 'preset', preset: 'claude_code', append: replyInstructions } }
+            : {}),
           extraArgs: {
             ...configured.extraArgs,
             ...CLAUDE_STRUCTURED_BASE_OPTIONS.extraArgs,
