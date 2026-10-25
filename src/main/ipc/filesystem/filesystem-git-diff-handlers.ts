@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import type { GitDiffResult } from '../../../shared/git-diff-compare-types'
 import { getBranchDiff, getCommitDiff } from '../../git/status'
 import { resolveRegisteredWorktreePath } from '../registered-worktree-roots-cache'
+import { resolveRegisteredWorkspaceReadPath } from '../registered-workspace-read-path'
 import { getLocalGitOptionsForRegisteredWorktree } from '../local-worktree-runtime-options'
 import {
   validateFullGitObjectId,
@@ -70,7 +71,7 @@ export function registerFilesystemGitDiffHandlers(context: FilesystemHandlerCont
       const commitOid = validateFullGitObjectId(args.commitOid, 'commitOid')
       const parentOid = args.parentOid ? validateFullGitObjectId(args.parentOid, 'parentOid') : null
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
-      const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
+      const worktreePath = await resolveRegisteredWorkspaceReadPath(args.worktreePath, store)
       const filePath = validateGitRelativeFilePath(worktreePath, args.filePath)
       const oldPath = args.oldPath
         ? validateGitRelativeFilePath(worktreePath, args.oldPath)

@@ -758,6 +758,38 @@ describe('git RPC methods', () => {
     expect(runtime.getRuntimeGitHistory).not.toHaveBeenCalled()
   })
 
+  it('forwards graph paging params and rejects unknown scopes and oversized pages', async () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: this dispatcher fixture only invokes the two runtime methods supplied here.
+    const runtime = {
+      getRuntimeId: () => 'test-runtime',
+      getRuntimeGitGraph: vi.fn().mockResolvedValue({ items: [], refs: [] })
+    } as unknown as OrcaRuntimeService
+    const dispatcher = new RpcDispatcher({ runtime, methods: GIT_METHODS })
+
+    await dispatcher.dispatch(
+      makeRequest('git.historyGraph', {
+        worktree: 'id:wt-1',
+        scope: 'ref',
+        ref: 'origin/main',
+        limit: 200,
+        cursor: 'gg1.token'
+      })
+    )
+    const rejected = await Promise.all([
+      dispatcher.dispatch(makeRequest('git.historyGraph', { worktree: 'id:wt-1', scope: 'tags' })),
+      dispatcher.dispatch(makeRequest('git.historyGraph', { worktree: 'id:wt-1', limit: 201 }))
+    ])
+
+    expect(runtime.getRuntimeGitGraph).toHaveBeenCalledTimes(1)
+    expect(runtime.getRuntimeGitGraph).toHaveBeenCalledWith('id:wt-1', {
+      scope: 'ref',
+      ref: 'origin/main',
+      limit: 200,
+      cursor: 'gg1.token'
+    })
+    expect(rejected.map((response) => response.ok)).toEqual([false, false])
+  })
+
   it('checks out a branch', async () => {
     const runtime = {
       getRuntimeId: () => 'test-runtime',

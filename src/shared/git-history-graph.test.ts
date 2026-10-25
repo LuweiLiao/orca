@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { GitHistoryItem, GitHistoryItemRef } from './git-history'
+import type { GitHistoryGraphColorId, GitHistoryItem, GitHistoryItemRef } from './git-history'
 import {
   GIT_HISTORY_BASE_REF_COLOR,
   GIT_HISTORY_LANE_COLORS,
@@ -10,6 +10,7 @@ import {
   GIT_HISTORY_INCOMING_CHANGES_ID,
   GIT_HISTORY_OUTGOING_CHANGES_ID,
   buildDefaultGitHistoryColorMap,
+  buildGitGraphViewModels,
   buildGitHistoryViewModels,
   getGitHistoryMergeParentLaneIndex
 } from './git-history-graph'
@@ -308,5 +309,34 @@ describe('git history graph model', () => {
     expect(colorMap.get(currentRef.id)).toBe(GIT_HISTORY_REF_COLOR)
     expect(colorMap.get(remoteRef.id)).toBe(GIT_HISTORY_REMOTE_REF_COLOR)
     expect(colorMap.get(baseRef.id)).toBe(GIT_HISTORY_BASE_REF_COLOR)
+  })
+
+  it('keeps paged graph rows identical when later pages are appended', () => {
+    const currentRef = branch('main', 'M')
+    const featureRemote = remote('origin/feature', 'F')
+    const items = [
+      item('M', ['C', 'F'], [currentRef]),
+      item('X', ['C'], [branch('topic', 'X')]),
+      item('F', ['E'], [featureRemote]),
+      item('C', ['B']),
+      item('E', ['B']),
+      item('B', ['A']),
+      item('A', [])
+    ]
+    const colorMap = (): Map<string, GitHistoryGraphColorId | undefined> =>
+      buildDefaultGitHistoryColorMap({ currentRef, remoteRef: featureRemote })
+    const full = buildGitGraphViewModels(items, colorMap(), currentRef)
+
+    expect(full.map((viewModel) => viewModel.historyItem.id)).toEqual(items.map((i) => i.id))
+    expect(full[0]!.kind).toBe('HEAD')
+    for (let count = 1; count < items.length; count += 1) {
+      expect(buildGitGraphViewModels(items.slice(0, count), colorMap(), currentRef)).toEqual(
+        full.slice(0, count)
+      )
+    }
+    // The sidebar builder colors the merged lane from a row below it, so a later page recolors it.
+    const sidebarFull = buildGitHistoryViewModels(items, colorMap(), currentRef)
+    const sidebarFirstPage = buildGitHistoryViewModels(items.slice(0, 1), colorMap(), currentRef)
+    expect(sidebarFirstPage[0]!.outputSwimlanes).not.toEqual(sidebarFull[0]!.outputSwimlanes)
   })
 })

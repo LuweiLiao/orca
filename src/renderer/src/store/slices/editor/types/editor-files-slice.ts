@@ -209,6 +209,8 @@ export type EditorFilesSlice = {
     state: CheckRunDetailsTabPatch
   ) => void
   reloadOpenCheckRunDetailsTab: (fileId: string) => Promise<void>
+  /** Opens or focuses the workspace's Git Graph tab, owned by the host resolved now. */
+  openGitGraph: (worktreeId: string) => void
   openBranchAllDiffs: (
     worktreeId: string,
     worktreePath: string,

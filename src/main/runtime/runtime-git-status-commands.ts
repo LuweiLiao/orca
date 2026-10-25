@@ -1,4 +1,5 @@
 import type { GitHistoryOptions, GitHistoryResult } from '../../shared/git-history'
+import type { GitGraphOptions, GitGraphResult } from '../../shared/git-graph-types'
 import type { GitMutationInFlight } from '../../shared/git-mutation-in-flight'
 import { isGitWorktreeMutationInFlight } from '../git/git-worktree-mutation-state'
 import type {
@@ -12,6 +13,7 @@ import {
   localGitOptionsForTarget,
   requireLocalRuntimeGitRoute,
   requireRuntimeGitProvider,
+  resolveRuntimeGitReadTarget,
   type RuntimeGitCommandHost
 } from './runtime-git-command-target'
 
@@ -56,6 +58,14 @@ export class RuntimeGitStatusCommands {
   ): Promise<GitHistoryResult> {
     const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
     return requireRuntimeGitProvider(target).getHistory(target.worktree.path, options)
+  }
+
+  async getRuntimeGitGraph(
+    worktreeSelector: string,
+    options: GitGraphOptions & { signal?: AbortSignal } = {}
+  ): Promise<GitGraphResult> {
+    const target = await resolveRuntimeGitReadTarget(this.host, worktreeSelector)
+    return requireRuntimeGitProvider(target).getGitGraph(target.worktree.path, options)
   }
 
   async getRuntimeGitConflictOperation(worktreeSelector: string): Promise<GitConflictOperation> {

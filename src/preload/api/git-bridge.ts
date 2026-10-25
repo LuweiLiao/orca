@@ -4,6 +4,7 @@ import type { GitStagingArea, GitUpstreamStatus } from '../../shared/git-status-
 import type { GitPushTarget } from '../../shared/worktree/types'
 import type { GitStageWorktreeScope } from '../../shared/git-stage-worktree-scope'
 import type { GitHistoryOptions, GitHistoryResult } from '../../shared/git-history'
+import type { GitGraphOptions, GitGraphResult } from '../../shared/git-graph-types'
 import type { PreloadApi } from '../api-types'
 
 export const gitApi = {
@@ -44,6 +45,9 @@ export const gitApi = {
   history: (
     args: { worktreePath: string; connectionId?: string } & GitHistoryOptions
   ): Promise<GitHistoryResult> => ipcRenderer.invoke('git:history', args),
+  historyGraph: (
+    args: { worktreePath: string; connectionId?: string } & GitGraphOptions
+  ): Promise<GitGraphResult> => ipcRenderer.invoke('git:historyGraph', args),
   conflictOperation: (args: { worktreePath: string; connectionId?: string }) =>
     ipcRenderer.invoke('git:conflictOperation', args),
   mutationInFlight: (args: { worktreePath: string; connectionId?: string }) =>

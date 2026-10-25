@@ -6,6 +6,7 @@ import type {
 } from '../../../shared/git-status-types'
 import type { GitDiffResult } from '../../../shared/git-diff-compare-types'
 import type { GitHistoryOptions, GitHistoryResult } from '../../../shared/git-history'
+import type { GitGraphOptions, GitGraphResult } from '../../../shared/git-graph-types'
 import type { GitStatusUpstreamRefWatchRequest } from '../git-status-upstream-ref-watch-request'
 import type { GitAdmissionTier } from '../../git/command-runner/git-exec-options'
 import {
@@ -17,6 +18,7 @@ import {
   getDiff
 } from '../../git/status'
 import { getHistory } from '../../git/history'
+import { getGitGraph } from '../../git/graph'
 import { isGitWorktreeMutationInFlight } from '../../git/git-worktree-mutation-state'
 import type { GitMutationInFlight } from '../../../shared/git-mutation-in-flight'
 import { checkIgnoredPaths } from '../../git/check-ignored-paths'
@@ -25,6 +27,7 @@ import {
   findKnownHugeFolderPathsToIgnore
 } from '../../git/huge-folder-ignore'
 import { resolveRegisteredWorktreePath } from '../registered-worktree-roots-cache'
+import { resolveRegisteredWorkspaceReadPath } from '../registered-workspace-read-path'
 import { validateGitRelativeFilePath } from '../filesystem-path-containment'
 import {
   getLocalGitOptionsForRegisteredWorktree,
@@ -177,6 +180,29 @@ export function registerFilesystemGitStatusHandlers(context: FilesystemHandlerCo
         worktreePath
       )
       return getHistory(worktreePath, { ...options, ...gitOptions })
+    }
+  )
+
+  ipcMain.handle(
+    'git:historyGraph',
+    async (
+      _event,
+      args: { worktreePath: string; connectionId?: string } & GitGraphOptions
+    ): Promise<GitGraphResult> => {
+      const options: GitGraphOptions = {
+        ...(args.scope === undefined ? {} : { scope: args.scope }),
+        ...(args.ref === undefined ? {} : { ref: args.ref }),
+        ...(args.limit === undefined ? {} : { limit: args.limit }),
+        ...(args.cursor === undefined ? {} : { cursor: args.cursor })
+      }
+      requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
+      const worktreePath = await resolveRegisteredWorkspaceReadPath(args.worktreePath, store)
+      const gitOptions = getLocalGitOptionsForRegisteredWorktree(
+        store,
+        args.worktreePath,
+        worktreePath
+      )
+      return getGitGraph(worktreePath, { ...options, ...gitOptions, admissionTier: 'interactive' })
     }
   )
 

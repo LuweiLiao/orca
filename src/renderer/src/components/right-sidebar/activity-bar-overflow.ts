@@ -1,9 +1,10 @@
 import type { ActiveRightSidebarTab } from '@/store/slices/editor'
+import type { RightSidebarActivityId } from './activity-bar-buttons'
 
 const TOP_ACTIVITY_BUTTON_WIDTH = 36
 const TOP_ACTIVITY_MORE_BUTTON_WIDTH = 32
 
-export function getTopActivityBarLayout<T extends { id: ActiveRightSidebarTab }>(
+export function getTopActivityBarLayout<T extends { id: RightSidebarActivityId }>(
   items: readonly T[],
   availableWidth: number | null,
   activeId: ActiveRightSidebarTab

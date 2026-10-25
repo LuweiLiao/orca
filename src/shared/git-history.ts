@@ -43,7 +43,7 @@ function clampHistoryLimit(limit: number | undefined): number {
   )
 }
 
-async function resolveCommit(
+export async function resolveCommit(
   git: GitHistoryExecutor,
   cwd: string,
   ref: string
@@ -91,7 +91,7 @@ async function resolveSymbolicFullName(
   }
 }
 
-async function resolveCurrentRef(
+export async function resolveCurrentRef(
   git: GitHistoryExecutor,
   cwd: string,
   headOid: string
@@ -148,7 +148,7 @@ async function resolveUpstreamRef(
   }
 }
 
-async function resolveNamedRef(
+export async function resolveNamedRef(
   git: GitHistoryExecutor,
   cwd: string,
   ref: string | null | undefined

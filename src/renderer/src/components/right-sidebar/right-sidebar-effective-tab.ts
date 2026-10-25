@@ -29,5 +29,10 @@ export function resolveRightSidebarEffectiveTab({
     return normalizedActiveTab
   }
 
-  return visibleItems[0].id
+  for (const item of visibleItems) {
+    if (item.id !== 'git-graph') {
+      return item.id
+    }
+  }
+  throw new Error('Right sidebar activity items must include at least one visible tab')
 }

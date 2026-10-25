@@ -5,11 +5,11 @@ import type { PluginPanelsFetchStatus } from '@/store/plugin-panels'
 import { normalizeRightSidebarRoute } from '@/store/right-sidebar-route'
 import { resolveRightSidebarEffectiveTab } from './right-sidebar-effective-tab'
 import { useInstalledPluginRouteReconciliation } from './use-installed-plugin-route-reconciliation'
-import type { ActivityBarItem } from './activity-bar-buttons'
+import type { ActivityBarItem, RightSidebarActivityId } from './activity-bar-buttons'
 
 export type RightSidebarTabRouting = {
   effectiveTab: ActiveRightSidebarTab
-  selectActivityTab: (tab: ActiveRightSidebarTab) => void
+  selectActivityTab: (tab: RightSidebarActivityId) => void
 }
 
 export function useRightSidebarTabRouting({
@@ -83,7 +83,14 @@ export function useRightSidebarTabRouting({
     }
     rememberedFolderTabByWorkspaceKeyRef.current[activeFolderWorkspaceKey] = effectiveTab
   }, [activeFolderWorkspaceKey, effectiveTab, visibleItems])
-  const selectActivityTab = (tab: ActiveRightSidebarTab): void => {
+  const selectActivityTab = (tab: RightSidebarActivityId): void => {
+    if (tab === 'git-graph') {
+      const state = useAppStore.getState()
+      if (state.activeWorktreeId) {
+        state.openGitGraph(state.activeWorktreeId)
+      }
+      return
+    }
     if (activeFolderWorkspaceKey) {
       rememberedFolderTabByWorkspaceKeyRef.current[activeFolderWorkspaceKey] = tab
     }

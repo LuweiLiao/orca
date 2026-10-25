@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { awaitWindowsHostGitEnvironmentReady } from '../../git/runner'
 import { getRemoteCommitUrl, getRemoteFileUrl } from '../../git/repo'
 import { resolveRegisteredWorktreePath } from '../registered-worktree-roots-cache'
+import { resolveRegisteredWorkspaceReadPath } from '../registered-workspace-read-path'
 import { validateFullGitObjectId } from '../filesystem-path-containment'
 import type { FilesystemHandlerContext } from './filesystem-handler-context'
 import { requireReachableGitRoute } from '../../providers/execution-host-provider-dispatch'
@@ -32,7 +33,7 @@ export function registerFilesystemGitUrlHandlers(context: FilesystemHandlerConte
       const sha = validateFullGitObjectId(args.sha, 'sha')
       // Remote URL construction needs the owning SSH host's .git/config.
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
-      const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
+      const worktreePath = await resolveRegisteredWorkspaceReadPath(args.worktreePath, store)
       await awaitWindowsHostGitEnvironmentReady({ cwd: worktreePath })
       return getRemoteCommitUrl(worktreePath, sha)
     }

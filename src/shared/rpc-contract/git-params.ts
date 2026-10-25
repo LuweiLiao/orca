@@ -80,6 +80,14 @@ export const GitHistory = WorktreeSelector.extend({
   baseRef: z.string().nullable().optional()
 })
 
+// Ref shape and cursor binding are re-validated host-side before either reaches Git.
+export const GitHistoryGraph = WorktreeSelector.extend({
+  scope: z.enum(['head', 'local', 'all', 'ref']).optional(),
+  ref: z.string().min(1).max(1024).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+  cursor: z.string().min(1).max(128).optional()
+})
+
 export const GitBranchDiff = GitFilePath.extend({
   compare: z.object({
     baseRef: z.string().optional(),

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { ActivityBarButton, TopActivityOverflowMenu } from './activity-bar-buttons'
-import type { ActivityBarItem } from './activity-bar-buttons'
+import type { ActivityBarItem, RightSidebarActivityId } from './activity-bar-buttons'
 import { ActivityBarPositionMenu } from './activity-bar-position-menu'
 import {
   RIGHT_SIDEBAR_HEADER_NO_DRAG_CLASS_NAME,
@@ -28,7 +28,7 @@ export function RightSidebarTopActivityBar({
   topActivityStripRef: (node: HTMLDivElement | null) => void
   topActivityLayout: { visibleItems: ActivityBarItem[]; overflowItems: ActivityBarItem[] }
   effectiveTab: ActiveRightSidebarTab
-  onSelectTab: (tab: ActiveRightSidebarTab) => void
+  onSelectTab: (tab: RightSidebarActivityId) => void
   checksStatus: CheckStatus | null
   closeButton: React.ReactNode
   activityBarPosition: ActivityBarPosition

@@ -1,10 +1,14 @@
 import type { GitHistoryOptions, GitHistoryResult } from '../../../shared/git-history'
+import { GIT_GRAPH_UNSUPPORTED_CODE } from '../../../shared/git-graph-errors'
+import type { GitGraphOptions, GitGraphResult } from '../../../shared/git-graph-types'
 import type { GitMutationInFlight } from '../../../shared/git-mutation-in-flight'
+import { hasRuntimeRpcErrorCode } from '../../../shared/runtime-rpc-error-code'
 import type {
   GitConflictOperation,
   GitStagingArea,
   GitStatusResult
 } from '../../../shared/git-status-types'
+import { createRuntimeRpcAbortError } from './abortable-runtime-environment-call'
 import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-client-context'
 import { callRuntimeRpc } from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
@@ -184,6 +188,49 @@ export async function getRuntimeGitHistory(
     { worktree: toRuntimeWorktreeSelector(context.worktreeId), ...options },
     { timeoutMs: 15_000 }
   )
+}
+
+const GIT_GRAPH_RPC_TIMEOUT_MS = 60_000
+
+/**
+ * One page of the multi-ref commit graph. Pass `nextCursor` back with the same scope and ref
+ * to continue the pinned snapshot; a host older than `git.historyGraph` rejects with
+ * `git_graph_unsupported` instead of degrading to HEAD-only history.
+ */
+export async function getRuntimeGitGraph(
+  context: RuntimeGitContext,
+  options: GitGraphOptions = {},
+  request: { signal?: AbortSignal } = {}
+): Promise<GitGraphResult> {
+  const target = context.target
+  if (request.signal?.aborted) {
+    throw createRuntimeRpcAbortError()
+  }
+  try {
+    if (target.kind === 'local' || !context.worktreeId) {
+      const result = await window.api.git.historyGraph({
+        worktreePath: resolveLocalWorktreePath(context),
+        connectionId: context.connectionId,
+        ...options
+      })
+      // Why: IPC cannot cancel the host walk, but a superseded page must not publish.
+      if (request.signal?.aborted) {
+        throw createRuntimeRpcAbortError()
+      }
+      return result
+    }
+    return await callRuntimeRpc<GitGraphResult>(
+      target,
+      'git.historyGraph',
+      { worktree: toRuntimeWorktreeSelector(context.worktreeId), ...options },
+      { timeoutMs: GIT_GRAPH_RPC_TIMEOUT_MS, ...(request.signal ? { signal: request.signal } : {}) }
+    )
+  } catch (error) {
+    if (hasRuntimeRpcErrorCode(error, 'method_not_found')) {
+      throw new Error(GIT_GRAPH_UNSUPPORTED_CODE, { cause: error })
+    }
+    throw error
+  }
 }
 
 export async function getRuntimeGitConflictOperation(

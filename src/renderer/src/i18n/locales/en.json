@@ -755,7 +755,9 @@
           "f2e00db373": "File not found: {{value0}}",
           "checkRunDetailsUnavailable": "No details are available for this check.",
           "checkRunDetailsLoadFailed": "Failed to load check details.",
-          "checkRunDetailsRepoUnavailable": "Repository details are unavailable for this check."
+          "checkRunDetailsRepoUnavailable": "Repository details are unavailable for this check.",
+          "gitGraphOwnerUnavailable": "Couldn't verify which host owns this workspace. Try again after the connection settles.",
+          "gitGraphTabLabel": "Git Graph"
         },
         "github": {
           "f129c42773": "GitHub did not return the new comment.",
@@ -13611,7 +13613,8 @@
             "62e685d5ec": "idle",
             "111e1d0db4": "error",
             "e5e81e59a6": "Resize commits",
-            "6d1e0a7c3b": "Failed to load commit files"
+            "6d1e0a7c3b": "Failed to load commit files",
+            "openGitGraph": "Open Git Graph"
           },
           "HostedReviewActions": {
             "4d5fb5a284": "Close",
@@ -17115,12 +17118,18 @@
                 "chatPaneRight": "chat pane right",
                 "splitChatDown": "split chat down",
                 "newChatBelow": "new chat below",
-                "chatPaneBelow": "chat pane below"
+                "chatPaneBelow": "chat pane below",
+                "gitGraph": "git graph",
+                "openGitGraph": "open git graph",
+                "commitGraph": "commit graph",
+                "gitLog": "git log"
               },
               "splitChatRight": "Split Chat Right",
               "splitChatRightDescription": "Open a new chat in a split pane to the right.",
               "splitChatDown": "Split Chat Down",
-              "splitChatDownDescription": "Open a new chat in a split pane below."
+              "splitChatDownDescription": "Open a new chat in a split pane below.",
+              "openGitGraph": "Open Git Graph",
+              "openGitGraphDescription": "Browse the commit graph of the active workspace."
             }
           },
           "palette": {
@@ -18787,6 +18796,85 @@
         "cancelled": "This plain SSH terminal was closed before it started.",
         "terminalUnavailable": "Orca couldn’t open a terminal here.",
         "openHint": "Keeps you working on the host while Orca can’t set up there."
+      },
+      "gitGraph": {
+        "status": {
+          "loadedPartial": "{{value0}} commits loaded from {{value1}}; scroll to load more",
+          "loadedAll": "{{value0}} commits in {{value1}}",
+          "truncated": "Partial graph: some refs or older commits were omitted",
+          "shallow": "Shallow clone: history stops at the shallow boundary",
+          "refreshFailed": "Refresh failed: {{value0}}"
+        },
+        "toolbar": {
+          "headNotLoaded": "HEAD is not in the commits shown for this scope.",
+          "label": "Git graph",
+          "locateHead": "Go to HEAD commit",
+          "refresh": "Refresh graph"
+        },
+        "panel": {
+          "unsupported": "The Orca runtime that owns this workspace is too old for Git Graph. Update it to browse the graph.",
+          "chooseRef": "Choose a branch or tag to show its history.",
+          "loading": "Loading commits…",
+          "empty": "No commits yet",
+          "notGit": "Git Graph is unavailable because this workspace folder is not a Git repository."
+        },
+        "list": {
+          "retry": "Retry",
+          "label": "Commits",
+          "graphColumn": "Graph",
+          "descriptionColumn": "Description",
+          "authorColumn": "Author",
+          "dateColumn": "Date",
+          "commitColumn": "Commit",
+          "loadingMore": "Loading more commits…",
+          "loadMore": "Load more commits"
+        },
+        "detail": {
+          "label": "Commit details",
+          "close": "Close commit details",
+          "author": "Author",
+          "date": "Date",
+          "commit": "Commit",
+          "copyHash": "Copy commit hash",
+          "parents": "Parents",
+          "rootCommit": "None (root commit)",
+          "selectParent": "Select parent commit {{value0}}",
+          "files": "Changed files"
+        },
+        "owner": {
+          "workspaceMissing": "This workspace is no longer available.",
+          "changed": "The workspace host changed. Reopen Git Graph for this workspace."
+        },
+        "refPicker": {
+          "branches": "Branches",
+          "remoteBranches": "Remote branches",
+          "tags": "Tags",
+          "other": "Other refs",
+          "label": "Branch or tag",
+          "placeholder": "Choose a ref…",
+          "search": "Search branches and tags",
+          "empty": "No matching refs",
+          "more": "{{value0}} more refs. Type to narrow the list."
+        },
+        "scope": {
+          "head": "Current branch",
+          "local": "Local branches",
+          "all": "All branches",
+          "ref": "Branch or tag",
+          "label": "History scope"
+        },
+        "search": {
+          "label": "Search loaded commits",
+          "noMatches": "No matches",
+          "position": "{{value0}} of {{value1}}",
+          "previous": "Previous match",
+          "next": "Next match"
+        },
+        "history": {
+          "refNotFound": "That branch or tag no longer exists.",
+          "snapshotChanged": "The repository changed while paging. Refresh to load the latest graph.",
+          "loadFailed": "Failed to load the Git graph"
+        }
       }
     },
     "i18n": {
