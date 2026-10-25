@@ -46,6 +46,7 @@ export type CmdJQuickActionContext = {
   openAddQuickCommand: () => void
   canSplitActiveChat?: boolean
   splitActiveChat?: (direction: NativeChatSplitDirection) => boolean
+  openGitGraph?: (worktreeId: string) => void
 }
 
 export function resolveCmdJActiveGroupId(
@@ -201,7 +202,8 @@ export function buildCmdJQuickActionContext(args: {
     openAddQuickCommand: args.openAddQuickCommand,
     canSplitActiveChat: canRunNativeChatSplitTarget(args.state, activeChatTarget),
     splitActiveChat: (direction) =>
-      runActiveNativeChatSplit(activeWorktreeId, activeGroupId, direction)
+      runActiveNativeChatSplit(activeWorktreeId, activeGroupId, direction),
+    openGitGraph: args.state.openGitGraph
   }
 }
 

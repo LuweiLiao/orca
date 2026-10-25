@@ -30,6 +30,7 @@ import {
   classifySkillInstallFailureCode
 } from '../../../shared/skill-install-failure'
 import { GIT_DIFF_TOO_LARGE_CODE } from '../../../shared/git-diff-transport-budget'
+import { GIT_GRAPH_ERROR_CODES } from '../../../shared/git-graph-errors'
 import { AUTOMATION_OWNER_CONFLICT_CODES } from '../../../shared/automation-owner-conflict'
 import { ARCHIVE_HOOK_FAILED_REMOVAL_CODE } from '../../../shared/worktree/archive-hook-removal-gate'
 import { NESTED_WORKER_DEPTH_EXCEEDED_CODE } from '../../../shared/nested-worker-depth'
@@ -170,6 +171,8 @@ const STRUCTURED_RUNTIME_PASSTHROUGH_CODES: ReadonlySet<string> = new Set([
   NESTED_WORKER_DEPTH_EXCEEDED_CODE,
   PROJECT_RUNTIME_REPAIR_REQUIRED_CODE,
   GIT_DIFF_TOO_LARGE_CODE,
+  // Why: an expired cursor (reload page one) and a missing ref need different client recovery.
+  ...GIT_GRAPH_ERROR_CODES,
   ARTIFACT_SHARING_DISABLED_CODE,
   AGENT_SKILL_SHARING_DISABLED_CODE,
   AGENT_SKILL_NOT_SHAREABLE_CODE,

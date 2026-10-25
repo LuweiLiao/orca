@@ -1,4 +1,4 @@
-import { FileText, FolderPlus, Globe, Play, SquareTerminal, Trash2 } from 'lucide-react'
+import { FileText, FolderPlus, GitGraph, Globe, Play, SquareTerminal, Trash2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { CmdJQuickActionAvailability, CmdJQuickActionContext } from './quick-action-context'
 import {
@@ -39,6 +39,14 @@ function workspaceActionAvailability(ctx: CmdJQuickActionContext): CmdJQuickActi
 function currentWorkspaceActionAvailability(
   ctx: CmdJQuickActionContext
 ): CmdJQuickActionAvailability {
+  return getCurrentWorkspaceActionAvailability(ctx)
+}
+
+// Why: folder workspaces may be Git repositories; the graph tab reports a non-Git folder itself.
+function gitGraphActionAvailability(ctx: CmdJQuickActionContext): CmdJQuickActionAvailability {
+  if (!ctx.openGitGraph) {
+    return { available: false, reason: 'client-action-unsupported' }
+  }
   return getCurrentWorkspaceActionAvailability(ctx)
 }
 
@@ -128,6 +136,33 @@ export const getCmdJQuickActions = createLocalizedCatalog((): CmdJQuickAction[] 
     run: (ctx) => runWorkspaceAction(ctx, ctx.openNewTerminalTab)
   },
   ...getNativeChatSplitQuickActions(),
+  {
+    id: 'open-git-graph',
+    kind: 'action',
+    title: translate('auto.components.cmd.j.quick.actions.openGitGraph', 'Open Git Graph'),
+    description: translate(
+      'auto.components.cmd.j.quick.actions.openGitGraphDescription',
+      'Browse the commit graph of the active workspace.'
+    ),
+    icon: GitGraph,
+    verbKeywords: [
+      translate('auto.components.cmd.j.quick.actions.verbs.gitGraph', 'git graph'),
+      translate('auto.components.cmd.j.quick.actions.verbs.openGitGraph', 'open git graph'),
+      translate('auto.components.cmd.j.quick.actions.verbs.commitGraph', 'commit graph'),
+      translate('auto.components.cmd.j.quick.actions.verbs.gitLog', 'git log')
+    ],
+    isAvailable: gitGraphActionAvailability,
+    run: async (ctx) => {
+      const availability = gitGraphActionAvailability(ctx)
+      if (!availability.available) {
+        return { status: 'unavailable', reason: availability.reason }
+      }
+      if (ctx.activeWorktreeId) {
+        ctx.openGitGraph?.(ctx.activeWorktreeId)
+      }
+      return { status: 'ok' }
+    }
+  },
   {
     id: CREATE_WORKSPACE_QUICK_ACTION_ID,
     kind: 'action',

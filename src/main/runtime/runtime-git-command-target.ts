@@ -13,6 +13,7 @@ import { SshHostNotServedError } from '../providers/ssh-host-not-served-error'
 import type { CommitMessageAgentEnvironmentResolvers } from '../text-generation/commit-message-agent-environment'
 import type { PullRequestLinkedIssueMeta } from '../source-control/pull-request-linked-issue'
 import { normalizeRuntimeRelativePath } from './runtime-relative-paths'
+import { parseWorkspaceKey } from '../../shared/workspace-scope'
 
 export type ResolvedRuntimeGitWorktree = Worktree & { git: GitWorktreeInfo }
 
@@ -38,6 +39,10 @@ export type RuntimeGitTarget = {
 
 export type RuntimeGitCommandHost = {
   resolveRuntimeGitTarget(selector: string): Promise<RuntimeGitTarget>
+  resolveRuntimeFileTarget?(selector: string): Promise<{
+    worktree: ResolvedRuntimeGitWorktree
+    executionHostId: ExecutionHostId
+  }>
   getRuntimeSettings(): SourceControlAiSettingsInput
   getCommitMessageAgentEnvironment?(): CommitMessageAgentEnvironmentResolvers | undefined
   /** `undefined` keeps cached metadata; `null` is the authoritative unlinked answer. */
@@ -51,6 +56,17 @@ export type RuntimeGitCommandHost = {
     worktree: Pick<Worktree, 'id' | 'hostId'>,
     pushTarget: GitPushTarget
   ): void
+}
+
+export function resolveRuntimeGitReadTarget(
+  host: RuntimeGitCommandHost,
+  selector: string
+): Promise<RuntimeGitTarget> {
+  const workspaceId = selector.startsWith('id:') ? selector.slice(3) : selector
+  if (parseWorkspaceKey(workspaceId)?.type === 'folder' && host.resolveRuntimeFileTarget) {
+    return host.resolveRuntimeFileTarget(selector)
+  }
+  return host.resolveRuntimeGitTarget(selector)
 }
 
 /**

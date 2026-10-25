@@ -5,6 +5,7 @@ import type {
 } from '../../../../shared/git-diff-compare-types'
 import { getBranchCompare, getCommitCompare } from '../../../git/status'
 import { resolveRegisteredWorktreePath } from '../../registered-worktree-roots-cache'
+import { resolveRegisteredWorkspaceReadPath } from '../../registered-workspace-read-path'
 import { getLocalGitOptionsForRegisteredWorktree } from '../../local-worktree-runtime-options'
 import { validateFullGitObjectId } from '../../filesystem-path-containment'
 import type { FilesystemHandlerContext } from '../filesystem-handler-context'
@@ -48,7 +49,7 @@ export function registerGitRemoteCompareHandlers(context: FilesystemHandlerConte
     ): Promise<GitCommitCompareResult> => {
       const commitId = validateFullGitObjectId(args.commitId, 'commitId')
       requireReachableGitRoute(getConnectionExecutionHostId(args.connectionId))
-      const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
+      const worktreePath = await resolveRegisteredWorkspaceReadPath(args.worktreePath, store)
       const gitOptions = getLocalGitOptionsForRegisteredWorktree(
         store,
         args.worktreePath,

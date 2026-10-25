@@ -10,6 +10,7 @@ import {
   localGitOptionsForTarget,
   requireRuntimeGitProvider,
   runtimeGitRouteForTarget,
+  resolveRuntimeGitReadTarget,
   type RuntimeGitTarget
 } from './runtime-git-command-target'
 
@@ -27,6 +28,27 @@ function target(overrides: Partial<RuntimeGitTarget>): RuntimeGitTarget {
 describe('runtime Git target routing', () => {
   afterEach(() => {
     getStatus.mockReset()
+  })
+
+  it('resolves folder reads with their file owner and refuses remote-to-local fallback', async () => {
+    const folderTarget = target({ executionHostId: 'ssh:folder-owner' })
+    const host = {
+      resolveRuntimeGitTarget: vi.fn(async () => target({})),
+      resolveRuntimeFileTarget: vi.fn(async () => folderTarget),
+      getRuntimeSettings: () => ({})
+    }
+    const resolved = await resolveRuntimeGitReadTarget(host, 'id:folder:notes')
+    expect(host.resolveRuntimeFileTarget).toHaveBeenCalledWith('id:folder:notes')
+    expect(host.resolveRuntimeGitTarget).not.toHaveBeenCalled()
+    expect(() => requireRuntimeGitProvider(resolved)).toThrow(SshHostNotServedError)
+    host.resolveRuntimeFileTarget.mockRejectedValueOnce(new Error('selector_not_found'))
+    await expect(resolveRuntimeGitReadTarget(host, 'id:folder:removed')).rejects.toThrow(
+      'selector_not_found'
+    )
+    expect(host.resolveRuntimeGitTarget).not.toHaveBeenCalled()
+    const ordinary = await resolveRuntimeGitReadTarget(host, 'id:repo::/srv/app')
+    expect(ordinary.executionHostId).toBe('local')
+    expect(host.resolveRuntimeGitTarget).toHaveBeenCalledWith('id:repo::/srv/app')
   })
 
   it('answers `local` with a provider bound to this worktree, built per call', async () => {

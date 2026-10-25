@@ -522,7 +522,9 @@
           "f2e00db373": "未找到文件：{{value0}}",
           "checkRunDetailsUnavailable": "此检查没有可用的详细信息。",
           "checkRunDetailsLoadFailed": "加载检查详细信息失败。",
-          "checkRunDetailsRepoUnavailable": "此检查无法获得存储库详细信息。"
+          "checkRunDetailsRepoUnavailable": "此检查无法获得存储库详细信息。",
+          "gitGraphOwnerUnavailable": "无法确认此工作区所属的主机，请在连接稳定后重试。",
+          "gitGraphTabLabel": "Git 图谱"
         },
         "github": {
           "f129c42773": "GitHub 没有回复新评论。",
@@ -13277,7 +13279,8 @@
             "62e685d5ec": "空闲",
             "111e1d0db4": "错误",
             "e5e81e59a6": "调整提交记录高度",
-            "6d1e0a7c3b": "无法加载提交文件"
+            "6d1e0a7c3b": "无法加载提交文件",
+            "openGitGraph": "打开 Git 图谱"
           },
           "HostedReviewActions": {
             "4d5fb5a284": "关闭",
@@ -16782,12 +16785,18 @@
                 "chatPaneRight": "聊天窗格右侧",
                 "splitChatDown": "拆分聊天",
                 "newChatBelow": "在下方新建聊天",
-                "chatPaneBelow": "下面的聊天窗格"
+                "chatPaneBelow": "下面的聊天窗格",
+                "gitGraph": "Git 图谱",
+                "openGitGraph": "打开 Git 图谱",
+                "commitGraph": "提交图谱",
+                "gitLog": "Git 历史"
               },
               "splitChatRight": "右侧拆分聊天",
               "splitChatRightDescription": "在右侧的拆分窗格中打开新聊天。",
               "splitChatDown": "拆分聊天",
-              "splitChatDownDescription": "在下面的拆分窗格中打开新聊天。"
+              "splitChatDownDescription": "在下面的拆分窗格中打开新聊天。",
+              "openGitGraph": "打开 Git 图谱",
+              "openGitGraphDescription": "浏览当前工作区的 Git 提交图谱。"
             }
           },
           "palette": {
@@ -18502,6 +18511,85 @@
         "cancelled": "此普通 SSH 终端在启动前已关闭。",
         "terminalUnavailable": "Orca 无法在此处打开终端。",
         "openHint": "在 Orca 无法在该主机上完成设置时，仍可让你继续在主机上工作。"
+      },
+      "gitGraph": {
+        "status": {
+          "loadedPartial": "已从{{value1}}加载 {{value0}} 条提交，滚动加载更多",
+          "loadedAll": "{{value1}}中共有 {{value0}} 条提交",
+          "truncated": "已达到显示上限，部分引用或历史记录未显示",
+          "shallow": "浅克隆：历史记录止于浅克隆边界",
+          "refreshFailed": "刷新失败：{{value0}}"
+        },
+        "toolbar": {
+          "headNotLoaded": "当前范围已显示的提交中没有 HEAD。",
+          "label": "Git 图谱",
+          "locateHead": "定位 HEAD 提交",
+          "refresh": "刷新图谱"
+        },
+        "panel": {
+          "unsupported": "此工作区所属主机的 Orca 运行时版本过旧，请更新后使用 Git 图谱。",
+          "chooseRef": "选择分支或标签以显示其历史记录。",
+          "loading": "正在加载提交…",
+          "empty": "暂无提交",
+          "notGit": "此工作区文件夹不是 Git 仓库，无法显示 Git 图谱。"
+        },
+        "list": {
+          "retry": "重试",
+          "label": "提交列表",
+          "graphColumn": "图谱",
+          "descriptionColumn": "说明",
+          "authorColumn": "作者",
+          "dateColumn": "日期",
+          "commitColumn": "提交",
+          "loadingMore": "正在加载更多提交…",
+          "loadMore": "加载更多提交"
+        },
+        "detail": {
+          "label": "提交详情",
+          "close": "关闭提交详情",
+          "author": "作者",
+          "date": "日期",
+          "commit": "提交",
+          "copyHash": "复制提交哈希",
+          "parents": "父提交",
+          "rootCommit": "无（根提交）",
+          "selectParent": "选择父提交 {{value0}}",
+          "files": "变更文件"
+        },
+        "owner": {
+          "workspaceMissing": "此工作区已不可用。",
+          "changed": "工作区所属主机已更改，请重新打开 Git 图谱。"
+        },
+        "refPicker": {
+          "branches": "本地分支",
+          "remoteBranches": "远程分支",
+          "tags": "标签",
+          "other": "其他引用",
+          "label": "分支或标签",
+          "placeholder": "选择引用…",
+          "search": "搜索分支和标签",
+          "empty": "没有匹配的引用",
+          "more": "还有 {{value0}} 个引用，请输入关键词缩小范围。"
+        },
+        "scope": {
+          "head": "当前分支",
+          "local": "本地分支",
+          "all": "全部分支",
+          "ref": "分支或标签",
+          "label": "历史范围"
+        },
+        "search": {
+          "label": "搜索已加载的提交",
+          "noMatches": "无匹配结果",
+          "position": "第 {{value0}} 项，共 {{value1}} 项",
+          "previous": "上一个匹配项",
+          "next": "下一个匹配项"
+        },
+        "history": {
+          "refNotFound": "该分支或标签已不存在。",
+          "snapshotChanged": "分页期间仓库已发生变化，请刷新以加载最新图谱。",
+          "loadFailed": "无法加载 Git 图谱"
+        }
       }
     },
     "i18n": {

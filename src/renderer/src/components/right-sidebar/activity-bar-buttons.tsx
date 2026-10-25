@@ -14,8 +14,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { translate } from '@/i18n/i18n'
 
+export type RightSidebarActivityId = ActiveRightSidebarTab | 'git-graph'
+
 export type ActivityBarItem = {
-  id: ActiveRightSidebarTab
+  id: RightSidebarActivityId
   icon: React.ComponentType<{ size?: number; className?: string }>
   title: string
   shortcut: string
@@ -51,7 +53,7 @@ export function TopActivityOverflowMenu({
 }: {
   items: ActivityBarItem[]
   activeTab: ActiveRightSidebarTab
-  onSelect: (tab: ActiveRightSidebarTab) => void
+  onSelect: (tab: RightSidebarActivityId) => void
   checksStatus?: CheckStatus | null
 }): React.JSX.Element {
   const hiddenChecksStatus =

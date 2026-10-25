@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Plug, Files, GitBranch, ListChecks, Workflow } from 'lucide-react'
+import { Plug, Files, GitBranch, GitGraph, ListChecks, Workflow } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { useRepoById } from '@/store/selectors'
 import { isFolderRepo } from '../../../../shared/repo-kind'
@@ -114,6 +114,12 @@ export function useRightSidebarActivityItems({
         title: translate('auto.components.right.sidebar.index.83a10e3c44', 'Checks'),
         shortcut: checksShortcut === 'Unassigned' ? '' : checksShortcut,
         gitOnly: true
+      },
+      {
+        id: 'git-graph',
+        icon: GitGraph,
+        title: translate('auto.store.slices.editor.gitGraphTabLabel', 'Git Graph'),
+        shortcut: ''
       },
       {
         id: 'ports',

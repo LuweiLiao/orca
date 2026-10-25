@@ -12,6 +12,7 @@ import type {
 } from '../../shared/git-status-types'
 import type { GitPushTarget } from '../../shared/worktree/types'
 import type { GitHistoryOptions, GitHistoryResult } from '../../shared/git-history'
+import type { GitGraphOptions, GitGraphResult } from '../../shared/git-graph-types'
 import type {
   CommitMessageAgentCapability,
   CommitMessageModelCapability
@@ -54,6 +55,9 @@ export type GitInspectionApi = {
   history: (
     args: { worktreePath: string; connectionId?: string } & GitHistoryOptions
   ) => Promise<GitHistoryResult>
+  historyGraph: (
+    args: { worktreePath: string; connectionId?: string } & GitGraphOptions
+  ) => Promise<GitGraphResult>
   conflictOperation: (args: {
     worktreePath: string
     connectionId?: string

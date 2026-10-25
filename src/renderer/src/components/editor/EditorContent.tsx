@@ -3,6 +3,7 @@ import type { MarkdownViewMode, OpenFile, PendingEditorReveal } from '@/store/sl
 import type { GitDiffResult } from '../../../../shared/git-diff-compare-types'
 import type { GitStatusEntry } from '../../../../shared/git-status-types'
 import { CheckRunDetailsPanel } from './CheckRunDetailsPanel'
+import { GitGraphPanel } from '@/components/git-graph/GitGraphPanel'
 import { CombinedDiffViewer, MarkdownPreview } from './editor-lazy-views'
 import { EditorConflictReviewSurface } from './EditorConflictReviewSurface'
 import { EditorDiffFileSurface } from './EditorDiffFileSurface'
@@ -154,6 +155,10 @@ export function EditorContent({
         }}
       />
     )
+  }
+
+  if (activeFile.mode === 'git-graph') {
+    return <GitGraphPanel file={activeFile} />
   }
 
   if (activeFile.mode === 'conflict-review') {

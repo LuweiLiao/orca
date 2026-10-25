@@ -49,7 +49,7 @@ export function openWorkspaceEditorItem(
   }
   const drawHere = (id?: string): Tab | undefined => {
     const file =
-      contentType === 'editor'
+      contentType === 'editor' || contentType === 'git-graph'
         ? state.openFiles.find((entry) => entry.id === fileId && entry.worktreeId === worktreeId)
         : undefined
     return state.createUnifiedTab?.(worktreeId, contentType, {

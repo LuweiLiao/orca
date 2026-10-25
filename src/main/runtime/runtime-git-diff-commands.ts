@@ -12,6 +12,7 @@ import {
   normalizeRuntimeGitRelativePath,
   requireLocalRuntimeGitRoute,
   requireRuntimeGitProvider,
+  resolveRuntimeGitReadTarget,
   type RuntimeGitCommandHost
 } from './runtime-git-command-target'
 
@@ -54,7 +55,7 @@ export class RuntimeGitDiffCommands {
     worktreeSelector: string,
     commitId: string
   ): Promise<GitCommitCompareResult> {
-    const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
+    const target = await resolveRuntimeGitReadTarget(this.host, worktreeSelector)
     return requireRuntimeGitProvider(target).getCommitCompare(target.worktree.path, commitId)
   }
 
@@ -92,7 +93,7 @@ export class RuntimeGitDiffCommands {
     args: { commitOid: string; parentOid?: string | null; filePath: string; oldPath?: string },
     maxContentBytes?: number
   ): Promise<GitDiffResult> {
-    const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
+    const target = await resolveRuntimeGitReadTarget(this.host, worktreeSelector)
     const relativePath = normalizeRuntimeRelativePath(args.filePath)
     const oldRelativePath = args.oldPath ? normalizeRuntimeRelativePath(args.oldPath) : undefined
     return assertGitDiffWithinTransportBudget(
@@ -124,7 +125,7 @@ export class RuntimeGitDiffCommands {
     worktreeSelector: string,
     sha: string
   ): Promise<string | null> {
-    const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
+    const target = await resolveRuntimeGitReadTarget(this.host, worktreeSelector)
     return requireRuntimeGitProvider(target).getRemoteCommitUrl(target.worktree.path, sha)
   }
 }

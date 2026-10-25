@@ -75,6 +75,7 @@ export const EXECUTION_HOST_METHODS = [
   'git.generateCommitMessage',
   'git.generatePullRequestFields',
   'git.history',
+  'git.historyGraph',
   'git.localBranches',
   'git.pull',
   'git.push',

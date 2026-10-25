@@ -120,6 +120,56 @@ export function buildGitHistoryViewModels(
   addOutgoingChanges?: boolean,
   mergeBase?: string
 ): GitHistoryItemViewModel[] {
+  const viewModels = buildSwimlaneViewModels(historyItems, colorMap, {
+    currentRef,
+    remoteRef,
+    baseRef,
+    resolveSideParentLabels: true
+  })
+
+  addIncomingOutgoingChangesHistoryItems(
+    viewModels,
+    currentRef,
+    remoteRef,
+    addIncomingChanges,
+    addOutgoingChanges,
+    mergeBase
+  )
+
+  return viewModels
+}
+
+/**
+ * Graph rows for paged history: row N depends only on rows 0..N, so appending a page never
+ * recolors or reroutes rows already on screen. No synthetic incoming/outgoing rows.
+ */
+export function buildGitGraphViewModels(
+  historyItems: GitHistoryItem[],
+  colorMap = new Map<string, GitHistoryGraphColorId | undefined>(),
+  currentRef?: GitHistoryItemRef
+): GitHistoryItemViewModel[] {
+  // Why: side-parent label lookup reads rows below the merge, which a later page can change.
+  return buildSwimlaneViewModels(historyItems, colorMap, {
+    currentRef,
+    resolveSideParentLabels: false
+  })
+}
+
+function buildSwimlaneViewModels(
+  historyItems: GitHistoryItem[],
+  colorMap: Map<string, GitHistoryGraphColorId | undefined>,
+  {
+    currentRef,
+    remoteRef,
+    baseRef,
+    resolveSideParentLabels
+  }: {
+    currentRef?: GitHistoryItemRef
+    remoteRef?: GitHistoryItemRef
+    baseRef?: GitHistoryItemRef
+    resolveSideParentLabels: boolean
+  }
+): GitHistoryItemViewModel[] {
   let colorIndex = -1
   const viewModels: GitHistoryItemViewModel[] = []
   let historyItemsById: Map<string, GitHistoryItem> | undefined
@@ -150,7 +200,7 @@ export function buildGitHistoryViewModels(
       let colorIdentifier: GitHistoryGraphColorId | undefined
       if (index === 0) {
         colorIdentifier = getLabelColorIdentifier(historyItem, colorMap)
-      } else {
+      } else if (resolveSideParentLabels) {
         // Side-parent colors need a lookup; defer indexing so linear histories pay no map cost.
         if (!historyItemsById) {
           historyItemsById = new Map()
@@ -199,15 +249,6 @@ export function buildGitHistoryViewModels(
       outputSwimlanes
     })
   }
-
-  addIncomingOutgoingChangesHistoryItems(
-    viewModels,
-    currentRef,
-    remoteRef,
-    addIncomingChanges,
-    addOutgoingChanges,
-    mergeBase
-  )
 
   return viewModels
 }

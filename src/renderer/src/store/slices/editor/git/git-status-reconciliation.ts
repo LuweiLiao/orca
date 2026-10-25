@@ -138,7 +138,11 @@ export function reconcileOpenFilesForStatus(
       return [file]
     }
 
-    if (file.mode === 'conflict-review' || file.mode === 'check-details') {
+    if (
+      file.mode === 'conflict-review' ||
+      file.mode === 'check-details' ||
+      file.mode === 'git-graph'
+    ) {
       return [file]
     }
 

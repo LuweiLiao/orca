@@ -8,7 +8,7 @@ import type { CommitMessageAgentRuntimeTarget } from '../../text-generation/comm
 import type { CommitMessageGenerationTarget } from '../../text-generation/commit-message-text-generation'
 import { resolve } from 'node:path'
 import { listRepoWorktreeGraph } from '../../repo-worktrees'
-import { resolveAuthorizedPath } from '../filesystem-auth'
+import { resolveRegisteredWorkspaceReadPath } from '../registered-workspace-read-path'
 import { resolveRegisteredWorktreePath } from '../registered-worktree-roots-cache'
 import { splitWorktreeId } from '../../../shared/worktree/id'
 
@@ -134,20 +134,7 @@ export async function resolveModelDiscoveryLocalPath(
   store: Store,
   requestedPath: string
 ): Promise<string> {
-  try {
-    return await resolveRegisteredWorktreePath(requestedPath, store)
-  } catch (error) {
-    const folderWorkspaces =
-      typeof store.getFolderWorkspaces === 'function' ? store.getFolderWorkspaces() : []
-    const isFolderWorkspaceRoot = folderWorkspaces.some(
-      (workspace) =>
-        comparableLocalPath(workspace.folderPath) === comparableLocalPath(requestedPath)
-    )
-    if (!isFolderWorkspaceRoot) {
-      throw error
-    }
-    return resolveAuthorizedPath(requestedPath, store)
-  }
+  return resolveRegisteredWorkspaceReadPath(requestedPath, store)
 }
 
 export function getLocalTextGenerationTarget(

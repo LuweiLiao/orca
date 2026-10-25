@@ -33,6 +33,11 @@ export function getEditorDisplayLabel(
     return file.checkRunDetails?.check.name ?? getBaseLabel(file, variant)
   }
 
+  // Why: the synthetic path is an id; the label captured at open is the only display name.
+  if (file.mode === 'git-graph') {
+    return file.relativePath
+  }
+
   if (file.mode === 'markdown-preview') {
     return `${getBaseLabel(file, variant)} (preview)`
   }
