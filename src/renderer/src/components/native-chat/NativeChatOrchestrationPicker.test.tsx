@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 
 const mocks = vi.hoisted(() => ({
   discover: vi.fn(),
+  catalog: vi.fn(),
   detected: ['codex', 'claude', 'grok'],
   disabled: new Array<string>()
 }))
@@ -20,6 +21,9 @@ vi.mock('@/store', () => ({
 }))
 vi.mock('@/hooks/useDetectedAgents', () => ({
   useDetectedAgents: () => ({ detectedIds: mocks.detected, isLoading: false })
+}))
+vi.mock('@/runtime/structured-agent-session-client', () => ({
+  callStructuredAgentSession: (...args: unknown[]) => mocks.catalog(...args)
 }))
 vi.mock('@/lib/agent-catalog', () => ({
   getAgentCatalog: () => [
@@ -102,7 +106,10 @@ vi.mock('@/components/ui/select', () => ({
   )
 }))
 
-import { NativeChatOrchestrationPicker } from './NativeChatOrchestrationPicker'
+import {
+  NativeChatOrchestrationPicker,
+  OrchestrationPickerContent
+} from './NativeChatOrchestrationPicker'
 
 afterEach(() => {
   cleanup()
@@ -111,6 +118,40 @@ afterEach(() => {
 })
 
 describe('NativeChatOrchestrationPicker', () => {
+  it('offers the host-listed model after its first read reports listing in progress', async () => {
+    mocks.catalog
+      .mockResolvedValueOnce({ origin: 'unknown', listingInProgress: true })
+      .mockResolvedValueOnce({
+        origin: 'probe',
+        models: [{ id: 'gpt-5.6', label: 'GPT-5.6' }]
+      })
+    const onInsert = vi.fn()
+    render(
+      <OrchestrationPickerContent
+        host={{
+          target: { kind: 'local' },
+          detection: { kind: 'local' },
+          preferHostCatalog: true
+        }}
+        onInsert={onInsert}
+      />
+    )
+
+    fireEvent.click(screen.getAllByRole('checkbox')[0]!)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'GPT-5.6' })).toBeTruthy())
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gpt-5.6' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add to message' }))
+    expect(onInsert).toHaveBeenCalledWith([
+      {
+        agent: 'codex',
+        label: 'Codex',
+        task: '',
+        count: 1,
+        model: { id: 'gpt-5.6', label: 'GPT-5.6' }
+      }
+    ])
+  })
+
   it('adds separate tasks, counts and models for the selected agents', async () => {
     mocks.discover.mockImplementation(async (agent: string) =>
       agent === 'codex' ? [{ id: 'gpt-5.6', label: 'GPT-5.6' }] : []

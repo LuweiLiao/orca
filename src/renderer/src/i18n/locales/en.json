@@ -19193,6 +19193,8 @@
         "noAvailableAgents": "No available agents on this host.",
         "agentHostUnavailable": "Agent host is unavailable.",
         "defaultModel": "Default model",
+        "loadingModels": "Loading agent models…",
+        "modelsUnavailable": "Model list unavailable",
         "orchestrationTask": "Task (optional)",
         "orchestrationTaskPrefix": "{{task}}: ",
         "orchestrationCount": "Agent count",
