@@ -1,4 +1,5 @@
 import type { MobileRelayStatusDetail } from '../../shared/mobile-relay-status'
+import { broadcastDesktopRendererEvent } from '../window/desktop-renderer-registry'
 import { mainProcessState as state } from './main-process-state'
 
 export function getDesktopRelayStatus(): MobileRelayStatusDetail {
@@ -14,5 +15,5 @@ export function publishDesktopRelayStatus(
 ): void {
   state.desktopRelayStatus = status
   state.desktopRelayCellUrl = cellUrl
-  state.mainWindow?.webContents.send('mobile:relayStatusChanged', getDesktopRelayStatus())
+  broadcastDesktopRendererEvent('mobile:relayStatusChanged', getDesktopRelayStatus())
 }
