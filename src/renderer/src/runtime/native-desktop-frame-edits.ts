@@ -212,8 +212,13 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
             )
         )
     )
-    const holdsDirtyFile = (workspace: string, id: string): boolean =>
-      dirtyFiles.some(
+    // Graph views belong to this window and have no saved document in incoming frames.
+    const heldFiles = [
+      ...dirtyFiles,
+      ...state.openFiles.filter((file) => file.mode === 'git-graph')
+    ]
+    const holdsWindowFile = (workspace: string, id: string): boolean =>
+      heldFiles.some(
         (file) =>
           file.worktreeId === workspace &&
           (file.id === id ||
@@ -222,8 +227,8 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
             ))
       )
     const retained = withHeldTabsAsDrawn(state, next, keys, {
-      isTabHeld: holdsDirtyFile,
-      keepsInMainGroups: holdsDirtyFile,
+      isTabHeld: holdsWindowFile,
+      keepsInMainGroups: holdsWindowFile,
       isGroupLayoutHeld: () => false
     })
     for (const key of keys) {
@@ -235,7 +240,8 @@ export function createNativeDesktopFrameEdits(initial: LayoutFrameStoreState) {
       if (
         !tab ||
         !file ||
-        !isDirtyEditorBufferSide({ record: file, draft: state.editorDrafts?.[file.id] })
+        (file.mode !== 'git-graph' &&
+          !isDirtyEditorBufferSide({ record: file, draft: state.editorDrafts?.[file.id] }))
       ) {
         continue
       }

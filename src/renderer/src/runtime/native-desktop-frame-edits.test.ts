@@ -13,6 +13,46 @@ import { buildWorkspaceSessionPayload } from '../lib/workspace-session'
 createStoreSessionMockApi()
 
 describe('native window pending layout edits', () => {
+  it('keeps the local graph selected across frames without reopening it after close', async () => {
+    const session = localDesktopSession()
+    const store = createTestStore()
+    await bootWindowFromPartitions(store, [{ hostId: 'local', session }])
+    const holds = {
+      held: NO_HELD_TABS,
+      keepsTerminalLayout: () => false,
+      newRowFields: () => null,
+      localEdits: createNativeDesktopFrameEdits(store.getState())
+    }
+    const cache = mainLoadedLayouts('local', session)
+    store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+    store.getState().openGitGraph(GIT_KEY)
+    const graph = store.getState().openFiles.find((file) => file.mode === 'git-graph')!
+    const tab = store
+      .getState()
+      .unifiedTabsByWorktree[GIT_KEY]!.find((entry) => entry.entityId === graph.id)!
+    for (let frame = 0; frame < 2; frame++) {
+      store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+      expect(
+        store.getState().groupsByWorktree[GIT_KEY]?.find((group) => group.id === tab.groupId)
+          ?.activeTabId
+      ).toBe(tab.id)
+      expect(store.getState().activeFileIdByWorktree[GIT_KEY]).toBe(graph.id)
+      expect(store.getState().activeTabTypeByWorktree[GIT_KEY]).toBe('editor')
+    }
+    store.getState().activateTab('tab-shell', { worktreeId: GIT_KEY })
+    store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+    expect(
+      store.getState().groupsByWorktree[GIT_KEY]?.find((group) => group.id === tab.groupId)
+        ?.activeTabId
+    ).not.toBe(tab.id)
+    store.getState().closeFile(graph.id)
+    store.setState(fullLayoutFrameBuildPatch(store.getState(), cache, [GIT_KEY], holds))
+    expect(store.getState().openFiles.some((file) => file.id === graph.id)).toBe(false)
+    expect(
+      store.getState().unifiedTabsByWorktree[GIT_KEY]?.some((entry) => entry.id === tab.id)
+    ).toBe(false)
+  })
+
   it('keeps a locally closed editor record out of a stale peer frame', async () => {
     const session = localDesktopSession()
     const store = createTestStore()
