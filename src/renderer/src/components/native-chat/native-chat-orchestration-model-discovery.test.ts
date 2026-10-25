@@ -88,4 +88,53 @@ describe('orchestration model discovery', () => {
     ])
     expect(mocks.catalog).not.toHaveBeenCalled()
   })
+
+  it('preserves host effort capabilities and does not invent unknown levels', async () => {
+    const host: PickerHost = {
+      target: { kind: 'environment', environmentId: 'remote' },
+      detection: { kind: 'runtime', environmentId: 'remote' },
+      preferHostCatalog: true
+    }
+    mocks.catalog.mockResolvedValue({
+      origin: 'probe',
+      models: [
+        { id: 'sol', label: 'Sol', efforts: [{ value: 'high', label: 'High' }] },
+        { id: 'none', label: 'None', efforts: [] },
+        { id: 'unknown', label: 'Unknown', effortsKnown: false, efforts: [] }
+      ]
+    })
+    expect(await discoverOrchestrationModels(host, 'codex')).toEqual([
+      { id: 'sol', label: 'Sol', efforts: [{ value: 'high', label: 'High' }] },
+      { id: 'none', label: 'None', efforts: [] },
+      { id: 'unknown', label: 'Unknown' }
+    ])
+  })
+
+  it('uses the remote CLI effort menu for SSH models', async () => {
+    const host: PickerHost = {
+      target: { kind: 'local' },
+      detection: { kind: 'ssh', connectionId: 'ssh-1' },
+      discovery: context,
+      preferHostCatalog: false
+    }
+    mocks.discover.mockResolvedValue([
+      {
+        id: 'sol',
+        label: 'Sol',
+        options: [
+          {
+            id: 'effort',
+            kind: {
+              type: 'select',
+              choices: [{ value: 'high', label: 'High' }],
+              defaultValue: 'high'
+            }
+          }
+        ]
+      }
+    ])
+    expect(await discoverOrchestrationModels(host, 'codex')).toEqual([
+      { id: 'sol', label: 'Sol', efforts: [{ value: 'high', label: 'High' }] }
+    ])
+  })
 })

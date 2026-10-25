@@ -7,6 +7,7 @@ import { translate } from '@/i18n/i18n'
 import { NativeChatOrchestrationContext } from './native-chat-orchestration-context'
 import {
   nativeChatOrchestrationAttributes,
+  nativeChatOrchestrationAssignment,
   nativeChatOrchestrationSelection
 } from './native-chat-orchestration-instruction'
 import { OrchestrationPickerContent, pickerHost } from './NativeChatOrchestrationPicker'
@@ -23,10 +24,10 @@ export function NativeChatOrchestrationPill({
   const [open, setOpen] = useState(false)
   const updatedRef = useRef(false)
   const selection = nativeChatOrchestrationSelection(node.attrs)
-  const label = String(node.attrs.token)
+  const label = selection ? nativeChatOrchestrationAssignment(selection) : String(node.attrs.token)
   return (
     <NodeViewWrapper as="span" className="inline" contentEditable={false}>
-      <Badge variant="orchestrationPill" data-selected={selected}>
+      <Badge variant="orchestrationPill" data-selected={selected} className="whitespace-normal">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -40,7 +41,9 @@ export function NativeChatOrchestrationPill({
               className="inline-flex min-w-0 cursor-pointer items-center gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <ListTree aria-hidden="true" className="size-3 shrink-0" />
-              <span className="truncate">{label}</span>
+              <span className="min-w-0 break-words text-left [overflow-wrap:anywhere]">
+                {label}
+              </span>
             </button>
           </PopoverTrigger>
           <PopoverContent

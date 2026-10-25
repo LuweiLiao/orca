@@ -38,7 +38,6 @@ import {
 import {
   nativeChatOrchestrationAttributes,
   nativeChatOrchestrationSeparator,
-  nativeChatOrchestrationTaskPrefix,
   type OrchestrationAgentSelection
 } from './native-chat-orchestration-instruction'
 import {
@@ -209,9 +208,6 @@ export function NativeChatPromptEditor({
               editor.commands.insertContent(
                 selections.flatMap((selection, index) => [
                   ...(index > 0 ? [{ type: 'text', text: separator }] : []),
-                  ...(selection.task.trim()
-                    ? [{ type: 'text', text: nativeChatOrchestrationTaskPrefix(selection.task) }]
-                    : []),
                   {
                     type: NativeChatOrchestration.name,
                     attrs: nativeChatOrchestrationAttributes(selection)

@@ -30,6 +30,15 @@ const initializeResponse = {
   output_style: 'default',
   available_output_styles: ['default']
 }
+if (process.env.ORCA_E2E_STUB_EFFORT_CATALOG === '1') {
+  initializeResponse.models.push({
+    value: 'opus',
+    displayName: 'Opus',
+    description: '',
+    supportsEffort: true,
+    supportedEffortLevels: ['low', 'high']
+  })
+}
 
 // A prompt containing "slow" runs until it is interrupted.
 const TURN_MS = 500
@@ -37,6 +46,9 @@ const SLOW_TURN_MS = 60_000
 let turnTimer = null
 
 function startTurn(frame) {
+  if (process.env.ORCA_E2E_STUB_EFFORT_CATALOG === '1') {
+    fs.appendFileSync(launchLog, `${JSON.stringify({ prompt: frame.message })}\n`)
+  }
   // The CLI's --replay-user-messages echo, which opens the turn.
   write({ ...frame, isReplay: true })
   const slow = JSON.stringify(frame.message ?? '').includes('slow')
@@ -115,7 +127,7 @@ process.stdin.on('data', (chunk) => {
       response: {
         subtype: 'success',
         request_id: frame.request_id,
-        response: subtype === 'initialize' ? initializeResponse : {}
+        response: subtype === 'initialize' || subtype === 'list_models' ? initializeResponse : {}
       }
     })
     if (subtype === 'initialize' && !initSent) {

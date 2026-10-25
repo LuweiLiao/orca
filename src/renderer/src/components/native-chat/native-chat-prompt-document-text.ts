@@ -1,4 +1,9 @@
 import type { JSONContent } from '@tiptap/react'
+import {
+  ORCHESTRATION_REFERENCE_NODE,
+  splitOrchestrationReferences
+} from '../../../../shared/native-chat-orchestration-reference'
+import { nativeChatOrchestrationAttributes } from './native-chat-orchestration-instruction'
 import { splitImageReferences } from '../../../../shared/native-chat-image-reference'
 import { NATIVE_CHAT_PASTED_TEXT_TOKEN } from './native-chat-pasted-text-reference'
 import {
@@ -17,34 +22,47 @@ export function promptTextContent(text: string): JSONContent {
     type: 'doc',
     content: text.split('\n').map((line) => ({
       type: 'paragraph',
-      content: splitConversationReferences(line).flatMap((reference) =>
-        typeof reference !== 'string'
+      content: splitOrchestrationReferences(line).flatMap((assignment): JSONContent[] =>
+        typeof assignment !== 'string'
           ? [
               {
-                type: CONVERSATION_REFERENCE_NODE,
-                attrs: {
-                  uri: reference.uri,
-                  title: reference.title,
-                  token: conversationReferenceToken(reference)
-                }
+                type: ORCHESTRATION_REFERENCE_NODE,
+                attrs: nativeChatOrchestrationAttributes(assignment)
               }
             ]
-          : splitImageReferences(reference).flatMap((part) =>
-              typeof part === 'string'
-                ? part
-                    .split(NATIVE_CHAT_PASTED_TEXT_TOKEN)
-                    .flatMap((piece, index): JSONContent[] =>
-                      piece === ''
-                        ? []
-                        : index % 2 === 1
-                          ? [{ type: FILE_REFERENCE_NODE, attrs: { token: piece, path: '' } }]
-                          : [{ type: 'text', text: piece }]
-                    )
-                : [{ type: IMAGE_REFERENCE_NODE, attrs: { attachmentId: part.attachmentId } }]
-            )
+          : conversationContent(assignment)
       )
     }))
   }
+}
+
+function conversationContent(line: string): JSONContent[] {
+  return splitConversationReferences(line).flatMap((reference) =>
+    typeof reference !== 'string'
+      ? [
+          {
+            type: CONVERSATION_REFERENCE_NODE,
+            attrs: {
+              uri: reference.uri,
+              title: reference.title,
+              token: conversationReferenceToken(reference)
+            }
+          }
+        ]
+      : splitImageReferences(reference).flatMap((part) =>
+          typeof part === 'string'
+            ? part
+                .split(NATIVE_CHAT_PASTED_TEXT_TOKEN)
+                .flatMap((piece, index): JSONContent[] =>
+                  piece === ''
+                    ? []
+                    : index % 2 === 1
+                      ? [{ type: FILE_REFERENCE_NODE, attrs: { token: piece, path: '' } }]
+                      : [{ type: 'text', text: piece }]
+                )
+            : [{ type: IMAGE_REFERENCE_NODE, attrs: { attachmentId: part.attachmentId } }]
+        )
+  )
 }
 
 /** The document without the chips of one image. */

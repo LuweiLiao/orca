@@ -28,6 +28,10 @@ import {
   withoutConversationReferenceInstructions
 } from '../../../../shared/conversation-reference'
 import { NativeChatConversationReference } from './NativeChatConversationReference'
+import { parseOrchestrationReferenceUri } from '../../../../shared/native-chat-orchestration-reference'
+import { nativeChatOrchestrationAssignment } from './native-chat-orchestration-instruction'
+import { Badge } from '@/components/ui/badge'
+import { ListTree } from 'lucide-react'
 
 /** Existing words stay opaque when a reply first starts growing. */
 function useWordFadeArmed(fadeWords: boolean): boolean {
@@ -76,6 +80,21 @@ function createNativeChatImageExtension(
         <NativeChatMarkdownImage src={src} alt={alt} onLinkClick={onLinkClick} />
       ),
       a: (props) => {
+        const orchestration = props.href ? parseOrchestrationReferenceUri(props.href) : null
+        if (orchestration) {
+          return (
+            <Badge
+              variant="orchestrationPill"
+              data-native-chat-orchestration={orchestration.agent}
+              className="whitespace-normal text-left"
+            >
+              <ListTree aria-hidden="true" className="size-3 shrink-0" />
+              <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                {nativeChatOrchestrationAssignment(orchestration)}
+              </span>
+            </Badge>
+          )
+        }
         if (props.href && parseConversationReferenceUri(props.href)) {
           return (
             <NativeChatConversationReference

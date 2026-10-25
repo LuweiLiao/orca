@@ -60,6 +60,8 @@ export const NativeChatOrchestration = Node.create({
     count: { default: 1 },
     modelId: { default: '' },
     modelLabel: { default: '' },
+    task: { default: '' },
+    effort: { default: '' },
     token: { default: '' }
   }),
   renderText: ({ node }) => node.attrs.token,

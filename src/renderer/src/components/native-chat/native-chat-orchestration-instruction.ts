@@ -1,12 +1,9 @@
 import { translate } from '@/i18n/i18n'
-
-export type OrchestrationAgentSelection = {
-  agent: string
-  label: string
-  task: string
-  count: number
-  model?: { id: string; label: string }
-}
+import {
+  orchestrationReferenceToken,
+  type OrchestrationAgentSelection
+} from '../../../../shared/native-chat-orchestration-reference'
+export type { OrchestrationAgentSelection } from '../../../../shared/native-chat-orchestration-reference'
 
 export function nativeChatOrchestrationAssignment(selection: OrchestrationAgentSelection): string {
   const { label, count, model } = selection
@@ -20,15 +17,11 @@ export function nativeChatOrchestrationAssignment(selection: OrchestrationAgentS
         model: model.id
       })
     : translate('components.native-chat.composer.defaultModel', 'Default model')
-  return `${assignment} (${modelText})`
-}
-
-export function nativeChatOrchestrationTaskPrefix(task: string): string {
-  return task.trim()
-    ? translate('components.native-chat.composer.orchestrationTaskPrefix', '{{task}}: ', {
-        task: task.trim()
-      })
+  const effortText = selection.effort ? `; effort: ${selection.effort}` : ''
+  const taskText = selection.task.trim()
+    ? `; ${translate('components.native-chat.composer.orchestrationTaskLabel', 'Task')}: ${selection.task.trim()}`
     : ''
+  return `${assignment} (${modelText}${effortText})${taskText}`
 }
 
 export function nativeChatOrchestrationAttributes(selection: OrchestrationAgentSelection): {
@@ -37,6 +30,8 @@ export function nativeChatOrchestrationAttributes(selection: OrchestrationAgentS
   count: number
   modelId: string
   modelLabel: string
+  task: string
+  effort: string
   token: string
 } {
   return {
@@ -45,7 +40,9 @@ export function nativeChatOrchestrationAttributes(selection: OrchestrationAgentS
     count: selection.count,
     modelId: selection.model?.id ?? '',
     modelLabel: selection.model?.label ?? '',
-    token: nativeChatOrchestrationAssignment(selection)
+    task: selection.task,
+    effort: selection.effort ?? '',
+    token: orchestrationReferenceToken(selection, nativeChatOrchestrationAssignment(selection))
   }
 }
 
@@ -63,7 +60,8 @@ export function nativeChatOrchestrationSelection(
   return {
     agent: attrs.agent,
     label: attrs.label,
-    task: '',
+    task: typeof attrs.task === 'string' ? attrs.task : '',
+    ...(typeof attrs.effort === 'string' && attrs.effort ? { effort: attrs.effort } : {}),
     count:
       typeof attrs.count === 'number' && Number.isInteger(attrs.count) && attrs.count > 0
         ? attrs.count

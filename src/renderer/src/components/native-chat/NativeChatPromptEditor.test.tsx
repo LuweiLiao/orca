@@ -10,6 +10,7 @@ import {
   type NativeChatComposerInput
 } from './native-chat-composer-input'
 import { promptEditor } from './native-chat-prompt-editor.test-support'
+import { nativeChatOrchestrationAttributes } from './native-chat-orchestration-instruction'
 
 afterEach(cleanup)
 
@@ -60,31 +61,59 @@ describe('native chat skill editor', () => {
       ])
     )
     const text = inputRef.current!.value
-    expect(text).toContain('Flash: 1 Claude agent(s)')
-    expect(text).toContain('Compile: 2 Grok agent(s)')
+    expect(text).toContain('Task: Flash')
+    expect(text).toContain('Task: Compile')
+    expect(text).toContain('orca-orchestration://assignment/v1?data=')
     await waitFor(() =>
       expect(first.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(2)
     )
     const chips = first.container.querySelectorAll('[data-native-chat-orchestration]')
-    expect(chips[0]?.textContent).toBe('1 Claude agent(s) (Default model)')
-    expect(chips[1]?.textContent).toBe('2 Grok agent(s) (Default model)')
-    expect(chips[0]?.textContent).not.toContain('Flash')
+    expect(chips[0]?.textContent).toBe('1 Claude agent(s) (Default model); Task: Flash')
+    expect(chips[1]?.textContent).toBe('2 Grok agent(s) (Default model); Task: Compile')
     const editor = promptEditor(within(first.container).getByRole('textbox'))
     act(() => {
-      inputRef.current!.setSelectionRange(7, 12)
-      editor.view.dispatch(editor.state.tr.insertText('Burn'))
+      editor.commands.setNodeSelection(8)
+      editor.commands.updateAttributes(
+        'nativeChatOrchestration',
+        nativeChatOrchestrationAttributes({
+          agent: 'claude',
+          label: 'Claude',
+          task: 'Burn',
+          count: 1,
+          effort: 'high',
+          model: { id: 'opus', label: 'Opus' }
+        })
+      )
     })
-    expect(inputRef.current!.value).toContain('Burn: 1 Claude agent(s)')
+    // Selection edits use the same serializer as the picker, including the task in its token.
+    await waitFor(() =>
+      expect(
+        first.container.querySelector('[data-native-chat-orchestration]')?.textContent
+      ).toContain('Burn')
+    )
     expect(first.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(2)
     expect(text.startsWith('Before ')).toBe(true)
     expect(text.endsWith('after')).toBe(true)
+    const revised = inputRef.current!.value
+    expect(revised).toContain('effort: high')
     first.unmount()
-    const revised = text.replace('Flash', 'Burn')
     const second = renderEditor(<NativeChatPromptEditor {...props} initialValue={revised} />)
     await waitFor(() =>
       expect(second.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(2)
     )
     expect(inputRef.current!.value).toBe(revised)
+    second.unmount()
+    const recalled = renderEditor(
+      <NativeChatPromptEditor {...props} scopeKey="recalled-orchestration" initialValue={revised} />
+    )
+    await waitFor(() =>
+      expect(recalled.container.querySelectorAll('[data-native-chat-orchestration]')).toHaveLength(
+        2
+      )
+    )
+    expect(
+      recalled.container.querySelector('[data-native-chat-orchestration]')?.textContent
+    ).toContain('Task: Burn')
   })
 
   it('removes one chosen orchestration model from the draft with its close button', async () => {

@@ -2,7 +2,10 @@ import type { AgentDetectionTarget } from '@/hooks/useDetectedAgents'
 import { callStructuredAgentSession } from '@/runtime/structured-agent-session-client'
 import { toRuntimeWorktreeSelector } from '@/runtime/runtime-worktree-selector'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
-import type { AgentSessionModelCatalogResult } from '../../../../shared/agent-session-wire'
+import type {
+  AgentSessionModelCatalogResult,
+  AgentSessionOptionChoice
+} from '../../../../shared/agent-session-wire'
 import {
   discoverNativeChatCatalogModels,
   type NativeChatModelDiscoveryContext
@@ -17,7 +20,11 @@ export type PickerHost = {
   worktreeId?: string
 }
 
-export type OrchestrationModel = { id: string; label: string }
+export type OrchestrationModel = {
+  id: string
+  label: string
+  efforts?: AgentSessionOptionChoice[]
+}
 
 export async function discoverOrchestrationModels(
   host: PickerHost,
@@ -42,7 +49,11 @@ export async function discoverOrchestrationModels(
         )
       }
       if (catalog.origin !== 'unknown' && catalog.models.length > 0) {
-        return catalog.models.map(({ id, label }) => ({ id, label }))
+        return catalog.models.map(({ id, label, efforts, effortsKnown }) => ({
+          id,
+          label,
+          ...(effortsKnown !== false && efforts ? { efforts } : {})
+        }))
       }
     } catch {
       // An older host or an agent without a structured catalog can still use CLI discovery.
@@ -54,5 +65,14 @@ export async function discoverOrchestrationModels(
   const { runtime, hostKey } = host.discovery
   const cached = readNativeChatEnrichedModels(agent, hostKey)
   const catalog = cached ?? (await discoverNativeChatCatalogModels(agent, runtime, hostKey))
-  return catalog?.map(({ id, label }) => ({ id, label })) ?? []
+  return (
+    catalog?.map(({ id, label, options }) => {
+      const effort = options?.find((option) => option.id === 'effort')
+      return {
+        id,
+        label,
+        ...(effort?.kind.type === 'select' ? { efforts: effort.kind.choices } : {})
+      }
+    }) ?? []
+  )
 }

@@ -1,6 +1,9 @@
 // Completed tab and composer actions return keyboard input to the chat draft.
 
 import type { Locator, Page } from '@stablyai/playwright-test'
+import { readFileSync } from 'node:fs'
+import { z } from 'zod'
+import { splitOrchestrationReferences } from '../../src/shared/native-chat-orchestration-reference'
 import { expect } from './helpers/orca-app'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
@@ -77,16 +80,19 @@ test.describe('native chat composer focus', () => {
     await picker.getByRole('button', { name: /^(Add to message|加入消息)$/ }).click()
     const chip = composer.locator('[data-native-chat-orchestration="claude"]')
     await expect(chip).toBeVisible()
-    await expect(chip).not.toContainText('编译')
+    await expect(chip).toContainText('编译')
     await expect(chip).toContainText(/2 个 Claude|2 Claude agent\(s\)/)
     await expect(composer).toContainText(
-      /请处理：(?:编译用 2 个 Claude|编译: 2 Claude agent\(s\)).*，然后检查结果/
+      /请处理：(?:2 个 Claude|2 Claude agent\(s\)).*编译.*，然后检查结果/
     )
     await expect(composer).toBeFocused()
     await composer.screenshot({ path: testInfo.outputPath('orchestration-inserted.png') })
     await chip.click()
     const editPicker = page.getByRole('dialog')
-    await expect(editPicker.getByRole('textbox', { name: /Claude (Task|负责事项)/ })).toHaveCount(0)
+    await expect(editPicker.getByRole('textbox', { name: /Claude (Task|负责事项)/ })).toHaveValue(
+      '编译'
+    )
+    await editPicker.getByRole('textbox', { name: /Claude (Task|负责事项)/ }).fill('编译并检查')
     await editPicker.screenshot({ path: testInfo.outputPath('orchestration-edit.png') })
     await expect(
       editPicker.getByRole('spinbutton', { name: /Claude (Agent count|智能体数量)/ })
@@ -95,8 +101,8 @@ test.describe('native chat composer focus', () => {
     await editPicker.getByText('Codex', { exact: true }).locator('..').getByRole('checkbox').check()
     await editPicker.getByRole('button', { name: /^(Update orchestration|更新编排)$/ }).click()
     await expect(composer.locator('[data-native-chat-orchestration="codex"]')).toBeVisible()
-    await expect(composer).toContainText(/编译用 3 个 Codex|编译: 3 Codex agent\(s\)/)
-    await expect(composer).not.toContainText(/编译用 2 个 Claude|编译: 2 Claude agent\(s\)/)
+    await expect(composer).toContainText(/(?:3 个 Codex|3 Codex agent\(s\)).*编译并检查/)
+    await expect(composer.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(0)
     await expect(composer).toBeFocused()
     const remove = composer.getByRole('button', {
       name: /^(Remove agent selection|移除智能体选择)$/
@@ -105,6 +111,89 @@ test.describe('native chat composer focus', () => {
     await remove.click()
     await expect(composer.locator('[data-native-chat-orchestration]')).toHaveCount(0)
     await composer.screenshot({ path: testInfo.outputPath('orchestration-removed.png') })
+  })
+
+  test.describe('orchestration effort and sent pills', () => {
+    test.use({ orcaAppExtraEnv: { ORCA_E2E_STUB_EFFORT_CATALOG: '1' } })
+
+    test('preserves model, effort and task through send and reload', async ({
+      orcaPage: page,
+      claudeStub
+    }, testInfo) => {
+      const { composer, send, reply } = await openChat(page, claudeStub.command)
+      await page.getByRole('button', { name: /^(Orchestration agents|编排智能体)$/ }).click()
+      const picker = page.getByRole('dialog')
+      await picker.getByText('Claude', { exact: true }).locator('..').getByRole('checkbox').check()
+      const task =
+        'Review parser [edge cases], preserve C:\\project and validate the complete assignment'
+      await picker.getByRole('textbox', { name: /Claude (Task|负责事项)/ }).fill(task)
+      await picker.getByRole('combobox', { name: 'Claude Model' }).click()
+      await page.getByRole('option', { name: 'Opus', exact: true }).click()
+      await picker.getByRole('combobox', { name: 'Claude Effort' }).click()
+      await page.getByRole('option', { name: 'High', exact: true }).click()
+      await picker.screenshot({ path: testInfo.outputPath('effort-picker.png') })
+      await picker.getByRole('button', { name: /^(Add to message|加入消息)$/ }).click()
+      const draftPill = composer.locator('[data-native-chat-orchestration="claude"]')
+      await expect(draftPill).toContainText('effort: high')
+      await expect(draftPill).toContainText(task)
+      await draftPill.click()
+      await expect(picker.getByRole('textbox', { name: /Claude (Task|负责事项)/ })).toHaveValue(
+        task
+      )
+      await expect(picker.getByRole('combobox', { name: 'Claude Effort' })).toContainText('High')
+      await picker.getByRole('button', { name: /^(Update orchestration|更新编排)$/ }).click()
+      await send.click()
+      await expect(reply).toBeVisible({ timeout: 30_000 })
+      await expect(composer.locator('[data-native-chat-orchestration]')).toHaveCount(0)
+      const sentPill = page.locator('span[data-native-chat-orchestration="claude"]')
+      await expect(sentPill).toHaveCount(1)
+      await expect(sentPill).toContainText(task)
+      await expect(sentPill).toContainText('effort: high')
+      const promptFrameSchema = z.object({
+        prompt: z.object({
+          content: z.array(z.object({ type: z.literal('text'), text: z.string() }))
+        })
+      })
+      const deliveredAssignments = readFileSync(claudeStub.launchLog, 'utf8')
+        .trim()
+        .split('\n')
+        .flatMap((line) => {
+          const frame = promptFrameSchema.safeParse(JSON.parse(line))
+          return frame.success
+            ? frame.data.prompt.content.flatMap(({ text }) => splitOrchestrationReferences(text))
+            : []
+        })
+      expect(deliveredAssignments).toContainEqual(
+        expect.objectContaining({
+          agent: 'claude',
+          count: 1,
+          model: { id: 'opus', label: 'Opus' },
+          effort: 'high',
+          task
+        })
+      )
+      await page.reload()
+      await expect(sentPill).toBeVisible({ timeout: 30_000 })
+      await expect(sentPill).toContainText(task)
+      await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
+      await page.getByRole('button', { name: 'Toggle right sidebar', exact: true }).click()
+      for (const theme of ['light', 'dark'] as const) {
+        await page.evaluate(async (theme) => {
+          await window.__store?.getState().updateSettings({ theme })
+        }, theme)
+        for (const width of [1280, 640]) {
+          await page.setViewportSize({ width, height: 800 })
+          await expect(sentPill).toBeVisible()
+          const layout = await sentPill.evaluate((element) => ({
+            fits: element.scrollWidth <= element.clientWidth + 1,
+            border: getComputedStyle(element).borderTopWidth
+          }))
+          expect(layout.fits).toBe(true)
+          expect(Number.parseFloat(layout.border)).toBeGreaterThan(0)
+          await page.screenshot({ path: testInfo.outputPath(`sent-${theme}-${width}.png`) })
+        }
+      }
+    })
   })
 
   test('keyboard tab rename returns input to the native chat composer', async ({
