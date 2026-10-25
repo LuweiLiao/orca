@@ -8274,6 +8274,13 @@
             "ariaLabel": "卡片样式",
             "classic": "经典",
             "experimental": "实验性"
+          },
+          "agentReplyRules": {
+            "showImagesAndFilePaths": {
+              "label": "Claude 和 Codex：展示图片和文件路径",
+              "copy": "回复里提到 PNG 等图片时直接嵌入聊天显示，提到文件时写出完整路径，方便点开。",
+              "toggleLabel": "切换展示图片和文件路径"
+            }
           }
         },
         "FloatingWorkspacePane": {

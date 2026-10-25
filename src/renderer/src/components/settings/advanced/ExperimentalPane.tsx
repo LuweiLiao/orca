@@ -14,6 +14,7 @@ import { EphemeralVmsExperimentalSetting } from '../virtual-machines/recipes/Eph
 import { AppRailExperimentalSetting } from '../../app-rail/AppRailExperimentalSetting'
 import { WslHostsExperimentalSetting } from '../wsl/hosts/WslHostsExperimentalSetting'
 import { AgentSudoExperimentalSetting } from './AgentSudoExperimentalSetting'
+import { AgentReplyRulesExperimentalSetting } from './AgentReplyRulesExperimentalSetting'
 import { getAgentSudoExperimentalSearchEntry } from './agent-sudo-experimental-search'
 import { wslHostsAvailable } from '../../../runtime/hosts/wsl/use-wsl-hosts-enabled'
 import {
@@ -53,6 +54,9 @@ export function ExperimentalPane({
     getExperimentalSearchEntry().newWorktreeCardStyle
   ])
   const showAppRail = matchesSettingsSearch(searchQuery, [getExperimentalSearchEntry().appRail])
+  const showAgentReplyRules = matchesSettingsSearch(searchQuery, [
+    getExperimentalSearchEntry().agentReplyRules
+  ])
   const showAgentSudo = matchesSettingsSearch(searchQuery, [getAgentSudoExperimentalSearchEntry()])
   const agentHibernationEnabled = settings.experimentalAgentHibernation === true
   // Use the planner’s clamped millisecond value/default while editing minutes.
@@ -295,6 +299,10 @@ export function ExperimentalPane({
 
         {wslHostsAvailable() ? (
           <WslHostsExperimentalSetting settings={settings} updateSettings={updateSettings} />
+        ) : null}
+
+        {showAgentReplyRules ? (
+          <AgentReplyRulesExperimentalSetting settings={settings} updateSettings={updateSettings} />
         ) : null}
 
         {showAgentSudo ? <AgentSudoExperimentalSetting /> : null}

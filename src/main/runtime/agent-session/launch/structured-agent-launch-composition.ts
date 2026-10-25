@@ -1,3 +1,4 @@
+import { agentReplyInstructions } from '../../../native-chat/agent-launch/agent-reply-instructions'
 // Compose shared admission, cwd, environment, visuals and child sealing; agent parts add only agent-specific inputs and never set cwd/sealed env.
 
 import type { ReadOnlySessionMode } from '../../../bots/bot-look-around-policy'
@@ -202,10 +203,16 @@ async function composedPart<L>(
     instructions: (() => {
       let read: Promise<string | null> | null = null
       return (linkedSkills: string | null = null) =>
-        (read ??= (async () =>
-          sources.resolveInstructions
-            ? sources.resolveInstructions(record, await launchDirectory(), linkedSkills)
-            : linkedSkills)())
+        (read ??= (async () => {
+          const session = sources.resolveInstructions
+            ? await sources.resolveInstructions(record, await launchDirectory(), linkedSkills)
+            : linkedSkills
+          const replyRules = agentReplyInstructions(
+            definition.agent,
+            sources.resolveCommandSettings?.() ?? {}
+          )
+          return [session, replyRules].filter(Boolean).join('\n\n') || null
+        })())
     })(),
     // A read-only session gets none: Look around keeps every tool off.
     toolServers: once(async () =>

@@ -1,3 +1,4 @@
+import type { AgentReplyRuleSettings } from '../../../shared/settings/agent-reply-rule-settings'
 import { waitForPromiseWithSignal } from '../../../shared/concurrency/abort-signal-reason'
 import { delimiter, isAbsolute, posix, resolve as resolvePath, win32 } from 'node:path'
 import type { GlobalSettings } from '../../../shared/settings/global-settings-types'
@@ -48,9 +49,11 @@ export function assertStructuredAgentResolutionCurrent(
   }
 }
 
+/** The settings a structured launch reads: command overrides and the agent reply rules. */
 export type StructuredAgentCommandSettings = Partial<
   Pick<GlobalSettings, 'agentCmdOverrides' | 'agentDefaultEnv' | 'antigravityManagedAgyEnabled'>
->
+> &
+  AgentReplyRuleSettings
 type CommandSettings = StructuredAgentCommandSettings
 type CommandOptions = NonNullable<Parameters<typeof resolveExecutableCommand>[1]>
 
