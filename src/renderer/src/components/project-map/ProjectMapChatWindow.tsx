@@ -98,7 +98,6 @@ export function ProjectMapChatWindow({
       data-project-map-window=""
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
-      onWheel={(event) => event.stopPropagation()}
       className="project-map-window absolute z-20 flex min-h-[320px] min-w-[360px] resize flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
       style={{
         left: position.x,
@@ -171,7 +170,11 @@ export function ProjectMapChatWindow({
         </div>
       ) : null}
       {tabAgent ? (
-        <ProjectMapConversation key={tabAgent.card.paneKey} card={tabAgent.card} />
+        <ProjectMapConversation
+          key={tabAgent.card.paneKey}
+          card={tabAgent.card}
+          session={tabAgent.session}
+        />
       ) : subject.kind === 'workspace' ? (
         <div className="m-auto flex max-w-72 flex-col items-center gap-3 px-4 text-center text-sm text-muted-foreground">
           <MessageSquarePlus aria-hidden className="size-6" />
