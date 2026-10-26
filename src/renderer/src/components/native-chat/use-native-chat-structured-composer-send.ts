@@ -6,6 +6,7 @@ import { MAX_SKILL_REFS } from '../../../../shared/rpc-contract/structured-agent
 import { SkillRefLimitError } from '../../../../shared/structured-agent-session-send-mutation'
 import { promptSkillRefs } from './native-chat-prompt-document'
 import { promptOrchestrationCards } from './native-chat-prompt-orchestration-cards'
+import { withNativeChatTextDelegation } from './native-chat-text-delegation-store'
 import { useCallback } from 'react'
 import { prepareNativeChatAnnotatedMessage } from './native-chat-annotations-store'
 import { completeNativeChatStructuredUserAction } from './native-chat-structured-user-action'
@@ -83,6 +84,7 @@ export function useNativeChatStructuredComposerSend({
       if (!admitNativeChatPastedText(draftScopeKey, text, structuredTransport.onError)) {
         return
       }
+      const typed = text
       text = resolveNativeChatPastedText(draftScopeKey, text)
       const hostCommand = isNativeChatStructuredHostCommand(text, agent, structuredTransport)
       // A held host takes no turn, and its notice says why; an option command only changes what
@@ -114,16 +116,20 @@ export function useNativeChatStructuredComposerSend({
       }
       const isCurrent = structuredTransport.capturePresentation()
       const submitted = readNativeChatComposerDraft(draftScopeKey)
+      const pills = promptOrchestrationCards(submitted.document)
+      const message = hostCommand
+        ? { text, cards: pills }
+        : withNativeChatTextDelegation(draftScopeKey, typed, { text, cards: pills })
       const annotated = hostCommand
         ? null
-        : prepareNativeChatAnnotatedMessage(annotationScopeKey, text)
+        : prepareNativeChatAnnotatedMessage(annotationScopeKey, message.text)
       let annotationMessageId: string | undefined
       await dispatchNativeChatStructuredComposerText(
         structuredTransport,
-        withConversationReferenceInstructions(annotated?.text ?? text),
+        withConversationReferenceInstructions(annotated?.text ?? message.text),
         attachments,
         promptSkillRefs(submitted.document),
-        promptOrchestrationCards(submitted.document),
+        message.cards,
         annotated?.hasAnnotations
           ? {
               onAdmitted: (messageId) => {

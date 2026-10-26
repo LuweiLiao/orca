@@ -34,7 +34,7 @@ const NO_SELECTIONS: OrchestrationAgentSelection[] = []
 
 export function pickerHost(
   terminalTabId: string,
-  transport?: NativeChatStructuredComposerTransport
+  transport?: Pick<NativeChatStructuredComposerTransport, 'runtimeEnvironmentId' | 'worktreeId'>
 ): PickerHost | null {
   const context = resolveNativeChatModelDiscoveryContext(terminalTabId)
   if (transport) {

@@ -4,7 +4,10 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { nativeChatOrchestrationAttributes } from './native-chat-orchestration-instruction'
-import { NativeChatOrchestrationProposalProvider } from './NativeChatOrchestrationProposal'
+import {
+  NativeChatOrchestrationProposalActions,
+  NativeChatOrchestrationProposalProvider
+} from './NativeChatOrchestrationProposal'
 import { splitOrchestrationReferences } from '../../../../shared/native-chat-orchestration-reference'
 
 afterEach(cleanup)
@@ -93,4 +96,43 @@ it('inserts a proposed assignment into this conversation only after the user cli
   expect(rendered.queryByRole('button', { name: 'Add to message' })).toBeNull()
   rendered.rerender(view(true, false, false))
   expect(rendered.queryByRole('button', { name: 'Add to message' })).toBeNull()
+})
+
+it('adds every card a reply proposes with one click, as one message', () => {
+  const card = (effort: string) =>
+    nativeChatOrchestrationAttributes({
+      agent: 'claude',
+      label: 'Claude',
+      count: 1,
+      model: { id: 'opus', label: 'Opus' },
+      effort,
+      task: `Review with ${effort} effort`
+    }).token
+  // A card shown twice or only quoted back is not another agent to confirm.
+  const markdown = `${card('high')}\n\n${card('low')}\n\n${card('high')}\n\n> ${card('medium')}`
+  const composer = {
+    acceptsText: vi.fn(() => true),
+    appendText: vi.fn(),
+    appendTextAndSend: vi.fn()
+  }
+  const view = (target: typeof composer | Omit<typeof composer, 'appendTextAndSend'>) => (
+    <TooltipProvider>
+      <NativeChatOrchestrationProposalProvider composerRef={{ current: target }} available>
+        <NativeChatOrchestrationProposalActions markdown={markdown} />
+      </NativeChatOrchestrationProposalProvider>
+    </TooltipProvider>
+  )
+  const rendered = render(view(composer))
+  fireEvent.click(rendered.getByRole('button', { name: 'Add all 2 and send' }))
+  expect(composer.appendTextAndSend).toHaveBeenCalledOnce()
+  expect(splitOrchestrationReferences(composer.appendTextAndSend.mock.calls[0]![0])).toEqual(
+    splitOrchestrationReferences(`${card('high')}; ${card('low')}`)
+  )
+  expect(composer.appendText).not.toHaveBeenCalled()
+
+  const { appendTextAndSend: _, ...withoutSend } = composer
+  rendered.rerender(view(withoutSend))
+  fireEvent.click(rendered.getByRole('button', { name: 'Add all 2 and send' }))
+  expect(composer.appendText).toHaveBeenCalledOnce()
+  expect(composer.appendTextAndSend).toHaveBeenCalledOnce()
 })

@@ -1,4 +1,4 @@
-import { AlertCircle, Paperclip, ServerOff, Smartphone, X } from 'lucide-react'
+import { AlertCircle, ListTree, Paperclip, ServerOff, Smartphone, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
@@ -61,10 +61,13 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
       ? ServerOff
       : notice.kind === 'device'
         ? Smartphone
-        : isError
-          ? AlertCircle
-          : Paperclip
-  const dismissLabel = translate('components.native-chat.notices.dismiss', 'Dismiss')
+        : notice.kind === 'delegation'
+          ? ListTree
+          : isError
+            ? AlertCircle
+            : Paperclip
+  const dismissLabel =
+    notice.dismissLabel ?? translate('components.native-chat.notices.dismiss', 'Dismiss')
   return (
     <li data-notice-kind={notice.kind} className={cn(isError && 'bg-destructive/5')}>
       <div className="flex items-start gap-2 px-2.5 py-1.5">

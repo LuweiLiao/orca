@@ -28,6 +28,7 @@ import type { NativeChatComposerGoalMode } from './use-native-chat-composer-subm
 import { translate } from '@/i18n/i18n'
 import { useNativeChatComposerDraftUnsaved } from './use-native-chat-draft-unsaved'
 import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
+import { useNativeChatTextDelegationNotice } from './native-chat-text-delegation-notice'
 
 export type NativeChatComposerFieldProps = {
   /** Pane identity published to the drop pipeline so a native file drop lands
@@ -181,6 +182,15 @@ export function NativeChatComposerField({
   onInsertOrchestrationInstruction
 }: NativeChatComposerFieldProps): React.JSX.Element {
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
+  // Where the picker can add cards, the person may also name the agents in words.
+  const delegationNotice = useNativeChatTextDelegationNotice({
+    draftScopeKey,
+    draft,
+    terminalTabId: terminalTabId ?? '',
+    structuredTransport,
+    enabled:
+      Boolean(terminalTabId && onInsertOrchestrationInstruction) && !goalMode?.active && !disabled
+  })
   const conversationDrop = useConversationReferenceDrop({
     scope: draftScopeKey,
     input: textareaRef,
@@ -256,7 +266,7 @@ export function NativeChatComposerField({
             />
           ) : null}
           <NativeChatComposerNotices
-            notices={notices.map((notice) =>
+            notices={(delegationNotice ? [...notices, delegationNotice] : notices).map((notice) =>
               // A dismissed row takes its focused × with it; the message box gets focus back.
               notice.onDismiss
                 ? {

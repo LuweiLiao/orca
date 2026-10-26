@@ -7,6 +7,7 @@ import { NATIVE_CHAT_QUOTE_SOURCE_PROPS } from './native-chat-quote-selection'
 import { NativeChatToolRun } from './NativeChatToolRun'
 import { NativeChatCodeBlock, NativeChatPlainCodeBlock } from './NativeChatCodeBlock'
 import { NativeChatAgentControls, NativeChatImageAttachments } from './NativeChatTranscriptChrome'
+import { NativeChatOrchestrationProposalActions } from './NativeChatOrchestrationProposal'
 import type { useNativeChatWorkRun } from './use-native-chat-work-run'
 
 function messageIsStreaming(
@@ -54,6 +55,7 @@ export function NativeChatAssistantMessageRow({
   // A working turn's last row is only its frontier: more can still land under it.
   const showControls =
     !isSystem && words.length > 0 && !continuesTurn && activeTurnIsWorking !== true
+  const streaming = messageIsStreaming(message, activeTurnIsWorking, trailingRun)
 
   return (
     <div
@@ -87,8 +89,11 @@ export function NativeChatAssistantMessageRow({
           orchestrationProposals={message.role === 'assistant'}
           // Structured text streams in place with no per-row state: only the live turn's frontier
           // row, still ending in prose, can be mid-sentence.
-          streaming={messageIsStreaming(message, activeTurnIsWorking, trailingRun)}
+          streaming={streaming}
         />
+      ) : null}
+      {words && message.role === 'assistant' && !streaming ? (
+        <NativeChatOrchestrationProposalActions markdown={words} />
       ) : null}
       {toolRun ? <NativeChatToolRun {...toolRun} /> : null}
       {showControls ? (

@@ -23,6 +23,7 @@ import type { NativeChatResolvedTarget } from './native-chat-composer-target'
 import { isSlashCommandDraft } from '../../../../shared/native-chat-slash-commands'
 import { authorizeTerminalAgentCards } from '@/runtime/runtime-terminal-agent-authorization'
 import { promptOrchestrationCards } from './native-chat-prompt-orchestration-cards'
+import { withNativeChatTextDelegation } from './native-chat-text-delegation-store'
 import { readNativeChatComposerDraft } from './native-chat-composer-draft-store'
 import type { NativeChatPickerState } from './use-native-chat-picker-state'
 import type { NativeChatSendLifecycle } from './use-native-chat-send-lifecycle'
@@ -81,7 +82,18 @@ export function useNativeChatPtyComposerSend(args: {
     if (!admitNativeChatPastedText(args.draftScopeKey, text, args.setNotice)) {
       return
     }
+    const typed = text
     text = resolveNativeChatPastedText(args.draftScopeKey, text)
+    const message =
+      classification === 'chat'
+        ? withNativeChatTextDelegation(args.draftScopeKey, typed, {
+            text,
+            cards: promptOrchestrationCards(
+              readNativeChatComposerDraft(args.draftScopeKey).document
+            )
+          })
+        : { text, cards: [] }
+    text = message.text
     const annotated =
       classification === 'command'
         ? null
@@ -127,12 +139,7 @@ export function useNativeChatPtyComposerSend(args: {
       : echoOptions
     // Recorded before the write and settled by its outcome, so undelivered cards authorize nothing.
     const settleCards =
-      classification === 'chat'
-        ? authorizeTerminalAgentCards(
-            target.ptyId,
-            promptOrchestrationCards(readNativeChatComposerDraft(args.draftScopeKey).document)
-          )
-        : null
+      classification === 'chat' ? authorizeTerminalAgentCards(target.ptyId, message.cards) : null
     const sendOptions: NativeChatSendOptions | undefined = settleCards
       ? {
           ...composedSendOptions,

@@ -17,7 +17,12 @@ export type NativeChatComposerNotice = NativeChatComposerNoticeContent & {
   key: string
   action?: { label: string; onClick: () => void; disabled?: boolean }
   onDismiss?: () => void
-} & ({ kind: 'error' | 'attachment' | 'device' } | { kind: 'host'; tone: 'warning' | 'muted' })
+  /** What the × does, when more than hiding the row. */
+  dismissLabel?: string
+} & (
+    | { kind: 'error' | 'attachment' | 'device' | 'delegation' }
+    | { kind: 'host'; tone: 'warning' | 'muted' }
+  )
 
 /** `headline` in Orca's words, with the error as written beside it. `localErrorIsOrcaWords`: an
  *  error raised in this window (not wrapped by main-process IPC) is already Orca's sentence. */

@@ -204,6 +204,87 @@ test('a confirmed card allows exactly one matching worker across retries and new
   }
 })
 
+test('agents named in words go out as cards with the message, and a dismissed request grants nothing', async ({
+  orcaPage: page,
+  electronApp,
+  claudeStub
+}, testInfo) => {
+  test.skip(!SUPPORTED, 'the Claude stub wrapper is POSIX-only')
+  test.setTimeout(180_000)
+  await waitForSessionReady(page)
+  const stopCapture = await startHiddenRendererFrameCapture(page)
+  try {
+    const worktreeId = await waitForActiveWorktree(page)
+    await page.evaluate(async (command) => {
+      await window.__store!.getState().updateSettings({
+        experimentalNativeChat: true,
+        defaultTuiAgent: 'claude',
+        tabAutoGenerateTitle: false,
+        agentCmdOverrides: { claude: command }
+      })
+    }, buildFakeAgentCommandOverride(claudeStub.command))
+    const sessionId = await createChatOnHost(page, worktreeId)
+    await page
+      .locator(
+        `[data-testid="sortable-tab"][data-tab-id="${structuredAgentSessionTabId(sessionId)}"]`
+      )
+      .click()
+    const chat = page.locator('[data-native-chat-root="true"]')
+    const composer = chat.getByRole('textbox')
+    const named = chat.locator('[data-native-chat-text-delegation="claude"]')
+    const userDataDir = await electronApp.evaluate(({ app }) => app.getPath('userData'))
+    const client = callerClient(userDataDir, sessionId)
+    const from = `orca_session_id:${sessionId}`
+    const params = {
+      from,
+      worktree: 'current',
+      agent: 'claude',
+      model: 'opus',
+      effort: 'high',
+      spec: 'Review authorization',
+      timeoutMs: 20_000
+    }
+    const refused = { code: 'agent_delegation_unauthorized' }
+    const request = 'Spawn 1 claude opus high agent to review authorization.'
+    const replies = chat.getByText('Stub reply.', { exact: true })
+    // A run needs a live session, and only a sent message starts one.
+    await composer.fill('Review the authorization boundary.')
+    await chat.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(replies).toHaveCount(1)
+    await client.call('orchestration.runCreate', { from, objective: 'Review authorization' })
+
+    await composer.fill(request)
+    await expect(named).toContainText('effort: high')
+    await page.screenshot({ path: testInfo.outputPath('text-request-before-send.png') })
+    await expect(client.call('orchestration.workerStart', params)).rejects.toMatchObject(refused)
+    await chat.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(replies).toHaveCount(2)
+    await expect(named).toHaveCount(0)
+    await expect(chat.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(1)
+    const started = await client.call<WorkerReceipt>('orchestration.workerStart', params)
+    expect(started.result.state).toBe('ready')
+    await expect(client.call('orchestration.workerStart', params)).rejects.toMatchObject(refused)
+    await client.call('orchestration.workerStop', { dispatch: started.result.dispatchId })
+    await client.call('orchestration.workerRelease', { dispatch: started.result.dispatchId })
+
+    await composer.fill(request)
+    await expect(named).toContainText('effort: high')
+    await chat
+      .getByRole('button', {
+        name: /Don't authorize agents with this message|这条消息不授权智能体/
+      })
+      .click()
+    await expect(named).toHaveCount(0)
+    await chat.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(replies).toHaveCount(3)
+    await client.call('orchestration.runCreate', { from, objective: 'Review again' })
+    await expect(client.call('orchestration.workerStart', params)).rejects.toMatchObject(refused)
+    await page.screenshot({ path: testInfo.outputPath('text-request-dismissed.png') })
+  } finally {
+    await stopCapture()
+  }
+})
+
 test.describe('text proposal confirmation', () => {
   const proposal = orchestrationReferenceToken(
     {
@@ -283,6 +364,95 @@ test.describe('text proposal confirmation', () => {
       await page.screenshot({ path: testInfo.outputPath('proposal-confirmed.png') })
       await client.call('orchestration.workerStop', { dispatch: started.result.dispatchId })
       await client.call('orchestration.workerRelease', { dispatch: started.result.dispatchId })
+    } finally {
+      await stopCapture()
+    }
+  })
+})
+
+test.describe('confirming every proposed card at once', () => {
+  const card = (effort: string) =>
+    orchestrationReferenceToken(
+      {
+        agent: 'claude',
+        label: 'Claude',
+        count: 1,
+        task: `Review with ${effort} effort`,
+        model: { id: 'opus', label: 'Opus' },
+        effort
+      },
+      `1 Claude (model: Opus; effort: ${effort})`
+    )
+  test.use({
+    orcaAppExtraEnv: {
+      ORCA_E2E_STUB_EFFORT_CATALOG: '1',
+      ORCA_E2E_STUB_REPLY_TEXT: `${card('high')}\n\n${card('low')}`
+    }
+  })
+
+  test('one click sends every proposed card and grants exactly those agents', async ({
+    orcaPage: page,
+    electronApp,
+    claudeStub
+  }, testInfo) => {
+    test.skip(!SUPPORTED, 'the Claude stub wrapper is POSIX-only')
+    test.setTimeout(120_000)
+    await waitForSessionReady(page)
+    const stopCapture = await startHiddenRendererFrameCapture(page)
+    try {
+      const worktreeId = await waitForActiveWorktree(page)
+      await page.evaluate(async (command) => {
+        await window.__store!.getState().updateSettings({
+          experimentalNativeChat: true,
+          defaultTuiAgent: 'claude',
+          tabAutoGenerateTitle: false,
+          agentCmdOverrides: { claude: command }
+        })
+      }, buildFakeAgentCommandOverride(claudeStub.command))
+      const sessionId = await createChatOnHost(page, worktreeId)
+      await page
+        .locator(
+          `[data-testid="sortable-tab"][data-tab-id="${structuredAgentSessionTabId(sessionId)}"]`
+        )
+        .click()
+      const chat = page.locator('[data-native-chat-root="true"]')
+      const composer = chat.getByRole('textbox')
+      await composer.fill('Arrange Claude Opus reviewers for authorization, one high and one low.')
+      await chat.getByRole('button', { name: 'Send', exact: true }).click()
+      const addAll = chat.getByRole('button', { name: /Add all 2 and send|全部 2 张加入并发送/ })
+      await expect(addAll).toHaveCount(1)
+      const userDataDir = await electronApp.evaluate(({ app }) => app.getPath('userData'))
+      const client = callerClient(userDataDir, sessionId)
+      const from = `orca_session_id:${sessionId}`
+      await client.call('orchestration.runCreate', { from, objective: 'Review authorization' })
+      const params = (effort: string) => ({
+        from,
+        worktree: 'current',
+        agent: 'claude',
+        model: 'opus',
+        effort,
+        spec: 'Review authorization',
+        timeoutMs: 20_000
+      })
+      const refused = { code: 'agent_delegation_unauthorized' }
+      await expect(client.call('orchestration.workerStart', params('high'))).rejects.toMatchObject(
+        refused
+      )
+      await page.screenshot({ path: testInfo.outputPath('proposals-before-confirm.png') })
+      await addAll.click()
+      await expect(addAll).toHaveCount(2)
+      await expect(composer.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(0)
+      const high = await client.call<WorkerReceipt>('orchestration.workerStart', params('high'))
+      const low = await client.call<WorkerReceipt>('orchestration.workerStart', params('low'))
+      expect([high.result.state, low.result.state]).toEqual(['ready', 'ready'])
+      await expect(client.call('orchestration.workerStart', params('high'))).rejects.toMatchObject(
+        refused
+      )
+      await page.screenshot({ path: testInfo.outputPath('proposals-confirmed.png') })
+      for (const worker of [high, low]) {
+        await client.call('orchestration.workerStop', { dispatch: worker.result.dispatchId })
+        await client.call('orchestration.workerRelease', { dispatch: worker.result.dispatchId })
+      }
     } finally {
       await stopCapture()
     }

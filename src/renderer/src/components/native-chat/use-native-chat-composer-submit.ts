@@ -1,5 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { translate } from '@/i18n/i18n'
+import {
+  consumeNativeChatComposerSendRequest,
+  useNativeChatComposerSendRequest
+} from './native-chat-composer-send-request'
 import {
   applyPickerSuggestion,
   type NativeChatPickerItem
@@ -171,6 +175,24 @@ export function useNativeChatComposerSubmit(args: {
     structuredTransport,
     threadGoal
   ])
+
+  // Sends what a person's one action put in the empty composer, once the draft shows exactly that.
+  const sendRequest = useNativeChatComposerSendRequest(draftScopeKey)
+  useEffect(() => {
+    if (sendRequest === null || draft.trim() === '') {
+      return
+    }
+    // Two composers of one chat both see the request; only the one that takes it sends.
+    const taken = consumeNativeChatComposerSendRequest(draftScopeKey)
+    if (
+      taken &&
+      draft.trim() === sendRequest.trim() &&
+      imageAttachments.length === 0 &&
+      !hasAnnotations
+    ) {
+      send()
+    }
+  }, [draft, draftScopeKey, hasAnnotations, imageAttachments.length, send, sendRequest])
 
   const exit = useCallback(() => setEntered(false), [])
   const goalMode = useMemo(() => ({ active, exit, interceptPick }), [active, exit, interceptPick])
