@@ -13,6 +13,8 @@ import { AgentDashboardExperimentalSetting } from '../../dashboard/settings/Agen
 import { EphemeralVmsExperimentalSetting } from '../virtual-machines/recipes/EphemeralVmsExperimentalSetting'
 import { AppRailExperimentalSetting } from '../../app-rail/AppRailExperimentalSetting'
 import { WslHostsExperimentalSetting } from '../wsl/hosts/WslHostsExperimentalSetting'
+import { AgentSudoExperimentalSetting } from './AgentSudoExperimentalSetting'
+import { getAgentSudoExperimentalSearchEntry } from './agent-sudo-experimental-search'
 import { wslHostsAvailable } from '../../../runtime/hosts/wsl/use-wsl-hosts-enabled'
 import {
   MAX_AGENT_HIBERNATION_IDLE_MS,
@@ -51,6 +53,7 @@ export function ExperimentalPane({
     getExperimentalSearchEntry().newWorktreeCardStyle
   ])
   const showAppRail = matchesSettingsSearch(searchQuery, [getExperimentalSearchEntry().appRail])
+  const showAgentSudo = matchesSettingsSearch(searchQuery, [getAgentSudoExperimentalSearchEntry()])
   const agentHibernationEnabled = settings.experimentalAgentHibernation === true
   // Use the planner’s clamped millisecond value/default while editing minutes.
   const agentHibernationIdleMinutes = Math.round(
@@ -293,6 +296,8 @@ export function ExperimentalPane({
         {wslHostsAvailable() ? (
           <WslHostsExperimentalSetting settings={settings} updateSettings={updateSettings} />
         ) : null}
+
+        {showAgentSudo ? <AgentSudoExperimentalSetting /> : null}
       </SettingsGroup>
 
       {hiddenExperimentalUnlocked ? <HiddenExperimentalGroup /> : null}

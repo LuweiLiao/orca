@@ -6,6 +6,7 @@ import { getNewWorktreeCardStyleSearchEntry } from './new-worktree-card-style-se
 import { getAppRailSearchEntry } from '../../app-rail/app-rail-search-entry'
 import { getEphemeralVmsSearchEntry } from '../virtual-machines/recipes/ephemeral-vms-search'
 import { getWslHostsExperimentalSearchEntry } from '../wsl/hosts/wsl-hosts-experimental-search'
+import { getAgentSudoExperimentalSearchEntry } from './agent-sudo-experimental-search'
 
 export const getExperimentalSearchEntry = createLocalizedCatalog(
   () =>
@@ -195,6 +196,12 @@ export const getExperimentalPaneSearchEntries = createLocalizedCatalog(
     // Index WSL toggles only on Windows desktops that expose them.
     ...(typeof window !== 'undefined' && window.api?.runtimeEnvironments?.wslHosts
       ? [getWslHostsExperimentalSearchEntry()]
+      : []),
+    // Why: the sudo bridge exists only in the desktop preload; web clients must not find it.
+    ...(typeof window !== 'undefined' &&
+    window.api?.agentSudo &&
+    !navigator.userAgent.includes('Windows')
+      ? [getAgentSudoExperimentalSearchEntry()]
       : [])
   ]
 )

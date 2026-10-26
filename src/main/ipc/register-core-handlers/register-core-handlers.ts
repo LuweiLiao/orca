@@ -68,6 +68,7 @@ import { registerOrcaProfileHandlers } from '../profiles/orca-profiles'
 import { registerCodexAccountHandlers } from '../accounts/codex-accounts'
 import { registerAgentHookHandlers } from '../agent-hooks/agent-hooks'
 import { registerCodexConfigSyncHandlers } from '../accounts/codex-config-sync'
+import { registerAgentSudoHandlers } from '../agent-sudo'
 import { getPtyIdForPaneKey } from '../pty/pane/key-state'
 import { registerClaudeAccountHandlers } from '../accounts/claude-accounts'
 import { registerOpenCodeGoCredentialsHandlers } from '../accounts/opencode-go-credentials'
@@ -276,6 +277,7 @@ export async function registerCoreHandlers(
     })
     registerUpdaterHandlers()
     registerSpeechHandlers(store, commitMessageAgentEnv)
+    registerAgentSudoHandlers()
     void hostsReady.catch((error: unknown) =>
       console.warn('[startup] Host initialization failed:', error)
     )

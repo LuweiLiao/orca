@@ -16,6 +16,7 @@ import { appendManagedAgentDirsToChildPath } from '../../../managed-agent-cli/ma
 import { resolveTerminalBrowserCommand } from './terminal-browser-command'
 import { getManagedWslCliDir, getWslCliCommandName } from '../../../cli/wsl/wsl-managed-cli'
 import { stripLegacyTerminalShimEnv } from '../../../pty/shell-startup/legacy-terminal-shim-dir'
+import { agentSudoService } from '../../../agent-sudo/agent-sudo-service'
 import { mergePersistedWindowsPath } from '../../../pty/environment/windows-environment-path'
 import { resolveCodexShellLaunchPreflightCommand } from '../../../pty/shell-startup/codex-shell-launch-preflight'
 import { scheduleCodexHookReconcile } from '../../../codex/hooks/reconciliation/codex-hook-reconcile'
@@ -297,6 +298,7 @@ export function buildPtyHostEnv(
     resourcesPath: opts.resourcesPath
   })
   appendManagedAgentDirsToChildPath(baseEnv)
+  agentSudoService.applyChildEnv(baseEnv)
 
   if (
     opts.routeBrowserOpensToClient === true &&

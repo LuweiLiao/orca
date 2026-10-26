@@ -8,6 +8,7 @@ import { killAllPty } from '../ipc/pty/provider/kill-all'
 import * as daemon from '../daemon/providers/lifecycle/daemon-provider-state'
 import { beginSshShutdown } from '../ipc/ssh/ssh-shutdown-drain'
 import { agentHookServer } from '../agent-hooks/server/agent-hook-server'
+import { agentSudoService } from '../agent-sudo/agent-sudo-service'
 import { botToolRelay } from '../bots/tool-relay/bot-tool-relay'
 import { wslHookRelayManager } from '../agent-hooks/wsl-relay/wsl-hook-relay-manager'
 import { removeManagedAgentHooksAsync } from '../agent-hooks/installation/managed-agent-hook-controls'
@@ -158,6 +159,7 @@ export function beginDesktopCoreShutdown(
   core.uninstallRepoMaintenanceIdleGate = null
   // Chat teardown reads background work afterward; clearing status loses subagent/command-only resume offers.
   agentHookServer.stop({ keepStatus: true })
+  void agentSudoService.stop()
   botToolRelay.close()
   const grokHookCleanup = cleanUpGrokHooksOnWindows()
   // Dispose relay timers and wsl.exe children explicitly rather than rely on pipe teardown.

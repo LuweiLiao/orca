@@ -67,6 +67,7 @@ import type { GoogleSetupApi } from './api/google-setup-api'
 import type { SlackHandOffApi } from './api/slack-hand-off-api'
 import type { AvatarGenerationApi } from '../shared/avatar-generation/avatar-generation-contract'
 import type { SpeechApi } from './api/speech/speech-api'
+import type { AgentSudoApi } from './api/agent-sudo-bridge'
 import type { SshApi } from './api/ssh/ssh-api'
 import type { PlainSshTerminalApi } from './api/terminal/plain-ssh-terminal-bridge'
 import type { LegacyRelayBridgeApi } from './api/mobile/legacy-relay-bridge-api'
@@ -204,6 +205,8 @@ export type PreloadApi = {
   agentStatus: AgentStatusApi
   mobile: MobileApi
   speech: SpeechApi
+  /** Desktop only: the sudo password never crosses the runtime RPC to web or mobile clients. */
+  agentSudo?: AgentSudoApi
 }
 
 declare global {
