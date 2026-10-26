@@ -1,3 +1,4 @@
+import { attachAgentDelegationGrantStore } from './delegation-grants/agent-delegation-grant-store'
 import { attachAttemptObservationStore } from './attempt-observation-store'
 import { attachCoordinatorRunStore } from './coordinator-runs/coordinator-run-store'
 import { attachDecisionGateStore } from './decision-gates/decision-gate-store'
@@ -68,6 +69,7 @@ import { attachWorkerTerminalTransfer } from './worker-terminal/worker-terminal-
 
 export function attachOrchestrationDbMethods(ctor: { prototype: object }): void {
   attachAttemptObservationStore(ctor)
+  attachAgentDelegationGrantStore(ctor)
   attachCreateTables(ctor)
   attachSchemaMigrate(ctor)
   attachSchemaColumnProbes(ctor)

@@ -155,7 +155,8 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
     agentStateLabel(
       agent.childRow?.displayState ?? asDotState(agent.state, agent.entry.workingMode)
     )
-  const model = agent.entry.model?.trim() ?? ''
+  const model = (agent.structuredSession?.model ?? agent.entry.model)?.trim() ?? ''
+  const effort = agent.structuredSession?.effort
   const isMonitoring = agent.state === 'working' && agent.entry.workingMode === 'monitoring'
   const isWorking = agent.state === 'working' && !isMonitoring
   // Why: 'working' names the running tool and 'waiting' names what an approval is blocked on;
@@ -178,12 +179,20 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
   const isLineageChild = lineage?.depth === 1
   const lineageChildCount = lineage?.childCount ?? 0
   const participatesInLineage = isLineageChild || lineageChildCount > 0
+  // Why: effort is hover-only metadata — it rides the identity icon's native title
+  // instead of the inline model text, which stays just the provider/model name.
   const identityTitle =
     lineageChildCount > 0
-      ? `${formatAgentTypeLabel(agent.agentType)} - dispatched ${lineageChildCount} ${
-          lineageChildCount === 1 ? 'agent' : 'agents'
-        }`
-      : [formatAgentTypeLabel(agent.agentType), model].filter(Boolean).join(' · ')
+      ? [
+          `${formatAgentTypeLabel(agent.agentType)} - dispatched ${lineageChildCount} ${
+            lineageChildCount === 1 ? 'agent' : 'agents'
+          }`,
+          model,
+          effort
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : [formatAgentTypeLabel(agent.agentType), model, effort].filter(Boolean).join(' · ')
   // Why: a stop or a failure is a terminal outcome, so surface it in the leading state dot; a
   // failure does so even while subagents still run.
   const dotState: AgentDotState = dotStateOverride ?? agentRowDisplayDotState(agent)
@@ -232,7 +241,9 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
       className={cn(
         // Why: named group scopes the X-reveal to this row, not every row in the card.
         'agent-disclosure-row group/agent-row relative -ml-2 flex flex-col py-1',
-        isLineageChild ? 'pl-5 pr-2' : 'px-2',
+        // Why: the connector art reserves its own left gutter; when it's hidden, the
+        // ancestor's indentation already covers the offset, so plain px-2 avoids double indent.
+        isLineageChild && !hideLineageConnectors ? 'pl-5 pr-2' : 'px-2',
         // Why: hover wash stays softer than the enclosing card's highlight.
         'cursor-pointer rounded-sm worktree-agent-row-hover',
         hasChildDisclosure && 'worktree-agent-lineage-parent-row',
@@ -302,7 +313,7 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
         {/* Why: interpolate-size:allow-keywords is the only way to animate height to/from auto without measuring in JS; falls back to an instant swap where unsupported. */}
         <span
           className={cn(
-            'block min-w-0 flex-1 overflow-hidden text-[11px] leading-snug',
+            'block min-w-9 flex-1 overflow-hidden text-[11px] leading-snug',
             'transition-[height] duration-200 ease-out [interpolate-size:allow-keywords]',
             expanded ? 'h-auto whitespace-pre-wrap break-words' : 'h-[1lh] truncate',
             isUnvisited ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground',
@@ -315,14 +326,9 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
         </span>
         {model && (
           <span
-            className={cn(
-              'max-w-24',
-              // Why: only shrink when the in-flow Send button would otherwise overflow the row.
-              sendTargetStatus === 'eligible' || sendTargetStatus === 'sending'
-                ? 'min-w-0'
-                : 'shrink-0',
-              'truncate font-mono text-[10px] text-muted-foreground/70'
-            )}
+            // Why: shrink-ing (not shrink-0) so a narrow sidebar compresses the model
+            // column before the title ever gives up its min-w-9 floor above.
+            className="min-w-0 max-w-24 shrink truncate font-mono text-[10px] text-muted-foreground/70"
             title={model}
           >
             {model}
@@ -345,7 +351,7 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
           onToggleChildAgents={onToggleChildAgents}
           expanded={expanded}
           hideExpand={hideExpand}
-          hideDismiss={agent.rowSource === 'subagent'}
+          hideDismiss={agent.rowSource === 'subagent' || Boolean(agent.structuredSession)}
           sendTargetStatus={sendTargetStatus}
           onDismiss={onDismiss}
           onToggleExpanded={handleToggleExpanded}

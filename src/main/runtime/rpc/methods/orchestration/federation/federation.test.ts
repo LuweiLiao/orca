@@ -14,6 +14,12 @@ import { configureFederationWorkerRuntime } from './federation-runtime.test-supp
 import { syncFederationBarrier } from './federation-sync-barrier.test-support'
 import { dispatchPreambleSendOptions } from '../../../../orchestration/preamble'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 describe('orchestration federation', () => {
   const databases: OrchestrationDb[] = []
   let homeDb: OrchestrationDb

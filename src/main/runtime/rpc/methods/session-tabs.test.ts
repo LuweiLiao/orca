@@ -10,6 +10,10 @@ import {
 import { SESSION_TAB_METHODS } from './session-tabs'
 import { visibleSnapshot } from './session-tabs-snapshot.test-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 function makeRequest(method: string, params?: unknown): RpcRequest {
   return { id: 'req-1', authToken: 'tok', method, params }
 }

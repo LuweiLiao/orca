@@ -14,6 +14,7 @@ import {
   resolveWorkerStartReadinessTimeoutMs
 } from '../../../../../../shared/orchestration-timing-budgets'
 import { assertWorkerStartTaskSpecWithinPromptBudget } from './worker-start-prompt-budget'
+import { resolveAgentDelegationHolderKey } from '../../../../agent-delegation-holder'
 import { ORCA_SESSION_ADDRESS_PREFIX } from '../../../../../../shared/orca-session-address'
 import { ORCHESTRATION_SESSION_CALLER_ERROR_CODES as SESSION_CODES } from '../../../../../../shared/orchestration-session-caller-codes'
 
@@ -56,6 +57,11 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
         assertHelperStartScope(db, helperCreator, { task: existingTask, params })
       }
       await assertWorkerStartTaskSpecWithinPromptBudget(params.spec ?? existingTask!.spec)
+      const delegationHolderKey = resolveAgentDelegationHolderKey(runtime, {
+        from: params.from,
+        session: orchestrationCaller,
+        evidence: orchestrationCompatibilityEvidence
+      })
       const mode = decideWorkerStartMode({
         params,
         settings: readWorkerStartModeSettings(runtime)
@@ -78,7 +84,8 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
           runId: run.id,
           task: existingTask,
           orchestrationMutation,
-          callerSession: orchestrationCaller
+          callerSession: orchestrationCaller,
+          delegationHolderKey
         })
         return receipt && typeof receipt === 'object' ? { ...receipt, mode } : receipt
       }
@@ -92,7 +99,8 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
         existingTask,
         orchestrationMutation,
         mode,
-        helperCreator
+        helperCreator,
+        delegationHolderKey
       })
     }
   })

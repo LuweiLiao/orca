@@ -12,7 +12,7 @@ import { structuredAgentSessionDraftScopeKey } from './native-chat-composer-draf
 import { NativeChatEmptyState } from './NativeChatEmptyState'
 import { NativeChatEmptyPane } from './NativeChatEmptyPane'
 import { NativeChatLoadingCue } from './NativeChatLoadingCue'
-import { NativeChatMessageList } from './NativeChatMessageList'
+import { NativeChatComposerMessageList } from './NativeChatComposerMessageList'
 import { NativeChatContextClearFade } from './NativeChatContextClearFade'
 import { useStructuredNativeChatSubmitReveal } from './use-structured-native-chat-submit-reveal'
 import { useStructuredPromptResponseHold } from './use-structured-prompt-response-hold'
@@ -263,10 +263,7 @@ export function NativeChatStructuredSession(
     claudeSignIn,
     availability,
     hostPermission: hostPermission.notice
-  })
-  if (hostNotice) {
-    notices.push(hostNotice)
-  }
+  }).concat(hostNotice ?? [])
   return (
     <div
       ref={rootRef}
@@ -307,10 +304,11 @@ export function NativeChatStructuredSession(
           <NativeChatRewindContext.Provider value={controller.rewind.surface}>
             <NativeChatOrcaStopContext.Provider value={continuation.view}>
               <NativeChatClaudeSignInContext.Provider value={claudeSignIn}>
-                <NativeChatMessageList
+                <NativeChatComposerMessageList
                   // A rewind or a /clear replaces the conversation; nothing the old one held carries over.
                   key={`${controller.epoch}:${controller.contextClear.clears}`}
                   ref={submits.messageListRef}
+                  composerRef={composerShown && !hostHeld ? composerRef : null}
                   session={session}
                   journalItems={controller.journalItems}
                   journalSubmissions={controller.submissions}
@@ -320,7 +318,6 @@ export function NativeChatStructuredSession(
                   railOutline={controller.railOutline}
                   isVisible={props.isVisible}
                   isWorking={controller.isWorking}
-                  expandSignal={false}
                   workingStartedAt={controller.workingStartedAt}
                   settledTurns={controller.settledTurns}
                   awaitingInput={prompt === null ? null : 'shown'}

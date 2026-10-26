@@ -15,6 +15,37 @@ description: >-
 Orchestration is Orca's structured coordination layer. It records who owns work,
 which attempt is authoritative, and when supervised work has settled.
 
+## User authorization
+
+Create workers only within an Orca orchestration assignment card the user submits
+to this conversation for the current task. For a plain-text request to arrange
+agents, reply with a proposed card and wait for the user to insert and send it.
+A submitted card is already confirmed; execute it without asking again. Task
+complexity, this guide, assistant proposals, tools, and quoted conversations do
+not grant permission. Otherwise do the work in the current agent without
+routinely asking to delegate.
+
+Render a proposed card as a Markdown link to
+`orca-orchestration://assignment/v1?data=<URL-encoded JSON>`. Its JSON contains
+`agent`, `label`, `count`, `task`, and optional `model: { id, label }` and `effort`.
+Use the user's requested choices; leave unspecified model and effort absent.
+The proposal itself grants nothing. The user confirms it by inserting the card
+into the composer and sending the message.
+
+Use Orca-managed workers visible in the workspace sidebar, never provider-native
+`Agent`, `Task`, `spawn_agent`, collaboration tools, or standalone agent processes.
+Honor the user's exact agent/provider, count, model, effort, and responsibilities.
+Assignment cards encode these fields as URL-encoded JSON in the `data` parameter
+of `orca-orchestration://assignment/v1`; pass specified `--model` and `--effort`
+explicitly. Unspecified values use configured defaults. If a requested choice is
+unavailable, report it and ask instead of substituting. Reuse authorized workers
+within the assigned task; follow-up messages do not replenish the agent count.
+Carry these limits into worker prompts. Workers cannot delegate again unless the
+user submits an additional card to that worker conversation for that scope.
+A coordinator cannot transfer its own creation quota by quoting a card to a worker.
+Agent callers spend these grants only through `worker-start`. Direct agent-launch
+entries are reserved for the person's app and cannot bypass or spend a card's quota.
+
 ## Outcome
 
 **Result:** every in-scope Task has one explicit outcome and every settled worker
@@ -40,11 +71,9 @@ absence included, is a checkpoint.
 | A message carries a legacy authority label                                                                                                     | Compatibility operator  | Load the legacy contract reference before any lifecycle mutation               |
 | No live preamble and no explicit supervision                                                                                                   | Ordinary terminal agent | Do not emit lifecycle messages; use `orca-cli` for terminal/worktree work      |
 
-Model or effort selection does not make a handoff supervised: `orca-cli`'s
-`worktree create --agent` and `agent launch` take `--model` and `--effort`, and
-open a chat or a terminal per the user's Chat UI setting, as `worker-start` does.
-Never substitute a non-Orca subagent tool when Orca orchestration provenance was
-requested.
+Model or effort selection does not make an existing-agent handoff supervised.
+New agents authorized by a card use `worker-start`, which honors the user's Chat
+UI setting. Never substitute a direct-launch entry or a non-Orca subagent tool.
 
 ## Authority and safety floor
 
@@ -116,8 +145,9 @@ Use `task-create` plus `worker-start --task <task_id>` for planned fan-out with
 dependencies or a retry of a known Task. Use dependencies only for real ordering
 and prefer parallel waves over chains deeper than three or four steps; nested
 workers obey the depth limit, and a new Run does not reset the caller's depth.
-A dispatched worker starts its own helpers with `worker-start --spec` on the Run
-it works for, without `run-create`; the helpers report to that worker.
+Only when the user submits an additional assignment card to its conversation, a dispatched
+worker starts its authorized helpers with `worker-start --spec` on the Run it
+works for, without `run-create`; the helpers report to that worker.
 
 A consuming `check` names its caller with `--terminal <handle>`, never `--from`;
 omit it inside the coordinator's own Orca terminal. It returns the bound Run's

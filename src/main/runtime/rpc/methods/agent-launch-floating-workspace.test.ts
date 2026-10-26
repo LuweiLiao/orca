@@ -6,6 +6,10 @@ import type { ResolvedWorktree } from '../../runtime-worktree-path-identity'
 import { AGENT_LAUNCH_METHODS } from './agent-launch'
 import { CAPABLE_CLIENT, methodNamed, STRUCTURED_PREFERENCE } from './agent-launch.test-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const createStructuredSession = vi.hoisted(() =>
   vi.fn(async (args: { envelope: { sessionId: string } }) => ({
     ok: true as const,

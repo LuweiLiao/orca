@@ -11,6 +11,7 @@ import type { OrchestrationFleetAttention } from './orchestration-fleet-attentio
 import type { AgentStatusRowFacets } from './agent-status-observation'
 import type { AgentChildWorkView } from './agent-status-child-work-view'
 import type { TerminalAgent } from './terminal-agent'
+import type { ExecutionHostId } from './execution-host'
 import {
   AGENT_MODEL_MAX_LENGTH,
   AGENT_STATUS_TOOL_INPUT_MAX_LENGTH,
@@ -58,6 +59,17 @@ export type AgentWorkingMode = 'monitoring'
 export type WellKnownAgentType = TerminalAgent | 'unknown'
 export type AgentType = WellKnownAgentType | (string & {})
 
+export type OrchestrationChatSession = {
+  sessionId: string
+  worktreeId: string
+  executionHostId: ExecutionHostId
+  provider: string
+  conversationName?: string
+  model?: string
+  effort?: string
+  createdAt: number
+}
+
 export type AgentStatusOrchestrationContext = {
   taskId: string
   dispatchId: string
@@ -69,6 +81,9 @@ export type AgentStatusOrchestrationContext = {
   parentPaneKey?: string
   coordinatorHandle?: string
   orchestrationRunId?: string
+  /** Durable chat addresses for display and reopening, never worker credentials. */
+  session?: OrchestrationChatSession
+  parentSession?: OrchestrationChatSession
   /** Durable orchestration categories combined with the current push-fed status observation. */
   attention?: OrchestrationFleetAttention
 }

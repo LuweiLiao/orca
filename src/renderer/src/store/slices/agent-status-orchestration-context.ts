@@ -1,5 +1,29 @@
-import type { AgentStatusOrchestrationContext } from '../../../../shared/agent-status-types'
+import type {
+  AgentStatusOrchestrationContext,
+  OrchestrationChatSession
+} from '../../../../shared/agent-status-types'
 import { orchestrationFleetAttentionEqual } from '../../../../shared/orchestration-fleet-attention'
+
+function chatSessionsEqual(
+  a: OrchestrationChatSession | undefined,
+  b: OrchestrationChatSession | undefined
+): boolean {
+  return (
+    a === b ||
+    Boolean(
+      a &&
+      b &&
+      a.sessionId === b.sessionId &&
+      a.worktreeId === b.worktreeId &&
+      a.executionHostId === b.executionHostId &&
+      a.provider === b.provider &&
+      a.conversationName === b.conversationName &&
+      a.model === b.model &&
+      a.effort === b.effort &&
+      a.createdAt === b.createdAt
+    )
+  )
+}
 
 export function orchestrationContextsEqual(
   a: AgentStatusOrchestrationContext,
@@ -15,6 +39,8 @@ export function orchestrationContextsEqual(
     a.parentPaneKey === b.parentPaneKey &&
     a.coordinatorHandle === b.coordinatorHandle &&
     a.orchestrationRunId === b.orchestrationRunId &&
+    chatSessionsEqual(a.session, b.session) &&
+    chatSessionsEqual(a.parentSession, b.parentSession) &&
     orchestrationFleetAttentionEqual(a.attention, b.attention)
   )
 }

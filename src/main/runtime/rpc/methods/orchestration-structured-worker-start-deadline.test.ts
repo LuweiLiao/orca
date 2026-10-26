@@ -102,7 +102,8 @@ it('leaves the preamble only what the setup gate did not use of the caller’s t
     db: db as unknown as OrchestrationDb,
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: only the run id is read.
     run: { id: 'run_1' } as never,
-    coordinator: null
+    coordinator: null,
+    delegationHolderKey: null
   })
 
   expect(receipt).toMatchObject({ state: 'ready', timeoutMs: 300_000 })

@@ -18,6 +18,12 @@ import { RpcDispatcher } from '../../../dispatcher'
 import { ORCHESTRATION_METHODS } from '../../orchestration'
 import { registerFederatedReleaseRecoveryScenarios } from './federation-release-recovery-scenarios.test-support'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 describe('orchestration federated worker output', () => {
   const databases: OrchestrationDb[] = []
   let homeDb: OrchestrationDb

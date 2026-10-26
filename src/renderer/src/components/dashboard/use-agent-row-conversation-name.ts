@@ -74,6 +74,9 @@ export function useAgentRowConversationName(agent: DashboardAgentRow): string | 
   if (structuredName) {
     return structuredName
   }
+  if (agent.structuredSession?.conversationName) {
+    return agent.structuredSession.conversationName
+  }
   // Why: retained row snapshots need a fallback after their live tab disappears.
   return getAgentRowConversationName(
     liveTab ?? agent.tab,

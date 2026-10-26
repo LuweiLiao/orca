@@ -9,15 +9,45 @@
 import { AGENT_SESSION_NOT_ATTACHED } from '../../native-chat/agent-session-wire/structured-agent-session-mutation-admission'
 import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/structured-agent-session-registry'
 import type {
-  StructuredMailboxPointerHost,
-  StructuredPointerSessionFacts
-} from './structured-mailbox-pointer-delivery'
-import type { AgentJournalSnapshot } from '../../../shared/agent-session-journal-types'
+  AgentJournalMessageItem,
+  AgentJournalSnapshot
+} from '../../../shared/agent-session-journal-types'
 import {
   structuredSessionGateFacts,
+  type StructuredDispatchState,
   type StructuredSessionGateFacts
 } from './structured-session-pointer-delivery'
 import { sendAgentTurn, type StructuredSessionTurnOutcome } from './send-agent-turn'
+import type { StructuredPointerSubmission } from './structured-pointer-operation-id'
+
+export type StructuredPointerSendOutcome =
+  | { kind: 'sent'; state: StructuredDispatchState }
+  | { kind: 'held' }
+  /** The chat's queue took it, as it takes a person's message. */
+  | { kind: 'queued' }
+  | { kind: 'unattached' }
+
+export type StructuredPointerSessionFacts = {
+  /** Current-context sends, oldest first: what the lane's own sends settled as. */
+  submissions: readonly StructuredPointerSubmission[]
+}
+
+export type StructuredMailboxPointerHost = {
+  /** `null` when the session cannot be read. */
+  readSessionFacts: (sessionId: string) => Promise<StructuredPointerSessionFacts | null>
+  hasActionablePromptNow: (sessionId: string) => boolean | null
+  send: (input: {
+    sessionId: string
+    dispatchId: string | null
+    operationId: string
+    expectedRuntimeFence: number
+    /** Names its senders as `from`. */
+    body: AgentJournalMessageItem
+  }) => Promise<StructuredPointerSendOutcome>
+  /** Current lease fence; `null` when no record backs the session any more. */
+  currentFence: (sessionId: string) => number | null
+  currentContextClearOperationId: (sessionId: string) => string | undefined
+}
 
 /** Names the dispatch a nudge belongs to on the operation row it writes. */
 export function structuredPointerCallerKey(dispatchId: string): string {

@@ -22,6 +22,7 @@ function argValue(name) {
 }
 
 const sessionId = argValue('--session-id') ?? argValue('--resume') ?? randomUUID()
+const replyText = process.env.ORCA_E2E_STUB_REPLY_TEXT ?? 'Stub reply.'
 const write = (frame) => process.stdout.write(`${JSON.stringify(frame)}\n`)
 const initializeResponse = {
   commands: [],
@@ -64,7 +65,7 @@ function startTurn(frame) {
           id: randomUUID(),
           role: 'assistant',
           model: 'claude-fake',
-          content: [{ type: 'text', text: 'Stub reply.' }]
+          content: [{ type: 'text', text: replyText }]
         }
       })
       write({
@@ -74,7 +75,7 @@ function startTurn(frame) {
         session_id: sessionId,
         is_error: false,
         terminal_reason: 'completed',
-        result: 'Stub reply.'
+        result: replyText
       })
     },
     slow ? SLOW_TURN_MS : TURN_MS

@@ -14,6 +14,7 @@ import {
 } from './claude-structured-launch-resolution'
 import { CLAUDE_THINKING_DISPLAY_FLAG, type ClaudeCliFlag } from './claude-cli-flag-support'
 import { claudeProviderHandle } from '../../shared/agent-session-provider-handle-encoding'
+import { ORCA_AGENT_DELEGATION_INSTRUCTIONS } from '../native-chat/agent-reply-instructions'
 
 const SESSION_ID = 'orca-session-1'
 const IDENTITY = { sessionId: SESSION_ID } as Parameters<
@@ -79,6 +80,27 @@ const RESUMABLE = record({
 })
 
 describe('claude structured launch resolution', () => {
+  it.each([record(), RESUMABLE])(
+    'keeps native delegation disabled in full-access sessions',
+    async (value) => {
+      const launch = await resolverFor(
+        value,
+        undefined,
+        'system',
+        async () => true,
+        () => ['--allowedTools', 'Agent,Task,Bash']
+      )({
+        identity: value === RESUMABLE ? identityAt('leaf-current') : IDENTITY,
+        permissionMode: 'full-access'
+      })
+      expect(launch.options.disallowedTools).toEqual(['Agent', 'Task'])
+      expect(launch.options.systemPrompt).toMatchObject({
+        append: ORCA_AGENT_DELEGATION_INSTRUCTIONS
+      })
+      expect(launch.options.extraArgs).toMatchObject({ 'dangerously-skip-permissions': null })
+    }
+  )
+
   it('resumes a floating session in its pinned folder, not the current floating setting', async () => {
     const pinned = mkdtempSync(join(tmpdir(), 'orca-claude-floating-'))
     const floating = record({
@@ -107,10 +129,15 @@ describe('claude structured launch resolution', () => {
     })
     expect(first.options).toEqual({
       includePartialMessages: true,
+      disallowedTools: ['Agent', 'Task'],
       settingSources: [...CLAUDE_DEFAULT_SETTING_SOURCES],
       supportedDialogKinds: [],
       extraArgs: { 'replay-user-messages': null },
-      systemPrompt: { type: 'preset', preset: 'claude_code' },
+      systemPrompt: {
+        type: 'preset',
+        preset: 'claude_code',
+        append: ORCA_AGENT_DELEGATION_INSTRUCTIONS
+      },
       permissionMode: 'default',
       sessionId: first.providerSessionId
     })

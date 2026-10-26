@@ -19,6 +19,10 @@ import { call, runtimeCalls } from './structured-agent-session-rpc.test-fixture'
 import { stopCreatedChat } from '../../../native-chat/agent-session-wire/structured-agent-session-create-test-fixture'
 import { AgentSessionPreSpawnError } from '../../../native-chat/agent-session-wire/structured-agent-session-adapter'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const legacy = {
   clientId: 'device-1',
   clientKind: 'runtime' as const,

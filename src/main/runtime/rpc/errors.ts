@@ -44,6 +44,10 @@ import {
   parseTerminalSpawnDeferral,
   TERMINAL_SPAWN_DEFERRED_CODE
 } from '../../../shared/host-spawn-admission'
+import {
+  AGENT_DELEGATION_UNAUTHORIZED_CODE,
+  WORKER_RETRY_PRIOR_ATTEMPT_LIVE_CODE
+} from '../../../shared/agent-delegation-grant'
 
 export function successResponse(id: string, meta: RpcEnvelopeMeta, result: unknown): RpcSuccess {
   return {
@@ -169,6 +173,8 @@ const STRUCTURED_RUNTIME_PASSTHROUGH_CODES: ReadonlySet<string> = new Set([
   // with the same code the mobile-allowlist check does, so a caller reads one answer either way.
   'forbidden',
   NESTED_WORKER_DEPTH_EXCEEDED_CODE,
+  AGENT_DELEGATION_UNAUTHORIZED_CODE,
+  WORKER_RETRY_PRIOR_ATTEMPT_LIVE_CODE,
   PROJECT_RUNTIME_REPAIR_REQUIRED_CODE,
   GIT_DIFF_TOO_LARGE_CODE,
   // Why: an expired cursor (reload page one) and a missing ref need different client recovery.

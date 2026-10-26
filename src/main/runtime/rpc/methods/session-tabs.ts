@@ -23,6 +23,7 @@ import { SessionTabsUnsubscribeAllParams } from '../../../../shared/rpc-contract
 import { SESSION_TABS_SPLIT_GROUP_PLACEMENT_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
 import { createSessionTabsTabDeltaEncoder } from '../../../../shared/session-tabs-tab-delta'
 import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../../../shared/sidebar-inputs-switch'
+import { assertPersonCreatesAgent } from './agent-creation-caller-admission'
 
 export const SESSION_TAB_METHODS = [
   defineMethod({
@@ -57,6 +58,9 @@ export const SESSION_TAB_METHODS = [
     params: CreateTerminalTab,
     handler: async (params, context) => {
       const { runtime, signal, clientKind, pairedDeviceId, clientCapabilities } = context
+      if (params.agent || params.launchAgent || params.launchConfig) {
+        assertPersonCreatesAgent(context, 'session.tabs.createTerminal --agent')
+      }
       if (params.command) {
         await assertLegacyAiVaultResumeCommandAllowed(params.command, () =>
           runtime.ensureStructuredAgentSessionHost()

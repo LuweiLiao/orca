@@ -33,7 +33,7 @@ import {
   isKnownRemoteStartFailure
 } from './federated-worker-start-receipts'
 import { parseTaskDeps } from '../worker/task-deps-argument'
-import { releaseRetriedWorkerTerminal } from '../worker/retried-worker-terminal-release'
+import { prepareWorkerStartDelegation } from '../worker/worker-start-delegation-claim'
 
 export async function startFederatedWorker(args: {
   params: WorkerStartInput
@@ -49,6 +49,8 @@ export async function startFederatedWorker(args: {
   }
   /** The coordinator's resolved session, when it is one; recorded as the Dispatch creator. */
   callerSession?: OrchestrationSessionCaller
+  /** Whose user authorization this start spends, on this host where the grant lives. */
+  delegationHolderKey: string | null
 }): Promise<unknown> {
   const { params, runtime, db, task, runId, orchestrationMutation } = args
   if (!isWorkerStartTimeoutWithinTimerLimit(params.timeoutMs)) {
@@ -120,6 +122,8 @@ export async function startFederatedWorker(args: {
         : 1
 
   const setupDecision = createsWorktree ? (params.setup ?? 'run') : 'not_applicable'
+  // A remote retry can replace a failed local attempt whose terminal is still live here.
+  const delegation = await prepareWorkerStartDelegation(runtime, db, { ...args, remote: true })
   const started = db.createStartingWorkerDispatch({
     creator: resolveDispatchCreator(runtime, params.from, args.callerSession),
     maxDepth: runtime.getNestedWorkerMaxDepth(),
@@ -155,10 +159,9 @@ export async function startFederatedWorker(args: {
       environmentName: server.name,
       peerFingerprint: server.peerFingerprint,
       protocolVersion: federationProtocolVersion
-    }
+    },
+    delegation
   })
-  // A remote retry can replace a failed local attempt whose terminal is still live here.
-  releaseRetriedWorkerTerminal(runtime, db, { retryOf: params.retryOf })
   const createdTask = started.task
   const taskForRemote = task ?? createdTask
   db.recordWorkerStage({ dispatchId: started.dispatch.id, stage: 'remote_attach_requested' })

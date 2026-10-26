@@ -29,6 +29,7 @@ import {
 } from './worktree-agent-row-fallback-tab'
 import { resolveRowAgentType } from './worktree-agent-row-type'
 import { entryWithRuntimeOrchestration } from './worktree-agent-row-orchestration'
+import { appendOrchestrationChatRows } from './worktree-orchestration-chat-rows'
 
 function countTerminalLayoutLeaves(node: TerminalPaneLayoutNode | null | undefined): number {
   if (!node) {
@@ -269,6 +270,8 @@ export function buildWorktreeAgentRows(args: {
       startedAt: ra.startedAt
     })
   }
+
+  appendOrchestrationChatRows(rows, args.runtimeAgentOrchestrationByPaneKey)
 
   // Why: hook pings can rebuild the live entry list in a different iteration
   // order. Equal-start agents still need a deterministic sidebar order.

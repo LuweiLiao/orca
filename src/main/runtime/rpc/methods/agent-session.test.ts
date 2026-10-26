@@ -14,6 +14,7 @@ import {
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import type { RpcRequest, RpcResponse } from '../core'
 import { RpcDispatcher } from '../dispatcher'
+import { DESKTOP_RPC_CALLER } from '../rpc-caller-identity'
 import { AGENT_SESSION_METHODS } from './agent-session'
 import { TERMINAL_METHODS } from './terminal'
 
@@ -214,12 +215,14 @@ describe('agent session RPC methods', () => {
       methods: TERMINAL_METHODS
     })
 
+    // An older window of this host still sends the agent beside its command.
     const response = await dispatcher.dispatch(
       request('terminal.create', {
         worktree: 'id:worktree-1',
         command: 'codex resume provider-session-1',
         launchAgent: 'codex'
-      })
+      }),
+      { caller: DESKTOP_RPC_CALLER }
     )
 
     expect(response.ok).toBe(true)

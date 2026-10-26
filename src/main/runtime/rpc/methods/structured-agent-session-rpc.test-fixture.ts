@@ -282,7 +282,8 @@ export async function call(
   await dispatcher(runtimeOverrides, methods).dispatchStreaming(
     request(method, params),
     (raw) => replies.push(JSON.parse(raw) as RpcResponse),
-    client
+    // This host's window unless the test names another caller: the CLI socket may not create chats.
+    { caller: { kind: 'desktop' as const }, ...client }
   )
   const first = replies[0]
   if (!first) {

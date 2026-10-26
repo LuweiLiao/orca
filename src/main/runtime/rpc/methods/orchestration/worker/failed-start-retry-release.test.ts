@@ -11,6 +11,12 @@ import { createOrchestrationWorkerReleaseHarness } from './worker-release.test-s
 import { releaseRetriedWorkerTerminal } from './retried-worker-terminal-release'
 import type { RuntimeTerminalWait } from '../../../../../../shared/runtime-terminal-contracts'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const RETRY_PANE_KEY = 'tab_retry:cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 const BLOCKED_WAIT: RuntimeTerminalWait = {
   handle: 'term_worker',

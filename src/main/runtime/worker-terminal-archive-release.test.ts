@@ -5,6 +5,12 @@ import {
 } from './worker-terminal-archive.test-support'
 import { createOrchestrationWorkerReleaseHarness } from './rpc/methods/orchestration/worker/worker-release.test-support'
 
+vi.mock('./orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('./orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 function dispatchIdOf(receipt: unknown): string {
   if (
     typeof receipt !== 'object' ||

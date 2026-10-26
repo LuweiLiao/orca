@@ -5,6 +5,7 @@ import { isTuiAgent } from '../../../../shared/tui-agent-config'
 import { MAX_SKILL_REFS } from '../../../../shared/rpc-contract/structured-agent-session-message-params'
 import { SkillRefLimitError } from '../../../../shared/structured-agent-session-send-mutation'
 import { promptSkillRefs } from './native-chat-prompt-document'
+import { promptOrchestrationCards } from './native-chat-prompt-orchestration-cards'
 import { useCallback } from 'react'
 import { prepareNativeChatAnnotatedMessage } from './native-chat-annotations-store'
 import { completeNativeChatStructuredUserAction } from './native-chat-structured-user-action'
@@ -120,7 +121,8 @@ export function useNativeChatStructuredComposerSend({
         structuredTransport,
         withConversationReferenceInstructions(annotated?.text ?? text),
         attachments,
-        promptSkillRefs(submitted.document)
+        promptSkillRefs(submitted.document),
+        promptOrchestrationCards(submitted.document)
       )
         .then(({ accepted, error, refusedWhile, revealsTranscript }) => {
           if (!hostCommand || isCurrent()) {

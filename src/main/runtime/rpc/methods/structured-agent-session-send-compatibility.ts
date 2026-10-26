@@ -8,6 +8,8 @@ import { STRUCTURED_AGENT_SESSION_START_WAIT_MS } from '../../../native-chat/age
 import type { RpcContext } from '../core'
 import { requireStructuredSessionHost, structuredCallerFor } from './structured-agent-session-gate'
 import { readsQueuedImageCards } from './structured-agent-session-queued-image-capability'
+import { withSubmittedAgentDelegationGrants } from './agent-delegation-grant-recording'
+import type { OrchestrationAgentSelection } from '../../../../shared/native-chat-orchestration-reference'
 
 /**
  * A send answers once the host accepts it. A client that predates that answer cannot show a
@@ -17,16 +19,31 @@ import { readsQueuedImageCards } from './structured-agent-session-queued-image-c
  * answer.
  */
 export async function sendStructuredAgentSessionForClient(
-  params: Parameters<StructuredAgentSessionHost['send']>[1],
+  requested: Parameters<StructuredAgentSessionHost['send']>[1] & {
+    orchestrationCards?: readonly OrchestrationAgentSelection[]
+  },
   context: RpcContext
 ) {
+  // The cards are authorization metadata: the host's send, and so the agent, never sees them.
+  const { orchestrationCards, ...params } = requested
   const host = requireStructuredSessionHost(context, params.envelope.sessionId)
   // Person provenance lets undelivered text recover as an ordinary queued card.
-  const result = await host.send(structuredCallerFor(context), {
-    ...params,
-    userSend: true,
-    queuedImageCards: readsQueuedImageCards(context)
-  })
+  const result = await withSubmittedAgentDelegationGrants(
+    context,
+    {
+      sessionId: params.envelope.sessionId,
+      operationId: params.envelope.clientOperationId,
+      messageId: params.envelope.clientOperationId,
+      blocks: params.body.blocks,
+      cards: orchestrationCards
+    },
+    () =>
+      host.send(structuredCallerFor(context), {
+        ...params,
+        userSend: true,
+        queuedImageCards: readsQueuedImageCards(context)
+      })
+  )
   const capabilities = context.clientCapabilities ?? []
   if (
     !result.ok ||

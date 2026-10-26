@@ -112,6 +112,8 @@ export const SQLITE_SCHEMA_FILE_DATABASES: Record<string, string> = {
   'src/main/native-chat/agent-session-journal/journal-pi-active-branch.ts': 'pi-branch-import',
   'src/main/native-chat/agent-session-journal/queued-message-schema.ts': 'agent-session-journal',
   'src/main/persistence/profile-state/profile-state-database-schema.ts': 'profile-state',
+  'src/main/runtime/orchestration/db/delegation-grants/agent-delegation-grant-tables.ts':
+    'orchestration',
   'src/main/runtime/orchestration/db/schema/create-core-tables-sql.ts': 'orchestration',
   'src/main/runtime/orchestration/db/schema/create-graph-tables-sql.ts': 'orchestration',
   'src/main/runtime/orchestration/db/schema/migrate-legacy-contract-storage.ts': 'orchestration',
@@ -194,6 +196,9 @@ export const SQLITE_TABLE_DISPOSITIONS: Record<string, WslMoveFieldDisposition> 
         'legacy_operation_receipts',
         'attempt_observation_facts',
         'structured_pointer_operations',
+        'agent_delegation_grants',
+        'agent_delegation_slots',
+        'agent_delegation_slot_dispatches',
         'won'
       ],
       {

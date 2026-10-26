@@ -31,11 +31,11 @@ import { resolveDispatchAssigneeParty } from '../../../../orchestration/orchestr
 import { CHAT_WORKER_AUTHORITY, chatAssigneeOf, chatWorkerMode } from '../chat-assignee-admission'
 import { recordCreatedWorkerTerminalCustody } from './created-worker-terminal-custody'
 import { tearDownFailedWorkerStart } from './failed-worker-start-teardown'
-import { releaseRetriedWorkerTerminal } from './retried-worker-terminal-release'
 import { requireWorkerAuthority, type WorkerEffect } from './worker-topology'
 import { prepareLocalWorkerStart } from './worker-start-validation'
 import { deliverAndSettleWorkerStartReadiness } from './worker-start-readiness-settlement'
 import type { WorkerStartMutation } from './worker-start-mutation'
+import { prepareWorkerStartDelegation } from './worker-start-delegation-claim'
 
 export async function startLocalWorker(args: {
   params: WorkerStartInput
@@ -50,6 +50,8 @@ export async function startLocalWorker(args: {
   mode: WorkerStartModeReceipt
   /** Set when a worker starts its own helper; the helper reports to this Dispatch. */
   helperCreator?: DispatchContextRow
+  /** Whose user authorization this start spends; null when the caller proved no conversation. */
+  delegationHolderKey: string | null
 }): Promise<unknown> {
   const { runtime, db, run, coordinator, callerSession, existingTask, orchestrationMutation } = args
   // `--terminal` names a party: a chat by its `/clear` root address, as its Dispatch does.
@@ -146,6 +148,7 @@ export async function startLocalWorker(args: {
         : 'orchestration_default'
       : 'existing_worktree'
   }
+  const delegation = await prepareWorkerStartDelegation(runtime, db, { ...args, params, agent })
   const started = db.createStartingWorkerDispatch({
     creator: resolveDispatchCreator(runtime, params.from, callerSession),
     maxDepth: runtime.getNestedWorkerMaxDepth(),
@@ -167,9 +170,9 @@ export async function startLocalWorker(args: {
     retryOf: params.retryOf,
     startOptions,
     runtimeEpoch: runtime.getRuntimeId(),
-    mutationReceipt: orchestrationMutation
+    mutationReceipt: orchestrationMutation,
+    delegation
   })
-  releaseRetriedWorkerTerminal(runtime, db, params)
   const effects: WorkerEffect[] = []
   const task = started.task
   if (resolvedWorktree) {

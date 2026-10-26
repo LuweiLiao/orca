@@ -60,6 +60,10 @@ export async function openCodexThread(
   const resumeThreadId = launch.resumeThreadId
   const config = {
     ...launch.threadConfig,
+    // Cover both Codex collaboration generations, including resumed threads and user overrides.
+    'agents.enabled': false,
+    'features.multi_agent': false,
+    'features.multi_agent_v2': false,
     ...shellEnvironmentSetConfig(launch.commandEnv),
     ...(launch.developerInstructions
       ? { developer_instructions: launch.developerInstructions }

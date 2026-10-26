@@ -202,6 +202,7 @@ function workerSurfaceFactory(
       recordSurfaceStage(worktreeId)
       const session = await createStructuredWorkerSessionForWorktree({
         runtime: args.runtime,
+        db: args.db,
         worktreeId,
         agent,
         dispatchId: args.dispatchId,

@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import { createOrchestrationWorkerReleaseHarness } from './worker-release.test-support'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 describe('orchestration worker release', () => {
   const h = createOrchestrationWorkerReleaseHarness()
 

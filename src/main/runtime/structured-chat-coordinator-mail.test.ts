@@ -87,6 +87,38 @@ describe('a worker result reaches the structured chat that coordinates it', () =
     expect(await userTexts(COORDINATOR)).toHaveLength(1)
   })
 
+  it('starts the coordinator when its idle edge races an unreadable mailbox snapshot', async () => {
+    const chat = await openChat(COORDINATOR)
+    const { runId, taskId } = await coordinatorRunAndTask()
+    observationClock.start()
+    const reading = Promise.withResolvers<void>()
+    const resumed = Promise.withResolvers<void>()
+    vi.spyOn(host, 'journalSnapshot').mockImplementationOnce(async () => {
+      reading.resolve()
+      await resumed.promise
+      throw new Error('agent_session_ownership_unknown')
+    })
+
+    await finishWorker(taskId)
+    await reading.promise
+    runtime.onStructuredSessionStatusForMail({ sessionId: COORDINATOR, status: 'idle' })
+    resumed.resolve()
+
+    await vi.waitFor(() => expect(chat.turns).toHaveLength(1), { timeout: 1_000, interval: 10 })
+    expect(turnText(chat.turns[0]!)).toBe(ptyPointer(`run:${runId}`))
+    await settleTurn(COORDINATOR, 0)
+    await vi.waitFor(
+      () => expect(db.getUndeliveredUnreadMessages(`run:${runId}`, undefined, {})).toEqual([]),
+      WAIT
+    )
+    const checked = await call('orchestration.check', {}, { sessionId: COORDINATOR })
+    expect(checked).toMatchObject({
+      count: 1,
+      messages: [{ type: 'worker_done', from_handle: 'term_worker' }]
+    })
+    expect(chat.turns).toHaveLength(1)
+  })
+
   /** Fires both edges and waits until every gate read they started has answered. */
   const edgesAnswered = (): Promise<void> => observationClock.edgesAnswered(runtime, WAIT)
 

@@ -29,9 +29,7 @@ import {
 } from '../../../../shared/conversation-reference'
 import { NativeChatConversationReference } from './NativeChatConversationReference'
 import { parseOrchestrationReferenceUri } from '../../../../shared/native-chat-orchestration-reference'
-import { nativeChatOrchestrationAssignment } from './native-chat-orchestration-instruction'
-import { Badge } from '@/components/ui/badge'
-import { ListTree } from 'lucide-react'
+import { NativeChatOrchestrationProposal } from './NativeChatOrchestrationProposal'
 
 /** Existing words stay opaque when a reply first starts growing. */
 function useWordFadeArmed(fadeWords: boolean): boolean {
@@ -54,6 +52,7 @@ type NativeChatMarkdownProps = Omit<ComponentProps<typeof CommentMarkdown>, 'fil
   streaming?: boolean
   /** The transcript row's identity, so reader choices inside the text outlive the row's mount. */
   rowKey?: string
+  orchestrationProposals?: boolean
 }
 
 type MarkdownElementProps = { node?: { tagName: string }; children?: ReactNode }
@@ -68,7 +67,8 @@ function containsImage(children: ReactNode): boolean {
 
 function createNativeChatImageExtension(
   visualExtension: CommentMarkdownExtension | undefined,
-  onLinkClick: CommentMarkdownLinkClickHandler | undefined
+  onLinkClick: CommentMarkdownLinkClickHandler | undefined,
+  orchestrationProposals: boolean
 ): CommentMarkdownExtension {
   const Anchor = createDocumentCommentMarkdownComponents(onLinkClick).a
   return {
@@ -83,16 +83,10 @@ function createNativeChatImageExtension(
         const orchestration = props.href ? parseOrchestrationReferenceUri(props.href) : null
         if (orchestration) {
           return (
-            <Badge
-              variant="orchestrationPill"
-              data-native-chat-orchestration={orchestration.agent}
-              className="whitespace-normal text-left"
-            >
-              <ListTree aria-hidden="true" className="size-3 shrink-0" />
-              <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-                {nativeChatOrchestrationAssignment(orchestration)}
-              </span>
-            </Badge>
+            <NativeChatOrchestrationProposal
+              selection={orchestration}
+              actionable={orchestrationProposals}
+            />
           )
         }
         if (props.href && parseConversationReferenceUri(props.href)) {
@@ -137,6 +131,7 @@ export function NativeChatMarkdown({
   visualMessageId,
   streaming = false,
   rowKey,
+  orchestrationProposals = false,
   content,
   variant,
   onLinkClick,
@@ -147,9 +142,13 @@ export function NativeChatMarkdown({
   const extension = useMemo(
     () =>
       variant === 'document'
-        ? createNativeChatImageExtension(visualExtension, onLinkClick)
+        ? createNativeChatImageExtension(
+            visualExtension,
+            onLinkClick,
+            orchestrationProposals && !streaming
+          )
         : visualExtension,
-    [onLinkClick, variant, visualExtension]
+    [onLinkClick, variant, visualExtension, orchestrationProposals, streaming]
   )
   const fileLinkExists = useNativeChatFileLinkExists(linkifyFilePaths, streaming)
   return (

@@ -2,6 +2,7 @@ import type { PairedRuntimeConnection } from '../../shared/paired-runtime-connec
 import type { RuntimeOrchestrationEnvelope } from '../../shared/runtime-rpc-envelope'
 import { RemoteRuntimeClientError } from '../../shared/remote-runtime-client-error'
 import { AGENT_LAUNCH_RUNTIME_CAPABILITY } from '../../shared/agent-launch-runtime-capability'
+import { ORCA_CLI_RUNTIME_CLIENT_CAPABILITY } from '../../shared/agent-delegation-grant'
 import {
   sendRemoteRuntimeRequest,
   sendRemoteRuntimeRequestWithStatusPreflight
@@ -10,7 +11,11 @@ import type { RuntimeStatus } from '../../shared/runtime-types'
 import { RuntimeClientError, type RuntimeRpcResponse } from './types'
 
 // Paired CLI callers are not exempt from the host's agent.launch gate like the local socket is.
-const CLI_CLIENT_CAPABILITIES = [AGENT_LAUNCH_RUNTIME_CAPABILITY] as const
+// The CLI marker keeps the host from mistaking this credential's socket for a person's app.
+const CLI_CLIENT_CAPABILITIES = [
+  AGENT_LAUNCH_RUNTIME_CAPABILITY,
+  ORCA_CLI_RUNTIME_CLIENT_CAPABILITY
+] as const
 
 export async function sendWebSocketRequest<TResult>(
   connection: PairedRuntimeConnection,

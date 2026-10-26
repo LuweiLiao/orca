@@ -23,6 +23,10 @@ import { createStructuredAgentSessionLogger } from '../../../native-chat/agent-s
 import { codexProviderHandle } from '../../../../shared/agent-session-provider-handle-encoding'
 import { claudeAndCodexAgents } from '../../../native-chat/agent-session-wire/structured-agent-session-adapter-router-test-support'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const SESSION = 'session-adoption-replay'
 const THREAD = 'thread-adoption-replay'
 const WORKSPACE = 'workspace-1'

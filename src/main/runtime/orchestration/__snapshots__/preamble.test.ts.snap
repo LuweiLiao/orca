@@ -10,6 +10,10 @@ The coordinator cannot see this chat, so reach it with the \`orca orchestration\
 commands below; a question or result left only in this chat never gets to it.
 Don't post to Slack, GitHub, or other channels during the run; report through these commands.
 
+Do the assigned work yourself. This Dispatch does not authorize creating more agents.
+Additional Orca workers require an assignment card the user submits to this conversation;
+honor their exact count, provider, model, effort, and scope. Never use provider-native subagents.
+
 === CLI COMMANDS ===
 
 \`\`\`sh
@@ -93,6 +97,10 @@ Your task ID is: task_SNAP
 The coordinator cannot see this terminal, so reach it with the \`orca orchestration\`
 commands below; a question or result left only in this terminal never gets to it.
 Don't post to Slack, GitHub, or other channels during the run; report through these commands.
+
+Do the assigned work yourself. This Dispatch does not authorize creating more agents.
+Additional Orca workers require an assignment card the user submits to this conversation;
+honor their exact count, provider, model, effort, and scope. Never use provider-native subagents.
 
 === CLI COMMANDS ===
 

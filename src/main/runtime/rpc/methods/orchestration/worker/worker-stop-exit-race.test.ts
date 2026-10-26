@@ -5,6 +5,12 @@ import {
 } from '../../../../../../shared/terminal-exit-cause'
 import { createOrchestrationWorkerReleaseHarness } from './worker-release.test-support'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const h = createOrchestrationWorkerReleaseHarness()
 beforeEach(() => h.setup())
 afterEach(() => h.cleanup())

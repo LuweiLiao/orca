@@ -10,6 +10,10 @@ import {
 } from '../../../../shared/protocol-version'
 import { ELECTRON_REMOTE_RUNTIME_CLIENT_CAPABILITIES } from '../../../../shared/electron-remote-runtime-client-capabilities'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 describe('worktree.create launch source', () => {
   const repo = {
     id: 'repo-1',

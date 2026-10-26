@@ -46,6 +46,10 @@ import {
   setupMainOwnedWorkspace
 } from '../../main-owned-workspace-runtime-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const deliverTerminalAgentLaunchPrompt = vi.hoisted(() => vi.fn(async () => true))
 vi.mock('./agent-launch-terminal-prompt', () => ({ deliverTerminalAgentLaunchPrompt }))
 // Every case runs in both builds: the window shows the tab, or (layout owner) main writes it.

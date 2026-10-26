@@ -5,6 +5,12 @@ import { sendTerminalStreamInput } from '../../terminal/terminal-input-delivery'
 import { eraseRpcMethods, isStreamingMethod, type RpcMethod } from '../../../core'
 import { registerBoundPty } from '../../../../bind-first-pane.test-fixture'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const h = createOrchestrationWorkerReleaseHarness()
 beforeEach(() => h.setup())
 afterEach(() => h.cleanup())

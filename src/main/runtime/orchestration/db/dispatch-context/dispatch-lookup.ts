@@ -167,6 +167,22 @@ export function getLatestDispatchForTerminal(
     | undefined
 }
 
+export function getLatestDispatchesForStructuredSessions(
+  this: OrchestrationDb,
+  sessionIds: readonly string[]
+): DispatchContextRow[] {
+  // Each session uses the assignee index; old dispatch history is not scanned on graph publish.
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the column list selects the complete migrated DispatchContextRow schema.
+  return this.db
+    .prepare(`SELECT ${DISPATCH_CONTEXT_COLUMN_LIST} FROM dispatch_contexts
+    WHERE rowid IN (
+      SELECT (SELECT rowid FROM dispatch_contexts WHERE assignee_orca_session_id = sessions.value
+        ORDER BY rowid DESC LIMIT 1)
+      FROM json_each(?) AS sessions
+    ) ORDER BY rowid`)
+    .all(JSON.stringify(sessionIds)) as DispatchContextRow[]
+}
+
 export type DispatchLookupMethods = {
   getActiveDispatchForTerminal: typeof getActiveDispatchForTerminal
   hasAnyDispatchContexts: typeof hasAnyDispatchContexts
@@ -175,6 +191,7 @@ export type DispatchLookupMethods = {
   isDispatchMessageSender: typeof isDispatchMessageSender
   findActiveDispatchForAssignee: typeof findActiveDispatchForAssignee
   getLatestDispatchForTerminal: typeof getLatestDispatchForTerminal
+  getLatestDispatchesForStructuredSessions: typeof getLatestDispatchesForStructuredSessions
 }
 
 export function attachDispatchLookup(ctor: { prototype: object }): void {
@@ -185,6 +202,7 @@ export function attachDispatchLookup(ctor: { prototype: object }): void {
     getActiveDispatchMailboxOwners,
     isDispatchMessageSender,
     findActiveDispatchForAssignee,
-    getLatestDispatchForTerminal
+    getLatestDispatchForTerminal,
+    getLatestDispatchesForStructuredSessions
   })
 }

@@ -14,6 +14,12 @@ import { RpcDispatcher } from '../../../dispatcher'
 import { ORCHESTRATION_METHODS } from '../../orchestration'
 import { createFederationWorkerStartRequest as startRequest } from './federation-request.test-support'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 describe('orchestration federation lifecycle settlement', () => {
   let homeDb: OrchestrationDb
   let workerDb: OrchestrationDb
