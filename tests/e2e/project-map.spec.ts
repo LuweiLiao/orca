@@ -104,9 +104,9 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       objective: 'Export work',
       from
     })
-    const workerSessions: string[] = []
+    const workers: { dispatchId: string; taskId: string; sessionId: string; handle: string }[] = []
     for (const placement of placements) {
-      const started = await client.call<{ taskId: string; state: string }>(
+      const started = await client.call<{ dispatchId: string; taskId: string; state: string }>(
         'orchestration.workerStart',
         {
           from,
@@ -120,11 +120,14 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
         }
       )
       expect(started.result.state).toBe('ready')
-      const dispatch = await client.call<{ dispatch: { assignee_orca_session_id: string } }>(
-        'orchestration.dispatchShow',
-        { task: started.result.taskId }
-      )
-      workerSessions.push(dispatch.result.dispatch.assignee_orca_session_id)
+      const dispatch = await client.call<{
+        dispatch: { assignee_orca_session_id: string; assignee_handle: string }
+      }>('orchestration.dispatchShow', { task: started.result.taskId })
+      workers.push({
+        ...started.result,
+        sessionId: dispatch.result.dispatch.assignee_orca_session_id,
+        handle: dispatch.result.dispatch.assignee_handle
+      })
     }
 
     await page.evaluate(() => window.__store!.getState().openProjectMapPage())
@@ -132,8 +135,8 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     await expect(map.getByRole('heading', { name: 'Project Map' })).toBeVisible()
     const node = (id: string) => map.locator(`[data-project-map-node="${id}"]`)
     await expect(node(paneKeyOf(parent))).toBeVisible({ timeout: 30_000 })
-    for (const session of workerSessions) {
-      await expect(node(paneKeyOf(session))).toBeVisible({ timeout: 30_000 })
+    for (const { sessionId } of workers) {
+      await expect(node(paneKeyOf(sessionId))).toBeVisible({ timeout: 30_000 })
     }
     await expect(map.locator('.project-map-wire[data-kind="delegate"]')).toHaveCount(2)
     await expect(map.locator('.project-map-wire[data-kind="derive"]')).toHaveCount(1)
@@ -155,7 +158,11 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       await testInfo.attach(name, { path: file, contentType: 'image/png' })
     }
 
-    const worker = node(paneKeyOf(workerSessions[1] ?? ''))
+    const derived = workers[1]
+    if (!derived) {
+      throw new Error('the worker placed in a new child worktree must have started')
+    }
+    const worker = node(paneKeyOf(derived.sessionId))
     await worker.click()
     const chatWindow = map.locator('[data-project-map-window]')
     await expect(chatWindow).toBeVisible()
@@ -180,13 +187,62 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       await screenshot(`agent-window-${theme}`)
     }
 
+    // The wheel scrolls the chat under the pointer; only the bare canvas pans.
+    const viewport = map.locator('.project-map-viewport')
+    const content = viewport.locator(':scope > div').first()
+    const panOf = (): Promise<string> => content.evaluate((element) => element.style.transform)
+    const panBefore = await panOf()
+    await page.mouse.move(windowBox.x + windowBox.width / 2, windowBox.y + windowBox.height / 2)
+    await page.mouse.wheel(0, 240)
+    await expect.poll(panOf).toBe(panBefore)
+    const viewportBox = await viewport.boundingBox()
+    await page.mouse.move((viewportBox?.x ?? 0) + 8, (viewportBox?.y ?? 0) + 8)
+    await page.mouse.wheel(0, 120)
+    await expect.poll(panOf).not.toBe(panBefore)
+    await map.getByRole('button', { name: 'Fit to view' }).click()
+
+    // Releasing a finished worker retires its tab; the map still draws it and reads its history.
+    await viewport.click({ position: { x: (viewportBox?.width ?? 200) - 12, y: 6 } })
+    await expect(chatWindow).toHaveCount(0)
+    await sessionClient(userDataDir, derived.sessionId).call('orchestration.send', {
+      from: derived.handle,
+      to: `run:${run.result.run.id}`,
+      subject: 'Implemented',
+      type: 'worker_done',
+      payload: JSON.stringify({
+        taskId: derived.taskId,
+        dispatchId: derived.dispatchId,
+        outcome: 'succeeded'
+      })
+    })
+    const released = await client.call<{ state: string }>('orchestration.workerRelease', {
+      dispatch: derived.dispatchId
+    })
+    expect(['released', 'already_released']).toContain(released.result.state)
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (tabId) =>
+            Object.values(window.__store!.getState().unifiedTabsByWorktree).some((tabs) =>
+              tabs.some((tab) => tab.id === tabId)
+            ),
+          structuredAgentSessionTabId(derived.sessionId)
+        )
+      )
+      .toBe(false)
+    await worker.click()
+    await expect(chatWindow.getByText('Stub reply.', { exact: true }).first()).toBeVisible({
+      timeout: 30_000
+    })
+    // The summary fallback has no composer, so this proves the full chat rendered.
+    await expect(chatWindow.getByRole('textbox')).toBeVisible()
+    await screenshot('agent-window-released')
+
     // The coordinator's worktree holds the parent chat and the worker placed on `current`.
     await node(worktreeId).click()
     await expect(chatWindow.getByRole('tab')).toHaveCount(2)
     await screenshot('workspace-window')
     // Escape stays with the chat while its composer has focus; an empty canvas press closes.
-    const viewport = map.locator('.project-map-viewport')
-    const viewportBox = await viewport.boundingBox()
     await viewport.click({ position: { x: (viewportBox?.width ?? 200) - 12, y: 6 } })
     await expect(chatWindow).toHaveCount(0)
     await screenshot('map')

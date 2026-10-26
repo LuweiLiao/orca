@@ -70,7 +70,11 @@ export function useProjectMapViewport(content: { width: number; height: number }
       return
     }
     const onWheel = (event: WheelEvent): void => {
-      if (event.defaultPrevented) {
+      // Why: this native listener runs before React's, so the chat window must opt out here.
+      if (
+        event.defaultPrevented ||
+        (event.target instanceof Element && event.target.closest('[data-project-map-window]'))
+      ) {
         return
       }
       event.preventDefault()

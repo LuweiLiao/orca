@@ -9,14 +9,23 @@ import {
 } from '@/runtime/structured-agent-session-owner'
 import { translate } from '@/i18n/i18n'
 import { isStructuredTab } from '../../../../shared/structured-agent-session-tab'
+import { structuredAgentSessionTabId } from '../../../../shared/structured-agent-session-projection'
+import type { OrchestrationChatSession } from '../../../../shared/agent-status-types'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 import type { Tab } from '../../../../shared/tab-types'
 
 function findStructuredTab(
   tabs: readonly Tab[] | undefined,
-  card: Pick<DashboardCard, 'tabId'>
+  card: Pick<DashboardCard, 'tabId'>,
+  session: OrchestrationChatSession | undefined
 ): Tab | null {
-  const tab = tabs?.find((candidate) => candidate.id === card.tabId)
+  const tab = tabs?.find(
+    (candidate) =>
+      candidate.id === card.tabId ||
+      (session !== undefined &&
+        candidate.contentType === 'agent-session' &&
+        candidate.entityId === session.sessionId)
+  )
   return tab && isStructuredTab(tab) && tab.agentSessionAgent ? tab : null
 }
 
@@ -24,21 +33,40 @@ function findStructuredTab(
  * The live conversation behind a map node: the structured chat itself when Orca hosts it, the
  * live terminal when the agent runs in a PTY, and the last known messages otherwise.
  */
-export function ProjectMapConversation({ card }: { card: DashboardCard }): React.JSX.Element {
+export function ProjectMapConversation({
+  card,
+  session
+}: {
+  card: DashboardCard
+  session?: OrchestrationChatSession
+}): React.JSX.Element {
   const tab = useAppStore((state) =>
-    findStructuredTab(state.unifiedTabsByWorktree[card.worktreeId], card)
+    findStructuredTab(state.unifiedTabsByWorktree[card.worktreeId], card, session)
   )
-  const owner = useAppStore((state) => (tab ? structuredAgentSessionOwnerForTab(state, tab) : null))
+  const owner = useAppStore((state) =>
+    tab ? structuredAgentSessionOwnerForTab(state, tab) : (session?.executionHostId ?? null)
+  )
   const target = useMemo(() => structuredAgentSessionTargetForHost(owner), [owner])
 
-  if (tab?.agentSessionAgent && target) {
+  // Why: delegated chats run headless, so this renderer usually has no tab for them; the session
+  // id alone reads the same history under the id main would publish its tab with.
+  const structured = tab?.agentSessionAgent
+    ? { tabId: tab.id, sessionId: tab.entityId, agent: tab.agentSessionAgent }
+    : session
+      ? {
+          tabId: structuredAgentSessionTabId(session.sessionId),
+          sessionId: session.sessionId,
+          agent: card.agentType
+        }
+      : null
+  if (structured && target) {
     return (
       <div className="relative flex min-h-0 flex-1">
         <NativeChatView
           mode="structured"
-          tabId={tab.id}
-          sessionId={tab.entityId}
-          agent={tab.agentSessionAgent}
+          tabId={structured.tabId}
+          sessionId={structured.sessionId}
+          agent={structured.agent}
           isVisible
           isFocusedGroup
           target={target}

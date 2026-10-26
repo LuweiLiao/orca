@@ -64,6 +64,18 @@ describe('project map', () => {
   })
 
   it('draws a chat once, in the workspace that owns it', () => {
+    const sessions = new Map([
+      [
+        'a2',
+        {
+          sessionId: 's2',
+          worktreeId: 'child',
+          executionHostId: 'local' as const,
+          provider: 'claude',
+          createdAt: 0
+        }
+      ]
+    ])
     // The sidebar lists the worker under its coordinator's workspace too.
     const graph = buildProjectMapGraph(
       snapshot(
@@ -71,10 +83,21 @@ describe('project map', () => {
         [card('a1', 'main'), card('a2', 'main', 'a1'), card('a2', 'child', 'a1')]
       ),
       'repo',
-      new Map([['a2', 'child']])
+      sessions
     )
     expect(graph.agents.get('a2')?.card.worktreeId).toBe('child')
     expect(graph.workspaces.get('main')?.agentPaneKeys).toEqual(['a1'])
+    // Once the worker's tab closes, only the coordinator's workspace lists it.
+    const closed = buildProjectMapGraph(
+      snapshot(
+        [workspace('main'), workspace('child', 'main')],
+        [card('a1', 'main'), card('a2', 'main', 'a1')]
+      ),
+      'repo',
+      sessions
+    )
+    expect(closed.agents.get('a2')?.card.worktreeId).toBe('child')
+    expect(closed.workspaces.get('child')?.agentPaneKeys).toEqual(['a2'])
   })
 
   it('drops a delegation edge that would close a cycle', () => {

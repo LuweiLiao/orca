@@ -1,4 +1,7 @@
-import type { AgentStatusOrchestrationContext } from '../../../../shared/agent-status-types'
+import type {
+  AgentStatusOrchestrationContext,
+  OrchestrationChatSession
+} from '../../../../shared/agent-status-types'
 import type {
   DashboardCard,
   DashboardSnapshot,
@@ -21,6 +24,8 @@ export type ProjectMapWorkspace = DashboardWorkspace & {
 
 export type ProjectMapAgent = {
   card: DashboardCard
+  /** The structured chat behind the card, when the runtime published it. */
+  session?: OrchestrationChatSession
   /** Present only when the delegating agent is in the same project. */
   parentPaneKey: string | null
   /** The card's delegator is known but outside this project or not loaded. */
@@ -66,14 +71,14 @@ const byName = (a: { name: string }, b: { name: string }): number => a.name.loca
 
 /**
  * One project's workspaces and agents with derive/delegate edges; edges never leave the project.
- * `ownerWorktreeByPaneKey` names the workspace a chat really lives in: the sidebar also lists a
+ * `sessionsByPaneKey` names the workspace a chat really lives in: the sidebar also lists a
  * worker under its coordinator's workspace and the coordinator under each worker's, and the map
  * must draw each chat once.
  */
 export function buildProjectMapGraph(
   snapshot: DashboardSnapshot,
   projectId: string,
-  ownerWorktreeByPaneKey: ReadonlyMap<string, string> = new Map()
+  sessionsByPaneKey: ReadonlyMap<string, OrchestrationChatSession> = new Map()
 ): ProjectMapGraph {
   const workspaces = new Map<string, ProjectMapWorkspace>()
   for (const workspace of snapshot.workspaces ?? []) {
@@ -101,14 +106,32 @@ export function buildProjectMapGraph(
 
   const agents = new Map<string, ProjectMapAgent>()
   const cards = [...snapshot.cards].sort((a, b) => a.startedAt - b.startedAt)
+  const cardByPaneKey = new Map<string, DashboardCard>()
   for (const card of cards) {
-    const workspace = card.repoId === projectId ? workspaces.get(card.worktreeId) : undefined
-    const owner = ownerWorktreeByPaneKey.get(card.paneKey)
-    if (!workspace || agents.has(card.paneKey) || (owner && owner !== card.worktreeId)) {
+    if (card.repoId !== projectId || !workspaces.has(card.worktreeId)) {
       continue
     }
+    const current = cardByPaneKey.get(card.paneKey)
+    const owner = sessionsByPaneKey.get(card.paneKey)?.worktreeId
+    if (!current || (owner === card.worktreeId && current.worktreeId !== owner)) {
+      cardByPaneKey.set(card.paneKey, card)
+    }
+  }
+  for (const listed of cardByPaneKey.values()) {
+    const session = sessionsByPaneKey.get(listed.paneKey)
+    // Why: once a worker's own tab closes, only its coordinator's workspace still lists it.
+    const home = session ? workspaces.get(session.worktreeId) : undefined
+    const workspace = home ?? workspaces.get(listed.worktreeId)
+    if (!workspace) {
+      continue
+    }
+    const card =
+      workspace.worktreeId === listed.worktreeId
+        ? listed
+        : { ...listed, worktreeId: workspace.worktreeId, worktreeName: workspace.worktreeName }
     agents.set(card.paneKey, {
       card,
+      ...(session ? { session } : {}),
       parentPaneKey: null,
       hasUnresolvedParent: false,
       childPaneKeys: []
@@ -150,20 +173,20 @@ function createsDelegationCycle(
   return false
 }
 
-/** The workspace each orchestrated chat runs in, read from the sessions the runtime published. */
-export function projectMapChatOwners(
+/** The structured chat behind each orchestrated pane, read from the sessions the runtime published. */
+export function projectMapChatSessions(
   contexts: Readonly<Record<string, AgentStatusOrchestrationContext>> | undefined
-): Map<string, string> {
-  const owners = new Map<string, string>()
+): Map<string, OrchestrationChatSession> {
+  const sessions = new Map<string, OrchestrationChatSession>()
   for (const [paneKey, context] of Object.entries(contexts ?? {})) {
     if (context.session) {
-      owners.set(paneKey, context.session.worktreeId)
+      sessions.set(paneKey, context.session)
     }
   }
   for (const context of Object.values(contexts ?? {})) {
-    if (context.parentPaneKey && context.parentSession && !owners.has(context.parentPaneKey)) {
-      owners.set(context.parentPaneKey, context.parentSession.worktreeId)
+    if (context.parentPaneKey && context.parentSession && !sessions.has(context.parentPaneKey)) {
+      sessions.set(context.parentPaneKey, context.parentSession)
     }
   }
-  return owners
+  return sessions
 }

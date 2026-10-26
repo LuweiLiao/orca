@@ -16,7 +16,7 @@ import { activateAndRevealWorkspace } from '@/lib/worktree-activation'
 import {
   buildProjectMapGraph,
   listProjectMapProjects,
-  projectMapChatOwners,
+  projectMapChatSessions,
   type ProjectMapAgent,
   type ProjectMapWorkspace
 } from './project-map-graph'
@@ -30,7 +30,7 @@ export default function ProjectMapPage(): React.JSX.Element {
   const activeRepoId = useAppStore((s) => s.activeRepoId)
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const orchestration = useAppStore((s) => s.runtimeAgentOrchestrationByPaneKey)
-  const owners = useMemo(() => projectMapChatOwners(orchestration), [orchestration])
+  const sessions = useMemo(() => projectMapChatSessions(orchestration), [orchestration])
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
   const projectId =
@@ -41,8 +41,8 @@ export default function ProjectMapPage(): React.JSX.Element {
     null
   const project = projects.find((candidate) => candidate.id === projectId) ?? null
   const graph = useMemo(
-    () => (projectId ? buildProjectMapGraph(snapshot, projectId, owners) : null),
-    [owners, projectId, snapshot]
+    () => (projectId ? buildProjectMapGraph(snapshot, projectId, sessions) : null),
+    [projectId, sessions, snapshot]
   )
   const layout = useMemo(() => (graph ? layoutProjectMap(graph) : null), [graph])
   const contentWidth = layout?.width ?? 0
