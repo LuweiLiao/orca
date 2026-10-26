@@ -96,7 +96,9 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     await expect(wires).toHaveCount(1)
     await expect(map.getByText(/Handed off from .* · 2 messages/)).toBeVisible()
     // Named for what the person asked, not for the transferred conversation it opens with.
-    await expect(map.getByText('CHILD-ONE: try ELK layered layout')).toBeVisible()
+    await expect(
+      map.getByRole('button', { name: 'CHILD-ONE: try ELK layered layout', exact: true })
+    ).toBeVisible()
     // The child was given the parent's conversation, then the person's instruction.
     await expect
       .poll(() => sentPrompts(claudeStub.launchLog).find((prompt) => prompt.includes('CHILD-ONE')))

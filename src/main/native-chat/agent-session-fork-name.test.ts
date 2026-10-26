@@ -1,39 +1,63 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
 
-import { forkedChatNameUpdate } from './agent-session-fork-name'
+import { applyForkedChatName, forkedChatNameUpdate } from './agent-session-fork-name'
 
-const child = (
-  conversationName?: string,
-  conversationNameSource?: AgentSessionRecord['conversationNameSource']
-): Pick<AgentSessionRecord, 'conversationName' | 'conversationNameSource'> => ({
-  conversationName,
-  conversationNameSource
-})
+type Names = Pick<AgentSessionRecord, 'conversationName' | 'conversationNameSource'>
 
-describe('forkedChatNameUpdate', () => {
-  it('replaces a seed the namer took from the hand-off before the fork named the chat', () => {
-    expect(
-      forkedChatNameUpdate(
-        child('This conversation continues from another Orca…', 'seed'),
-        { conversationName: 'Lineage data' },
-        'FORK-2: compare layouts'
-      )
-    ).toEqual({
-      name: 'FORK-2: compare layouts',
-      expected: 'This conversation continues from another Orca…',
-      expectedSource: 'seed'
+const HANDOFF_SEED = 'This conversation continues from another Orca…'
+const source = { conversationName: 'Lineage data' }
+
+/** A store whose namer commits its seed just before the first write lands, as on real Codex runs. */
+function storeSeededMidway(initial: Names) {
+  let record = initial
+  let writes = 0
+  return {
+    read: () => record,
+    getRecord: () => record,
+    compareAndSetConversationName: async (
+      _sessionId: string,
+      name: string,
+      expected: string | null,
+      sourceKind: 'seed',
+      expectedSource: Names['conversationNameSource'] | null
+    ) => {
+      if (writes++ === 0) {
+        record = { conversationName: HANDOFF_SEED, conversationNameSource: 'seed' }
+      }
+      const matched =
+        (record.conversationName ?? null) === expected &&
+        (record.conversationNameSource ?? null) === expectedSource
+      if (!matched) {
+        return null
+      }
+      record = { conversationName: name, conversationNameSource: sourceKind }
+      return record
+    }
+  }
+}
+
+describe('applyForkedChatName', () => {
+  it('names the child after its instruction even when the namer seeded from the hand-off first', async () => {
+    const store = storeSeededMidway({})
+    await applyForkedChatName(store, 'codex_child', source, 'FORK-5: compare layouts')
+    expect(store.read()).toEqual({
+      conversationName: 'FORK-5: compare layouts',
+      conversationNameSource: 'seed'
     })
   })
 
-  it('keeps a name the person or the namer already settled on', () => {
-    const source = { conversationName: 'Lineage data' }
-    expect(forkedChatNameUpdate(child('Renamed', 'manual'), source, 'try it')).toBeNull()
-    expect(forkedChatNameUpdate(child('Generated', 'generated'), source, 'try it')).toBeNull()
+  it('keeps a name the person or the namer already settled on', async () => {
+    for (const kind of ['manual', 'generated'] as const) {
+      const store = storeSeededMidway({ conversationName: 'Settled', conversationNameSource: kind })
+      expect(await applyForkedChatName(store, 'codex_child', source, 'try it')).toBeNull()
+    }
   })
+})
 
+describe('forkedChatNameUpdate', () => {
   it('names an unnamed child after its source when no instruction was given', () => {
-    expect(forkedChatNameUpdate(null, { conversationName: 'Lineage data' }, undefined)).toEqual({
+    expect(forkedChatNameUpdate(null, source, undefined)).toEqual({
       name: 'Fork of Lineage data',
       expected: null,
       expectedSource: null

@@ -15,7 +15,7 @@ import type { AgentSessionMutationResult } from '../../../../shared/agent-sessio
 import { AGENT_SESSION_CREATE_MESSAGE_RUNTIME_CAPABILITY } from '../../../../shared/agent-session-create-capabilities'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import type { AgentSessionRecord } from '../../../../shared/agent-session-record'
-import { forkedChatNameUpdate } from '../../../native-chat/agent-session-fork-name'
+import { applyForkedChatName } from '../../../native-chat/agent-session-fork-name'
 import { agentSessionLineageTable } from '../../../native-chat/agent-session-journal/agent-session-lineage-table'
 import {
   copyClaudeForkSource,
@@ -198,18 +198,8 @@ async function nameForkedChat(
   source: AgentSessionRecord,
   instruction: string | undefined
 ): Promise<void> {
-  const update = forkedChatNameUpdate(host.deps.store.getRecord(sessionId), source, instruction)
-  if (!update) {
-    return
-  }
   try {
-    const named = await host.deps.store.compareAndSetConversationName(
-      sessionId,
-      update.name,
-      update.expected,
-      'seed',
-      update.expectedSource
-    )
+    const named = await applyForkedChatName(host.deps.store, sessionId, source, instruction)
     if (named) {
       ctx.runtime.refreshStructuredConversationTabTitle(named.location.workspaceId, sessionId)
     }
