@@ -21,6 +21,9 @@ import {
   type ProjectMapWorkspace
 } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
+import { projectMapAgentTitle } from './project-map-labels'
+import { projectMapChatsByPaneKey } from './project-map-lineage'
+import { useProjectMapLineage } from './use-project-map-lineage'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
 import { appFlowSignalBus } from './project-flow-app'
@@ -34,6 +37,12 @@ export default function ProjectMapPage(): React.JSX.Element {
   const orchestration = useAppStore((s) => s.runtimeAgentOrchestrationByPaneKey)
   useProjectFlowDispatchSignals(orchestration, appFlowSignalBus)
   const sessions = useMemo(() => projectMapChatSessions(orchestration), [orchestration])
+  const tabsByWorktree = useAppStore((s) => s.unifiedTabsByWorktree)
+  const chats = useMemo(
+    () => projectMapChatsByPaneKey(snapshot.cards, tabsByWorktree, sessions),
+    [sessions, snapshot.cards, tabsByWorktree]
+  )
+  const lineage = useProjectMapLineage(chats)
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
   const projectId =
@@ -44,8 +53,15 @@ export default function ProjectMapPage(): React.JSX.Element {
     null
   const project = projects.find((candidate) => candidate.id === projectId) ?? null
   const graph = useMemo(
-    () => (projectId ? buildProjectMapGraph(snapshot, projectId, sessions) : null),
-    [projectId, sessions, snapshot]
+    () =>
+      projectId
+        ? buildProjectMapGraph(snapshot, projectId, sessions, {
+            chatsByPaneKey: chats,
+            lineage,
+            titleOf: projectMapAgentTitle
+          })
+        : null,
+    [chats, lineage, projectId, sessions, snapshot]
   )
   const layout = useMemo(() => (graph ? layoutProjectMap(graph) : null), [graph])
   const contentWidth = layout?.width ?? 0

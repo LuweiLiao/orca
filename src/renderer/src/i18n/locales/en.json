@@ -29881,7 +29881,8 @@
       "conversation": "Conversation",
       "derive": "Derived",
       "delegate": "Delegated",
-      "unresolved": "Source not loaded"
+      "unresolved": "Source not loaded",
+      "fork": "Forked"
     },
     "window": {
       "openInTab": "Open in tab",
@@ -29901,7 +29902,11 @@
       "sourceNotLoaded": "Source not loaded",
       "subagentCount": "{{count}} subagents",
       "subagentCount_one": "{{count}} subagent",
-      "delegateCount": "Delegates {{count}}"
+      "delegateCount": "Delegates {{count}}",
+      "forkCount": "{{count}} forks",
+      "forkCount_one": "{{count}} fork",
+      "closedSource": "a closed chat",
+      "forkedFrom": "Forked from {{source}}"
     },
     "title": "Project Map",
     "project": "Project",
@@ -29926,6 +29931,28 @@
       "showButtonDescription": "Show the Project Map button at the top of the left sidebar.",
       "keywordMap": "project map",
       "keywordGraph": "graph"
+    },
+    "fork": {
+      "title": "New child chat",
+      "subtitle": "From {{name}}",
+      "inheritFrom": "Inherit from",
+      "relation": {
+        "self": "This chat",
+        "parent": "Parent",
+        "grandparent": "Grandparent",
+        "ancestor": "{{count}} levels up"
+      },
+      "cutLatest": "Through its last finished response",
+      "nativeHint": "Copies the conversation into a new chat of the same agent, tool calls included.",
+      "sharedWorkspace": "{{name}} is also working in this workspace; both may edit the same files.",
+      "instruction": "First instruction (optional)",
+      "instructionPlaceholder": "Empty: the chat opens and waits for you.",
+      "sourceWorking": "That chat is still working; continue from it once its turn ends.",
+      "unavailable": "This chat cannot be continued here.",
+      "noResponse": "That chat has no finished response to continue from yet.",
+      "cancel": "Cancel",
+      "creating": "Creating…",
+      "create": "Create child chat"
     }
   }
 }
