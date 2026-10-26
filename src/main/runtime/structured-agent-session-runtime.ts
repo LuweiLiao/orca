@@ -15,6 +15,8 @@ import { bindAtRestCommandContexts } from '../native-chat/agent-session-wire/at-
 import type { StructuredAgentSessionTransportOverrides } from './structured-agent-session-transport-overrides'
 import { existsSync } from 'node:fs'
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
+import type { AgentSessionTurnCompletion } from '../../shared/agent-session-turn-completion-wire'
+import { subscribeStructuredHostTurnListeners } from './structured-agent-session-host-turn-subscribers'
 import type { AgentSessionResumeTrigger } from '../../shared/agent-session-resume-marker'
 import type { StructuredAttentionMobileDelivery } from './structured-agent-session-mobile-attention'
 import {
@@ -131,6 +133,8 @@ export type StructuredAgentSessionRuntimeDeps = StructuredAgentSessionTransportO
   onSessionTabHidden?: StructuredAgentSessionHostDeps['onSessionTabHidden']
   /** Host-owned phone delivery and reconciliation from the current journal projection. */
   attentionDelivery?: StructuredAttentionMobileDelivery
+  /** Every live settled turn, for host-side reactions such as orchestration mail. */
+  onTurnCompletion?: (completion: AgentSessionTurnCompletion) => void
   /** The account home a structured launch would pin right now, for catalog
    *  reads with no session record. Absent disables the catalog surface. */
   resolveAgentAccountHome?: RuntimeAgentAccountHomeResolver
@@ -325,24 +329,7 @@ async function installOnJournal(
       environment: envResolvers
     }))
   })
-  if (deps.attentionDelivery) {
-    const installed = host
-    const delivery = deps.attentionDelivery
-    // Lives exactly as long as the host: teardown drops the host and its subscribers together.
-    installed.subscribeTurnCompletions({
-      id: 'host-attention-delivery',
-      includePrompts: true,
-      emit: (event) => {
-        if (event.type === 'end') {
-          return
-        }
-        const sessionId =
-          event.type === 'prompt' ? event.prompt.sessionId : event.completion.sessionId
-        delivery.deliver(event, installed.readStatusSummary(sessionId))
-      },
-      onState: delivery.reconcile
-    })
-  }
+  subscribeStructuredHostTurnListeners(host, deps)
   // The host starts with its runtime, local or remote, so this is the runtime-start listing.
   const modelCatalog = host.deps.modelCatalog
   void modelCatalog?.prewarm()

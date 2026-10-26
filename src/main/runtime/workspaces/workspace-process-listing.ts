@@ -39,8 +39,7 @@ import { structuredChatNamingDeps } from '../structured-chat-naming-runtime'
 import { installStructuredChatNamingRecovery } from '../structured-chat-naming-recovery'
 import { getProfileUserDataPath } from '../../orca-profiles/profile-storage-paths'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../shared/execution-host'
-import { escalateChatWorkerError } from '../orchestration/chat-worker-error-escalation'
-import type { StructuredAgentSessionRequestFailure } from '../../native-chat/agent-session-wire/structured-agent-session-request-failures'
+import { chatWorkerMailHooks } from '../orchestration/chat-worker-mail-hooks'
 import { buildWorktreeListingPage } from '../worktree-listing-host-scope'
 import {
   structuredWorkerOpenTaskTitle,
@@ -292,7 +291,7 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktr
       ...(this.prepareCodexCatalogProbeHomeFn
         ? { prepareCodexCatalogProbeHome: this.prepareCodexCatalogProbeHomeFn }
         : {}),
-      onRequestFailure: (failure) => this.onStructuredRequestFailureForErrorMail(failure),
+      ...this.chatWorkerMailHooks(),
       // Structured chat has no agent CLI hooks, so this projection is what the first-work
       // workspace rename listens to instead of `agentStatus:set`.
       onSessionStatusChanged: (summary, options) => {
@@ -328,9 +327,9 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktr
     }
   }
 
-  /** A chat worker whose request settled failed tells the Run that dispatched it. */
-  onStructuredRequestFailureForErrorMail(failure: StructuredAgentSessionRequestFailure): void {
-    void escalateChatWorkerError(failure, {
+  /** A chat worker whose turn failed, or ended with its Dispatch open, tells the Run that dispatched it. */
+  chatWorkerMailHooks(): ReturnType<typeof chatWorkerMailHooks> {
+    return chatWorkerMailHooks({
       enabled: () => this.isChatWorkerErrorEscalationEnabled(),
       db: () => this.getOrchestrationDbIfAvailable(),
       notify: (handle, messageType) => this.notifyMessageArrived(handle, messageType)
