@@ -39,6 +39,10 @@ import {
   WORK_METHODS
 } from './structured-agent-session-gate-classification.test-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const OLD_CLIENT = {
   ...STRUCTURED_CLIENT,
   clientCapabilities: [

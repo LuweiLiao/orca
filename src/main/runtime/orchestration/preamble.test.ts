@@ -256,12 +256,32 @@ describe('sub-dispatch section', () => {
     )
   })
 
-  it('starts helpers on this Dispatch, without a Run of their own, when budget remains', () => {
+  it('describes same-Run helper placement without treating depth as user authorization', () => {
     const preamble = buildDispatchPreamble({ ...base, canDispatchSubWorkers: true })
     expect(preamble).toContain('=== SUB-DISPATCH ===')
     expect(preamble).toContain('orchestration worker-start --from term_worker --spec')
     expect(preamble).not.toContain('orchestration run-create')
+    expect(preamble).toContain('Only if the user submitted an assignment card here')
+    expect(preamble).toContain('Available nesting depth is not\nauthorization')
   })
+
+  it.each([false, true])(
+    'requires user authorization for worker delegation (own Run: %s)',
+    (ownRun) => {
+      const preamble = buildDispatchPreamble({
+        ...base,
+        canDispatchSubWorkers: true,
+        subWorkersInOwnRun: ownRun
+      })
+      expect(preamble).toContain('This Dispatch does not authorize creating more agents')
+      expect(preamble).toContain('Never use provider-native subagents')
+      expect(preamble).not.toContain('You may start helper workers')
+      expect(preamble).not.toContain('You may dispatch sub-workers')
+      if (ownRun) {
+        expect(preamble).toContain('A new Run does not create authorization')
+      }
+    }
+  )
 
   it('keeps the task block last so the spec is not buried', () => {
     const preamble = buildDispatchPreamble({ ...base, canDispatchSubWorkers: true })

@@ -95,6 +95,7 @@ export async function createExistingWorktreeWorkerTerminal(args: {
  */
 export async function createStructuredWorkerSessionForWorktree(args: {
   runtime: OrcaRuntimeService
+  db: OrchestrationDb
   worktreeId: string
   agent: TuiAgent
   dispatchId: string
@@ -109,6 +110,22 @@ export async function createStructuredWorkerSessionForWorktree(args: {
     agent: args.agent,
     dispatchId: args.dispatchId,
     ...(options ? { options } : {}),
+    onCreated: (identity) => {
+      args.db.recordCreatedWorkerTerminalCustody({
+        dispatchId: args.dispatchId,
+        handle: identity.handle,
+        paneKey: identity.paneKey,
+        processIncarnation: identity.processIncarnation,
+        worktreeId: args.worktreeId,
+        hostScope: JSON.stringify(identity.hostScope)
+      })
+      args.db.recordWorkerStage({
+        dispatchId: args.dispatchId,
+        stage: 'terminal_created',
+        worktreeId: args.worktreeId,
+        terminalHandle: identity.handle
+      })
+    },
     onJournalActivity: (sessionId) =>
       args.runtime.notifyStructuredSessionJournalActivity?.(sessionId)
   })

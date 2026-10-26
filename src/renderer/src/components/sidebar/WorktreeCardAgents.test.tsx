@@ -842,7 +842,7 @@ describe('WorktreeCardAgents', () => {
     expect(markup).toContain('compact-agent-expansion-content flex flex-col gap-0.5 pt-0.5 pl-1')
   })
 
-  it('summarizes compact lineage by parent rows before revealing children', async () => {
+  it('includes hidden children in the collapsed worktree summary', async () => {
     mockAgentActivityDisplayMode = 'compact'
     mockAgents = [
       mockAgent({
@@ -891,7 +891,7 @@ describe('WorktreeCardAgents', () => {
 
     expect(markup).toContain('data-compact-agent-list="true"')
     expect(markup).toContain('role="tree"')
-    expect(markup).toContain('3 agents: 1 waiting, 1 working, 1 done')
+    expect(markup).toContain('5 agents: 1 waiting, 2 working, 2 done')
     expect(markup).not.toContain('title="Gemini waiting"')
     expect(markup).not.toContain('title="Codex working"')
     expect(markup).not.toContain('title="Codex done"')

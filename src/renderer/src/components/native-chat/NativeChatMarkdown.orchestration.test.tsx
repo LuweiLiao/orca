@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
-import { cleanup, render } from '@testing-library/react'
-import { afterEach, expect, it } from 'vitest'
+import { cleanup, fireEvent, render } from '@testing-library/react'
+import { afterEach, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { nativeChatOrchestrationAttributes } from './native-chat-orchestration-instruction'
+import { NativeChatOrchestrationProposalProvider } from './NativeChatOrchestrationProposal'
+import { splitOrchestrationReferences } from '../../../../shared/native-chat-orchestration-reference'
 
 afterEach(cleanup)
 
@@ -45,4 +48,49 @@ it('does not turn code examples or legacy plain prose into orchestration pills',
     />
   )
   expect(container.querySelector('[data-native-chat-orchestration]')).toBeNull()
+})
+
+it('inserts a proposed assignment into this conversation only after the user clicks', () => {
+  const { token } = nativeChatOrchestrationAttributes({
+    agent: 'claude',
+    label: 'Claude',
+    count: 1,
+    model: { id: 'opus', label: 'Opus' },
+    effort: 'high',
+    task: 'Review the authorization boundary'
+  })
+  const composer = { acceptsText: vi.fn(() => true), appendText: vi.fn() }
+  const view = (proposal = true, streaming = false, available = true) => (
+    <TooltipProvider>
+      <NativeChatOrchestrationProposalProvider
+        composerRef={{ current: composer }}
+        available={available}
+      >
+        <NativeChatMarkdown
+          content={token}
+          variant="document"
+          orchestrationProposals={proposal}
+          streaming={streaming}
+        />
+      </NativeChatOrchestrationProposalProvider>
+    </TooltipProvider>
+  )
+  const rendered = render(view())
+  expect(composer.appendText).not.toHaveBeenCalled()
+  fireEvent.click(rendered.getByRole('button', { name: 'Add to message' }))
+  expect(composer.appendText).toHaveBeenCalledOnce()
+  expect(splitOrchestrationReferences(composer.appendText.mock.calls[0]![0])).toEqual(
+    splitOrchestrationReferences(token)
+  )
+
+  composer.acceptsText.mockReturnValue(false)
+  fireEvent.click(rendered.getByRole('button', { name: 'Add to message' }))
+  expect(composer.appendText).toHaveBeenCalledTimes(1)
+
+  rendered.rerender(view(false))
+  expect(rendered.queryByRole('button', { name: 'Add to message' })).toBeNull()
+  rendered.rerender(view(true, true))
+  expect(rendered.queryByRole('button', { name: 'Add to message' })).toBeNull()
+  rendered.rerender(view(true, false, false))
+  expect(rendered.queryByRole('button', { name: 'Add to message' })).toBeNull()
 })

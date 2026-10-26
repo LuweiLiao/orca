@@ -12,6 +12,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { OrchestrationDb } from '../../../../orchestration/db'
 import { createOrchestrationWorkerReleaseHarness } from './worker-release.test-support'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const READY_WAIT = {
   handle: 'term_worker',
   condition: 'tui-idle',

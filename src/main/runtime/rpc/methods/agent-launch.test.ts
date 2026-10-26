@@ -19,6 +19,10 @@ import {
   type AgentLaunchRuntimeStub as RuntimeStub
 } from './agent-launch.test-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 /** The real `createStructuredAgentSessionForWorktree` answers ok-or-refusal. The stub used to
  *  declare only the ok arm, which made the refusal-downgrade path unmodellable. */
 type StructuredCreateReply =

@@ -5,6 +5,12 @@ import { OrchestrationDb } from '../../orchestration/db'
 import { OrcaRuntimeService } from '../../orca-runtime'
 import { completeWorkerTerminalRelease } from './orchestration/worker/worker-release-completion'
 
+vi.mock('../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 describe('orchestration worker release incarnation fallback', () => {
   let db: OrchestrationDb
   let dbOpen = false

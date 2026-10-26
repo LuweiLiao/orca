@@ -5,6 +5,12 @@ import { OrcaRuntimeService } from '../../../../orca-runtime'
 import { eraseRpcMethods, type RpcContext } from '../../../core'
 import { ORCHESTRATION_METHODS } from '../../orchestration'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((promiseResolve) => {

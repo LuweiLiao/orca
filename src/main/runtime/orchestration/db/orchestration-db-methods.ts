@@ -1,3 +1,4 @@
+import type { AgentDelegationGrantStoreMethods } from './delegation-grants/agent-delegation-grant-store'
 import type { AttemptObservationStoreMethods } from './attempt-observation-store'
 import type { CoordinatorRunStoreMethods } from './coordinator-runs/coordinator-run-store'
 import type { DecisionGateStoreMethods } from './decision-gates/decision-gate-store'
@@ -67,6 +68,7 @@ import type { WorkerTerminalResourceStoreMethods } from './worker-terminal/worke
 import type { WorkerTerminalTransferMethods } from './worker-terminal/worker-terminal-transfer'
 
 export type OrchestrationDbMethods = AttemptObservationStoreMethods &
+  AgentDelegationGrantStoreMethods &
   CreateTablesMethods &
   SchemaMigrateMethods &
   SchemaColumnProbesMethods &

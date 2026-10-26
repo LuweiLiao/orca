@@ -4,7 +4,8 @@
  * selection seeds a chat with are seeded into the worker's own session here.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { OrchestrationDb } from '../../../../orchestration/db'
 import type { AgentSessionModelCatalogResult } from '../../../../../../shared/agent-session-wire'
 import { structuredLaunchSeedOnSavedListing } from '../../../../session-tabs/structured-launch-seed-listing'
 
@@ -23,8 +24,11 @@ const { prepareStructuredAgentSessionCreateForWorktree } =
 
 async function createWith(launchPreferences?: Record<string, string>) {
   createStructuredWorkerSession.mockClear()
+  const db = new OrchestrationDb(':memory:')
+  onTestFinished(() => db.close())
   await createStructuredWorkerSessionForWorktree({
     runtime: {} as never,
+    db,
     worktreeId: 'repo::wt',
     agent: 'codex',
     dispatchId: 'ctx_1',

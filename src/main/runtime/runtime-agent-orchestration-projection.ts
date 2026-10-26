@@ -14,6 +14,9 @@ import {
 } from './orchestration/worker-attention-context'
 import { worktreeIdsEqual } from '../../shared/worktree/id'
 import type { PtyPaneOf } from './terminal/surface/pty-pane-query'
+import { buildOrchestrationChatContexts } from './runtime-orchestration-chat-projection'
+import { readAgentSessionRecordStore } from './orchestration/structured-session-lineage'
+import { peekOpenedAgentSessionRecordStore } from './agent-session-record-store-slot'
 
 type RuntimeAgentOrchestrationDependencies = {
   getDb(): OrchestrationDb | null
@@ -38,7 +41,10 @@ export class RuntimeAgentOrchestrationProjection {
     if (!db || db.hasAnyDispatchContexts?.() === false) {
       return undefined
     }
-    const contexts: Record<string, AgentStatusOrchestrationContext> = {}
+    const contexts = buildOrchestrationChatContexts(
+      db,
+      readAgentSessionRecordStore() ?? peekOpenedAgentSessionRecordStore()
+    )
     const evidenceByPaneKey = new Map(
       this.deps.getAgentStatusSnapshot().map((evidence) => [evidence.activity.paneKey, evidence])
     )

@@ -1,6 +1,6 @@
 /**
  * `connector.*`: the external-conversation seam (Slack and other threads) behind
- * `experimentalConnectors`. The host's setting is the only gate, so a call while it is off is
+ * `experimentalConnectors`. The host's setting is checked first, so a call while it is off is
  * refused here whoever makes it.
  */
 
@@ -24,6 +24,7 @@ import {
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import { defineMethod } from '../core'
 import { assertAgentLaunchTargetAuthorized } from './agent-launch-target-authorization'
+import { assertPersonCreatesAgent } from './agent-creation-caller-admission'
 
 /** Every `connector.*` handler's first step. */
 export function requireSeam(
@@ -43,6 +44,7 @@ export const CONNECTOR_METHODS = [
     params: ConnectorStart,
     handler: async ({ source, externalId, deliveryId, ...input }, context) => {
       const seam = requireSeam(context.runtime)
+      assertPersonCreatesAgent(context, 'connector.start')
       assertAgentLaunchTargetAuthorized(input.target, context)
       return seam.start(
         runtimeConversationHost(context.runtime),

@@ -21,6 +21,9 @@ import { resolveNativeChatLaunchDraftSend } from './native-chat-launch-draft-sen
 import { nativeChatComposerTargetIsRemote } from './native-chat-composer-target'
 import type { NativeChatResolvedTarget } from './native-chat-composer-target'
 import { isSlashCommandDraft } from '../../../../shared/native-chat-slash-commands'
+import { authorizeTerminalAgentCards } from '@/runtime/runtime-terminal-agent-authorization'
+import { promptOrchestrationCards } from './native-chat-prompt-orchestration-cards'
+import { readNativeChatComposerDraft } from './native-chat-composer-draft-store'
 import type { NativeChatPickerState } from './use-native-chat-picker-state'
 import type { NativeChatSendLifecycle } from './use-native-chat-send-lifecycle'
 import type { NativeChatPtySessionOptionsSurface } from './native-chat-pty-session-options'
@@ -111,7 +114,7 @@ export function useNativeChatPtyComposerSend(args: {
             }
           }
         : launchSendOptions
-    const sendOptions = annotated?.hasAnnotations
+    const composedSendOptions = annotated?.hasAnnotations
       ? {
           ...echoOptions,
           onWriteRejected: echoOptions?.onWriteRejected ?? (() => {}),
@@ -122,6 +125,24 @@ export function useNativeChatPtyComposerSend(args: {
           }
         }
       : echoOptions
+    // Recorded before the write and settled by its outcome, so undelivered cards authorize nothing.
+    const settleCards =
+      classification === 'chat'
+        ? authorizeTerminalAgentCards(
+            target.ptyId,
+            promptOrchestrationCards(readNativeChatComposerDraft(args.draftScopeKey).document)
+          )
+        : null
+    const sendOptions: NativeChatSendOptions | undefined = settleCards
+      ? {
+          ...composedSendOptions,
+          onWriteRejected: composedSendOptions?.onWriteRejected ?? (() => {}),
+          onDeliverySettled: (acknowledged: boolean) => {
+            composedSendOptions?.onDeliverySettled?.(acknowledged)
+            settleCards(acknowledged)
+          }
+        }
+      : composedSendOptions
     let pendingHandle: NativeChatSendHandle | null = null
     // Why: slash-like text must not silently drop its attached images.
     if (classification !== 'chat' && imagePaths.length === 0) {

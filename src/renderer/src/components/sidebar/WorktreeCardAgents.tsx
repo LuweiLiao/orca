@@ -19,6 +19,7 @@ import { dismissStaleAgentRowByKey } from '../terminal-pane/stale-agent-row'
 import { useFocusedAgentPaneKey } from './focused-agent-row-highlight'
 import {
   CompactAgentExpansion,
+  renderCompactAgentChildSummary,
   CompactAgentRow,
   CompactAgentSummaryButton
 } from './worktree-card-compact-agents'
@@ -28,6 +29,11 @@ import { revealElementInScrollContainer } from './worktree-sidebar-reveal'
 import { useWorktreeAgentExpansionState } from './worktree-card-agents-expansion-state'
 import { translate } from '@/i18n/i18n'
 import { activateStructuredAgentSessionTab } from '@/lib/agent-session/structured-agent-session-tab-activation'
+import {
+  activateAiVaultStructuredSession,
+  structuredSessionOpenFeedback
+} from '@/lib/activate-ai-vault-structured-session'
+import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import { selectAgentRowsUnread } from './worktree-card-agent-ack-inputs'
 
 export const SUPPRESS_WORKTREE_LIST_SCROLL_ADJUSTMENT_EVENT =
@@ -169,6 +175,22 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
       }
       // Why: design-doc rule — every user-initiated worktree switch must route through activateAndRevealWorktree (cross-repo activation + nav history).
       activateAndRevealWorktree(worktreeId)
+      const session = agents.find((agent) => agent.paneKey === paneKey)?.structuredSession
+      if (session) {
+        const target = structuredAgentSessionTargetForHost(session.executionHostId)
+        if (target) {
+          void activateAiVaultStructuredSession(
+            {
+              structuredSession: { workspaceId: session.worktreeId, sessionId: session.sessionId }
+            },
+            undefined,
+            target
+          )
+        } else {
+          structuredSessionOpenFeedback.hostCannotOpen()
+        }
+        return
+      }
       const tabs = useAppStore.getState().tabsByWorktree[worktreeId] ?? []
       if (tabs.some((t) => t.id === tabId)) {
         activateTabAndFocusPane(tabId, parsed.leafId, {
@@ -187,7 +209,7 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
         dismissStaleAgentRowByKey(paneKey)
       }
     },
-    [worktreeId]
+    [worktreeId, agents]
   )
   const handleActivateRetainedAgent = useCallback(() => {
     // Why: hibernation-retained rows are passive completion evidence; activating would resume sleeping sessions, so the row is inert.
@@ -235,6 +257,9 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
     e.stopPropagation()
   }, [])
 
+  const renderChildSummary = (paneKey: string) =>
+    renderCompactAgentChildSummary(paneKey, childrenByParentPaneKey, toggleLineageParent)
+
   const renderAgentBranch = (
     agent: DashboardAgentRowData,
     ancestorPaneKeys: ReadonlySet<string> = new Set()
@@ -261,7 +286,9 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
           agent={agent}
           onDismiss={handleDismissAgent}
           onActivate={
-            agent.rowSource === 'retained' ? handleActivateRetainedAgent : handleActivateAgentTab
+            agent.rowSource === 'retained' && !agent.structuredSession
+              ? handleActivateRetainedAgent
+              : handleActivateAgentTab
           }
           now={now}
           // Why: bold the row until the user visits its tab (useReadOnScreenAttention auto-acks on focus, muting it).
@@ -283,6 +310,7 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
           // Why: hierarchy shows via chevron + indent; legacy L-connectors use a fixed offset that mismatches the column and reads as floating fragments.
           hideLineageConnectors
         />
+        {hasChildAgents && !expanded && renderChildSummary(agent.paneKey)}
         {hasChildAgents && expanded ? (
           <div className="worktree-agent-lineage-children">
             {childAgents.map((childAgent) =>
@@ -321,7 +349,9 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
           now={now}
           isUnvisited={unvisitedByPaneKey[agent.paneKey] ?? false}
           onActivate={
-            agent.rowSource === 'retained' ? handleActivateRetainedAgent : handleActivateAgentTab
+            agent.rowSource === 'retained' && !agent.structuredSession
+              ? handleActivateRetainedAgent
+              : handleActivateAgentTab
           }
           sendTargetStatus={sendTarget?.status}
           sendTargetDisabledReason={sendTarget?.disabledReason}
@@ -334,6 +364,7 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
           isFocusedPane={agent.paneKey === focusedAgentPaneKey}
           cacheTimerActive={cacheTimerActive}
         />
+        {hasChildAgents && !expanded && renderChildSummary(agent.paneKey)}
         {hasChildAgents ? (
           <CompactAgentExpansion expanded={expanded}>
             <div className="worktree-agent-lineage-children flex flex-col gap-0.5">
@@ -352,10 +383,9 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
   }
 
   if (agentActivityDisplayMode === 'compact') {
-    const summaryAgents = hasLineage ? rootAgents : agents
     // Why: compact cards collapse multiple agents to one status line, except in send-target mode where rows are the picker surface.
-    const shouldUseSummaryRow = summaryAgents.length > 1 && !isAgentSendTargetModeActive
-    const subjectLabel = `${hasLineage ? rootAgents.length : agents.length} agents`
+    const shouldUseSummaryRow = rootAgents.length > 1 && !isAgentSendTargetModeActive
+    const subjectLabel = `${agents.length} agents`
 
     return (
       <div
@@ -378,7 +408,7 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
             )}
           >
             <CompactAgentSummaryButton
-              agents={summaryAgents}
+              agents={agents}
               subjectLabel={subjectLabel}
               expanded={compactRootListExpanded}
               onToggle={() => {

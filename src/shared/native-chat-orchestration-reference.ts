@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const ORCHESTRATION_REFERENCE_NODE = 'nativeChatOrchestration'
 
-const selectionSchema = z.object({
+export const OrchestrationAgentSelectionSchema = z.object({
   agent: z.string().min(1).max(128),
   label: z.string().min(1).max(256),
   count: z.number().int().min(1).max(99),
@@ -11,7 +11,10 @@ const selectionSchema = z.object({
   effort: z.string().min(1).optional()
 })
 
-export type OrchestrationAgentSelection = z.infer<typeof selectionSchema>
+export type OrchestrationAgentSelection = z.infer<typeof OrchestrationAgentSelectionSchema>
+
+/** The composer's assignment pills in one message, as a person submitted them. */
+export const SubmittedOrchestrationCards = z.array(OrchestrationAgentSelectionSchema).min(1).max(16)
 
 export function orchestrationReferenceToken(
   selection: OrchestrationAgentSelection,
@@ -41,7 +44,9 @@ export function parseOrchestrationReferenceUri(value: string): OrchestrationAgen
     ) {
       return null
     }
-    const parsed = selectionSchema.safeParse(JSON.parse(url.searchParams.get('data') ?? ''))
+    const parsed = OrchestrationAgentSelectionSchema.safeParse(
+      JSON.parse(url.searchParams.get('data') ?? '')
+    )
     return parsed.success ? parsed.data : null
   } catch {
     return null

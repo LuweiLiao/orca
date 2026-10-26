@@ -26,6 +26,12 @@ import {
 
 import type { placeWorkerAgent } from './rpc/methods/orchestration/worker/worker-start-agent-placement'
 
+vi.mock('./orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('./orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 type WorkspaceLookup = {
   showManagedTerminalWorkspace: (
     ...args: Parameters<typeof runtime.showManagedTerminalWorkspace>

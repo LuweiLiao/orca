@@ -1,4 +1,5 @@
 import type { AgentJournalSkillRef } from '../../../../shared/agent-session-journal-types'
+import type { OrchestrationAgentSelection } from '../../../../shared/native-chat-orchestration-reference'
 import { structuredAgentSessionBlocksTooLarge } from '../../../../shared/rpc-contract/structured-agent-session-message-params'
 import { structuredAgentSessionSendBody } from '../../../../shared/structured-agent-session-send-mutation'
 import { AGENT_SESSION_MESSAGE_TOO_LARGE_PARTS } from '../../../../shared/agent-session-refusal-notice'
@@ -12,7 +13,8 @@ export async function dispatchNativeChatStructuredComposerText(
   transport: NativeChatStructuredComposerTransport,
   draftText: string,
   attachments: readonly NativeChatComposerImageAttachment[] = [],
-  skills: readonly AgentJournalSkillRef[] = []
+  skills: readonly AgentJournalSkillRef[] = [],
+  orchestrationCards: readonly OrchestrationAgentSelection[] = []
 ): Promise<Omit<StructuredAgentSessionCommandOutcome, 'handled'> & { revealsTranscript: boolean }> {
   // The one place a chip's image gets its number: its place among the images this message carries.
   const prompt = imageReferencesToPromptMarkers(
@@ -36,9 +38,13 @@ export async function dispatchNativeChatStructuredComposerText(
       revealsTranscript: false
     }
   }
+  const request = {
+    ...(skills.length > 0 ? { skills } : {}),
+    ...(orchestrationCards.length > 0 ? { orchestrationCards } : {})
+  }
   const admission =
-    skills.length > 0
-      ? transport.send(prompt, attachments, { skills })
+    Object.keys(request).length > 0
+      ? transport.send(prompt, attachments, request)
       : transport.send(prompt, attachments)
   return { accepted: admission !== false, error: null, revealsTranscript: admission === true }
 }

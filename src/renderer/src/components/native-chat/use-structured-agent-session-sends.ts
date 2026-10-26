@@ -122,6 +122,9 @@ export function useStructuredAgentSessionSends(args: {
         ...(delivery ? { delivery } : {}),
         ...(options ? { options } : {}),
         ...(takesSkills && request?.skills?.length ? { skills: request.skills } : {}),
+        ...(request?.orchestrationCards?.length
+          ? { orchestrationCards: request.orchestrationCards }
+          : {}),
         ...(stopping ? { sentWhileStopping: true as const } : {})
       })
       // Refused while the chat's send is out: the text stays in the box.

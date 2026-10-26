@@ -1,5 +1,5 @@
 import {
-  SendBody,
+  SEND_MESSAGE_FIELDS,
   MAX_OPTION_LABEL,
   MAX_PROMPT_BYTES
 } from './structured-agent-session-message-params'
@@ -149,7 +149,7 @@ export const SendParams = z
     options: AgentSessionOptions.optional(),
     // Strict payload: only hosts advertising the bound usage-limit send capability accept this.
     usageLimitContinuationOfTurnItemId: Identifier('Invalid source turn item id').optional(),
-    body: SendBody
+    ...SEND_MESSAGE_FIELDS
   })
   .strict()
 

@@ -189,3 +189,30 @@ export function CompactAgentSummaryButton({
     </button>
   )
 }
+
+export function renderCompactAgentChildSummary(
+  parentPaneKey: string,
+  childrenByParentPaneKey: ReadonlyMap<string, DashboardAgentRowData[]>,
+  onToggle: (parentPaneKey: string) => void
+): React.JSX.Element {
+  const descendants: DashboardAgentRowData[] = []
+  const visited = new Set([parentPaneKey])
+  for (const paneKey of visited) {
+    for (const child of childrenByParentPaneKey.get(paneKey) ?? []) {
+      if (!visited.has(child.paneKey)) {
+        visited.add(child.paneKey)
+        descendants.push(child)
+      }
+    }
+  }
+  return (
+    <div className="worktree-agent-lineage-children pt-0.5">
+      <CompactAgentSummaryButton
+        agents={descendants}
+        subjectLabel={`${descendants.length} agents`}
+        expanded={false}
+        onToggle={() => onToggle(parentPaneKey)}
+      />
+    </div>
+  )
+}

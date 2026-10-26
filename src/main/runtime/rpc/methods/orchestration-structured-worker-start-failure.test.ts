@@ -111,6 +111,7 @@ function fakes() {
       task: { id: 't1', spec: 'do the thing' }
     }),
     recordWorkerStage: () => {},
+    recordCreatedWorkerTerminalCustody: () => {},
     prepareStartingWorkerAuthority: () => {}
   } as unknown as OrchestrationDb
   return { runtime, db, retireStructuredAgentSessionTabFromSnapshot }
@@ -138,7 +139,8 @@ describe('a structured worker-start that fails after the session exists', () => 
       run: { id: 'run_1' } as never,
       existingTask: { id: 't1', spec: 'do the thing' } as never,
       coordinator: null,
-      orchestrationMutation: undefined
+      orchestrationMutation: undefined,
+      delegationHolderKey: null
     })
 
     expect(receipt).toMatchObject({ state: 'failed', stage: 'dispatch_input' })

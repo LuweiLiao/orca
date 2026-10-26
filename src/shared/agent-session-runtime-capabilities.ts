@@ -78,6 +78,11 @@ export const AGENT_SESSION_QUEUED_MESSAGE_EDIT_RUNTIME_CAPABILITY =
 // A host advertising this replaces a queued card's image set on Save; otherwise Save is text only.
 export const AGENT_SESSION_QUEUED_MESSAGE_IMAGE_EDIT_RUNTIME_CAPABILITY =
   'agent-session.queued-message-image-edit.v1' as const
+// Why: send, create's first message and queued edit params are strict, so an older host rejects
+// `orchestrationCards`. A host advertising this records a person's composer cards as their
+// authorization for the chat to create agents; an older host enforces none, so nothing is lost.
+export const AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY =
+  'agent-session.orchestration-cards.v1' as const
 // Why: a client advertising this shows a queued card's images and edits its text in place, keeping
 // them. Released readers show only a card's text and edit by copying it and deleting the card, which
 // would drop the images, so the host publishes no card holding an image to a reader without it.
@@ -135,6 +140,7 @@ export const AGENT_SESSION_BACKGROUND_TASK_ROW_STOP_CAPABILITY =
   'agent-session.background-task-row-stop.v1' as const
 
 export const AGENT_SESSION_RUNTIME_CAPABILITIES = [
+  AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY,
   ...AGENT_SESSION_STOP_RUNTIME_CAPABILITIES,
   ...AGENT_SESSION_CREATE_RUNTIME_CAPABILITIES,
   AGENT_SESSION_BOUNDARY_RUNTIME_CAPABILITY,

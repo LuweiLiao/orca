@@ -1673,62 +1673,6 @@ html.native-shell .app-layout {
   background: color-mix(in srgb, var(--sidebar-foreground) 8%, var(--sidebar));
 }
 
-.worktree-agent-lineage-parent-row {
-  /* Why: inline orchestration trees have two chevron levels; the manager row
-     needs a structural cue that is quieter than the workspace card chrome. */
-  background: color-mix(in srgb, var(--sidebar-foreground) 3%, var(--sidebar));
-  box-shadow:
-    inset 2px 0 0 color-mix(in srgb, var(--sidebar-foreground) 38%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--sidebar-foreground) 10%, transparent);
-}
-
-.worktree-agent-lineage-parent-row.worktree-agent-row-hover:hover {
-  background: color-mix(in srgb, var(--sidebar-foreground) 6%, var(--sidebar));
-}
-
-.dark .worktree-agent-lineage-parent-row {
-  background: color-mix(in srgb, var(--accent) 22%, var(--sidebar));
-  box-shadow:
-    inset 2px 0 0 color-mix(in srgb, var(--accent) 58%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
-.dark .worktree-agent-lineage-parent-row.worktree-agent-row-hover:hover {
-  background: color-mix(in srgb, var(--accent) 30%, var(--sidebar));
-}
-
-.worktree-agent-lineage-child-row {
-  position: relative;
-  background: color-mix(in srgb, var(--sidebar) 74%, var(--background));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sidebar-foreground) 7%, transparent);
-}
-
-.worktree-agent-lineage-child-row.worktree-agent-row-hover:hover {
-  background: color-mix(in srgb, var(--sidebar-foreground) 4%, var(--sidebar));
-}
-
-.worktree-agent-lineage-child-row::before {
-  content: '';
-  position: absolute;
-  left: 0.15rem;
-  top: 50%;
-  width: 0.35rem;
-  border-top: 1px solid color-mix(in srgb, var(--sidebar-foreground) 20%, transparent);
-}
-
-.dark .worktree-agent-lineage-child-row {
-  background: color-mix(in srgb, var(--accent) 10%, var(--sidebar));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
-.dark .worktree-agent-lineage-child-row.worktree-agent-row-hover:hover {
-  background: color-mix(in srgb, var(--accent) 18%, var(--sidebar));
-}
-
-.dark .worktree-agent-lineage-child-row::before {
-  border-top-color: color-mix(in srgb, var(--accent) 42%, transparent);
-}
-
 .worktree-agent-lineage-children {
   margin-left: 0.75rem;
   padding-left: 0.25rem;
@@ -1853,46 +1797,9 @@ html.native-shell .app-layout {
   width: calc(100% + 0.5rem);
 }
 
-/* Why: compact expanded agents live inside an already-framed worktree card.
-   Keep the tree legible with indentation and interaction states instead of
-   stacking row cards and shaded panels. */
-[data-compact-agent-list='true'] .compact-agent-row.worktree-agent-lineage-parent-row,
-[data-compact-agent-list='true'] .compact-agent-row.worktree-agent-lineage-child-row {
-  background: transparent;
-  box-shadow: none;
-}
-
-[data-compact-agent-list='true'] .compact-agent-row.worktree-agent-lineage-child-row::before {
-  content: none;
-}
-
-[data-compact-agent-list='true']
-  .compact-agent-row.worktree-agent-lineage-parent-row.worktree-agent-row-hover:hover,
-[data-compact-agent-list='true']
-  .compact-agent-row.worktree-agent-lineage-child-row.worktree-agent-row-hover:hover {
-  background: color-mix(in srgb, var(--sidebar-foreground) 1.25%, transparent);
-}
-
-.dark
-  [data-compact-agent-list='true']
-  .compact-agent-row.worktree-agent-lineage-parent-row.worktree-agent-row-hover:hover,
-.dark
-  [data-compact-agent-list='true']
-  .compact-agent-row.worktree-agent-lineage-child-row.worktree-agent-row-hover:hover {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-
-[data-compact-agent-list='true']
-  .compact-agent-row.worktree-agent-row-hover[data-focused-agent-pane='true'] {
-  background: color-mix(in srgb, var(--sidebar-foreground) 12%, var(--sidebar-accent));
-}
-
-.dark
-  [data-compact-agent-list='true']
-  .compact-agent-row.worktree-agent-row-hover[data-focused-agent-pane='true'] {
-  background: color-mix(in srgb, var(--accent) 70%, transparent);
-}
-
+/* Why: compact expanded agents live inside an already-framed worktree card;
+   the tree reads through plain indentation and the shared native hover/focus
+   states above instead of a second set of row fills. */
 [data-compact-agent-list='true'] .worktree-agent-lineage-children {
   border-left-color: color-mix(in srgb, var(--sidebar-foreground) 16%, transparent);
 }

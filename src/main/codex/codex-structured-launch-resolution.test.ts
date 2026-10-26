@@ -11,6 +11,7 @@ import type { AgentSessionRecord } from '../../shared/agent-session-record'
 import type { AgentSessionProviderHandleLink } from '../../shared/agent-session-provider-handle'
 import { LOCAL_EXECUTION_HOST_ID } from '../../shared/execution-host'
 import { codexProviderHandle } from '../../shared/agent-session-provider-handle-encoding'
+import { ORCA_AGENT_DELEGATION_INSTRUCTIONS } from '../native-chat/agent-reply-instructions'
 import {
   LEGACY_NATIVE_CHAT_VISUALS_DIR_ENV,
   NATIVE_CHAT_SCRATCH_DIR_ENV
@@ -160,6 +161,7 @@ describe('codex structured launch resolution', () => {
       cwd: '/repos/workspace-1',
       codexHome: '/home/work/.codex',
       resumeThreadId: null,
+      developerInstructions: ORCA_AGENT_DELEGATION_INSTRUCTIONS,
       permissionPolicy: {
         approvalPolicy: 'on-request',
         sandbox: 'workspace-write',

@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  OrchestrationStructuredMailboxPointerDelivery,
-  type StructuredMailboxPointerHost
-} from './structured-mailbox-pointer-delivery'
+import { OrchestrationStructuredMailboxPointerDelivery } from './structured-mailbox-pointer-delivery'
+import type { StructuredMailboxPointerHost } from './structured-mailbox-pointer-host'
 import type { StructuredPointerOperationRow } from './db/messages/structured-pointer-operation-store'
 import {
   structuredPointerBatchFingerprint,
@@ -62,6 +60,9 @@ function harness(options: {
   const readContext = vi.fn<StructuredMailboxPointerHost['currentContextClearOperationId']>(
     () => undefined
   )
+  const readSessionFacts = vi.fn<StructuredMailboxPointerHost['readSessionFacts']>(async () =>
+    attached ? { submissions } : null
+  )
   const stored = new Map<string, StructuredPointerOperationRow>()
   const db = {
     getDispatchContextById: () => ({ run_id: 'run_1' }),
@@ -90,7 +91,7 @@ function harness(options: {
     getCliCommand: () => 'orca-dev',
     senderName: (party) => (party.address === 'term_coord' ? 'Coordinator' : null),
     host: {
-      readSessionFacts: async () => (attached ? { submissions } : null),
+      readSessionFacts,
       hasActionablePromptNow: () => awaitingHuman,
       currentFence: () => 4,
       currentContextClearOperationId: readContext,
@@ -102,6 +103,7 @@ function harness(options: {
     markAsDelivered,
     send: sendMock,
     readContext,
+    readSessionFacts,
     stored,
     setAttached: (next: boolean) => {
       attached = next
@@ -149,6 +151,62 @@ describe('structured mailbox pointer delivery', () => {
       )
     }
   )
+
+  it.each(['rejected', 'unknown'] as const)(
+    "sends once and reuses the operation id when send's own journal edge settles %s",
+    async (outcome) => {
+      // `send` can itself cause journal activity before answering; `onJournalActivity` firing for
+      // this mailbox while `attempt()` still awaits that very `send` call must not retry inline.
+      const { delivery, send, markAsDelivered, readContext } = harness({})
+      readContext.mockReturnValue('record-clear-1')
+      let sendAttempts = 0
+      send.mockImplementation(async () => {
+        sendAttempts += 1
+        if (sendAttempts > 20) {
+          throw new Error('hard regression-test cap: send retried more than 20 times')
+        }
+        delivery.onJournalActivity('session-1')
+        return { kind: 'sent', state: outcome }
+      })
+
+      delivery.deliverForHandle('dispatch:d1')
+      await flush()
+      await flush()
+
+      expect(sendAttempts).toBe(1)
+      expect(markAsDelivered).not.toHaveBeenCalled()
+      const firstOperationId = send.mock.calls[0]![0].operationId
+
+      // Parked, not spinning: a later, independent edge replays under the same operation id.
+      delivery.onJournalActivity('session-1')
+      await flush()
+      expect(sendAttempts).toBe(2)
+      expect(send.mock.calls[1]![0].operationId).toBe(firstOperationId)
+    }
+  )
+
+  it("does not retry when send's own journal edge lands during a call that then throws", async () => {
+    // `throws` takes a different path than `rejected`/`unknown`: nothing calls `retain()`, so the
+    // mailbox is not parked afterwards, matching the existing "...send is throws" case above.
+    const { delivery, send, markAsDelivered, readContext } = harness({})
+    readContext.mockReturnValue('record-clear-1')
+    let sendAttempts = 0
+    send.mockImplementation(async () => {
+      sendAttempts += 1
+      if (sendAttempts > 20) {
+        throw new Error('hard regression-test cap: send retried more than 20 times')
+      }
+      delivery.onJournalActivity('session-1')
+      throw new Error('send failed')
+    })
+
+    delivery.deliverForHandle('dispatch:d1')
+    await flush()
+    await flush()
+
+    expect(sendAttempts).toBe(1)
+    expect(markAsDelivered).not.toHaveBeenCalled()
+  })
 
   it('claims only mailboxes whose assignee is a structured worker', () => {
     const { delivery } = harness({})
@@ -223,6 +281,34 @@ describe('structured mailbox pointer delivery', () => {
     setAttached(true)
     delivery.onJournalActivity('session-1')
     await flush()
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(markAsDelivered).toHaveBeenCalledWith(['m1'], 'dispatch:d1')
+  })
+
+  it('retries a re-attach edge that lands mid-flight, not just the next unrelated one', async () => {
+    // `onJournalActivity` only retries a mailbox already parked in `parkedUntilJournalEdge`, but
+    // `deliver()`'s in-flight guard makes the edge a no-op while the original call is still
+    // reading. If that is the only edge the re-attach ever gets, the mail is never retried.
+    const { delivery, send, markAsDelivered, readSessionFacts, setAttached } = harness({
+      attached: false
+    })
+    const gate = Promise.withResolvers<void>()
+    readSessionFacts.mockImplementationOnce(async () => {
+      await gate.promise
+      return null
+    })
+
+    delivery.deliverForHandle('dispatch:d1')
+    await flush()
+    expect(readSessionFacts).toHaveBeenCalledTimes(1)
+
+    setAttached(true)
+    delivery.onJournalActivity('session-1')
+    gate.resolve()
+    await flush()
+    await flush()
+
+    expect(readSessionFacts).toHaveBeenCalledTimes(2)
     expect(send).toHaveBeenCalledTimes(1)
     expect(markAsDelivered).toHaveBeenCalledWith(['m1'], 'dispatch:d1')
   })

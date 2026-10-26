@@ -8,6 +8,12 @@ import { OrcaRuntimeService } from '../../orca-runtime'
 import { OrchestrationDb } from '../../orchestration/db'
 import { ORCHESTRATION_METHODS } from './orchestration'
 
+vi.mock('../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const STRUCTURED_HANDLE = 'structworker_abc'
 // A real Orca session ID: a minted worker's preamble names it by this, not its handle.
 const STRUCTURED_SESSION_ID = '9c2e4b7a-1d3f-4a6e-8b5c-7f0a2d9e6c41'

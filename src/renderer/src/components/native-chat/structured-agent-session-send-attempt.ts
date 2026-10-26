@@ -23,7 +23,15 @@ import {
   type StructuredAgentSessionSendAnswer,
   type StructuredAgentSessionSendEvidence
 } from '../../../../shared/structured-agent-session-send-evidence'
-import { ensureRuntimeEnvironmentCompatible } from '@/runtime/runtime-rpc-client'
+import {
+  ensureRuntimeEnvironmentCompatible,
+  runtimeEnvironmentSupportsCapability
+} from '@/runtime/runtime-rpc-client'
+import {
+  ensureLocalRuntimeCapabilities,
+  readLocalRuntimeCapabilitiesOrUnknown
+} from '@/runtime/local-runtime-capabilities'
+import { AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY } from '../../../../shared/agent-session-runtime-capabilities'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import { RuntimeRpcCallError } from '@/runtime/runtime-rpc-result'
 import { isRuntimeCompatBlockError } from '@/runtime/runtime-protocol-compat'
@@ -101,6 +109,25 @@ function notSentParts(error: unknown): AgentSessionWriteNoticePart[] {
     : ['unreachable', ...NOT_SENT]
 }
 
+async function hostRecordsOrchestrationCards(target: RuntimeClientTarget): Promise<boolean> {
+  try {
+    if (target.kind === 'environment') {
+      return await runtimeEnvironmentSupportsCapability(
+        target.environmentId,
+        AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY
+      )
+    }
+    await ensureLocalRuntimeCapabilities()
+    return (
+      readLocalRuntimeCapabilitiesOrUnknown()?.includes(
+        AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY
+      ) === true
+    )
+  } catch {
+    return false
+  }
+}
+
 /** Null when the send was abandoned (a Stop, its deadline, the journal settling it) meanwhile. */
 export async function attemptStructuredAgentSessionSend(args: {
   entry: StructuredAgentSessionPendingSend
@@ -129,18 +156,30 @@ export async function attemptStructuredAgentSessionSend(args: {
   if (fence === null) {
     return { kind: 'not-sent', parts: NOT_SENT }
   }
+  // An older host refuses the field and enforces no authorization, so it gets the message alone.
+  const orchestrationCards =
+    entry.orchestrationCards?.length && (await hostRecordsOrchestrationCards(target))
+      ? entry.orchestrationCards
+      : undefined
+  if (args.abandoned()) {
+    return null
+  }
   args.beforeIssue()
-  const params = structuredAgentSessionMessageSendMutation({
-    sessionId: entry.sessionId,
-    clientOperationId: entry.clientMessageId,
-    expectedRuntimeFence: fence,
-    body: entry.body,
-    ...(entry.delivery ? { delivery: entry.delivery } : {}),
-    ...(entry.options ? { options: entry.options } : {}),
-    ...(entry.usageLimitContinuationOfTurnItemId
-      ? { usageLimitContinuationOfTurnItemId: entry.usageLimitContinuationOfTurnItemId }
-      : {})
-  })
+  const params = {
+    ...structuredAgentSessionMessageSendMutation({
+      sessionId: entry.sessionId,
+      clientOperationId: entry.clientMessageId,
+      expectedRuntimeFence: fence,
+      body: entry.body,
+      ...(entry.delivery ? { delivery: entry.delivery } : {}),
+      ...(entry.options ? { options: entry.options } : {}),
+      ...(entry.usageLimitContinuationOfTurnItemId
+        ? { usageLimitContinuationOfTurnItemId: entry.usageLimitContinuationOfTurnItemId }
+        : {})
+    }),
+    // Beside the fingerprinted fields: authorization metadata the agent never receives.
+    ...(orchestrationCards ? { orchestrationCards } : {})
+  }
   type SendAnswer = AgentSessionMutationResult<AgentSessionSendResult>
   let answer: StructuredAgentSessionSendAnswer
   try {

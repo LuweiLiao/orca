@@ -24,6 +24,10 @@ import {
   STRUCTURED_CLIENT
 } from './structured-agent-session-rpc.test-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 beforeEach(() => {
   installStructuredHostStub()
 })

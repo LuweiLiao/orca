@@ -7,6 +7,12 @@ import { OrcaRuntimeService } from '../../../../orca-runtime'
 import { OrchestrationDb } from '../../../../orchestration/db'
 import { startFederatedWorker } from './federated-worker-start'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 describe('federated worker start receipt validation', () => {
   const databases: OrchestrationDb[] = []
 
@@ -52,6 +58,7 @@ describe('federated worker start receipt validation', () => {
         }
       })
 
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the receipt shape this test reads from the start's untyped result.
     const result = (await startFederatedWorker({
       params: {
         task: task.id,
@@ -64,6 +71,7 @@ describe('federated worker start receipt validation', () => {
       db,
       runId: run.id,
       task,
+      delegationHolderKey: null,
       orchestrationMutation: {
         callerFingerprint: 'caller',
         requestId: 'remote_start',

@@ -13,6 +13,12 @@ import { ORCHESTRATION_METHODS } from '../../orchestration'
 import { startFederatedWorker } from '../federation/federated-worker-start'
 import { createRootDispatch } from '../../../../orchestration/db/root-dispatch-test-fixture'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 describe('orchestration migration behavior', () => {
   const databases: OrchestrationDb[] = []
 
@@ -196,6 +202,7 @@ describe('orchestration migration behavior', () => {
         db,
         runId: run.id,
         task,
+        delegationHolderKey: null,
         orchestrationMutation: {
           callerFingerprint: 'caller',
           requestId: 'remote_start',
@@ -243,6 +250,7 @@ describe('orchestration migration behavior', () => {
         db,
         runId: run.id,
         task,
+        delegationHolderKey: null,
         orchestrationMutation: {
           callerFingerprint: 'caller',
           requestId: 'remote_start',
@@ -318,6 +326,7 @@ describe('orchestration migration behavior', () => {
       db,
       runId: run.id,
       task,
+      delegationHolderKey: null,
       orchestrationMutation: {
         callerFingerprint: 'caller',
         requestId: 'remote_start',

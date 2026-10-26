@@ -15,6 +15,10 @@ import type { RpcResponse } from '../core'
 import { RpcDispatcher } from '../dispatcher'
 import { STRUCTURED_AGENT_SESSION_METHODS } from './structured-agent-session'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const SESSION = 'session-alpha'
 const OPERATION = '1800000000000-00000000000000000000000000000001'
 const WORKTREE = 'id:workspace-1'

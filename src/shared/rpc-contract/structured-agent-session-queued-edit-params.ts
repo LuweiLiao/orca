@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { Identifier, SessionId } from './structured-agent-session-identifiers'
 import { MutationEnvelope, MAX_BLOCKS, MAX_PROMPT_BYTES } from './structured-agent-session-params'
 import { SendImageRefBlock } from './structured-agent-session-message-params'
+import { SubmittedOrchestrationCards } from '../native-chat-orchestration-reference'
 
 export const QueuedMessageUpdateParams = z
   .object({
@@ -12,7 +13,9 @@ export const QueuedMessageUpdateParams = z
     /** The complete ordered image set (`agent-session.queued-message-image-edit.v1`); absent keeps
      *  the card's images, which is what every older client sends. The shared edit rule counts
      *  these with the text block. */
-    images: z.array(SendImageRefBlock).max(MAX_BLOCKS).optional()
+    images: z.array(SendImageRefBlock).max(MAX_BLOCKS).optional(),
+    /** The edited text's assignment pills (`agent-session.orchestration-cards.v1`). */
+    orchestrationCards: SubmittedOrchestrationCards.optional()
   })
   .strict()
 

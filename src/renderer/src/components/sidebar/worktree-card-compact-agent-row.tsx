@@ -160,7 +160,8 @@ export const CompactAgentRow = React.memo(function CompactAgentRow({
     secondary
   )
   const rowTitle = `${leadingText}${trailingText ? ` - ${trailingText}` : ''}`
-  const model = agent.entry.model?.trim() ?? ''
+  const model = (agent.structuredSession?.model ?? agent.entry.model)?.trim() ?? ''
+  const effort = agent.structuredSession?.effort
   const shortTime = getCompactAgentTime(agent, now)
   const cacheTimer = usePromptCacheCountdownForPane(agent.paneKey, cacheTimerActive)
 
@@ -236,12 +237,17 @@ export const CompactAgentRow = React.memo(function CompactAgentRow({
             progress={presentation.progress}
           />
           {!hideIcon && (
-            <span className="inline-flex shrink-0" title={formatAgentTypeLabel(agent.agentType)}>
+            <span
+              className="inline-flex shrink-0"
+              // Why: effort is hover-only metadata — it rides the identity icon's title
+              // instead of the inline model text.
+              title={[formatAgentTypeLabel(agent.agentType), effort].filter(Boolean).join(' · ')}
+            >
               <AgentTypeIcon agentType={agent.agentType} size={13} />
             </span>
           )}
           <span
-            className="min-w-0 flex-1 truncate"
+            className="min-w-9 flex-1 truncate"
             title={sendTargetDisabledReason ? undefined : rowTitle}
           >
             <span className={leadClassName}>{leadingText}</span>
@@ -257,7 +263,9 @@ export const CompactAgentRow = React.memo(function CompactAgentRow({
       {model && (
         <span
           className={cn(
-            'min-w-0 max-w-24 truncate font-mono text-[10px]',
+            // Why: shrink (not shrink-0) so a narrow sidebar compresses the model
+            // column before the title ever gives up its min-w-9 floor above.
+            'min-w-0 max-w-24 shrink truncate font-mono text-[10px]',
             isFocusedPane ? 'text-foreground/70' : 'text-muted-foreground/70'
           )}
           title={model}

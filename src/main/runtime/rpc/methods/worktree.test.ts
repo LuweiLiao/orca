@@ -6,6 +6,10 @@ import type { OrcaRuntimeService } from '../../orca-runtime'
 import { WORKTREE_METHODS } from './worktree'
 import { createAutomationDispatchToken } from '../../../automations/dispatch-tokens'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const repo = {
   id: 'repo-1',
   path: '/workspace/repo',

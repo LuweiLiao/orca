@@ -11,6 +11,10 @@ import { setStructuredAgentSessionHost } from '../../../native-chat/agent-sessio
 import type { RpcContext } from '../core'
 import { methodNamed, rpcContext, runtimeStub } from './agent-launch.test-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const { AGENT_LAUNCH_METHODS } = await import('./agent-launch')
 const AGENT_LAUNCH = methodNamed(AGENT_LAUNCH_METHODS, 'agent.launch')
 

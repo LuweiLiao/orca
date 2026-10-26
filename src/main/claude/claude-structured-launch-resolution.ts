@@ -42,6 +42,7 @@ export const CLAUDE_SESSION_STATE_EVENTS_ENV = 'CLAUDE_CODE_EMIT_SESSION_STATE_E
 export type ClaudeStructuredSdkOptions = Pick<
   ClaudeAgentSdkOptions,
   | 'includePartialMessages'
+  | 'disallowedTools'
   | 'systemPrompt'
   | 'settingSources'
   | 'supportedDialogKinds'
@@ -62,6 +63,8 @@ export type ClaudeStructuredSdkOptions = Pick<
 /** Replay acknowledgements require an explicit flag; the SDK supplies the other transport flags. */
 export const CLAUDE_STRUCTURED_BASE_OPTIONS: ClaudeStructuredSdkOptions = {
   includePartialMessages: true,
+  // Delegation must create an Orca worker, not a provider-native child hidden inside this chat.
+  disallowedTools: ['Agent', 'Task'],
   // Keep the SDK on Claude Code's own system-prompt contract.
   systemPrompt: { type: 'preset', preset: 'claude_code' },
   settingSources: [...CLAUDE_DEFAULT_SETTING_SOURCES],

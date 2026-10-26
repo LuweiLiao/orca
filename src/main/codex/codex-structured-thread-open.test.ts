@@ -8,6 +8,12 @@ import {
 import { codexStructuredPermissionPolicy } from './codex-structured-permission-policy'
 import { openCodexThread } from './codex-structured-thread-open'
 
+const ORCA_DELEGATION_CONFIG = {
+  'agents.enabled': false,
+  'features.multi_agent': false,
+  'features.multi_agent_v2': false
+}
+
 function connectionFor(
   request: CodexAppServerConnection['request']
 ): Pick<CodexAppServerConnection, 'request'> {
@@ -15,6 +21,34 @@ function connectionFor(
 }
 
 describe('openCodexThread', () => {
+  it.each([null, 'thread-existing'])(
+    'disables native delegation despite enabled inherited config when opening %s',
+    async (resumeThreadId) => {
+      const request = vi.fn(async () => ({ thread: { id: 'thread-existing' } }))
+      await openCodexThread(
+        connectionFor(request),
+        {
+          cwd: '/workspace',
+          resumeThreadId,
+          threadConfig: {
+            'agents.enabled': true,
+            'features.multi_agent': true,
+            'features.multi_agent_v2': true,
+            model_reasoning_effort: 'high'
+          }
+        },
+        2_000
+      )
+      expect(request).toHaveBeenCalledWith(
+        resumeThreadId ? 'thread/resume' : 'thread/start',
+        expect.objectContaining({
+          config: { ...ORCA_DELEGATION_CONFIG, model_reasoning_effort: 'high' }
+        }),
+        { timeoutMs: 2_000 }
+      )
+    }
+  )
+
   it('sends developer instructions as thread config next to the launch config', async () => {
     const request = vi.fn(async () => ({ thread: { id: 'thread-created' } }))
 
@@ -35,6 +69,7 @@ describe('openCodexThread', () => {
         cwd: '/workspace',
         config: {
           'sandbox_workspace_write.writable_roots': ['/chat'],
+          ...ORCA_DELEGATION_CONFIG,
           developer_instructions: 'Lead with the conclusion.'
         }
       },
@@ -66,6 +101,7 @@ describe('openCodexThread', () => {
       {
         cwd: '/workspace',
         approvalPolicy: 'never',
+        config: ORCA_DELEGATION_CONFIG,
         sandbox: 'danger-full-access',
         approvalsReviewer: 'user'
       },
@@ -77,6 +113,7 @@ describe('openCodexThread', () => {
       {
         threadId: 'thread-existing',
         cwd: '/workspace',
+        config: ORCA_DELEGATION_CONFIG,
         approvalPolicy: 'never',
         sandbox: 'danger-full-access',
         approvalsReviewer: 'user',
@@ -149,6 +186,7 @@ describe('openCodexThread', () => {
       {
         threadId: 'thread-1',
         cwd: '/workspace',
+        config: ORCA_DELEGATION_CONFIG,
         excludeTurns: true
       },
       { timeoutMs: 2_000 }
@@ -242,7 +280,7 @@ describe('openCodexThread', () => {
       ])
       expect(request).toHaveBeenLastCalledWith(
         'thread/start',
-        { cwd: '/workspace' },
+        { cwd: '/workspace', config: ORCA_DELEGATION_CONFIG },
         {
           timeoutMs: 2_000
         }
@@ -266,7 +304,7 @@ describe('openCodexThread', () => {
       expect(request.mock.calls[0]?.[1]).not.toHaveProperty('model')
       expect(request).toHaveBeenLastCalledWith(
         'thread/start',
-        { cwd: '/workspace', model: 'gpt-chosen' },
+        { cwd: '/workspace', model: 'gpt-chosen', config: ORCA_DELEGATION_CONFIG },
         { timeoutMs: 2_000 }
       )
     })

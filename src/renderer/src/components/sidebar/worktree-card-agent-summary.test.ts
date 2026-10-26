@@ -10,6 +10,7 @@ import {
   summarizeAgents
 } from './worktree-card-agent-summary'
 import { buildSubagentChildRows } from './worktree-subagent-child-rows'
+import { renderCompactAgentChildSummary } from './worktree-card-compact-agents'
 
 function monitoringAgent(): DashboardAgentRowData {
   return {
@@ -50,6 +51,36 @@ function renderCompactAgentRow(props: React.ComponentProps<typeof CompactAgentRo
 }
 
 describe('worktree card agent summary', () => {
+  it('summarizes every hidden descendant by state and provider without counting the parent', () => {
+    const waiting: DashboardAgentRowData = {
+      ...monitoringAgent(),
+      paneKey: 'child:1',
+      state: 'waiting',
+      entry: { ...monitoringAgent().entry, state: 'waiting', workingMode: undefined }
+    }
+    const done: DashboardAgentRowData = {
+      ...monitoringAgent(),
+      paneKey: 'sibling:1',
+      agentType: 'codex',
+      state: 'done',
+      entry: { ...monitoringAgent().entry, state: 'done', workingMode: undefined }
+    }
+    const descendants = new Map([
+      ['parent:1', [waiting, done]],
+      ['child:1', [{ ...done, paneKey: 'grandchild:1' }]]
+    ])
+    const markup = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        renderCompactAgentChildSummary('parent:1', descendants, vi.fn())
+      )
+    )
+    expect(markup).toContain('Expand 3 agents: 1 waiting, 2 done')
+    expect(markup).toContain('Claude waiting; Codex done; Codex done')
+    expect(markup).toContain('>+1<')
+  })
+
   // The sidebar lists running children only, so a child row it counts is one that runs.
   it("counts a running child by its own row's state", () => {
     const running: DashboardAgentRowData = {

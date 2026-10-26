@@ -64,6 +64,7 @@ function fakes() {
     ensureStructuredAgentSessionHost: async () => {}
   }
   const db = {
+    recordCreatedWorkerTerminalCustody: vi.fn(),
     recordWorkerStage: vi.fn((row: { stage: string }) => {
       stages.push(row.stage)
     })
@@ -149,7 +150,7 @@ describe('a fresh worker through the launch executor', () => {
     expect(f.runtime.getClientSettings).not.toHaveBeenCalled()
     expect(placed.mode).toBe(STRUCTURED)
     expect(placed.structuredSession?.identity.handle).toBe(placed.terminalHandle)
-    expect(f.stages).toEqual(['terminal_creating'])
+    expect(f.stages).toEqual(['terminal_creating', 'terminal_created'])
     expect(f.effects).toEqual([
       {
         kind: 'terminal',
@@ -174,7 +175,12 @@ describe('a fresh worker through the launch executor', () => {
       'id:wt_new',
       'claude'
     )
-    expect(f.stages).toEqual(['worktree_creating', 'worktree_created', 'terminal_creating'])
+    expect(f.stages).toEqual([
+      'worktree_creating',
+      'worktree_created',
+      'terminal_creating',
+      'terminal_created'
+    ])
     expect(f.failedStages).toEqual(['worktree_create', 'terminal_create', 'terminal_create'])
     expect(placed.worktree.id).toBe('wt_new')
     expect(placed.structuredSession).not.toBeNull()

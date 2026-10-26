@@ -1,4 +1,8 @@
-import type { AgentStatusEntry, AgentType } from '../../../../shared/agent-status-types'
+import type {
+  AgentStatusEntry,
+  AgentType,
+  OrchestrationChatSession
+} from '../../../../shared/agent-status-types'
 import type { AgentRowState } from '../../../../shared/agent-row-decay-state'
 import type { TerminalTab } from '../../../../shared/terminal-tab-types'
 import type { AgentChildRowModel } from '../../../../shared/agent-child-row-model'
@@ -11,6 +15,7 @@ export type DashboardAgentRow = {
   tab: TerminalTab
   agentType: AgentType
   rowSource?: 'live' | 'retained' | 'subagent'
+  structuredSession?: OrchestrationChatSession
   state: AgentRowState
   /** Pane to focus when the row is activated, when it differs from paneKey.
    *  Subagent rows have no pane of their own and activate their parent's. */

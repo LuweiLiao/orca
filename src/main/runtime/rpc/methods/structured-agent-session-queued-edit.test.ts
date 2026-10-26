@@ -24,6 +24,10 @@ import {
   QueuedMessageUpdateParams
 } from './structured-agent-session-schemas'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const update = {
   envelope: envelope(),
   messageId: 'card',

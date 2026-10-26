@@ -194,6 +194,11 @@ function buildIndex(
       ? parsePaneKey(orchestration.parentPaneKey)
       : null
     const targets = new Set<string>()
+    const chatWorktreeId =
+      orchestration.parentSession?.worktreeId ?? orchestration.session?.worktreeId
+    if (chatWorktreeId) {
+      targets.add(chatWorktreeId)
+    }
     if (parsed) {
       for (const worktreeId of worktreeIdsByTabId.get(parsed.tabId) ?? []) {
         targets.add(worktreeId)

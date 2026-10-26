@@ -93,6 +93,10 @@ The coordinator cannot see this ${surface}, so reach it with the \`${cli} orches
 commands below; a question or result left only in this ${surface} never gets to it.
 Don't post to Slack, GitHub, or other channels during the run; report through these commands.
 
+Do the assigned work yourself. This Dispatch does not authorize creating more agents.
+Additional Orca workers require an assignment card the user submits to this conversation;
+honor their exact count, provider, model, effort, and scope. Never use provider-native subagents.
+
 === CLI COMMANDS ===
 
 \`\`\`sh
@@ -245,7 +249,9 @@ function buildSubDispatchSection(cli: string, workerHandle: string): string {
   return `
 
 === SUB-DISPATCH ===
-You may start helper workers for this task. They work in this Dispatch's Run and
+Only if the user submitted an assignment card here for additional workers on this task, start them
+with the authorized count, provider, model, and effort. Available nesting depth is not
+authorization. They work in this Dispatch's Run and
 report to you: their questions, escalations, and worker_done arrive in your own
 \`check\`, and your coordinator's mail keeps arriving there too.
 
@@ -265,7 +271,9 @@ function buildOwnRunSubDispatchSection(cli: string): string {
   return `
 
 === SUB-DISPATCH ===
-You may dispatch sub-workers for this task. Create your own Run first, then:
+Only if the user submitted an assignment card here for additional workers on this task, start them
+with the authorized count, provider, model, and effort. Available nesting depth is not
+authorization. A new Run does not create authorization. For authorized work, create your own Run:
 
 \`\`\`sh
   ${cli} orchestration run-create --objective "<what the sub-workers are for>" --json

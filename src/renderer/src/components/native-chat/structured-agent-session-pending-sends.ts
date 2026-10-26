@@ -3,6 +3,7 @@
 
 import type { structuredAgentSessionSendBody } from '../../../../shared/structured-agent-session-send-mutation'
 import type { AgentJournalCursor } from '../../../../shared/agent-session-journal-types'
+import type { OrchestrationAgentSelection } from '../../../../shared/native-chat-orchestration-reference'
 
 export type StructuredAgentSessionPendingSend = {
   clientMessageId: string
@@ -13,6 +14,8 @@ export type StructuredAgentSessionPendingSend = {
   delivery?: 'queue-if-active'
   options?: Readonly<Record<string, string>>
   usageLimitContinuationOfTurnItemId?: string
+  /** The composer's assignment pills, sent beside the body to a host that records them. */
+  orchestrationCards?: readonly OrchestrationAgentSelection[]
   /**
    * `sending`: on its way, its one request out or about to be; the chat takes no other send meanwhile.
    * `recorded`: the host holds it; an open chat draws it until the host's row or card arrives.

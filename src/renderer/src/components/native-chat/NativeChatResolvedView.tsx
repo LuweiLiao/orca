@@ -7,7 +7,7 @@ import { useNativeChatLaunchDraftSignal } from './use-native-chat-launch-draft-a
 import { useNativeChatRetainedSession } from './use-native-chat-retained-session'
 import { isNativeChatTranscriptUnsettled } from './native-chat-live-session-contract'
 import { selectNativeChatViewState } from './native-chat-view-state'
-import { NativeChatMessageList } from './NativeChatMessageList'
+import { NativeChatComposerMessageList } from './NativeChatComposerMessageList'
 import {
   useNativeChatInteractiveSendReveal,
   useNativeChatRevealLatest
@@ -381,12 +381,12 @@ export function NativeChatResolvedView({
         ) : viewState.kind === 'empty' ? (
           <NativeChatEmptyState kind="empty" agent={agent} />
         ) : (
-          <NativeChatMessageList
+          <NativeChatComposerMessageList
             ref={messageListRef}
+            composerRef={shownPromptCard || !canSend ? null : composerRef}
             session={sessionWithPending}
             isVisible={isVisible}
             isWorking={turnActive}
-            expandSignal={false}
             {...turnTiming}
             awaitingInput={awaitingInput}
             onLinkClick={onLinkClick}

@@ -21,6 +21,10 @@ import {
   type AgentLaunchRuntimeStub
 } from './agent-launch.test-fixture'
 
+vi.mock('./agent-creation-caller-admission', async () =>
+  (await import('./agent-creation-caller-admission.test-support')).admitEveryAgentCreationCaller()
+)
+
 const createStructuredSession = vi.hoisted(() => vi.fn())
 vi.mock('./structured-agent-session-create', () => ({
   createStructuredAgentSessionForWorktree: createStructuredSession

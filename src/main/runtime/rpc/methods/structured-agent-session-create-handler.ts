@@ -19,6 +19,7 @@ import {
 } from './structured-agent-session-create'
 import { resolveUncommittedStructuredCreate } from './structured-agent-session-precommit-refusal'
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../shared/layout-owner-switch'
+import { assertPersonCreatesAgent } from './agent-creation-caller-admission'
 import {
   structuredAgentSessionClosedBeforeCreate,
   structuredAgentSessionClosedBeforeCreateRefusal
@@ -55,6 +56,7 @@ export async function attachClientSuppliedLocation(
   params: z.infer<typeof AttachParams>,
   ctx: RpcContext
 ): Promise<unknown> {
+  assertPersonCreatesAgent(ctx, 'agentSession.ensure')
   const { host, attachParams } = await resolveClientSuppliedAttach(params, ctx)
   return host.attach(callerFor(ctx), attachParams)
 }
@@ -64,6 +66,7 @@ export async function handleStructuredAgentSessionCreate(
   ctx: RpcContext
 ) {
   requireStructuredAgentAudience(ctx, params.agent)
+  assertPersonCreatesAgent(ctx, 'agentSession.create')
   if (params.envelope.expectedRuntimeFence !== null) {
     throw agentSessionRefusalError('agent_session_operation_invalid', {
       reason: 'requestMalformed'

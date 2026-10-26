@@ -88,6 +88,7 @@ export async function createStructuredWorkerSession(args: {
   options?: Readonly<Record<string, string>>
   /** Retried whenever the session's journal moves, which is the structured idle edge. */
   onJournalActivity: (sessionId: string) => void
+  onCreated?: (identity: StructuredWorkerIdentity) => void
 }): Promise<{
   identity: StructuredWorkerIdentity
   host: StructuredAgentSessionHost
@@ -112,6 +113,13 @@ export async function createStructuredWorkerSession(args: {
     hostScope: { kind: 'local', hostId: 'local' }
   })
   let created: Awaited<ReturnType<typeof createStructuredAgentSessionForWorktree>> | undefined
+  let recorded = false
+  const recordCreation = (): void => {
+    if (!recorded) {
+      args.onCreated?.(identity)
+      recorded = true
+    }
+  }
   try {
     created = await createStructuredAgentSessionForWorktree({
       runtime: args.runtime,
@@ -136,6 +144,9 @@ export async function createStructuredWorkerSession(args: {
       // Dispatching a worker is background work; it must not pull the surface away from the user.
       activate: false
     })
+    if (structuredCreateMayHaveCommitted(created)) {
+      recordCreation()
+    }
     if (!created.ok) {
       throw new OrchestrationError(
         'agent_unconfigured',
@@ -162,6 +173,7 @@ export async function createStructuredWorkerSession(args: {
     // that no dispatch owns and that nothing else in the runtime will ever retire.
     structuredWorkerIdentities.forget(identity.handle)
     if (structuredCreateMayHaveCommitted(created)) {
+      recordCreation()
       await discardStructuredWorkerSession(sessionId, args.runtime)
     }
     throw error

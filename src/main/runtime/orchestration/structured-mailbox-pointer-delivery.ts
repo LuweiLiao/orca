@@ -20,16 +20,16 @@ import {
   selectOrchestrationPointerBatch,
   type OrchestrationMessageWaiter
 } from './mailbox-pointer-eligibility'
-import {
-  resolveStructuredPointerOperation,
-  type StructuredPointerSubmission
-} from './structured-pointer-operation-id'
+import { resolveStructuredPointerOperation } from './structured-pointer-operation-id'
+import type {
+  StructuredMailboxPointerHost,
+  StructuredPointerSessionFacts
+} from './structured-mailbox-pointer-host'
 import { structuredMailSource } from './structured-mail-source'
 import type { SenderNameResolver } from './agent-message-sender'
 import {
   retainReasonForDispatch,
   structuredDispatchDelivered,
-  type StructuredDispatchState,
   type StructuredPointerRetainReason
 } from './structured-session-pointer-delivery'
 
@@ -47,35 +47,6 @@ export type StructuredPointerTarget = {
 type ParkedPointerDelivery = {
   sessionId: string
   reservedTypes: ReadonlySet<string> | undefined
-}
-
-export type StructuredPointerSendOutcome =
-  | { kind: 'sent'; state: StructuredDispatchState }
-  | { kind: 'held' }
-  /** The chat's queue took it, as it takes a person's message. */
-  | { kind: 'queued' }
-  | { kind: 'unattached' }
-
-export type StructuredPointerSessionFacts = {
-  /** Current-context sends, oldest first: what the lane's own sends settled as. */
-  submissions: readonly StructuredPointerSubmission[]
-}
-
-export type StructuredMailboxPointerHost = {
-  /** `null` when the session cannot be read. */
-  readSessionFacts: (sessionId: string) => Promise<StructuredPointerSessionFacts | null>
-  hasActionablePromptNow: (sessionId: string) => boolean | null
-  send: (input: {
-    sessionId: string
-    dispatchId: string | null
-    operationId: string
-    expectedRuntimeFence: number
-    /** Names its senders as `from`. */
-    body: AgentJournalMessageItem
-  }) => Promise<StructuredPointerSendOutcome>
-  /** Current lease fence; `null` when no record backs the session any more. */
-  currentFence: (sessionId: string) => number | null
-  currentContextClearOperationId: (sessionId: string) => string | undefined
 }
 
 type StructuredPointerDeliveryDependencies<TWaiter extends OrchestrationMessageWaiter> = {
@@ -117,6 +88,10 @@ export class OrchestrationStructuredMailboxPointerDelivery<
   /** The operation id this lane last sent per mailbox: a row holding any other id outlived the
    *  process that minted it. A fact, not a clock reading, so no clock step can fake it. */
   private readonly sentOperationIds = new Map<string, string>()
+  /** Set for the exact span of a mailbox's `await readSessionFacts`. */
+  private readonly readingFacts = new Set<string>()
+  /** A mailbox whose facts-read window saw an edge land mid-read; re-read before acting on it. */
+  private readonly rereadDuringFactsRead = new Set<string>()
 
   constructor(private readonly deps: StructuredPointerDeliveryDependencies<TWaiter>) {}
 
@@ -171,6 +146,10 @@ export class OrchestrationStructuredMailboxPointerDelivery<
     attemptedContexts = new Set<string>()
   ): Promise<void> {
     if (this.inFlight.has(mailboxHandle)) {
+      // Mid-`readSessionFacts` only: that read's result is now stale, so flag a re-read.
+      if (this.readingFacts.has(mailboxHandle)) {
+        this.rereadDuringFactsRead.add(mailboxHandle)
+      }
       return
     }
     this.inFlight.add(mailboxHandle)
@@ -198,7 +177,23 @@ export class OrchestrationStructuredMailboxPointerDelivery<
           sessionId: current.sessionId,
           reservedTypes: currentReservedTypes
         })
-        const session = await this.deps.host.readSessionFacts(current.sessionId)
+        this.rereadDuringFactsRead.delete(mailboxHandle)
+        this.readingFacts.add(mailboxHandle)
+        let session: StructuredPointerSessionFacts | null
+        try {
+          session = await this.deps.host.readSessionFacts(current.sessionId)
+        } finally {
+          this.readingFacts.delete(mailboxHandle)
+        }
+        // The snapshot changed mid-read; refresh it before attempting a send.
+        if (this.rereadDuringFactsRead.delete(mailboxHandle)) {
+          const reresolved = this.deps.resolveStructuredTarget(mailboxHandle)
+          if (!reresolved) {
+            return
+          }
+          current = reresolved
+          continue
+        }
         const contextClearOperationId = this.deps.host.currentContextClearOperationId(
           current.sessionId
         )
@@ -250,6 +245,7 @@ export class OrchestrationStructuredMailboxPointerDelivery<
       }
     } finally {
       this.inFlight.delete(mailboxHandle)
+      this.rereadDuringFactsRead.delete(mailboxHandle)
       // A thrown attempt follows too; its own failure is what still propagates.
       if (contextKey !== undefined) {
         await this.followChangedContext(
