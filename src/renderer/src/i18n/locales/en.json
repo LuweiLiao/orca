@@ -21420,5 +21420,57 @@
     "restartLocal": "Restart local daemon",
     "killAllLocal": "Kill all local sessions",
     "killFailed": "The terminal could not be ended. Last-observed sessions are retained."
+  },
+  "projectMap": {
+    "looseGroup": "No lineage or conversations",
+    "legendLabel": "Legend",
+    "legend": {
+      "workspace": "Workspace",
+      "conversation": "Conversation",
+      "derive": "Derived",
+      "delegate": "Delegated",
+      "unresolved": "Source not loaded"
+    },
+    "window": {
+      "openInTab": "Open in tab",
+      "close": "Close",
+      "noConversations": "{{name}} has no conversations yet.",
+      "openWorkspace": "Open workspace",
+      "summaryOnly": "This conversation is not running here. Open it to load the full history."
+    },
+    "node": {
+      "conversationCount": "{{count}} conversations",
+      "conversationCount_one": "{{count}} conversation",
+      "current": "Current",
+      "folderWorkspace": "Folder workspace",
+      "derivedFrom": "Derived",
+      "root": "Root",
+      "delegatedFrom": "Delegated",
+      "sourceNotLoaded": "Source not loaded",
+      "subagentCount": "{{count}} subagents",
+      "subagentCount_one": "{{count}} subagent",
+      "delegateCount": "Delegates {{count}}"
+    },
+    "title": "Project Map",
+    "project": "Project",
+    "stats": "{{workspaces}} workspaces · {{agents}} conversations",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "fit": "Fit to view",
+    "empty": "Add a project to see its workspaces and conversations here.",
+    "state": {
+      "working": "Working",
+      "monitoring": "Monitoring",
+      "blocked": "Blocked",
+      "waiting": "Waiting for input",
+      "done": "Done",
+      "idle": "Idle"
+    },
+    "settings": {
+      "showButton": "Show Project Map Button",
+      "showButtonDescription": "Show the Project Map button at the top of the left sidebar.",
+      "keywordMap": "project map",
+      "keywordGraph": "graph"
+    }
   }
 }

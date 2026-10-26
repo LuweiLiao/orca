@@ -5,6 +5,7 @@ import type { NativeChatGlobalSettings } from './native-chat-appearance-settings
 import type { WorktreeDeletionPreferences } from './worktree-deletion-preferences'
 import type { AgentPermissionGlobalSettings } from './tui-agent-permission-choice'
 import type { AgentReplyRuleSettings } from './agent-reply-rule-settings'
+import type { ProjectMapSettings } from './project-map-settings'
 
 /** Settings groups owned by their feature modules and composed into GlobalSettings. */
 export type GlobalSettingsBase = NativeChatGlobalSettings &
@@ -13,4 +14,5 @@ export type GlobalSettingsBase = NativeChatGlobalSettings &
   AgentPermissionGlobalSettings &
   ExternalConversationSettings &
   BrowserLinkOpeningSettings &
-  AgentReplyRuleSettings
+  AgentReplyRuleSettings &
+  ProjectMapSettings

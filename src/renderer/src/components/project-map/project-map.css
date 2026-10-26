@@ -1,0 +1,178 @@
+/* Blueprint canvas: node kinds and wire kinds map onto existing tokens; only mix ratios are local. */
+.project-map {
+  --pm-kind-workspace: var(--git-decoration-modified);
+  --pm-kind-folder: var(--muted-foreground);
+  --pm-kind-agent: var(--callout-important);
+  --pm-wire-derive: color-mix(in srgb, var(--pm-kind-workspace) 85%, var(--muted-foreground));
+  --pm-wire-delegate: color-mix(in srgb, var(--pm-kind-agent) 85%, var(--muted-foreground));
+  --pm-grid-minor: color-mix(in srgb, var(--foreground) 4%, transparent);
+  --pm-grid-major: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --pm-lane: color-mix(in srgb, var(--foreground) 2.5%, transparent);
+  --pm-lane-border: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --pm-header-mix: 30%;
+}
+.dark .project-map {
+  --pm-header-mix: 34%;
+}
+
+.project-map-viewport {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(var(--pm-grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pm-grid-major) 1px, transparent 1px),
+    linear-gradient(var(--pm-grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pm-grid-minor) 1px, transparent 1px);
+  background-size:
+    calc(128px * var(--pm-zoom, 1)) calc(128px * var(--pm-zoom, 1)),
+    calc(128px * var(--pm-zoom, 1)) calc(128px * var(--pm-zoom, 1)),
+    calc(16px * var(--pm-zoom, 1)) calc(16px * var(--pm-zoom, 1)),
+    calc(16px * var(--pm-zoom, 1)) calc(16px * var(--pm-zoom, 1));
+  background-position: var(--pm-pan-x, 0) var(--pm-pan-y, 0);
+}
+
+.project-map-lane {
+  border: 1px solid var(--pm-lane-border);
+  border-radius: var(--radius-lg);
+  background: var(--pm-lane);
+}
+.project-map-lane[data-current='true'] {
+  border-color: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+.project-map-loose {
+  border: 1px dashed var(--pm-lane-border);
+  border-radius: var(--radius-lg);
+}
+
+.project-map-node {
+  --pm-kind: var(--pm-kind-agent);
+  border-radius: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 6px 14px rgb(0 0 0 / 0.08);
+}
+.dark .project-map-node {
+  border-color: rgb(255 255 255 / 0.1);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 8px 18px rgb(0 0 0 / 0.35);
+}
+.project-map-node[data-kind='workspace'] {
+  --pm-kind: var(--pm-kind-workspace);
+}
+.project-map-node[data-kind='folder'] {
+  --pm-kind: var(--pm-kind-folder);
+}
+.project-map-node:hover {
+  border-color: color-mix(in srgb, var(--pm-kind) 45%, var(--border));
+}
+.project-map-node:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+.project-map-node[data-selected='true'] {
+  box-shadow:
+    0 0 0 2px var(--ring),
+    0 8px 18px rgb(0 0 0 / 0.3);
+}
+.project-map-viewport[data-focusing='true']
+  .project-map-node:not([data-selected='true']):not([data-linked='true']) {
+  opacity: 0.5;
+}
+.project-map-node-header {
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pm-kind) var(--pm-header-mix), var(--card)) 0%,
+    color-mix(in srgb, var(--pm-kind) 6%, var(--card)) 100%
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--pm-kind) 22%, var(--border));
+}
+.project-map-node-glyph {
+  color: color-mix(in srgb, var(--pm-kind) 70%, var(--foreground));
+}
+
+/* Pins straddle the node edge; wires attach to their centers. */
+.project-map-pin {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--background);
+}
+.project-map-pin[data-side='in'] {
+  left: -6px;
+}
+.project-map-pin[data-side='out'] {
+  right: -6px;
+}
+.project-map-pin[data-legend] {
+  position: static;
+  margin-top: 0;
+  flex-shrink: 0;
+}
+.project-map-pin[data-wire='derive'] {
+  background: var(--pm-wire-derive);
+}
+.project-map-pin[data-wire='delegate'] {
+  background: var(--pm-wire-delegate);
+}
+.project-map-pin[data-wire='unresolved'] {
+  background: var(--background);
+  border: 1.5px dashed var(--muted-foreground);
+  box-shadow: none;
+}
+
+.project-map-wire {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.project-map-wire[data-kind='derive'] {
+  stroke: var(--pm-wire-derive);
+}
+.project-map-wire[data-kind='delegate'] {
+  stroke: var(--pm-wire-delegate);
+}
+.project-map-wire[data-highlighted='true'] {
+  stroke-width: 3.2;
+}
+.project-map-viewport[data-focusing='true'] .project-map-wire:not([data-highlighted='true']) {
+  opacity: 0.28;
+}
+
+.project-map-window {
+  --pm-kind: var(--pm-kind-agent);
+  box-shadow:
+    0 18px 44px rgb(0 0 0 / 0.22),
+    0 0 0 1px color-mix(in srgb, var(--pm-kind) 20%, transparent);
+}
+.dark .project-map-window {
+  box-shadow:
+    0 22px 54px rgb(0 0 0 / 0.6),
+    0 0 0 1px color-mix(in srgb, var(--pm-kind) 26%, transparent);
+}
+.project-map-window[data-kind='workspace'] {
+  --pm-kind: var(--pm-kind-workspace);
+}
+.project-map-window[data-kind='folder'] {
+  --pm-kind: var(--pm-kind-folder);
+}
+.project-map-window-header {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pm-kind) 18%, var(--popover)),
+    var(--popover) 75%
+  );
+}
+
+.project-map-legend-swatch {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--pm-kind) 60%, var(--card)),
+    color-mix(in srgb, var(--pm-kind) 15%, var(--card))
+  );
+}

@@ -123,6 +123,20 @@ export const getShowPinnedWorktreesInGroupsEntry = createLocalizedCatalog(
   })
 )
 
+export const getProjectMapButtonEntry = createLocalizedCatalog((): SettingsSearchEntry => ({
+  title: translate('projectMap.settings.showButton', 'Show Project Map Button'),
+  description: translate(
+    'projectMap.settings.showButtonDescription',
+    'Show the Project Map button at the top of the left sidebar.'
+  ),
+  keywords: [
+    ...translateSearchKeyword('projectMap.settings.keywordMap', 'project map'),
+    ...translateSearchKeyword('projectMap.settings.keywordGraph', 'graph'),
+    ...translateSearchKeyword('auto.components.settings.appearance.search.5bff6a2ef0', 'sidebar'),
+    ...translateSearchKeyword('auto.components.settings.appearance.search.6cf5f54ce1', 'button')
+  ]
+}))
+
 export const getSidebarEntries = createLocalizedCatalog((): SettingsSearchEntry[] => [
   {
     title: translate('auto.components.settings.appearance.search.155a1e7438', 'Show Tasks Button'),
@@ -187,6 +201,7 @@ export const getSidebarEntries = createLocalizedCatalog((): SettingsSearchEntry[
       ...translateSearchKeyword('auto.components.settings.appearance.search.839fb1e3ed', 'toolbox')
     ]
   },
+  getProjectMapButtonEntry(),
   getWorkspaceCardLayoutEntry(),
   getLeftSidebarAppearanceEntry(),
   getShowPinnedWorktreesInGroupsEntry()
