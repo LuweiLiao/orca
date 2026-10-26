@@ -4,6 +4,7 @@ import { activeSurfacePatchMatchesState, buildActiveSurfacePatch } from './tabs-
 import type { TabGroup } from '../../../../../shared/tab-types'
 import {
   buildSplitNode,
+  distributeTabGroupSplit,
   collapseGroupLayout,
   replaceLeaf
 } from '../../../../../shared/workspace-layout/tab-group-layout-tree'
@@ -40,7 +41,10 @@ export function insertSplitGroup(
     },
     layoutByWorktree: {
       ...state.layoutByWorktree,
-      [worktreeId]: replaceLeaf(currentLayout, sourceGroupId, replacement)
+      [worktreeId]: distributeTabGroupSplit(
+        replaceLeaf(currentLayout, sourceGroupId, replacement),
+        newGroup.id
+      )
     },
     activeGroupIdByWorktree:
       target.activate === false

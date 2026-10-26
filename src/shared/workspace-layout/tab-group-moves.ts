@@ -1,5 +1,10 @@
 import type { TabGroupLayoutNode } from '../tab-types'
-import { buildSplitNode, replaceLeaf } from './tab-group-layout-tree'
+import {
+  buildSplitNode,
+  distributeTabGroupSplit,
+  removeGroupLayoutLeaf,
+  replaceLeaf
+} from './tab-group-layout-tree'
 import type { LayoutGroup } from './workspace-layout-model'
 
 /**
@@ -31,26 +36,12 @@ export function collectTabGroupLayoutGroupIds(
   return groupIds
 }
 
-/** Remove a leaf from the tree, collapsing the parent split into the sibling. */
+/** Remove a leaf from the tree; its space goes to the remaining panes of its row or column. */
 export function removeTabGroupLayoutLeaf(
   root: TabGroupLayoutNode | null | undefined,
   groupId: string
 ): TabGroupLayoutNode | null {
-  if (!root) {
-    return null
-  }
-  if (root.type === 'leaf') {
-    return root.groupId === groupId ? null : root
-  }
-  const first = removeTabGroupLayoutLeaf(root.first, groupId)
-  const second = removeTabGroupLayoutLeaf(root.second, groupId)
-  if (!first) {
-    return second
-  }
-  if (!second) {
-    return first
-  }
-  return { ...root, first, second }
+  return root ? removeGroupLayoutLeaf(root, groupId) : null
 }
 
 export type HeadlessTabGroupMoveResult = {
@@ -170,7 +161,9 @@ export function buildHeadlessTabGroupSplit(args: {
 
   return {
     groups,
-    layout: prunedLayout ?? { type: 'leaf', groupId: args.newGroupId },
+    layout: prunedLayout
+      ? distributeTabGroupSplit(prunedLayout, args.newGroupId)
+      : { type: 'leaf', groupId: args.newGroupId },
     newGroupId: args.newGroupId
   }
 }

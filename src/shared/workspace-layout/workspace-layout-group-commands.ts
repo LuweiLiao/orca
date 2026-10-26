@@ -5,7 +5,11 @@
 
 import type { TabGroupLayoutNode } from '../tab-types'
 import { buildHeadlessTabGroupMove, buildHeadlessTabGroupSplit } from './tab-group-moves'
-import { moveGroupLeafBeside, moveGroupLeafBesideBranch } from './tab-group-layout-tree'
+import {
+  distributeTabGroupSplit,
+  moveGroupLeafBeside,
+  moveGroupLeafBesideBranch
+} from './tab-group-layout-tree'
 import {
   applied,
   findTab,
@@ -111,11 +115,14 @@ export function splitGroup(
   }
   if (source.tabOrder.length === 1 && source.id !== command.besideGroupId) {
     // The group's only tab moves with its group, so the group keeps its id (ids never change).
-    const groupLayout = moveGroupLeafBeside(
-      workspace.groupLayout ?? { type: 'leaf', groupId: source.id },
-      source.id,
-      command.besideGroupId,
-      command.direction
+    const groupLayout = distributeTabGroupSplit(
+      moveGroupLeafBeside(
+        workspace.groupLayout ?? { type: 'leaf', groupId: source.id },
+        source.id,
+        command.besideGroupId,
+        command.direction
+      ),
+      source.id
     )
     return applied(withWorkspace(model, command.workspace, { ...workspace, groupLayout }), {
       groupId: source.id
@@ -228,7 +235,7 @@ export function openInNewGroup(
   if (!besideHeld && workspace.groups.length > 0) {
     return refuse('group_not_found')
   }
-  const groupLayout = besideHeld
+  const besideLayout = besideHeld
     ? moveGroupLeafBesideBranch(
         workspace.groupLayout ?? { type: 'leaf', groupId: split.besideGroupId },
         groupId,
@@ -237,6 +244,7 @@ export function openInNewGroup(
         split.direction
       )
     : undefined
+  const groupLayout = besideLayout ? distributeTabGroupSplit(besideLayout, groupId) : besideLayout
   // Both groups held, but no branch of main's tree holds them both.
   if (besideHeld && !groupLayout) {
     return refuse('invalid_params')
