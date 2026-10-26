@@ -149,8 +149,13 @@ it('retains conversation references and annotations across a refused structured 
   expect(sent).toContain(`${reference}\n\n> Source conclusion.\n\nCheck this claim.`)
   expect(sent).toContain('orca conversation read')
   expect(store.getSnapshot().notes).toHaveLength(1)
-  vi.mocked(structuredTransport.send).mockReturnValue(true)
+  // Admission reserves the notes for this message; the host's acceptance consumes them.
+  vi.mocked(structuredTransport.send).mockImplementation((_text, _attachments, request) => {
+    request?.onAdmitted?.('reference-send')
+    return true
+  })
   await send(reference, [])
+  acceptAnnotation(scope, 'reference-send')
   expect(store.getSnapshot().notes).toHaveLength(0)
 })
 
