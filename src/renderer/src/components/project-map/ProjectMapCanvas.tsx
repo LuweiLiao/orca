@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
 import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
@@ -7,6 +8,7 @@ import { PROJECT_MAP_NODE, type ProjectMapLayout } from './project-map-layout'
 import type { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapAgentNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
 import { ProjectMapChatWindow, type ProjectMapWindowSubject } from './ProjectMapChatWindow'
+import { ProjectMapForkPanel } from './ProjectMapForkPanel'
 import type { ProjectMapRect } from './project-map-window-placement'
 
 type Props = {
@@ -16,6 +18,15 @@ type Props = {
   activeWorktreeId: string | null
   onOpenAgent: (agent: ProjectMapAgent) => void
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
+  /** A fork made a chat; its lineage is worth reading again. */
+  onForked: () => void
+}
+
+/** A chat this renderer can fork: structured, on a host the map can reach by runtime RPC. */
+export function projectMapAgentForkable(agent: ProjectMapAgent | undefined): boolean {
+  return Boolean(
+    agent?.chat?.executionHostId && agent.card.hostKind !== 'ssh' && agent.card.hostKind !== 'wsl'
+  )
 }
 
 const EMPTY_WORKTREES: readonly { id: string; branch: string }[] = []
@@ -43,10 +54,14 @@ export function ProjectMapCanvas({
   viewport,
   activeWorktreeId,
   onOpenAgent,
-  onOpenWorkspace
+  onOpenWorkspace,
+  onForked
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [forkFor, setForkFor] = useState<string | null>(null)
+  // A new child shows up on a later snapshot; select it then, by its chat's session.
+  const [awaitedSession, setAwaitedSession] = useState<string | null>(null)
   const worktrees = useAppStore((s) => selectWorktreesByRepo(s)[graph.projectId] ?? EMPTY_WORKTREES)
   const branchById = useMemo(
     () =>
@@ -57,6 +72,16 @@ export function ProjectMapCanvas({
   )
   // A node that vanished (agent closed, project switched) takes its window with it.
   const selected = selectedId && layout.nodes.has(selectedId) ? selectedId : null
+  const forkOrigin = forkFor === selected && selected ? graph.agents.get(selected) : undefined
+
+  // Adjusted during render, not in an effect, so the new node never draws unselected first.
+  const arrived = awaitedSession
+    ? [...graph.agents.values()].find((agent) => agent.chat?.sessionId === awaitedSession)
+    : undefined
+  if (arrived && layout.nodes.has(arrived.card.paneKey)) {
+    setSelectedId(arrived.card.paneKey)
+    setAwaitedSession(null)
+  }
 
   const linked = useMemo(() => {
     const ids = new Set<string>()
@@ -115,6 +140,7 @@ export function ProjectMapCanvas({
       onClick={() => {
         if (!viewport.consumeDrag()) {
           setSelectedId(null)
+          setForkFor(null)
         }
       }}
       className="project-map-viewport relative min-h-0 flex-1 cursor-default overflow-hidden"
@@ -191,11 +217,38 @@ export function ProjectMapCanvas({
               current={box.id === activeWorktreeId}
             />
           ) : agent ? (
-            <ProjectMapAgentNode key={box.id} {...common} agent={agent} />
+            <ProjectMapAgentNode
+              key={box.id}
+              {...common}
+              agent={agent}
+              graphAgents={graph.agents}
+            />
           ) : null
         })}
+        {selected && projectMapAgentForkable(graph.agents.get(selected)) ? (
+          <ForkHandle
+            box={layout.nodes.get(selected)!}
+            open={forkOrigin !== undefined}
+            onOpen={() => setForkFor(selected)}
+          />
+        ) : null}
       </div>
-      {subject && anchor ? (
+      {forkOrigin && anchor ? (
+        <ProjectMapForkPanel
+          key={`fork:${selected}`}
+          origin={forkOrigin}
+          agents={graph.agents}
+          anchor={anchor}
+          viewport={viewport.size}
+          avoid={[...linked].flatMap((id) => toViewport(id) ?? [])}
+          onClose={() => setForkFor(null)}
+          onCreated={({ sessionId }) => {
+            setForkFor(null)
+            setAwaitedSession(sessionId)
+            onForked()
+          }}
+        />
+      ) : subject && anchor ? (
         <ProjectMapChatWindow
           key={selected}
           subject={subject}
@@ -205,6 +258,9 @@ export function ProjectMapCanvas({
           onClose={() => setSelectedId(null)}
           onOpenAgent={onOpenAgent}
           onOpenWorkspace={onOpenWorkspace}
+          {...(subject.kind === 'agent' && projectMapAgentForkable(subject.agent)
+            ? { onFork: () => setForkFor(selected) }
+            : {})}
         />
       ) : null}
       <ProjectMapLegend />
@@ -246,9 +302,48 @@ function ProjectMapLegend(): React.JSX.Element {
         {translate('projectMap.legend.delegate', 'Delegated')}
       </span>
       <span className={item}>
+        <span className="project-map-fork-pin" data-legend data-wire="fork" />
+        {translate('projectMap.legend.fork', 'Forked')}
+      </span>
+      <span className={item}>
+        <span className="project-map-fork-pin" data-legend data-wire="handoff" />
+        {translate('projectMap.legend.handoff', 'Handed off')}
+      </span>
+      <span className={item}>
         <span className="project-map-pin" data-legend data-wire="unresolved" />
         {translate('projectMap.legend.unresolved', 'Source not loaded')}
       </span>
     </div>
+  )
+}
+
+/** Sits on the selected node's fork pin, inside the scaled content so it pans with the node. */
+function ForkHandle({
+  box,
+  open,
+  onOpen
+}: {
+  box: { x: number; y: number; width: number }
+  open: boolean
+  onOpen: () => void
+}): React.JSX.Element {
+  const label = translate('projectMap.fork.title', 'New child chat')
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-expanded={open}
+      title={label}
+      data-project-map-fork-handle=""
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpen()
+      }}
+      className="project-map-fork-handle absolute z-10 grid size-[22px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-primary-foreground"
+      style={{ left: box.x + box.width + 4, top: box.y + PROJECT_MAP_NODE.headerPinOffsetY }}
+    >
+      <Plus aria-hidden className="size-3.5" />
+    </button>
   )
 }

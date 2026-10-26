@@ -3445,6 +3445,7 @@
   "projectMap": {
     "node": {
       "conversationCount_one": "{{count}} conversation",
+      "forkCount_one": "{{count}} fork",
       "subagentCount_one": "{{count}} subagent"
     }
   },

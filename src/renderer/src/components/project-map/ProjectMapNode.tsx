@@ -10,6 +10,7 @@ import { PROJECT_MAP_NODE, type ProjectMapNodeBox } from './project-map-layout'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
+type HeaderPinKind = 'fork' | 'handoff' | 'unresolved'
 
 type NodeShellProps = {
   box: ProjectMapNodeBox
@@ -23,6 +24,8 @@ type NodeShellProps = {
   rowRight?: React.ReactNode
   inPin?: PinKind
   outPin?: PinKind
+  headerInPin?: HeaderPinKind
+  headerOutPin?: HeaderPinKind
 }
 
 function NodeShell({
@@ -36,7 +39,9 @@ function NodeShell({
   rowLeft,
   rowRight,
   inPin,
-  outPin
+  outPin,
+  headerInPin,
+  headerOutPin
 }: NodeShellProps): React.JSX.Element {
   return (
     <button
@@ -56,8 +61,24 @@ function NodeShell({
       className="project-map-node absolute flex flex-col text-left text-foreground"
       style={{ left: box.x, top: box.y, width: box.width, height: PROJECT_MAP_NODE.height }}
     >
-      <span className="project-map-node-header flex h-10 w-full shrink-0 items-center gap-2 px-2.5">
+      <span className="project-map-node-header relative flex h-10 w-full shrink-0 items-center gap-2 px-2.5">
+        {headerInPin ? (
+          <span
+            aria-hidden
+            className="project-map-fork-pin"
+            data-side="in"
+            data-wire={headerInPin}
+          />
+        ) : null}
         {header}
+        {headerOutPin ? (
+          <span
+            aria-hidden
+            className="project-map-fork-pin"
+            data-side="out"
+            data-wire={headerOutPin}
+          />
+        ) : null}
       </span>
       <span className="relative flex h-[26px] w-full items-center gap-1.5 px-3 text-[11px] text-muted-foreground">
         {inPin ? (
@@ -139,12 +160,14 @@ export const ProjectMapWorkspaceNode = memo(function ProjectMapWorkspaceNode({
 export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   box,
   agent,
+  graphAgents,
   selected,
   linked,
   onSelect
 }: {
   box: ProjectMapNodeBox
   agent: ProjectMapAgent
+  graphAgents: ReadonlyMap<string, ProjectMapAgent>
   selected: boolean
   linked: boolean
   onSelect: (id: string) => void
@@ -153,11 +176,25 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   const state = dashboardCardDisplayState(card)
   const title = projectMapAgentTitle(card)
   const subagentCount = card.subagents?.length ?? 0
-  const rowLeft = agent.parentPaneKey
-    ? translate('projectMap.node.delegatedFrom', 'Delegated')
-    : agent.hasUnresolvedParent
-      ? translate('projectMap.node.sourceNotLoaded', 'Source not loaded')
-      : projectMapStateLabel(state)
+  const forkChildren = forkChildCount(agent, graphAgents)
+  const delegates = agent.childPaneKeys.length - forkChildren
+  const rowLeft = agent.fork ? (
+    <span className="project-map-fork-source">{forkSourceLabel(agent.fork)}</span>
+  ) : agent.parentPaneKey ? (
+    translate('projectMap.node.delegatedFrom', 'Delegated')
+  ) : agent.hasUnresolvedParent ? (
+    translate('projectMap.node.sourceNotLoaded', 'Source not loaded')
+  ) : (
+    projectMapStateLabel(state)
+  )
+  const rowRight =
+    subagentCount > 0
+      ? translate('projectMap.node.subagentCount', '{{count}} subagents', { count: subagentCount })
+      : forkChildren > 0
+        ? translate('projectMap.node.forkCount', '{{count}} forks', { count: forkChildren })
+        : delegates > 0
+          ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', { count: delegates })
+          : undefined
   return (
     <NodeShell
       box={box}
@@ -179,21 +216,48 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
         </>
       }
       rowLeft={rowLeft}
-      rowRight={
-        subagentCount > 0
-          ? translate('projectMap.node.subagentCount', '{{count}} subagents', {
-              count: subagentCount
-            })
-          : agent.childPaneKeys.length > 0
-            ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', {
-                count: agent.childPaneKeys.length
-              })
-            : undefined
-      }
+      rowRight={rowRight}
       inPin={
-        agent.parentPaneKey ? 'delegate' : agent.hasUnresolvedParent ? 'unresolved' : undefined
+        agent.fork
+          ? undefined
+          : agent.parentPaneKey
+            ? 'delegate'
+            : agent.hasUnresolvedParent
+              ? 'unresolved'
+              : undefined
       }
-      outPin={agent.childPaneKeys.length > 0 ? 'delegate' : undefined}
+      outPin={delegates > 0 ? 'delegate' : undefined}
+      headerInPin={
+        agent.fork
+          ? agent.parentPaneKey
+            ? agent.fork.mode === 'native'
+              ? 'fork'
+              : 'handoff'
+            : 'unresolved'
+          : undefined
+      }
+      headerOutPin={forkChildren > 0 ? 'fork' : undefined}
     />
   )
 })
+
+function forkChildCount(
+  agent: ProjectMapAgent,
+  agents: ReadonlyMap<string, ProjectMapAgent>
+): number {
+  return agent.childPaneKeys.filter((paneKey) => agents.get(paneKey)?.fork).length
+}
+
+function forkSourceLabel(fork: NonNullable<ProjectMapAgent['fork']>): string {
+  const values = {
+    source: fork.sourceTitle ?? translate('projectMap.node.closedSource', 'a closed chat'),
+    count: fork.messageCount
+  }
+  return fork.mode === 'native'
+    ? translate('projectMap.node.forkedFrom', 'Forked from {{source}} · {{count}} messages', values)
+    : translate(
+        'projectMap.node.handedOffFrom',
+        'Handed off from {{source}} · {{count}} messages',
+        values
+      )
+}

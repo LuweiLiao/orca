@@ -7,6 +7,11 @@ import type {
   DashboardSnapshot,
   DashboardWorkspace
 } from '../../../../shared/dashboard-snapshot'
+import type {
+  AgentSessionForkMode,
+  AgentSessionLineageEntry
+} from '../../../../shared/agent-session-fork'
+import type { ProjectMapChat } from './project-map-lineage'
 
 export type ProjectMapProject = {
   id: string
@@ -26,17 +31,35 @@ export type ProjectMapAgent = {
   card: DashboardCard
   /** The structured chat behind the card, when the runtime published it. */
   session?: OrchestrationChatSession
-  /** Present only when the delegating agent is in the same project. */
+  /** The structured chat this card shows, from its tab or the published session. */
+  chat?: ProjectMapChat
+  /** Present only when the delegating or forked-from agent is in the same project. */
   parentPaneKey: string | null
-  /** The card's delegator is known but outside this project or not loaded. */
+  /** The card's delegator or fork source is known but outside this project or not loaded. */
   hasUnresolvedParent: boolean
   childPaneKeys: string[]
+  /** Set when this chat was forked from another; its parent above is that source. */
+  fork?: {
+    mode: AgentSessionForkMode
+    messageCount: number
+    sourceTitle: string | null
+    entry: AgentSessionLineageEntry
+  }
 }
 
+export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork' | 'handoff'
+
 export type ProjectMapEdge = {
-  kind: 'derive' | 'delegate'
+  kind: ProjectMapEdgeKind
   from: string
   to: string
+}
+
+/** Forks the hosts recorded, and the chat behind each card, for drawing fork edges. */
+export type ProjectMapForkInput = {
+  chatsByPaneKey: ReadonlyMap<string, ProjectMapChat>
+  lineage: ReadonlyMap<string, AgentSessionLineageEntry>
+  titleOf: (card: DashboardCard) => string
 }
 
 export type ProjectMapGraph = {
@@ -78,7 +101,8 @@ const byName = (a: { name: string }, b: { name: string }): number => a.name.loca
 export function buildProjectMapGraph(
   snapshot: DashboardSnapshot,
   projectId: string,
-  sessionsByPaneKey: ReadonlyMap<string, OrchestrationChatSession> = new Map()
+  sessionsByPaneKey: ReadonlyMap<string, OrchestrationChatSession> = new Map(),
+  forks?: ProjectMapForkInput
 ): ProjectMapGraph {
   const workspaces = new Map<string, ProjectMapWorkspace>()
   for (const workspace of snapshot.workspaces ?? []) {
@@ -129,18 +153,39 @@ export function buildProjectMapGraph(
       workspace.worktreeId === listed.worktreeId
         ? listed
         : { ...listed, worktreeId: workspace.worktreeId, worktreeName: workspace.worktreeName }
+    const chat = forks?.chatsByPaneKey.get(listed.paneKey)
     agents.set(card.paneKey, {
       card,
       ...(session ? { session } : {}),
+      ...(chat ? { chat } : {}),
       parentPaneKey: null,
       hasUnresolvedParent: false,
       childPaneKeys: []
     })
     workspace.agentPaneKeys.push(card.paneKey)
   }
+  const paneKeyBySession = new Map(
+    [...agents.values()].flatMap((agent) =>
+      agent.chat ? [[agent.chat.sessionId, agent.card.paneKey] as const] : []
+    )
+  )
   for (const agent of agents.values()) {
-    const parentKey = agent.card.parentPaneKey
+    const entry = agent.chat ? forks?.lineage.get(agent.chat.sessionId) : undefined
+    // A fork is the person's own chat, never a worker, so its source is its only parent.
+    const parentKey = entry
+      ? (paneKeyBySession.get(entry.sourceSessionId) ?? null)
+      : (agent.card.parentPaneKey ?? null)
+    if (entry) {
+      const source = parentKey ? agents.get(parentKey) : undefined
+      agent.fork = {
+        mode: entry.mode,
+        messageCount: entry.cut.messageCount,
+        sourceTitle: source && forks ? forks.titleOf(source.card) : null,
+        entry
+      }
+    }
     if (!parentKey || parentKey === agent.card.paneKey) {
+      agent.hasUnresolvedParent = Boolean(entry)
       continue
     }
     const parent = agents.get(parentKey)
@@ -150,7 +195,11 @@ export function buildProjectMapGraph(
     }
     agent.parentPaneKey = parentKey
     parent.childPaneKeys.push(agent.card.paneKey)
-    edges.push({ kind: 'delegate', from: parentKey, to: agent.card.paneKey })
+    edges.push({
+      kind: entry ? (entry.mode === 'native' ? 'fork' : 'handoff') : 'delegate',
+      from: parentKey,
+      to: agent.card.paneKey
+    })
   }
   return { projectId, workspaces, agents, edges }
 }

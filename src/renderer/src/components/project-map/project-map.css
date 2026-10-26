@@ -5,6 +5,7 @@
   --pm-kind-agent: var(--callout-important);
   --pm-wire-derive: color-mix(in srgb, var(--pm-kind-workspace) 85%, var(--muted-foreground));
   --pm-wire-delegate: color-mix(in srgb, var(--pm-kind-agent) 85%, var(--muted-foreground));
+  --pm-wire-fork: color-mix(in srgb, var(--callout-note) 90%, var(--muted-foreground));
   --pm-grid-minor: color-mix(in srgb, var(--foreground) 4%, transparent);
   --pm-grid-major: color-mix(in srgb, var(--foreground) 8%, transparent);
   --pm-lane: color-mix(in srgb, var(--foreground) 2.5%, transparent);
@@ -126,6 +127,38 @@
   box-shadow: none;
 }
 
+/* Fork pins are exec-style triangles in the header: they carry the conversation itself. */
+.project-map-fork-pin {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 12px;
+  margin-top: -6px;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  background: var(--pm-wire-fork);
+}
+.project-map-fork-pin[data-side='in'] {
+  left: -6px;
+}
+.project-map-fork-pin[data-side='out'] {
+  right: -7px;
+}
+.project-map-fork-pin[data-wire='handoff'] {
+  background: color-mix(in srgb, var(--pm-wire-fork) 45%, var(--card));
+}
+.project-map-fork-pin[data-wire='unresolved'] {
+  background: var(--muted-foreground);
+  opacity: 0.6;
+}
+.project-map-fork-pin[data-legend] {
+  position: static;
+  margin-top: 0;
+  flex-shrink: 0;
+}
+.project-map-fork-source {
+  color: color-mix(in srgb, var(--pm-wire-fork) 80%, var(--foreground));
+}
+
 .project-map-wire {
   fill: none;
   stroke-width: 2;
@@ -136,6 +169,14 @@
 }
 .project-map-wire[data-kind='delegate'] {
   stroke: var(--pm-wire-delegate);
+}
+.project-map-wire[data-kind='fork'] {
+  stroke: var(--pm-wire-fork);
+}
+/* Dashed: another provider got the messages as text, not the conversation itself. */
+.project-map-wire[data-kind='handoff'] {
+  stroke: var(--pm-wire-fork);
+  stroke-dasharray: 7 5;
 }
 .project-map-wire[data-highlighted='true'] {
   stroke-width: 3.2;
@@ -175,4 +216,10 @@
     color-mix(in srgb, var(--pm-kind) 60%, var(--card)),
     color-mix(in srgb, var(--pm-kind) 15%, var(--card))
   );
+}
+
+.project-map-fork-handle {
+  box-shadow:
+    0 0 0 3px var(--background),
+    0 4px 10px rgb(0 0 0 / 0.2);
 }

@@ -30,10 +30,28 @@ export async function materializeClaudeRewindTranscript(
   if (!fork.throughEntryId) {
     return { ...fork, materialized: true }
   }
+  const copy = await forkClaudeTranscript(sourcePath, fork.sourceSessionId, fork.throughEntryId)
+  return { ...fork, sessionId: copy.sessionId, resumeCursor: copy.resumeCursor, materialized: true }
+}
+
+export type ClaudeTranscriptCopy = {
+  sessionId: string
+  resumeCursor: string
+  /** The source message the copy ends at, in the source's own ids. */
+  lastSourceMessageId: string
+}
+
+/** Writes a new transcript beside the source, through `throughEntryId` or the whole conversation. */
+export async function forkClaudeTranscript(
+  sourcePath: string,
+  sourceSessionId: string,
+  throughEntryId?: string
+): Promise<ClaudeTranscriptCopy> {
   const { forkSession } = await loadClaudeAgentSdk()
   let resumeCursor: string | undefined
-  const result = await forkSession(fork.sourceSessionId, {
-    upToMessageId: fork.throughEntryId,
+  let lastSourceMessageId: string | undefined
+  const result = await forkSession(sourceSessionId, {
+    ...(throughEntryId ? { upToMessageId: throughEntryId } : {}),
     // Pin reads and writes to the resolved account without mutating process.env.
     sessionStore: {
       load: async () => {
@@ -48,6 +66,12 @@ export async function materializeClaudeRewindTranscript(
             entries.push(entry)
           }
         }
+        const kept = throughEntryId
+          ? entries.slice(0, entries.findIndex((entry) => entry.uuid === throughEntryId) + 1)
+          : entries
+        lastSourceMessageId = kept.findLast(
+          (entry) => entry.type === 'assistant' || entry.type === 'user'
+        )?.uuid
         return entries
       },
       append: async (key, entries) => {
@@ -55,7 +79,7 @@ export async function materializeClaudeRewindTranscript(
           (entry) => entry.type === 'assistant' || entry.type === 'user'
         )?.uuid
         if (!resumeCursor) {
-          throw new Error('claude rewind fork is missing its resume point')
+          throw new Error('claude transcript fork is missing its resume point')
         }
         const destination = join(dirname(sourcePath), `${key.sessionId}.jsonl`)
         const temporary = durableWriteTempPath(destination)
@@ -72,5 +96,8 @@ export async function materializeClaudeRewindTranscript(
       }
     }
   })
-  return { ...fork, sessionId: result.sessionId, resumeCursor, materialized: true }
+  if (!resumeCursor || !lastSourceMessageId) {
+    throw new Error('claude transcript fork is missing its resume point')
+  }
+  return { sessionId: result.sessionId, resumeCursor, lastSourceMessageId }
 }

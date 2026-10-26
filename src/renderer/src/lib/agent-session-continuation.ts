@@ -1,5 +1,5 @@
 import { splitOpenCodeSqliteCandidate } from '../../../shared/opencode-sqlite-session-path'
-import { buildBoundedSessionTranscript } from '@/lib/agent-session-fork-context'
+import { buildBoundedSessionTranscript } from '../../../shared/agent-session-fork-context'
 import type { LaunchSource } from '../../../shared/telemetry-events'
 import type { TuiAgent } from '../../../shared/tui-agent'
 

@@ -21374,7 +21374,9 @@
       "conversation": "对话",
       "derive": "派生",
       "delegate": "委派",
-      "unresolved": "来源未加载"
+      "unresolved": "来源未加载",
+      "fork": "分叉",
+      "handoff": "交接"
     },
     "window": {
       "openInTab": "在标签页中打开",
@@ -21392,7 +21394,11 @@
       "delegatedFrom": "委派自上级",
       "sourceNotLoaded": "来源未加载",
       "subagentCount": "{{count}} 个子 Agent",
-      "delegateCount": "委派 {{count}} 个"
+      "delegateCount": "委派 {{count}} 个",
+      "forkCount": "分叉 {{count}}",
+      "closedSource": "已关闭的对话",
+      "forkedFrom": "分叉自 {{source}} · {{count}} 条",
+      "handedOffFrom": "交接自 {{source}} · {{count}} 条"
     },
     "title": "项目关系图",
     "project": "项目",
@@ -21414,6 +21420,30 @@
       "showButtonDescription": "在左侧边栏顶部显示项目关系图按钮。",
       "keywordMap": "项目关系图",
       "keywordGraph": "关系图"
+    },
+    "fork": {
+      "title": "新建子对话",
+      "subtitle": "从「{{name}}」",
+      "inheritFrom": "继承来源",
+      "relation": {
+        "self": "本对话",
+        "parent": "父节点",
+        "grandparent": "祖父节点",
+        "ancestor": "上 {{count}} 级"
+      },
+      "cutForkPoint": "当初分出下一级的那个点",
+      "cutLatest": "到最近一轮完成时",
+      "agent": "Agent",
+      "nativeHint": "有保存的对话就整段复制，工具调用记录也带过去；没有就把消息整理成文字交过去。",
+      "handoffHint": "把消息整理成文字交过去：工具输出和图片只留摘要，不完整复制。",
+      "sharedWorkspace": "「{{name}}」也在这个工作区运行，两边可能会改同一批文件。",
+      "instruction": "第一条指令（可选）",
+      "instructionPlaceholder": "留空：对话打开后等你输入。",
+      "sourceWorking": "这个对话还在运行，等这一轮结束再从它分出。",
+      "unavailable": "这个对话不能在这里继续。",
+      "cancel": "取消",
+      "creating": "创建中…",
+      "create": "创建子对话"
     }
   }
 }

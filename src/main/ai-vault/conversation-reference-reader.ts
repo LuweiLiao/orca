@@ -69,19 +69,17 @@ export async function createLocalConversationReference(
   )
 }
 
-function feedJournal(
-  snapshot: AgentJournalSnapshot,
-  push: ReturnType<typeof collectConversationReferencePage>['push']
-): void {
-  const truncated = new Set(
-    snapshot.items
-      .filter(({ body }) =>
-        body.kind === 'tool-call'
-          ? body.output?.truncated
-          : body.kind === 'diff' && body.patch.truncated
-      )
-      .map((item) => item.itemId)
-  )
+type JournalConversationMessage = {
+  id: string
+  role: 'user' | 'assistant' | 'tool'
+  text: string
+  timestamp: number | null
+}
+
+/** A chat's sent messages as plain text, the way a reference or a fork reads them. */
+export function* journalConversationMessages(
+  snapshot: AgentJournalSnapshot
+): Generator<JournalConversationMessage> {
   for (const message of projectStructuredAgentSessionMessages(
     snapshot.items,
     [],
@@ -111,13 +109,31 @@ function feedJournal(
       })
       .join('\n')
     if (text) {
-      push({
-        role: message.role,
-        text,
-        timestamp: message.timestamp === null ? null : new Date(message.timestamp).toISOString(),
-        ...(truncated.has(message.id) ? { textTruncated: true } : {})
-      })
+      yield { id: message.id, role: message.role, text, timestamp: message.timestamp }
     }
+  }
+}
+
+function feedJournal(
+  snapshot: AgentJournalSnapshot,
+  push: ReturnType<typeof collectConversationReferencePage>['push']
+): void {
+  const truncated = new Set(
+    snapshot.items
+      .filter(({ body }) =>
+        body.kind === 'tool-call'
+          ? body.output?.truncated
+          : body.kind === 'diff' && body.patch.truncated
+      )
+      .map((item) => item.itemId)
+  )
+  for (const message of journalConversationMessages(snapshot)) {
+    push({
+      role: message.role,
+      text: message.text,
+      timestamp: message.timestamp === null ? null : new Date(message.timestamp).toISOString(),
+      ...(truncated.has(message.id) ? { textTruncated: true } : {})
+    })
   }
 }
 

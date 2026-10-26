@@ -21,6 +21,9 @@ import {
   type ProjectMapWorkspace
 } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
+import { projectMapAgentTitle } from './project-map-labels'
+import { projectMapChatsByPaneKey } from './project-map-lineage'
+import { useProjectMapLineage } from './use-project-map-lineage'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
 import './project-map.css'
@@ -31,6 +34,13 @@ export default function ProjectMapPage(): React.JSX.Element {
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const orchestration = useAppStore((s) => s.runtimeAgentOrchestrationByPaneKey)
   const sessions = useMemo(() => projectMapChatSessions(orchestration), [orchestration])
+  const tabsByWorktree = useAppStore((s) => s.unifiedTabsByWorktree)
+  const chats = useMemo(
+    () => projectMapChatsByPaneKey(snapshot.cards, tabsByWorktree, sessions),
+    [sessions, snapshot.cards, tabsByWorktree]
+  )
+  const [lineageRevision, setLineageRevision] = useState(0)
+  const lineage = useProjectMapLineage(chats, lineageRevision)
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
   const projectId =
@@ -41,8 +51,15 @@ export default function ProjectMapPage(): React.JSX.Element {
     null
   const project = projects.find((candidate) => candidate.id === projectId) ?? null
   const graph = useMemo(
-    () => (projectId ? buildProjectMapGraph(snapshot, projectId, sessions) : null),
-    [projectId, sessions, snapshot]
+    () =>
+      projectId
+        ? buildProjectMapGraph(snapshot, projectId, sessions, {
+            chatsByPaneKey: chats,
+            lineage,
+            titleOf: projectMapAgentTitle
+          })
+        : null,
+    [chats, lineage, projectId, sessions, snapshot]
   )
   const layout = useMemo(() => (graph ? layoutProjectMap(graph) : null), [graph])
   const contentWidth = layout?.width ?? 0
@@ -154,6 +171,7 @@ export default function ProjectMapPage(): React.JSX.Element {
           activeWorktreeId={activeWorktreeId}
           onOpenAgent={openAgent}
           onOpenWorkspace={openWorkspace}
+          onForked={() => setLineageRevision((revision) => revision + 1)}
         />
       ) : (
         <div

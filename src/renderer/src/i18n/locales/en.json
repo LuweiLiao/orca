@@ -21490,7 +21490,9 @@
       "conversation": "Conversation",
       "derive": "Derived",
       "delegate": "Delegated",
-      "unresolved": "Source not loaded"
+      "unresolved": "Source not loaded",
+      "fork": "Forked",
+      "handoff": "Handed off"
     },
     "window": {
       "openInTab": "Open in tab",
@@ -21510,7 +21512,12 @@
       "sourceNotLoaded": "Source not loaded",
       "subagentCount": "{{count}} subagents",
       "subagentCount_one": "{{count}} subagent",
-      "delegateCount": "Delegates {{count}}"
+      "delegateCount": "Delegates {{count}}",
+      "forkCount": "{{count}} forks",
+      "forkCount_one": "{{count}} fork",
+      "closedSource": "a closed chat",
+      "forkedFrom": "Forked from {{source}} · {{count}} messages",
+      "handedOffFrom": "Handed off from {{source}} · {{count}} messages"
     },
     "title": "Project Map",
     "project": "Project",
@@ -21532,6 +21539,30 @@
       "showButtonDescription": "Show the Project Map button at the top of the left sidebar.",
       "keywordMap": "project map",
       "keywordGraph": "graph"
+    },
+    "fork": {
+      "title": "New child chat",
+      "subtitle": "From {{name}}",
+      "inheritFrom": "Inherit from",
+      "relation": {
+        "self": "This chat",
+        "parent": "Parent",
+        "grandparent": "Grandparent",
+        "ancestor": "{{count}} levels up"
+      },
+      "cutForkPoint": "Where it forked the next chat",
+      "cutLatest": "Through its last completed turn",
+      "agent": "Agent",
+      "nativeHint": "Copies the saved conversation, tool calls included; without one, hands over its messages as text.",
+      "handoffHint": "Hands over the messages as text: tool output and images are summarised, not copied.",
+      "sharedWorkspace": "{{name}} is also working in this workspace; both may edit the same files.",
+      "instruction": "First instruction (optional)",
+      "instructionPlaceholder": "Empty: the chat opens and waits for you.",
+      "sourceWorking": "That chat is still working; continue from it once its turn ends.",
+      "unavailable": "This chat cannot be continued here.",
+      "cancel": "Cancel",
+      "creating": "Creating…",
+      "create": "Create child chat"
     }
   }
 }

@@ -4,8 +4,10 @@ export const PROJECT_MAP_NODE = {
   workspaceWidth: 172,
   agentWidth: 224,
   height: 66,
-  /** Pins sit on the body row, below the 40px header. */
-  pinOffsetY: 53
+  /** Delegate and derive pins sit on the body row, below the 40px header. */
+  pinOffsetY: 53,
+  /** Fork pins sit in the header: a fork carries the conversation, not a task. */
+  headerPinOffsetY: 20
 } as const
 
 const WORKSPACE_COLUMN = PROJECT_MAP_NODE.workspaceWidth + 44
@@ -155,15 +157,14 @@ export function layoutProjectMap(graph: ProjectMapGraph): ProjectMapLayout {
     if (!from || !to) {
       return []
     }
+    const pinY =
+      edge.kind === 'fork' || edge.kind === 'handoff'
+        ? PROJECT_MAP_NODE.headerPinOffsetY
+        : PROJECT_MAP_NODE.pinOffsetY
     return [
       {
         ...edge,
-        path: wirePath(
-          from.x + from.width,
-          from.y + PROJECT_MAP_NODE.pinOffsetY,
-          to.x,
-          to.y + PROJECT_MAP_NODE.pinOffsetY
-        )
+        path: wirePath(from.x + from.width, from.y + pinY, to.x, to.y + pinY)
       }
     ]
   })

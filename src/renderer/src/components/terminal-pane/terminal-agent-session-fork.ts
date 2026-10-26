@@ -4,7 +4,7 @@ import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import {
   buildAgentSessionForkPrompt,
   buildBoundedSessionTranscript
-} from '@/lib/agent-session-fork-context'
+} from '../../../../shared/agent-session-fork-context'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import { resolveOwner } from '@/lib/resolve-owner'
 import { toRuntimeExecutionHostId, type ExecutionHostId } from '../../../../shared/execution-host'

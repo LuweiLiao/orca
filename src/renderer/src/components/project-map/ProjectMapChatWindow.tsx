@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Folder, GitBranch, Maximize2, MessageSquarePlus, XIcon } from 'lucide-react'
+import { Folder, GitBranch, GitFork, Maximize2, MessageSquarePlus, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AgentTypeIcon } from '@/lib/agent-type-icon'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
@@ -26,6 +26,8 @@ type Props = {
   onClose: () => void
   onOpenAgent: (agent: ProjectMapAgent) => void
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
+  /** Present when this chat can seed a child chat. */
+  onFork?: () => void
 }
 
 const DEFAULT_SIZE = { width: 480, height: 640 }
@@ -37,7 +39,8 @@ export function ProjectMapChatWindow({
   avoid,
   onClose,
   onOpenAgent,
-  onOpenWorkspace
+  onOpenWorkspace,
+  onFork
 }: Props): React.JSX.Element {
   // Placed once per mount; the canvas keys this window by node, so opening another node re-anchors.
   const [position, setPosition] = useState(() =>
@@ -115,6 +118,18 @@ export function ProjectMapChatWindow({
         ) : (
           <WorkspaceHeader workspace={subject.workspace} />
         )}
+        {onFork ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={translate('projectMap.fork.title', 'New child chat')}
+            title={translate('projectMap.fork.title', 'New child chat')}
+            onClick={onFork}
+          >
+            <GitFork className="size-3.5" />
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"

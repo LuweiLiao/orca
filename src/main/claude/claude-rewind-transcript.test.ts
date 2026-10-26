@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { claudeProviderHandle } from '../../shared/agent-session-provider-handle-encoding'
 import { resolveClaudeRewindFork } from './claude-rewind-fork'
+import { forkClaudeTranscript } from './claude-rewind-transcript'
 
 let root: string
 let home: string
@@ -116,5 +117,25 @@ describe('durable Claude rewind transcripts', () => {
     expect(contents).toContain('ALPHA')
     expect(contents).not.toContain('BRAVO')
     expect(await readFile(path, 'utf8')).toBe(damaged)
+  })
+})
+
+describe('a Claude transcript copied for a forked chat', () => {
+  it('copies the whole conversation beside the source and names the last message it took', async () => {
+    const copy = await forkClaudeTranscript(path, source)
+    expect(copy.lastSourceMessageId).toBe(secondPrompt)
+    const contents = await readFile(join(project, `${copy.sessionId}.jsonl`), 'utf8')
+    expect(contents).toContain('ALPHA')
+    expect(contents).toContain('BRAVO')
+    expect(copy.sessionId).not.toBe(source)
+    expect(await readFile(path, 'utf8')).toBe(original)
+  })
+
+  it('stops at an earlier message when a later child starts at the same point', async () => {
+    const copy = await forkClaudeTranscript(path, source, firstAnswer)
+    expect(copy.lastSourceMessageId).toBe(firstAnswer)
+    const contents = await readFile(join(project, `${copy.sessionId}.jsonl`), 'utf8')
+    expect(contents).toContain('ALPHA')
+    expect(contents).not.toContain('BRAVO')
   })
 })
