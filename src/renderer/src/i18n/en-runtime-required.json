@@ -2894,6 +2894,12 @@
       "tooLargeCount_other": "This view has {{count}} items — too large to render in Orca. Narrow the view's filter on GitHub."
     }
   },
+  "projectMap": {
+    "node": {
+      "conversationCount_one": "{{count}} conversation",
+      "subagentCount_one": "{{count}} subagent"
+    }
+  },
   "resourceManager": {
     "pty": {
       "localOwnedCount_one": "{{count}} Orca PTY on this computer",

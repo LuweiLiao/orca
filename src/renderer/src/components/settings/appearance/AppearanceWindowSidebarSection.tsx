@@ -27,6 +27,7 @@ import {
 } from './appearance-usage-percentage-search'
 
 import { LeftSidebarAppearanceSetting } from './LeftSidebarAppearanceSetting'
+import { ProjectMapButtonSetting } from './ProjectMapButtonSetting'
 import { getStatusBarUsageFormatEntry } from './appearance-status-bar-usage-format-search'
 import { StatusBarUsageFormatSetting } from './StatusBarUsageFormatSetting'
 
@@ -337,6 +338,11 @@ export function AppearanceWindowSidebarSection({
                   }
                 />
               </SearchableSetting>
+
+              <ProjectMapButtonSetting
+                shown={settings.showProjectMapButton !== false}
+                onToggle={(shown) => updateSettings({ showProjectMapButton: shown })}
+              />
 
               <SearchableSetting
                 title={getShowPinnedWorktreesInGroupsEntry().title}
