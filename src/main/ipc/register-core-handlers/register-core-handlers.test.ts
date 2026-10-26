@@ -179,6 +179,10 @@ vi.mock('../runtime-client-window', () => ({
   registerRuntimeClientWindowHandlers: vi.fn()
 }))
 
+vi.mock('../agent-sudo', () => ({
+  registerAgentSudoHandlers: vi.fn()
+}))
+
 vi.mock('../../window/dashboard-popout-window', () => ({
   isDashboardPopoutRenderer: isDashboardPopoutRendererMock
 }))
