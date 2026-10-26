@@ -13466,6 +13466,33 @@
           "manualDeleteWarning": "Only do this if no other machine sharing this home runs Orca for this profile.",
           "close": "Close",
           "reclaimedNotStarted": "The lock was cleared, but Orca’s server did not start."
+        },
+        "agentSudo": {
+          "search": {
+            "agent": "agent",
+            "description": "Save your sudo password so agents in local terminals stop hanging on sudo, with optional automatic entry.",
+            "password": "password",
+            "root": "root",
+            "sudo": "sudo",
+            "terminal": "terminal",
+            "title": "sudo password"
+          }
+        },
+        "AgentSudoExperimentalSetting": {
+          "autoOff": "Off: Orca shows each sudo command and waits for you to allow it. Unanswered requests are denied after two minutes.",
+          "autoOn": "Orca enters the password without asking. Any command in an Orca terminal, including one a prompt-injected agent runs, gets root.",
+          "autoTitle": "Enter password automatically",
+          "autoToggleLabel": "Toggle automatic sudo password entry",
+          "configured": "Password saved",
+          "description": "Agents run commands without a terminal to type into, so sudo waits forever for a password. Save it here and Orca answers sudo in local terminals opened afterwards. SSH and WSL terminals are not covered.",
+          "placeholder": "Your login password",
+          "rejected": "sudo rejected the saved password, so Orca stopped entering it. Save the correct password to resume.",
+          "remove": "Remove",
+          "replace": "Replace",
+          "save": "Save",
+          "saveFailed": "Could not update the sudo password",
+          "storage": "Sealed with your OS keyring and never sent to paired phones or web clients.",
+          "storageUnavailable": "Saving is disabled: a sudo password needs real OS keyring protection. {{reason}}"
         }
       },
       "right": {
@@ -21420,5 +21447,16 @@
     "restartLocal": "Restart local daemon",
     "killAllLocal": "Kill all local sessions",
     "killFailed": "The terminal could not be ended. Last-observed sessions are retained."
+  },
+  "agentSudo": {
+    "confirm": {
+      "allow": "Allow",
+      "command": "Command: {{command}}",
+      "cwd": "Directory: {{cwd}}",
+      "deny": "Deny",
+      "message": "A terminal in Orca is asking for your sudo password.",
+      "risk": "Allowing gives this command root access. Deny unless you expected it.",
+      "title": "Allow sudo?"
+    }
   }
 }

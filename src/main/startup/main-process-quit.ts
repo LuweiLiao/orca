@@ -6,6 +6,7 @@ import { killAllPty } from '../ipc/pty/kill-all'
 import { disconnectDaemon, shutdownDaemon } from '../daemon/daemon-provider-state'
 import { beginSshShutdown } from '../ipc/ssh/ssh-shutdown-drain'
 import { agentHookServer } from '../agent-hooks/server'
+import { agentSudoService } from '../agent-sudo/agent-sudo-service'
 import { wslHookRelayManager } from '../agent-hooks/wsl-hook-relay-manager'
 import { removeManagedAgentHooksAsync } from '../agent-hooks/managed-agent-hook-controls'
 import { stopStructuredAgentSessionRuntime } from '../runtime/structured-agent-session-runtime'
@@ -168,6 +169,7 @@ function installWillQuitHandler(): void {
     // Why keepStatus: the chat teardown above reads each chat's background work from that store
     // after this returns; cleared, a chat whose only work was a subagent or command is not offered.
     agentHookServer.stop({ keepStatus: true })
+    void agentSudoService.stop()
     // Why Windows only: POSIX hooks short-circuit on ORCA_PANE_KEY, while Windows must register a
     // bare script path that cannot express the guard and would otherwise keep spawning after quit.
     // Why bounded here: every other teardown member carries its own ceiling, and this one reaches

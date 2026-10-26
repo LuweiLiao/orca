@@ -12,6 +12,8 @@ import { NativeChatExperimentalSetting } from './NativeChatExperimentalSetting'
 import { AgentReplyRulesExperimentalSetting } from './AgentReplyRulesExperimentalSetting'
 import { AgentDashboardExperimentalSetting } from './AgentDashboardExperimentalSetting'
 import { EphemeralVmsExperimentalSetting } from './EphemeralVmsExperimentalSetting'
+import { AgentSudoExperimentalSetting } from './AgentSudoExperimentalSetting'
+import { getAgentSudoExperimentalSearchEntry } from './agent-sudo-experimental-search'
 import { WslHostsExperimentalSetting } from './WslHostsExperimentalSetting'
 import { wslHostsAvailable } from '../sidebar/use-wsl-hosts-enabled'
 import {
@@ -57,6 +59,7 @@ export function ExperimentalPane({
   const showNewWorktreeCardStyle = matchesSettingsSearch(searchQuery, [
     getExperimentalSearchEntry().newWorktreeCardStyle
   ])
+  const showAgentSudo = matchesSettingsSearch(searchQuery, [getAgentSudoExperimentalSearchEntry()])
   const agentHibernationEnabled = settings.experimentalAgentHibernation === true
   const newWorktreeCardStyleEnabled = settings.experimentalNewWorktreeCardStyle === true
   // Why: the planner owns ms-based bounds/defaults; the UI edits minutes
@@ -277,6 +280,8 @@ export function ExperimentalPane({
       ) : null}
 
       <EphemeralVmsExperimentalSetting settings={settings} updateSettings={updateSettings} />
+
+      {showAgentSudo ? <AgentSudoExperimentalSetting /> : null}
 
       {wslHostsAvailable() ? (
         <WslHostsExperimentalSetting settings={settings} updateSettings={updateSettings} />

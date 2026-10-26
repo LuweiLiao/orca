@@ -63,6 +63,7 @@ import {
 import { ORCA_STRUCTURED_SESSION_ENV } from '../../shared/structured-session-marker'
 import { withCliRuntimeOnPath } from '../../shared/node-cli-command-resolution'
 import { prependOrcaCliDirToChildPath } from '../cli/orca-cli-child-path'
+import { agentSudoService } from '../agent-sudo/agent-sudo-service'
 import { AGENT_HOOK_RUNTIME_ENV_KEYS } from '../ipc/pty/host-env/spawn-env-keys'
 import { resolveStructuredWorkerIdentityForSession } from './structured-worker-authority'
 
@@ -162,6 +163,8 @@ function applyThisAppCli(env: Record<string, string>): Record<string, string> {
     userDataPath,
     resourcesPath: process.resourcesPath ?? null
   })
+  agentSudoService.applyChildEnv(env)
+  Object.assign(set, agentSudoService.commandEnv())
   if (launcher) {
     set.ORCA_CLI_COMMAND = launcher
     env.ORCA_CLI_COMMAND = launcher

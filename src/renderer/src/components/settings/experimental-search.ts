@@ -6,6 +6,7 @@ import { getNewWorktreeCardStyleSearchEntry } from './new-worktree-card-style-se
 import { getNativeChatExperimentalSearchEntry } from './native-chat-experimental-search-entry'
 import { getAgentReplyRulesSearchEntry } from './agent-reply-rules-search-entry'
 import { getEphemeralVmsSearchEntry } from './ephemeral-vms-search'
+import { getAgentSudoExperimentalSearchEntry } from './agent-sudo-experimental-search'
 import { getWslHostsExperimentalSearchEntry } from './wsl-hosts-experimental-search'
 
 export const getExperimentalPaneSearchEntries = createLocalizedCatalog(
@@ -184,6 +185,12 @@ export const getExperimentalPaneSearchEntries = createLocalizedCatalog(
     },
     getNewWorktreeCardStyleSearchEntry(),
     getEphemeralVmsSearchEntry(),
+    // Why: the sudo bridge exists only in the desktop preload; web clients must not find it.
+    ...(typeof window !== 'undefined' &&
+    window.api?.agentSudo &&
+    !navigator.userAgent.includes('Windows')
+      ? [getAgentSudoExperimentalSearchEntry()]
+      : []),
     // Why: only a Windows desktop shows this toggle, so only there may search find it.
     ...(typeof window !== 'undefined' && window.api?.runtimeEnvironments?.wslHosts
       ? [getWslHostsExperimentalSearchEntry()]

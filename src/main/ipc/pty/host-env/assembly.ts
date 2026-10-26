@@ -14,6 +14,7 @@ import { piTitlebarExtensionService } from '../../../pi/titlebar-extension-servi
 import { prependOrcaCliDirToChildPath } from '../../../cli/orca-cli-child-path'
 import { getManagedWslCliDir, getWslCliCommandName } from '../../../cli/wsl-managed-cli'
 import { stripLegacyTerminalShimEnv } from '../../../pty/legacy-terminal-shim-dir'
+import { agentSudoService } from '../../../agent-sudo/agent-sudo-service'
 import { mergePersistedWindowsPath } from '../../../pty/windows-environment-path'
 import { resolveCodexShellLaunchPreflightCommand } from '../../../pty/codex-shell-launch-preflight'
 import { scheduleCodexHookReconcile } from '../../../codex/codex-hook-reconcile'
@@ -288,6 +289,7 @@ export function buildPtyHostEnv(
     userDataPath: opts.userDataPath,
     resourcesPath: opts.resourcesPath
   })
+  agentSudoService.applyChildEnv(baseEnv)
 
   if (
     opts.routeBrowserOpensToClient === true &&

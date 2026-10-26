@@ -23,6 +23,8 @@ import {
   isAgentStatusHooksEnabledForAgent
 } from '../agent-hooks/managed-agent-hook-controls'
 import { agentHookServer } from '../agent-hooks/server'
+import { agentSudoService } from '../agent-sudo/agent-sudo-service'
+import { confirmAgentSudoRequest } from '../agent-sudo/agent-sudo-confirm-dialog'
 import { createLocalTmuxManagedPtyResolver } from '../agent-hooks/local-tmux-managed-pty'
 import {
   indexPersistedPaneKeyPtyIds,
@@ -182,6 +184,14 @@ export function startTerminalRuntimeStartupServices(): WindowsDesktopStartupServ
         userDataPath: app.getPath('userData'),
         endpointNamespace: state.devAgentHookEndpointNamespace
       })
+      // Why here: restored PTYs gate on this step and read the sudo askpass env at spawn.
+      await agentSudoService
+        .start({
+          userDataPath: app.getPath('userData'),
+          endpointNamespace: state.devAgentHookEndpointNamespace,
+          confirm: confirmAgentSudoRequest
+        })
+        .catch((error) => console.warn('[agent-sudo] failed to start sudo askpass service:', error))
       logStartupMilestone('startup-service-done', { service: 'agent-hook-server' })
     },
     onDaemonError: (error) => {
