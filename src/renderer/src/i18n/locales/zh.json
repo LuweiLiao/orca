@@ -21342,5 +21342,55 @@
       "unavailable": "该工作区受保护或不可用。"
     },
     "rowActions": "{{name}} 的操作"
+  },
+  "projectMap": {
+    "looseGroup": "无派生关系、也无对话",
+    "legendLabel": "图例",
+    "legend": {
+      "workspace": "工作区",
+      "conversation": "对话",
+      "derive": "派生",
+      "delegate": "委派",
+      "unresolved": "来源未加载"
+    },
+    "window": {
+      "openInTab": "在标签页中打开",
+      "close": "关闭",
+      "noConversations": "{{name}} 还没有对话。",
+      "openWorkspace": "打开工作区",
+      "summaryOnly": "这个对话没有在本机运行。打开后可以加载完整记录。"
+    },
+    "node": {
+      "conversationCount": "{{count}} 个对话",
+      "current": "当前",
+      "folderWorkspace": "文件夹工作区",
+      "derivedFrom": "派生自上级",
+      "root": "根",
+      "delegatedFrom": "委派自上级",
+      "sourceNotLoaded": "来源未加载",
+      "subagentCount": "{{count}} 个子 Agent",
+      "delegateCount": "委派 {{count}} 个"
+    },
+    "title": "项目关系图",
+    "project": "项目",
+    "stats": "{{workspaces}} 个工作区 · {{agents}} 个对话",
+    "zoomOut": "缩小",
+    "zoomIn": "放大",
+    "fit": "适应视图",
+    "empty": "添加项目后，这里会显示它的工作区和对话。",
+    "state": {
+      "working": "运行中",
+      "monitoring": "监控中",
+      "blocked": "被阻塞",
+      "waiting": "等待输入",
+      "done": "已完成",
+      "idle": "空闲"
+    },
+    "settings": {
+      "showButton": "显示项目关系图按钮",
+      "showButtonDescription": "在左侧边栏顶部显示项目关系图按钮。",
+      "keywordMap": "项目关系图",
+      "keywordGraph": "关系图"
+    }
   }
 }

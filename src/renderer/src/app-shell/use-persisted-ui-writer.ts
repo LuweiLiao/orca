@@ -218,7 +218,8 @@ export function usePersistedUIWriter(): void {
   // Why (#9002): activeView has its own tiny profile preference, so it can track
   // every switch without scheduling the multi-MB durable-state writer.
   useEffect(() => {
-    if (!persistedUIReady) {
+    // Why project-map stays unpersisted: hosts older than the view reject the whole ui.set.
+    if (!persistedUIReady || activeView === 'project-map') {
       return
     }
     void window.api.ui.set({ activeView })
