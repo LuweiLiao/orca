@@ -126,11 +126,13 @@ precedence over the idle rule. Do not reuse the settled lifecycle IDs.
 
 ## Canonical supervised loop
 
-Confirm the runtime, bind one Run, and start the full independent wave before
-waiting. `worker-start --spec` creates the Task and its attempt in one call:
+Bind one Run, then start the full independent wave before waiting.
+`worker-start --spec` creates the Task and its attempt in one call. Issue the
+wave's starts together in one parallel batch, not one after another; Orca
+counts the card's quota atomically, so concurrent starts cannot exceed it. This
+guide is enough for that wave, so do not load `--help` or references first:
 
 ```text
-ORCA status --json
 ORCA orchestration run-create --objective "<objective>" --json
 ORCA orchestration worker-start --spec "<worker A task>" --worktree current --agent codex --json
 ORCA orchestration worker-start --spec "<worker B task>" --worktree current --agent claude --json
@@ -192,6 +194,9 @@ Every Task spec must be self-contained and name:
 - **Constraints:** invariants, compatibility rules, and do-not-touch boundaries.
 - **Ownership:** what this worker may edit and any coordination boundary.
 - **Observable acceptance:** the test, output, or evidence that proves completion.
+
+Keep each entry to a line or two. Point to files and conversations instead of
+pasting or researching them first; the worker reads them itself.
 
 ## Completion accounting
 
