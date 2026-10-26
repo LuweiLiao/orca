@@ -15,7 +15,7 @@ import type { AgentSessionMutationResult } from '../../../../shared/agent-sessio
 import { AGENT_SESSION_CREATE_MESSAGE_RUNTIME_CAPABILITY } from '../../../../shared/agent-session-create-capabilities'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import type { AgentSessionRecord } from '../../../../shared/agent-session-record'
-import { conversationNameSeed } from '../../../../shared/conversation-name-generation'
+import { forkedChatNameUpdate } from '../../../native-chat/agent-session-fork-name'
 import { agentSessionLineageTable } from '../../../native-chat/agent-session-journal/agent-session-lineage-table'
 import {
   copyClaudeForkSource,
@@ -191,10 +191,6 @@ async function forkStructuredAgentSession(
   }
 }
 
-/**
- * Named before the namer reads the first message, which for a hand-off is the transferred
- * conversation, not what the person asked this child to do.
- */
 async function nameForkedChat(
   ctx: RpcContext,
   host: ReturnType<typeof requireHost>,
@@ -202,14 +198,18 @@ async function nameForkedChat(
   source: AgentSessionRecord,
   instruction: string | undefined
 ): Promise<void> {
-  const name =
-    conversationNameSeed(instruction ?? '') ??
-    (source.conversationName ? `Fork of ${source.conversationName}` : null)
-  if (!name) {
+  const update = forkedChatNameUpdate(host.deps.store.getRecord(sessionId), source, instruction)
+  if (!update) {
     return
   }
   try {
-    const named = await host.deps.store.compareAndSetConversationName(sessionId, name, null, 'seed')
+    const named = await host.deps.store.compareAndSetConversationName(
+      sessionId,
+      update.name,
+      update.expected,
+      'seed',
+      update.expectedSource
+    )
     if (named) {
       ctx.runtime.refreshStructuredConversationTabTitle(named.location.workspaceId, sessionId)
     }
