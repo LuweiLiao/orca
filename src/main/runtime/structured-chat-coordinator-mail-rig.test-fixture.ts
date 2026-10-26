@@ -105,7 +105,12 @@ export function connectionFor(sessionId: string): FakeConnection {
 }
 
 /** Codex's own sequence for a turn: it starts, echoes the user message, and completes. */
-export async function settleTurn(sessionId: string, turnIndex: number): Promise<void> {
+export async function settleTurn(
+  sessionId: string,
+  turnIndex: number,
+  /** Codex's verdict on the end; absent leaves the outcome unknown. */
+  status?: 'completed'
+): Promise<void> {
   const connection = connectionFor(sessionId)
   const turn = connection.turns[turnIndex]!
   const turnId = `turn-${turnIndex + 1}`
@@ -120,7 +125,7 @@ export async function settleTurn(sessionId: string, turnIndex: number): Promise<
       content: [{ type: 'text', text: 'pointer' }]
     }
   })
-  notify('turn/completed', { turn: { id: turnId } })
+  notify('turn/completed', { turn: { id: turnId, ...(status ? { status } : {}) } })
   await host.flushStreamedEvents(sessionId)
 }
 
@@ -260,7 +265,8 @@ beforeEach(async () => {
     resolveEnvironment: async () => ({ PATH: '/usr/bin' }),
     ...scriptedCodexTransport(codex.openConnection),
     // The same calls the runtime's own host install makes.
-    onRequestFailure: (failure) => runtime.onStructuredRequestFailureForErrorMail(failure),
+    onRequestFailure: (failure) => runtime.chatWorkerMailHooks().onRequestFailure?.(failure),
+    onTurnCompletion: (completion) => runtime.chatWorkerMailHooks().onTurnCompletion?.(completion),
     onSessionStatusChanged: (summary) => {
       runtime.onStructuredSessionStatusForMail(summary)
     },
