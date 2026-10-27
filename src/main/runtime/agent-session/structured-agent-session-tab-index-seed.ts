@@ -10,6 +10,25 @@ type TabIndexHost = Pick<
   'getPersistedVisibleSessionTabIndex' | 'showSessionTabs'
 >
 
+/**
+ * The chats a launch brings back as tabs, out of every conversation the host holds open. Every one
+ * is of an agent this host registered. With an index, only the chats it lists: one a background
+ * reader opened (chat-name recovery, a reference) is not a tab to bring back.
+ */
+export function restoredChatSessions<T extends { sessionId: string }>(
+  open: readonly T[],
+  indexed: readonly string[] | null
+): T[] {
+  const listed = indexed ? new Set(indexed) : null
+  return open.flatMap((session) => {
+    let sessionId = session.sessionId
+    while (sessionId.startsWith('agent-session:')) {
+      sessionId = sessionId.slice('agent-session:'.length)
+    }
+    return listed && !listed.has(sessionId) ? [] : [{ ...session, sessionId }]
+  })
+}
+
 /** Best-effort: the tabs publish either way, and an index still absent is seeded again next launch. */
 export async function seedStructuredAgentSessionTabIndex(
   host: (Partial<TabIndexHost> & Pick<StructuredAgentSessionHost, 'deps'>) | null | undefined,
