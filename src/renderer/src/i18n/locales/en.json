@@ -21494,7 +21494,8 @@
       "unresolved": "Source not loaded",
       "fork": "Forked",
       "handoff": "Handed off",
-      "history": "Closed"
+      "history": "Closed",
+      "reference": "Referenced"
     },
     "window": {
       "openInTab": "Open in tab",
@@ -21520,7 +21521,10 @@
       "closedSource": "a closed chat",
       "forkedFrom": "Forked from {{source}} · {{count}} messages",
       "handedOffFrom": "Handed off from {{source}} · {{count}} messages",
-      "closed": "Closed"
+      "closed": "Closed",
+      "referenceCount": "Referenced {{count}} conversations",
+      "referenceCount_one": "Referenced {{count}} conversation",
+      "referenceFolded": "{{count}} of them are elsewhere or to the right; select to see them"
     },
     "title": "Project Map",
     "project": "Project",

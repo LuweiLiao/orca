@@ -7,7 +7,9 @@ export const PROJECT_MAP_NODE = {
   /** Delegate and derive pins sit on the body row, below the 40px header. */
   pinOffsetY: 53,
   /** Fork pins sit in the header: a fork carries the conversation, not a task. */
-  headerPinOffsetY: 20
+  headerPinOffsetY: 20,
+  /** Reference pins sit below the delegate pins, so the two never share a point. */
+  referencePinOffsetY: 61
 } as const
 
 const WORKSPACE_COLUMN = PROJECT_MAP_NODE.workspaceWidth + 44
@@ -35,6 +37,10 @@ export type ProjectMapLane = {
 
 export type ProjectMapWire = ProjectMapEdge & {
   path: string
+  /** A reference whose source is right of its target: drawn only while either end is selected. */
+  backward?: true
+  /** A reference between two chats in one column: an arc in the gutter on their right. */
+  side?: true
 }
 
 export type ProjectMapLayout = {
@@ -157,6 +163,26 @@ export function layoutProjectMap(graph: ProjectMapGraph): ProjectMapLayout {
     if (!from || !to) {
       return []
     }
+    if (edge.kind === 'reference') {
+      const y0 = from.y + PROJECT_MAP_NODE.referencePinOffsetY
+      const y1 = to.y + PROJECT_MAP_NODE.referencePinOffsetY
+      const x0 = from.x + from.width
+      if (x0 < to.x) {
+        return [{ ...edge, path: wirePath(x0, y0, to.x, y1) }]
+      }
+      if (from.x === to.x) {
+        const x1 = to.x + to.width
+        const bulge = 36
+        return [
+          {
+            ...edge,
+            path: `M${x0} ${y0} C${x0 + bulge} ${y0} ${x1 + bulge} ${y1} ${x1} ${y1}`,
+            side: true
+          }
+        ]
+      }
+      return [{ ...edge, path: loopPath(x0, y0, to.x, y1), backward: true }]
+    }
     const pinY =
       edge.kind === 'fork' || edge.kind === 'handoff'
         ? PROJECT_MAP_NODE.headerPinOffsetY
@@ -175,6 +201,11 @@ export function layoutProjectMap(graph: ProjectMapGraph): ProjectMapLayout {
 export function wirePath(x0: number, y0: number, x1: number, y1: number): string {
   const k = Math.max(12, Math.min(Math.abs(x1 - x0) * 0.75, 160))
   return `M${x0} ${y0} C${x0 + k} ${y0} ${x1 - k} ${y1} ${x1} ${y1}`
+}
+
+/** Leaves rightward and enters from the left, so a backward wire still reads source to target. */
+function loopPath(x0: number, y0: number, x1: number, y1: number): string {
+  return `M${x0} ${y0} C${x0 + 140} ${y0} ${x1 - 140} ${y1} ${x1} ${y1}`
 }
 
 function agentDepths(graph: ProjectMapGraph): Map<string, number> {

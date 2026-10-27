@@ -12,6 +12,7 @@ import {
   attachFingerprintFields,
   type AgentSessionAttachParams
 } from '../../../native-chat/agent-session-wire/structured-agent-session-attach'
+import { recordConversationReferenceLinks } from '../../../native-chat/agent-session-reference-links'
 import type { StructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/structured-agent-session-host'
 import type { StructuredAgentSessionCaller } from '../../../native-chat/agent-session-wire/structured-agent-session-host-types'
 import type {
@@ -208,7 +209,7 @@ export async function commitStructuredAgentSessionCreate(args: {
     ...(args.tabPlacement ? { placement: args.tabPlacement } : {})
   }
   if (prepared.atRest) {
-    return prepared.host.create(args.caller, prepared.attachParams, {
+    const created = await prepared.host.create(args.caller, prepared.attachParams, {
       ...prepared.atRest,
       ...(prepared.catalogModels ? { catalogModels: prepared.catalogModels } : {}),
       ...(prepared.hostLaunchDirectory
@@ -234,6 +235,15 @@ export async function commitStructuredAgentSessionCreate(args: {
           }
         : {})
     })
+    const first = prepared.atRest.firstMessage
+    if (created.ok && first) {
+      await recordConversationReferenceLinks(prepared.host, {
+        sessionId: created.value.sessionId,
+        messageId: first.clientMessageId,
+        blocks: first.body.blocks
+      })
+    }
+    return created
   }
   const result = await prepared.host.attach(args.caller, prepared.attachParams, {
     ...(prepared.hostLaunchDirectory ? { hostLaunchDirectory: prepared.hostLaunchDirectory } : {}),

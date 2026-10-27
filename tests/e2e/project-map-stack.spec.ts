@@ -182,6 +182,11 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
     // A snapshot: it names how far into the coordinator's chat it reads.
     await expect(pill).toContainText(/#\d+/)
     await screenshot('reference-dropped')
+    // Sent, the reference becomes a wire from its source; to a stacked chat it meets the stack.
+    await windowComposer.pressSequentially('Use this plan.')
+    await chatWindow.getByRole('button', { name: 'Send', exact: true }).click()
+    const referenceWire = map.locator('.project-map-wire[data-kind="reference"]')
+    await expect(referenceWire).toHaveCount(1, { timeout: 30_000 })
 
     // Showing the fleet on the map draws each worker again.
     await node(paneKeyOf(parent)).click()
@@ -191,6 +196,11 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
     }
     await expect(stack).toHaveCount(0)
     await expect(map.locator('.project-map-wire[data-kind="delegate"]')).toHaveCount(4)
+    // Shown on the map, the referencing worker takes the wire and counts the reference.
+    await expect(referenceWire).toHaveCount(1)
+    await expect(
+      node(paneKeyOf(finished.sessionId)).locator('[data-project-map-reference-count="1"]')
+    ).toBeVisible()
     await screenshot('expanded')
     expect(
       await electronApp.evaluate(({ BrowserWindow }) =>

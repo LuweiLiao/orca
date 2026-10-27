@@ -6,7 +6,8 @@ import type {
   DashboardWorkspace
 } from '../../../../shared/dashboard-snapshot'
 import type { AgentSessionLineageEntry } from '../../../../shared/agent-session-fork'
-import { buildProjectMapGraph, PROJECT_MAP_HISTORY_PANE_PREFIX } from './project-map-graph'
+import { buildProjectMapGraph } from './project-map-graph'
+import { PROJECT_MAP_HISTORY_PANE_PREFIX } from './project-map-closed-chats'
 import { layoutProjectMap } from './project-map-layout'
 import { collapseProjectMapGraph, PROJECT_MAP_GROUP_PREFIX } from './project-map-collapse'
 

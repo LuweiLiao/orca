@@ -2,6 +2,7 @@
 // run `pnpm run generate:rpc-params-catalog`.
 import type { z } from 'zod'
 import { ForkParams, LineageParams } from '../agent-session-fork'
+import { ReferencesParams } from '../agent-session-reference-link'
 import { AgentSkillShareRequestSchema } from '../agent-skill-sharing-contract'
 import {
   AiVaultSearchRequestSchema,
@@ -758,6 +759,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.queuedMessageUpdate': QueuedMessageUpdateParams,
   'agentSession.queuedMessagesResume': QueuedMessagesResumeParams,
   'agentSession.readVisual': ReadVisualParams,
+  'agentSession.references': ReferencesParams,
   'agentSession.regenerateName': OptionsParams,
   'agentSession.release': HoldParams,
   'agentSession.respondToApproval': RespondParams,

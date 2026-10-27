@@ -14,6 +14,11 @@ import {
   readLocalRuntimeCapabilitiesOrUnknown
 } from '@/runtime/local-runtime-capabilities'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
+import {
+  AGENT_SESSION_REFERENCES_RUNTIME_CAPABILITY,
+  isAgentSessionReferenceLink,
+  type AgentSessionReferenceLink
+} from '../../../../shared/agent-session-reference-link'
 import { normalizeExecutionHostId } from '../../../../shared/execution-host'
 import {
   mergeProjectMapLineage,
@@ -23,29 +28,44 @@ import {
 
 const NO_LINEAGE: ReadonlyMap<string, AgentSessionLineageEntry> = new Map()
 
-/** Whether this chat's host records forks; an older host answers neither fork nor lineage. */
-export async function hostSupportsAgentSessionFork(target: RuntimeClientTarget): Promise<boolean> {
+async function hostSupports(target: RuntimeClientTarget, capability: string): Promise<boolean> {
   try {
     if (target.kind === 'local') {
       const capabilities =
         readLocalRuntimeCapabilitiesOrUnknown() ?? (await ensureLocalRuntimeCapabilities())
-      return capabilities?.includes(AGENT_SESSION_FORK_RUNTIME_CAPABILITY) === true
+      return capabilities?.includes(capability) === true
     }
-    return await runtimeEnvironmentSupportsCapability(
-      target.environmentId,
-      AGENT_SESSION_FORK_RUNTIME_CAPABILITY
-    )
+    return await runtimeEnvironmentSupportsCapability(target.environmentId, capability)
   } catch {
     return false
   }
 }
 
-// Under `LineageParams`' cap, so a project with more chats is read in pages instead of refused.
-const LINEAGE_PAGE = 1024
+/** Whether this chat's host records forks; an older host answers neither fork nor lineage. */
+export function hostSupportsAgentSessionFork(target: RuntimeClientTarget): Promise<boolean> {
+  return hostSupports(target, AGENT_SESSION_FORK_RUNTIME_CAPABILITY)
+}
+
+// Under the requests' 2048 cap, so a project with more chats is read in pages instead of refused.
+const SESSION_PAGE = 1024
+
+/** One relation read, paged by session; a page the host cannot answer reads as empty. */
+async function readPaged<T>(
+  sessionIds: readonly string[],
+  read: (page: string[]) => Promise<T[]>
+): Promise<T[]> {
+  const pages: string[][] = []
+  for (let start = 0; start < sessionIds.length; start += SESSION_PAGE) {
+    pages.push(sessionIds.slice(start, start + SESSION_PAGE))
+  }
+  const results = await Promise.all(pages.map((page) => read(page).catch(() => [])))
+  return results.flat()
+}
 
 type HostLineage = {
   supported: boolean
   entries: AgentSessionLineageEntry[]
+  references: AgentSessionReferenceLink[]
   sessions: AgentSessionLineageSession[]
 }
 
@@ -53,45 +73,49 @@ async function readHostLineage(
   target: RuntimeClientTarget,
   sessionIds: readonly string[]
 ): Promise<HostLineage> {
-  if (!(await hostSupportsAgentSessionFork(target))) {
-    return { supported: false, entries: [], sessions: [] }
+  const [forks, references] = await Promise.all([
+    hostSupportsAgentSessionFork(target),
+    hostSupports(target, AGENT_SESSION_REFERENCES_RUNTIME_CAPABILITY)
+  ])
+  if (!forks) {
+    return { supported: false, entries: [], references: [], sessions: [] }
   }
-  const pages: string[][] = []
-  for (let start = 0; start < sessionIds.length; start += LINEAGE_PAGE) {
-    pages.push(sessionIds.slice(start, start + LINEAGE_PAGE))
+  const sessions: AgentSessionLineageSession[] = []
+  const keepSessions = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      sessions.push(...value.filter(isAgentSessionLineageSession))
+    }
   }
-  const results = await Promise.all(
-    pages.map(async (page) => {
-      try {
-        const result = await callStructuredAgentSession<{ entries?: unknown; sessions?: unknown }>(
-          target,
-          'agentSession.lineage',
-          { sessionIds: page }
-        )
-        return {
-          entries: Array.isArray(result.entries)
-            ? result.entries.filter(isAgentSessionLineageEntry)
-            : [],
-          sessions: Array.isArray(result.sessions)
-            ? result.sessions.filter(isAgentSessionLineageSession)
-            : []
-        }
-      } catch {
-        // A host that cannot answer draws its chats without fork edges, as an older one does.
-        return { entries: [], sessions: [] }
-      }
-    })
-  )
-  return {
-    supported: true,
-    entries: results.flatMap((result) => result.entries),
-    sessions: results.flatMap((result) => result.sessions)
-  }
+  const [entries, links] = await Promise.all([
+    readPaged(sessionIds, async (page) => {
+      const result = await callStructuredAgentSession<{ entries?: unknown; sessions?: unknown }>(
+        target,
+        'agentSession.lineage',
+        { sessionIds: page }
+      )
+      keepSessions(result.sessions)
+      return Array.isArray(result.entries) ? result.entries.filter(isAgentSessionLineageEntry) : []
+    }),
+    references
+      ? readPaged(sessionIds, async (page) => {
+          const result = await callStructuredAgentSession<{ links?: unknown; sessions?: unknown }>(
+            target,
+            'agentSession.references',
+            { sessionIds: page }
+          )
+          keepSessions(result.sessions)
+          return Array.isArray(result.links) ? result.links.filter(isAgentSessionReferenceLink) : []
+        })
+      : Promise.resolve([])
+  ])
+  return { supported: true, entries, references: links, sessions }
 }
 
 export type ProjectMapLineage = {
   entries: ReadonlyMap<string, AgentSessionLineageEntry>
-  /** Chats at either end of a fork, keyed by session; the map draws closed ones as history. */
+  /** Conversations sent messages referenced, from every host whose chats are on the map. */
+  references: readonly AgentSessionReferenceLink[]
+  /** Chats at either end of a fork or reference, keyed by session; closed ones draw as history. */
   history: ReadonlyMap<string, ProjectMapHistoryChat>
   /** Hosts known to predate forks: their chats show the fork action disabled, with the reason. */
   forkUnsupportedHosts: ReadonlySet<string>
@@ -99,19 +123,25 @@ export type ProjectMapLineage = {
 
 const NO_HOSTS: ReadonlySet<string> = new Set()
 const NO_HISTORY: ReadonlyMap<string, ProjectMapHistoryChat> = new Map()
+const NO_REFERENCES: readonly AgentSessionReferenceLink[] = []
 const EMPTY_LINEAGE: ProjectMapLineage = {
   entries: NO_LINEAGE,
+  references: NO_REFERENCES,
   history: NO_HISTORY,
   forkUnsupportedHosts: NO_HOSTS
 }
 
+// Status changes come in bursts while agents run; one read covers the burst.
+const REREAD_DELAY_MS = 400
+
 /**
- * Forks recorded by every host whose chats are on the map. Re-read when the set of chats changes,
- * which is also when a new fork's chat appears, and whenever `revision` moves.
+ * Forks and references recorded by every host whose chats are on the map. Re-read when the set of
+ * chats changes, which is also when a new fork's chat appears, and whenever `revision` moves: the
+ * page moves it on every status change, since a sent message is what records a reference.
  */
 export function useProjectMapLineage(
   chats: ReadonlyMap<string, ProjectMapChat>,
-  revision: number
+  revision: string
 ): ProjectMapLineage {
   const [lineage, setLineage] = useState(EMPTY_LINEAGE)
   const sessionsByHost = new Map<string, string[]>()
@@ -126,17 +156,18 @@ export function useProjectMapLineage(
 
   useEffect(() => {
     let cancelled = false
-    const reads = key
-      ? key.split('|').map(async (part) => {
-          const [host = '', ids] = part.split('=')
-          const target = structuredAgentSessionTargetForHost(host || null)
-          const read = target
-            ? await readHostLineage(target, ids ? ids.split(',') : [])
-            : { supported: true, entries: [], sessions: [] }
-          return { host, ...read }
-        })
-      : []
-    void Promise.all(reads).then((hosts) => {
+    const readAll = async (): Promise<void> => {
+      const reads = key
+        ? key.split('|').map(async (part) => {
+            const [host = '', ids] = part.split('=')
+            const target = structuredAgentSessionTargetForHost(host || null)
+            const read = target
+              ? await readHostLineage(target, ids ? ids.split(',') : [])
+              : { supported: true, entries: [], references: [], sessions: [] }
+            return { host, ...read }
+          })
+        : []
+      const hosts = await Promise.all(reads)
       if (cancelled) {
         return
       }
@@ -151,14 +182,18 @@ export function useProjectMapLineage(
           })
         }
       }
+      const references = hosts.flatMap((host) => host.references)
       setLineage({
         entries: pages.some((page) => page.length > 0) ? mergeProjectMapLineage(pages) : NO_LINEAGE,
+        references: references.length > 0 ? references : NO_REFERENCES,
         history: history.size > 0 ? history : NO_HISTORY,
         forkUnsupportedHosts: unsupported.length > 0 ? new Set(unsupported) : NO_HOSTS
       })
-    })
+    }
+    const timer = window.setTimeout(() => void readAll(), REREAD_DELAY_MS)
     return () => {
       cancelled = true
+      window.clearTimeout(timer)
     }
   }, [key, revision])
 

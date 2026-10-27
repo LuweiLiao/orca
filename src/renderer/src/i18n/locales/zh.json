@@ -21378,7 +21378,8 @@
       "unresolved": "来源未加载",
       "fork": "分叉",
       "handoff": "交接",
-      "history": "已关闭"
+      "history": "已关闭",
+      "reference": "引用"
     },
     "window": {
       "openInTab": "在标签页中打开",
@@ -21401,7 +21402,9 @@
       "closedSource": "已关闭的对话",
       "forkedFrom": "分叉自 {{source}} · {{count}} 条",
       "handedOffFrom": "交接自 {{source}} · {{count}} 条",
-      "closed": "已关闭"
+      "closed": "已关闭",
+      "referenceCount": "引用了 {{count}} 个对话",
+      "referenceFolded": "其中 {{count}} 个来源在别处或右侧，选中后显示连线"
     },
     "title": "项目关系图",
     "project": "项目",

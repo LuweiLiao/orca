@@ -43,11 +43,17 @@ export default function ProjectMapPage(): React.JSX.Element {
     [sessions, snapshot.cards, tabsByWorktree]
   )
   const [lineageRevision, setLineageRevision] = useState(0)
+  // A sent message records its references; every send moves some chat's state.
+  const lastStateChange = useMemo(
+    () => snapshot.cards.reduce((latest, card) => Math.max(latest, card.stateChangedAt), 0),
+    [snapshot.cards]
+  )
   const {
     entries: lineage,
+    references,
     history,
     forkUnsupportedHosts
-  } = useProjectMapLineage(chats, lineageRevision)
+  } = useProjectMapLineage(chats, `${lineageRevision}:${lastStateChange}`)
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
   const projectId =
@@ -64,10 +70,11 @@ export default function ProjectMapPage(): React.JSX.Element {
             chatsByPaneKey: chats,
             lineage,
             history,
+            references,
             titleOf: projectMapAgentTitle
           })
         : null,
-    [chats, history, lineage, projectId, sessions, snapshot]
+    [chats, history, lineage, projectId, references, sessions, snapshot]
   )
   // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())

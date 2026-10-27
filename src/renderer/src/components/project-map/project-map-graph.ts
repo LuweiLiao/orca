@@ -11,8 +11,10 @@ import type {
   AgentSessionForkMode,
   AgentSessionLineageEntry
 } from '../../../../shared/agent-session-fork'
-import { structuredAgentSessionTabId } from '../../../../shared/structured-agent-session-projection'
+import type { AgentSessionReferenceLink } from '../../../../shared/agent-session-reference-link'
 import type { ProjectMapChat, ProjectMapHistoryChat } from './project-map-lineage'
+import { closedForkEnds, projectMapHistoryCard } from './project-map-closed-chats'
+import { addReferenceEdges } from './project-map-reference-edges'
 
 export type ProjectMapProject = {
   id: string
@@ -39,8 +41,10 @@ export type ProjectMapAgent = {
   /** The card's delegator or fork source is known but outside this project or not loaded. */
   hasUnresolvedParent: boolean
   childPaneKeys: string[]
-  /** A chat whose tab is closed, drawn because a fork still connects it to the map. */
+  /** A chat whose tab is closed, drawn because a fork or reference still connects it. */
   history?: true
+  /** Conversations its sent messages referenced; `external` ones have no node on this map. */
+  referencesIn?: { count: number; external: number }
   /** Set when this chat was forked from another; its parent above is that source. */
   fork?: {
     mode: AgentSessionForkMode
@@ -50,7 +54,7 @@ export type ProjectMapAgent = {
   }
 }
 
-export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork' | 'handoff'
+export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork' | 'handoff' | 'reference'
 
 export type ProjectMapEdge = {
   kind: ProjectMapEdgeKind
@@ -62,8 +66,10 @@ export type ProjectMapEdge = {
 export type ProjectMapForkInput = {
   chatsByPaneKey: ReadonlyMap<string, ProjectMapChat>
   lineage: ReadonlyMap<string, AgentSessionLineageEntry>
-  /** Chats at fork ends the hosts still record; the closed ones become history nodes. */
+  /** Chats at fork and reference ends the hosts still record; closed ones become history nodes. */
   history?: ReadonlyMap<string, ProjectMapHistoryChat>
+  /** References sent messages carried; drawn as wires that never change the layout's columns. */
+  references?: readonly AgentSessionReferenceLink[]
   titleOf: (card: DashboardCard) => string
 }
 
@@ -225,6 +231,9 @@ export function buildProjectMapGraph(
       to: agent.card.paneKey
     })
   }
+  if (forks?.references) {
+    addReferenceEdges(forks.references, agents, paneKeyBySession, edges)
+  }
   return { projectId, workspaces, agents, edges }
 }
 
@@ -262,48 +271,4 @@ export function projectMapChatSessions(
     }
   }
   return sessions
-}
-
-/** Fork ends with no open card, sources before the children forked from them. */
-function closedForkEnds(
-  forks: ProjectMapForkInput,
-  open: ReadonlyMap<string, string>
-): ProjectMapHistoryChat[] {
-  const order = [...forks.lineage.values()]
-    .sort((a, b) => a.createdAt - b.createdAt)
-    .flatMap((entry) => [entry.sourceSessionId, entry.childSessionId])
-  return [...new Set(order)].flatMap((sessionId) => {
-    const chat = open.has(sessionId) ? undefined : forks.history?.get(sessionId)
-    return chat ? [chat] : []
-  })
-}
-
-export const PROJECT_MAP_HISTORY_PANE_PREFIX = 'project-map-history:'
-
-function projectMapHistoryCard(
-  chat: ProjectMapHistoryChat,
-  workspace: ProjectMapWorkspace
-): DashboardCard {
-  return {
-    paneKey: `${PROJECT_MAP_HISTORY_PANE_PREFIX}${chat.sessionId}`,
-    ptyId: null,
-    agentType: chat.agent,
-    bucket: 'idle',
-    dotState: 'idle',
-    task: chat.title ?? '',
-    ...(chat.title ? { conversationName: chat.title } : {}),
-    repoId: workspace.repoId,
-    worktreeId: workspace.worktreeId,
-    tabId: structuredAgentSessionTabId(chat.sessionId),
-    leafId: null,
-    repoName: workspace.repoName,
-    worktreeName: workspace.worktreeName,
-    hostKind: workspace.hostKind,
-    ...(chat.executionHostId ? { executionHostId: chat.executionHostId } : {}),
-    workspaceKind: workspace.workspaceKind,
-    startedAt: 0,
-    finishedAt: null,
-    stateChangedAt: 0,
-    unseen: false
-  }
 }

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
 import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
 import type { ProjectMapAgent, ProjectMapGraph, ProjectMapWorkspace } from './project-map-graph'
 import { PROJECT_MAP_NODE, type ProjectMapLayout } from './project-map-layout'
 import type { useProjectMapViewport } from './use-project-map-viewport'
-import { ProjectMapAgentNode, ProjectMapGroupNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
+import { ProjectMapAgentNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
+import { ProjectMapGroupNode } from './ProjectMapGroupNode'
+import { projectMapNodeReferences } from './project-map-node-references'
 import { ProjectMapGroupTray } from './ProjectMapGroupTray'
 import { ProjectMapLegend } from './ProjectMapLegend'
+import { ProjectMapForkHandle } from './ProjectMapForkHandle'
 import { PROJECT_MAP_GROUP_PREFIX, type ProjectMapCollapsedView } from './project-map-collapse'
 import { projectMapAgentTitle } from './project-map-labels'
 import { ProjectMapChatWindow, type ProjectMapWindowSubject } from './ProjectMapChatWindow'
@@ -127,6 +129,11 @@ export function ProjectMapCanvas({
     return ids
   }, [collapsed.graph.edges, selectedShown])
 
+  const referencesOf = useMemo(
+    () => projectMapNodeReferences(collapsed.graph.agents, layout.wires),
+    [collapsed.graph.agents, layout.wires]
+  )
+
   useEffect(() => {
     if (!selected) {
       return
@@ -221,15 +228,19 @@ export function ProjectMapCanvas({
           width={layout.width}
           height={layout.height}
         >
-          {layout.wires.map((wire) => (
-            <path
-              key={`${wire.kind}:${wire.from}:${wire.to}`}
-              className="project-map-wire"
-              data-kind={wire.kind}
-              data-highlighted={wire.from === selectedShown || wire.to === selectedShown}
-              d={wire.path}
-            />
-          ))}
+          {layout.wires.map((wire) => {
+            const highlighted = wire.from === selectedShown || wire.to === selectedShown
+            // A backward reference would cross the map; it shows only beside its selected end.
+            return wire.backward && !highlighted ? null : (
+              <path
+                key={`${wire.kind}:${wire.from}:${wire.to}`}
+                className="project-map-wire"
+                data-kind={wire.kind}
+                data-highlighted={highlighted}
+                d={wire.path}
+              />
+            )
+          })}
         </svg>
         {[...layout.nodes.values()].map((box) => {
           const workspace = graph.workspaces.get(box.id)
@@ -262,6 +273,7 @@ export function ProjectMapCanvas({
               {...common}
               // The real chat, so a stacked parent still counts every chat it delegated.
               agent={graph.agents.get(box.id) ?? agent}
+              references={referencesOf.get(box.id)}
               graphAgents={graph.agents}
             />
           ) : null
@@ -269,7 +281,7 @@ export function ProjectMapCanvas({
         {selected &&
         selected === selectedShown &&
         projectMapAgentForkable(graph.agents.get(selected)) ? (
-          <ForkHandle
+          <ProjectMapForkHandle
             box={layout.nodes.get(selected)!}
             open={forkOrigin !== undefined}
             unsupported={forkUnsupportedHosts.has(
@@ -342,47 +354,5 @@ export function ProjectMapCanvas({
       ) : null}
       <ProjectMapLegend />
     </div>
-  )
-}
-
-/** Sits on the selected node's fork pin, inside the scaled content so it pans with the node. */
-function ForkHandle({
-  box,
-  open,
-  unsupported,
-  onOpen
-}: {
-  box: { x: number; y: number; width: number }
-  open: boolean
-  unsupported: boolean
-  onOpen: () => void
-}): React.JSX.Element {
-  const label = translate('projectMap.fork.title', 'New child chat')
-  const reason = unsupported
-    ? translate(
-        'projectMap.fork.hostUnsupported',
-        "This chat's host runs an Orca version that cannot fork chats; update it to continue from here."
-      )
-    : null
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-expanded={open}
-      aria-disabled={unsupported || undefined}
-      title={reason ?? label}
-      data-project-map-fork-handle=""
-      onPointerDown={(event) => event.stopPropagation()}
-      onClick={(event) => {
-        event.stopPropagation()
-        if (!unsupported) {
-          onOpen()
-        }
-      }}
-      className="project-map-fork-handle absolute z-10 grid size-[22px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-primary-foreground"
-      style={{ left: box.x + box.width + 4, top: box.y + PROJECT_MAP_NODE.headerPinOffsetY }}
-    >
-      <Plus aria-hidden className="size-3.5" />
-    </button>
   )
 }

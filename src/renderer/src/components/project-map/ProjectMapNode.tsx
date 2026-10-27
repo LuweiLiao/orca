@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Folder, GitBranch, Layers } from 'lucide-react'
+import { Folder, GitBranch, Quote } from 'lucide-react'
 import { AgentTypeIcon } from '@/lib/agent-type-icon'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
 import { AgentStateDot } from '@/components/AgentStateDot'
@@ -10,7 +10,7 @@ import { PROJECT_MAP_NODE, type ProjectMapNodeBox } from './project-map-layout'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
 import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
 import { projectMapConversationReference } from './project-map-reference'
-import type { ProjectMapGroup } from './project-map-collapse'
+import type { ProjectMapNodeReferences } from './project-map-node-references'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
 type HeaderPinKind = 'fork' | 'handoff' | 'unresolved'
@@ -33,9 +33,10 @@ type NodeShellProps = {
   history?: boolean
   /** Present when the node can be dropped into a composer as a conversation reference. */
   onDragStart?: (event: React.DragEvent<HTMLButtonElement>) => void
+  references?: ProjectMapNodeReferences
 }
 
-function NodeShell({
+export function NodeShell({
   box,
   kind,
   label,
@@ -50,7 +51,8 @@ function NodeShell({
   headerInPin,
   headerOutPin,
   history,
-  onDragStart
+  onDragStart,
+  references
 }: NodeShellProps): React.JSX.Element {
   return (
     <button
@@ -92,6 +94,12 @@ function NodeShell({
           />
         ) : null}
       </span>
+      {references?.pinIn ? (
+        <span aria-hidden className="project-map-reference-pin" data-side="in" />
+      ) : null}
+      {references?.pinOut || references?.pinInRight ? (
+        <span aria-hidden className="project-map-reference-pin" data-side="out" />
+      ) : null}
       <span className="relative flex h-[26px] w-full items-center gap-1.5 px-3 text-[11px] text-muted-foreground">
         {inPin ? (
           <span aria-hidden className="project-map-pin" data-side="in" data-wire={inPin} />
@@ -106,7 +114,13 @@ function NodeShell({
   )
 }
 
-function HeaderText({ title, subtitle }: { title: string; subtitle: string }): React.JSX.Element {
+export function HeaderText({
+  title,
+  subtitle
+}: {
+  title: string
+  subtitle: string
+}): React.JSX.Element {
   return (
     <span className="flex min-w-0 flex-1 flex-col">
       <span className="truncate text-[13px] font-semibold leading-[17px]">{title}</span>
@@ -173,6 +187,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   box,
   agent,
   graphAgents,
+  references,
   selected,
   linked,
   onSelect
@@ -180,6 +195,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   box: ProjectMapNodeBox
   agent: ProjectMapAgent
   graphAgents: ReadonlyMap<string, ProjectMapAgent>
+  references?: ProjectMapNodeReferences
   selected: boolean
   linked: boolean
   onSelect: (id: string) => void
@@ -229,12 +245,14 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
                 : projectMapStateLabel(state)
             }`}
           />
+          {references && references.count > 0 ? <ReferenceCount references={references} /> : null}
           {agent.history ? null : <AgentStateDot state={state} title={null} />}
         </>
       }
       rowLeft={rowLeft}
       rowRight={rowRight}
       history={agent.history}
+      {...(references ? { references } : {})}
       {...(reference
         ? {
             onDragStart: (event: React.DragEvent<HTMLButtonElement>) =>
@@ -286,81 +304,34 @@ function forkSourceLabel(fork: NonNullable<ProjectMapAgent['fork']>): string {
       )
 }
 
-/** Stands in for a busy parent's delegated chats until the person opens them. */
-export const ProjectMapGroupNode = memo(function ProjectMapGroupNode({
-  box,
-  group,
-  forksOut,
-  selected,
-  linked,
-  onSelect
+/** How many conversations its messages referenced; the folded ones draw only while selected. */
+function ReferenceCount({
+  references
 }: {
-  box: ProjectMapNodeBox
-  group: ProjectMapGroup
-  /** A hidden chat was forked; the fork wire leaves from the stack. */
-  forksOut: boolean
-  selected: boolean
-  linked: boolean
-  onSelect: (id: string) => void
+  references: ProjectMapNodeReferences
 }): React.JSX.Element {
-  const count = group.childPaneKeys.length
-  const nested = group.memberPaneKeys.length - count
-  const title = translate('projectMap.group.title', '{{count}} delegated chats', { count })
-  const { working, waiting, settled } = group.counts
-  return (
-    <NodeShell
-      box={box}
-      kind="group"
-      label={title}
-      selected={selected}
-      linked={linked}
-      onSelect={onSelect}
-      header={
-        <>
-          <Layers aria-hidden className="project-map-node-glyph size-3.5 shrink-0" />
-          <HeaderText
-            title={title}
-            subtitle={
-              nested > 0
-                ? translate('projectMap.group.nested', 'and {{count}} they delegated', {
-                    count: nested
-                  })
-                : translate('projectMap.group.open', 'Click to list them')
-            }
-          />
-        </>
-      }
-      rowLeft={
-        <span className="inline-flex items-center gap-2.5 tabular-nums">
-          <GroupCount state="working" count={working} />
-          <GroupCount state="waiting" count={waiting} />
-          <GroupCount state="idle" count={settled} />
-        </span>
-      }
-      inPin="delegate"
-      headerOutPin={forksOut ? 'fork' : undefined}
-    />
-  )
-})
-
-function GroupCount({
-  state,
-  count
-}: {
-  state: 'working' | 'waiting' | 'idle'
-  count: number
-}): React.JSX.Element | null {
-  if (count === 0) {
-    return null
-  }
+  const label = [
+    translate('projectMap.node.referenceCount', 'Referenced {{count}} conversations', {
+      count: references.count
+    }),
+    references.folded > 0
+      ? translate(
+          'projectMap.node.referenceFolded',
+          '{{count}} of them are elsewhere or to the right; select to see them',
+          { count: references.folded }
+        )
+      : null
+  ]
+    .filter(Boolean)
+    .join('\n')
   return (
     <span
-      className="inline-flex items-center gap-1"
-      data-project-map-group-count={state}
-      title={projectMapStateLabel(state)}
+      className="project-map-reference-count inline-flex shrink-0 items-center gap-0.5 text-[10.5px] tabular-nums"
+      title={label}
+      data-project-map-reference-count={references.count}
     >
-      <AgentStateDot state={state} title={null} />
-      {count}
+      <Quote aria-hidden className="size-3" />
+      {references.folded > 0 ? `↩${references.folded}/${references.count}` : references.count}
     </span>
   )
 }

@@ -1,5 +1,6 @@
 // `agentSession.fork`: a new chat that starts from another chat's conversation, recorded so the
 // project map can draw where it came from. `agentSession.lineage`: those records.
+// `agentSession.references`: the conversations sent messages referenced.
 
 import type { z } from 'zod'
 import { defineMethod, type RpcContext } from '../core'
@@ -18,6 +19,9 @@ import type { AgentSessionRecord } from '../../../../shared/agent-session-record
 import { applyForkedChatName } from '../../../native-chat/agent-session-fork-name'
 import { agentSessionLineageTable } from '../../../native-chat/agent-session-journal/agent-session-lineage-table'
 import { agentSessionLineageView } from '../../../native-chat/agent-session-lineage-view'
+import { agentSessionReferenceView } from '../../../native-chat/agent-session-reference-links'
+import { agentSessionReferenceLinkTable } from '../../../native-chat/agent-session-journal/agent-session-reference-link-table'
+import { ReferencesParams } from '../../../../shared/agent-session-reference-link'
 import {
   copyClaudeForkSource,
   forkHandoffText,
@@ -244,6 +248,20 @@ export const STRUCTURED_AGENT_SESSION_FORK_METHODS = [
       // `sessions` describes closed chats too, so the map can still draw them.
       return agentSessionLineageView(
         agentSessionLineageTable(host.deps.journalDatabase).list(),
+        (sessionId) => host.deps.store.getRecord(sessionId),
+        params.sessionIds
+      )
+    }
+  }),
+  defineMethod({
+    name: 'agentSession.references',
+    permission: 'workspace',
+    params: ReferencesParams,
+    handler: async (params, ctx) => {
+      await ensureHostInstalled(ctx)
+      const host = requireHost(ctx)
+      return agentSessionReferenceView(
+        agentSessionReferenceLinkTable(host.deps.journalDatabase).list(),
         (sessionId) => host.deps.store.getRecord(sessionId),
         params.sessionIds
       )
