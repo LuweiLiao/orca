@@ -21524,7 +21524,8 @@
       "closed": "Closed",
       "referenceCount": "Referenced {{count}} conversations",
       "referenceCount_one": "Referenced {{count}} conversation",
-      "referenceFolded": "{{count}} of them are elsewhere or to the right; select to see them"
+      "referenceFolded": "{{count}} of them are elsewhere or to the right; select to see them",
+      "handedOffPartly": "Handed off from {{source}} · latest {{handed}} of {{count}} messages"
     },
     "title": "Project Map",
     "project": "Project",

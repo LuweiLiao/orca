@@ -19,6 +19,8 @@ import type { AgentSessionRecord } from '../../../../shared/agent-session-record
 import { applyForkedChatName } from '../../../native-chat/agent-session-fork-name'
 import { agentSessionLineageTable } from '../../../native-chat/agent-session-journal/agent-session-lineage-table'
 import { agentSessionLineageView } from '../../../native-chat/agent-session-lineage-view'
+import { saveConversationReference } from '../../../ai-vault/conversation-reference-store'
+import { conversationReferenceToken } from '../../../../shared/conversation-reference'
 import { agentSessionReferenceView } from '../../../native-chat/agent-session-reference-links'
 import { agentSessionReferenceLinkTable } from '../../../native-chat/agent-session-journal/agent-session-reference-link-table'
 import { ReferencesParams } from '../../../../shared/agent-session-reference-link'
@@ -133,9 +135,38 @@ async function forkStructuredAgentSession(
     sourceProvider: source.provider,
     createdAt: Date.now()
   }
-  const text = copy
-    ? params.instruction?.trim()
-    : forkHandoffText({ source, messages: taken.messages, instruction: params.instruction })
+  const handoff = copy
+    ? null
+    : await forkHandoffText({
+        source,
+        messages: taken.messages,
+        instruction: params.instruction,
+        // Only when the earliest messages are left out: the child reads them through this.
+        referenceSource: async () => {
+          const reference = await saveConversationReference(
+            {
+              source: {
+                kind: 'structured',
+                sessionId: source.sessionId,
+                workspaceId: source.location.workspaceId
+              },
+              title: source.conversationName ?? source.provider
+            },
+            source.provider,
+            {
+              journalItemId: taken.cut.journalItemId,
+              journalEpoch: taken.cut.journalEpoch,
+              journalSequence: taken.cut.journalSequence,
+              messageCount: taken.cut.messageCount
+            }
+          )
+          return conversationReferenceToken(reference)
+        }
+      })
+  if (handoff && handoff.handedOver < entry.cut.messageCount) {
+    entry.handedOverCount = handoff.handedOver
+  }
+  const text = copy ? params.instruction?.trim() : handoff?.text
   const firstMessage = text
     ? {
         clientMessageId: `fork-${params.envelope.clientOperationId}`,

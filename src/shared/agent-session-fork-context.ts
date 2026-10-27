@@ -179,29 +179,65 @@ const MAX_CONVERSATION_HANDOFF_CHARS = 60_000
 
 export type AgentSessionHandoffMessage = { role: 'user' | 'assistant' | 'tool'; text: string }
 
+/**
+ * The newest whole messages that fit the hand-off, oldest dropped first; one that is too long by
+ * itself is cut from its start. `omitted` counts the messages left out entirely.
+ */
+function handoffMessagesWithinBudget(blocks: readonly string[]): {
+  transcript: string
+  omitted: number
+} {
+  let used = 0
+  let first = blocks.length
+  while (first > 0 && used + blocks[first - 1]!.length + 2 <= MAX_CONVERSATION_HANDOFF_CHARS) {
+    first--
+    used += blocks[first]!.length + 2
+  }
+  if (first === blocks.length) {
+    // Even the newest message is over the budget alone: keep its end.
+    const last = blocks.at(-1)!
+    return {
+      transcript: trimToContextBudget(last, MAX_CONVERSATION_HANDOFF_CHARS, 'message text'),
+      omitted: blocks.length - 1
+    }
+  }
+  return { transcript: blocks.slice(first).join('\n\n'), omitted: first }
+}
+
 /** A structured conversation handed to a new chat of any agent, as that chat's first message. */
 export function buildAgentSessionHandoffPrompt(input: {
   messages: readonly AgentSessionHandoffMessage[]
   sourceLabel?: string | null
   agentLabel?: string | null
   instruction?: string | null
-}): string | null {
-  const body = input.messages
+  /** A reference the child can read the left-out earlier messages through. */
+  sourceReference?: string | null
+}): { text: string; handedOver: number } | null {
+  const blocks = input.messages
     .map((message) => `[${message.role}]\n${message.text.trim()}`)
     .filter((block) => block.length > block.indexOf('\n') + 1)
-    .join('\n\n')
-  if (!body) {
+  if (blocks.length === 0) {
     return null
   }
-  const transcript = trimToContextBudget(body, MAX_CONVERSATION_HANDOFF_CHARS, 'messages')
+  const { transcript, omitted } = handoffMessagesWithinBudget(blocks)
   const fence = getMarkdownFenceForTranscript(transcript)
   const instruction = input.instruction?.trim()
-  return [
+  const handedOver = blocks.length - omitted
+  const text = [
     'This conversation continues from another Orca conversation. Its messages below are your background context; this is a new, independent conversation.',
     '',
     ...(input.sourceLabel ? [`Source: ${input.sourceLabel}`] : []),
     ...(input.agentLabel ? [`Original agent: ${input.agentLabel}`] : []),
-    `Messages handed over: ${input.messages.length}`,
+    `Messages handed over: ${handedOver} of ${blocks.length}`,
+    ...(omitted > 0
+      ? [
+          `The earliest ${omitted} messages did not fit and are left out.${
+            input.sourceReference
+              ? ` Read them from the source conversation when you need them: ${input.sourceReference}`
+              : ''
+          }`
+        ]
+      : []),
     '',
     `${fence}text`,
     transcript,
@@ -211,4 +247,5 @@ export function buildAgentSessionHandoffPrompt(input: {
     '',
     instruction || 'Acknowledge that you have the context, then wait for my next instruction.'
   ].join('\n')
+  return { text, handedOver }
 }

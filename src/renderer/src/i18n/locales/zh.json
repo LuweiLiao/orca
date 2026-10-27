@@ -21404,7 +21404,8 @@
       "handedOffFrom": "交接自 {{source}} · {{count}} 条",
       "closed": "已关闭",
       "referenceCount": "引用了 {{count}} 个对话",
-      "referenceFolded": "其中 {{count}} 个来源在别处或右侧，选中后显示连线"
+      "referenceFolded": "其中 {{count}} 个来源在别处或右侧，选中后显示连线",
+      "handedOffPartly": "交接自 {{source}} · 最近 {{handed}} / {{count}} 条"
     },
     "title": "项目关系图",
     "project": "项目",

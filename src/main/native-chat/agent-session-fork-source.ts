@@ -68,22 +68,33 @@ function itemsThrough(
   return items
 }
 
-/** The person's instruction, after the source's messages when they travel as text. */
-export function forkHandoffText(input: {
+/**
+ * The person's instruction, after the source's messages when they travel as text. When the
+ * earliest messages do not fit, `referenceSource` makes a reference the child can read them through.
+ */
+export async function forkHandoffText(input: {
   source: Pick<AgentSessionRecord, 'conversationName' | 'provider'>
   messages: readonly AgentSessionHandoffMessage[]
   instruction?: string
-}): string {
-  const text = buildAgentSessionHandoffPrompt({
-    messages: input.messages,
-    sourceLabel: input.source.conversationName ?? null,
-    agentLabel: input.source.provider,
-    instruction: input.instruction ?? null
-  })
-  if (!text) {
+  referenceSource?: () => Promise<string | null>
+}): Promise<{ text: string; handedOver: number }> {
+  const build = (sourceReference: string | null) =>
+    buildAgentSessionHandoffPrompt({
+      messages: input.messages,
+      sourceLabel: input.source.conversationName ?? null,
+      agentLabel: input.source.provider,
+      instruction: input.instruction ?? null,
+      sourceReference
+    })
+  const first = build(null)
+  if (!first) {
     throw new Error('The source chat has no messages to continue from yet.')
   }
-  return text
+  if (first.handedOver === input.messages.length || !input.referenceSource) {
+    return first
+  }
+  const reference = await input.referenceSource().catch(() => null)
+  return (reference ? build(reference) : null) ?? first
 }
 
 /**

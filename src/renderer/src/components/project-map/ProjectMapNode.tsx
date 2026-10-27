@@ -340,8 +340,21 @@ function forkSourceLabel(fork: NonNullable<ProjectMapAgent['fork']>): string {
     source: fork.sourceTitle ?? translate('projectMap.node.closedSource', 'a closed chat'),
     count: fork.messageCount
   }
-  return fork.mode === 'native'
-    ? translate('projectMap.node.forkedFrom', 'Forked from {{source}} · {{count}} messages', values)
+  const handedOver = fork.entry.handedOverCount
+  if (fork.mode === 'native') {
+    return translate(
+      'projectMap.node.forkedFrom',
+      'Forked from {{source}} · {{count}} messages',
+      values
+    )
+  }
+  // The rest are linked from the hand-off, not pasted into it.
+  return handedOver !== undefined && handedOver < fork.messageCount
+    ? translate(
+        'projectMap.node.handedOffPartly',
+        'Handed off from {{source}} · latest {{handed}} of {{count}} messages',
+        { ...values, handed: handedOver }
+      )
     : translate(
         'projectMap.node.handedOffFrom',
         'Handed off from {{source}} · {{count}} messages',

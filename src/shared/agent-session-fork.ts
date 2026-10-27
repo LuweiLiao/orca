@@ -38,6 +38,8 @@ export type AgentSessionLineageEntry = {
   cut: AgentSessionForkCut
   sourceProvider: string
   createdAt: number
+  /** Transcript forks only: the newest messages that fit the hand-off, when fewer than all. */
+  handedOverCount?: number
 }
 
 const ForkCut = z.discriminatedUnion('kind', [
@@ -111,7 +113,8 @@ const LineageEntrySchema = z.object({
     providerMessageId: z.string().min(1).max(512).optional()
   }),
   sourceProvider: z.string().min(1).max(128),
-  createdAt: z.number().int().nonnegative()
+  createdAt: z.number().int().nonnegative(),
+  handedOverCount: z.number().int().nonnegative().optional()
 })
 
 export function isAgentSessionLineageEntry(value: unknown): value is AgentSessionLineageEntry {

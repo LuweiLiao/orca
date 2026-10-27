@@ -144,6 +144,31 @@ describe('forks on the project map', () => {
     expect(graph.edges).toEqual([{ kind: 'fork', from: 'root', to: 'child' }])
   })
 
+  it('keeps a hand-off whose earliest messages were left out marked with how many it carried', () => {
+    const graph = buildProjectMapGraph(
+      { generatedAt: 0, workspaces: [workspace], cards: [card('root', 1), card('child', 2)] },
+      'repo',
+      new Map(),
+      {
+        chatsByPaneKey: new Map([
+          ['root', chat('claude_root_chat')],
+          ['child', { ...chat('codex_child_chat'), agent: 'codex' }]
+        ]),
+        lineage: new Map([
+          [
+            'codex_child_chat',
+            { ...forked('codex_child_chat', 'claude_root_chat', 'transcript'), handedOverCount: 2 }
+          ]
+        ]),
+        titleOf: (shown) => shown.task
+      }
+    )
+    expect(graph.agents.get('child')?.fork).toMatchObject({
+      messageCount: 3,
+      entry: { handedOverCount: 2 }
+    })
+  })
+
   it('offers the clicked chat and its ancestors, cutting each ancestor where it forked the next', () => {
     const graph = forkTree()
     const sources = projectMapForkSources(graph.agents.get('leaf')!, graph.agents)
