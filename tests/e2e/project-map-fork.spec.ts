@@ -91,6 +91,26 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     await page.mouse.move(drop.x, drop.y, { steps: 8 })
     await expect(ghost).toHaveAttribute('data-project-map-fork-draft', 'dragging')
     await expect(draftWire).toHaveCount(1)
+    // The pending node snaps to a free cell, so it never sits on a node however it is dragged.
+    const overlapsNode = async (): Promise<boolean> => {
+      const box = await ghost.boundingBox()
+      const boxes = await map
+        .locator('[data-project-map-node]')
+        .evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().toJSON()))
+      return boxes.some(
+        (n) =>
+          box !== null &&
+          n.left < box.x + box.width - 1 &&
+          box.x < n.right - 1 &&
+          n.top < box.y + box.height - 1 &&
+          box.y < n.bottom - 1
+      )
+    }
+    expect(await overlapsNode()).toBe(false)
+    await page.mouse.move((from?.x ?? 0) + 40, (from?.y ?? 0) + 8, { steps: 4 })
+    await expect(ghost).toHaveAttribute('data-project-map-fork-draft', 'dragging')
+    expect(await overlapsNode()).toBe(false)
+    await page.mouse.move(drop.x, drop.y, { steps: 4 })
     await screenshot('fork-drag')
     // Escape drops the drag without creating anything.
     await page.keyboard.press('Escape')
@@ -110,10 +130,24 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     await panel.getByRole('button', { name: 'Cancel' }).click()
     await expect(ghost).toHaveCount(0)
 
-    // Selecting the node shows its + handle; the panel offers only the chat itself as a source.
-    await parentNode.click()
-    await handle.click()
+    // Dropped on the map, the panel offers only the chat itself as a source.
+    await parentNode.hover()
+    await page.mouse.move((from?.x ?? 0) + 11, (from?.y ?? 0) + 11)
+    await page.mouse.down()
+    await page.mouse.move(drop.x, drop.y, { steps: 8 })
+    await page.mouse.up()
+    await expect(ghost).toHaveAttribute('data-project-map-fork-draft', 'placed')
     await expect(panel).toBeVisible()
+    // Sizes and offsets relative to the parent node, so a re-fit of the view cannot skew them.
+    const relativeToParent = async (locator: typeof ghost) => {
+      const [box, origin] = await Promise.all([locator.boundingBox(), parentNode.boundingBox()])
+      const unit = origin?.width ?? 1
+      return {
+        dx: ((box?.x ?? 0) - (origin?.x ?? 0)) / unit,
+        dy: ((box?.y ?? 0) - (origin?.y ?? 0)) / unit
+      }
+    }
+    const snapped = await relativeToParent(ghost)
     // The footer stays on screen however low the node sits.
     await expect(panel.getByRole('button', { name: 'Create child chat' })).toBeInViewport({
       ratio: 1
@@ -140,6 +174,20 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
       .poll(() => sentPrompts(claudeStub.launchLog).find((prompt) => prompt.includes('CHILD-ONE')))
       .toMatch(/Plan the project map forks[\s\S]*Stub reply\.[\s\S]*CHILD-ONE: try ELK/)
     await screenshot('fork-child')
+    // The child stays where the ghost snapped to, and the spot is remembered on this desktop.
+    const childNode = node(
+      (await childWindow.evaluate(() =>
+        document
+          .querySelector('[data-project-map-node][data-selected="true"]')
+          ?.getAttribute('data-project-map-node')
+      )) ?? ''
+    )
+    const landed = await relativeToParent(childNode)
+    expect(landed.dx).toBeCloseTo(snapped.dx, 1)
+    expect(landed.dy).toBeCloseTo(snapped.dy, 1)
+    expect(
+      await page.evaluate(() => localStorage.getItem('orca.project-map-chat-rows.v1'))
+    ).toContain('"row":')
 
     // From the child, go back to its parent where it forked, beside the first child.
     const childKey = await childWindow.evaluate(() => {
@@ -147,7 +195,8 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
       return selected?.getAttribute('data-project-map-node') ?? null
     })
     expect(childKey).not.toBe(paneKeyOf(parent))
-    await map.locator('[data-project-map-fork-handle]').click()
+    // The child's chat window may cover its handle where the child was dropped, so click it in place.
+    await map.locator('[data-project-map-fork-handle]').dispatchEvent('click')
     await expect(panel.getByRole('radio')).toHaveCount(2)
     await panel.getByText('Where it forked the next chat').click()
     await panel.getByRole('textbox').fill('CHILD-TWO: try force-directed layout')

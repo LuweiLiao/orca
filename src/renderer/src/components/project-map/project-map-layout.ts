@@ -17,8 +17,21 @@ const AGENT_COLUMN = PROJECT_MAP_NODE.agentWidth + 64
 const ROW = PROJECT_MAP_NODE.height + 22
 const LANE_GAP = 8
 const LANE_PADDING = 12
+/** Keeps a stale or hand-edited row from stretching a lane without bound. */
+const MAX_PINNED_ROW = 60
 const MARGIN = 16
 const LOOSE_COLUMNS = 5
+
+/** The grid a chat can be pinned to: its column step, row step and lane inset. */
+export const PROJECT_MAP_GRID = {
+  agentColumn: AGENT_COLUMN,
+  row: ROW,
+  laneInset: LANE_PADDING,
+  maxRow: MAX_PINNED_ROW
+} as const
+
+/** A chat's lane row pinned by the person who placed it, keyed by chat session id. */
+export type ProjectMapRowPins = ReadonlyMap<string, number>
 
 export type ProjectMapNodeBox = {
   id: string
@@ -58,7 +71,10 @@ export type ProjectMapLayout = {
  * delegation-depth columns on the right, each workspace owns one horizontal lane. Every edge
  * points to a deeper column, so wires only travel rightward through the gutters.
  */
-export function layoutProjectMap(graph: ProjectMapGraph): ProjectMapLayout {
+export function layoutProjectMap(
+  graph: ProjectMapGraph,
+  pins?: ProjectMapRowPins
+): ProjectMapLayout {
   const nodes = new Map<string, ProjectMapNodeBox>()
   const laneOrder: { id: string; depth: number }[] = []
   const loose: string[] = []
@@ -105,16 +121,12 @@ export function layoutProjectMap(graph: ProjectMapGraph): ProjectMapLayout {
       width: PROJECT_MAP_NODE.workspaceWidth
     })
     const nextFreeRow = new Map<number, number>()
+    const taken = new Set<string>()
     const rowOf = new Map<string, number>()
     let rows = 1
-    for (const paneKey of agentsByLane.get(id) ?? []) {
-      const column = agentDepth.get(paneKey) ?? 0
-      const parentKey = graph.agents.get(paneKey)?.parentPaneKey
-      // Keep a same-lane chain on its parent's row so clear continuations read as one line.
-      const parentRow = parentKey ? rowOf.get(parentKey) : undefined
-      const row = Math.max(parentRow ?? 0, nextFreeRow.get(column) ?? 0)
+    const put = (paneKey: string, column: number, row: number): void => {
+      taken.add(`${column}:${row}`)
       rowOf.set(paneKey, row)
-      nextFreeRow.set(column, row + 1)
       rows = Math.max(rows, row + 1)
       maxAgentDepth = Math.max(maxAgentDepth, column)
       nodes.set(paneKey, {
@@ -124,6 +136,37 @@ export function layoutProjectMap(graph: ProjectMapGraph): ProjectMapLayout {
         y: nodeTop + row * ROW,
         width: PROJECT_MAP_NODE.agentWidth
       })
+    }
+    const laneAgents = agentsByLane.get(id) ?? []
+    // Pinned chats claim their cell first, so unpinned ones flow around them.
+    for (const paneKey of laneAgents) {
+      const sessionId = graph.agents.get(paneKey)?.chat?.sessionId
+      const pinned = sessionId ? pins?.get(sessionId) : undefined
+      const column = agentDepth.get(paneKey) ?? 0
+      if (
+        pinned !== undefined &&
+        Number.isInteger(pinned) &&
+        pinned >= 0 &&
+        pinned <= MAX_PINNED_ROW &&
+        !taken.has(`${column}:${pinned}`)
+      ) {
+        put(paneKey, column, pinned)
+      }
+    }
+    for (const paneKey of laneAgents) {
+      if (rowOf.has(paneKey)) {
+        continue
+      }
+      const column = agentDepth.get(paneKey) ?? 0
+      const parentKey = graph.agents.get(paneKey)?.parentPaneKey
+      // Keep a same-lane chain on its parent's row so clear continuations read as one line.
+      const parentRow = parentKey ? rowOf.get(parentKey) : undefined
+      let row = Math.max(parentRow ?? 0, nextFreeRow.get(column) ?? 0)
+      while (taken.has(`${column}:${row}`)) {
+        row++
+      }
+      nextFreeRow.set(column, row + 1)
+      put(paneKey, column, row)
     }
     const height = LANE_PADDING * 2 + PROJECT_MAP_NODE.height + (rows - 1) * ROW
     lanes.push({ workspaceId: id, x: laneX, y, height })

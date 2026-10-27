@@ -22,6 +22,7 @@ import {
   type ProjectMapWorkspace
 } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
+import { projectMapChatRows, subscribeToProjectMapChatRows } from './project-map-chat-rows'
 import { collapseProjectMapGraph } from './project-map-collapse'
 import { activateAiVaultStructuredSession } from '@/lib/activate-ai-vault-structured-session'
 import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
@@ -95,7 +96,11 @@ export default function ProjectMapPage(): React.JSX.Element {
     () => (graph ? collapseProjectMapGraph(graph, expanded) : null),
     [expanded, graph]
   )
-  const layout = useMemo(() => (collapsed ? layoutProjectMap(collapsed.graph) : null), [collapsed])
+  const chatRows = useSyncExternalStore(subscribeToProjectMapChatRows, projectMapChatRows)
+  const layout = useMemo(
+    () => (collapsed ? layoutProjectMap(collapsed.graph, chatRows) : null),
+    [chatRows, collapsed]
+  )
   const toggleCollapse = useCallback((parentPaneKey: string) => {
     setExpanded((current) => {
       const next = new Set(current)

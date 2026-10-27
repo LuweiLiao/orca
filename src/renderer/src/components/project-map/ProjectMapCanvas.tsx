@@ -24,6 +24,8 @@ import { ProjectMapChatWindow } from './ProjectMapChatWindow'
 import { projectMapAgentForkable, projectMapWindowSubject } from './project-map-window-subject'
 import { ProjectMapForkPanel } from './ProjectMapForkPanel'
 import type { ProjectMapRect } from './project-map-window-placement'
+import { projectMapDropSlot } from './project-map-drop-slot'
+import { noteProjectMapChatRow } from './project-map-chat-rows'
 
 type Props = {
   /** Every chat on the map, the hidden ones in stacks included. */
@@ -99,6 +101,7 @@ export function ProjectMapCanvas({
   )
   const forkDrag = useProjectMapForkDrag({
     contentPoint: viewport.contentPoint,
+    snap: (originId, pointerY) => projectMapDropSlot(layout, graph, originId, pointerY),
     onStart: () => setForkFor(null),
     onPlace: (originId) => {
       setSelectedId(originId)
@@ -358,6 +361,9 @@ export function ProjectMapCanvas({
           )}
           onClose={() => setForkFor(null)}
           onCreated={({ sessionId }) => {
+            if (placedDraft) {
+              noteProjectMapChatRow(sessionId, placedDraft.row)
+            }
             setForkFor(null)
             setAwaited({ sessionId, projectId: graph.projectId })
             onForked()
