@@ -7,7 +7,12 @@ import type {
   DashboardSnapshot,
   DashboardWorkspace
 } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
-import type { ProjectMapChat, ProjectMapLineage } from './project-map-lineage'
+import { structuredAgentSessionTabId } from '../../../../shared/agent-session/view/structured-agent-session-projection'
+import type {
+  ProjectMapChat,
+  ProjectMapHistoryChat,
+  ProjectMapLineage
+} from './project-map-lineage'
 
 export type ProjectMapProject = {
   id: string
@@ -34,6 +39,8 @@ export type ProjectMapAgent = {
   /** The card's delegator or fork source is known but outside this project or not loaded. */
   hasUnresolvedParent: boolean
   childPaneKeys: string[]
+  /** A chat whose tab is closed, drawn because a fork still connects it to the map. */
+  history?: true
   /** Set when this chat was forked from another; its parent above is that source. */
   fork?: {
     sourceSessionId: string
@@ -53,6 +60,8 @@ export type ProjectMapEdge = {
 export type ProjectMapForkInput = {
   chatsByPaneKey: ReadonlyMap<string, ProjectMapChat>
   lineage: ProjectMapLineage
+  /** Chats at fork ends the hosts still record; the closed ones become history nodes. */
+  history?: ReadonlyMap<string, ProjectMapHistoryChat>
   titleOf: (card: DashboardCard) => string
 }
 
@@ -165,6 +174,23 @@ export function buildProjectMapGraph(
       paneKeyBySession.set(agent.chat.sessionId, agent.card.paneKey)
     }
   }
+  for (const chat of forks ? closedForkEnds(forks, paneKeyBySession) : []) {
+    const workspace = workspaces.get(chat.workspaceId)
+    if (!workspace) {
+      continue
+    }
+    const card = projectMapHistoryCard(chat, workspace)
+    agents.set(card.paneKey, {
+      card,
+      chat: { sessionId: chat.sessionId, agent: chat.agent, executionHostId: chat.executionHostId },
+      parentPaneKey: null,
+      hasUnresolvedParent: false,
+      childPaneKeys: [],
+      history: true
+    })
+    workspace.agentPaneKeys.push(card.paneKey)
+    paneKeyBySession.set(chat.sessionId, card.paneKey)
+  }
   for (const agent of agents.values()) {
     const sourceSessionId = agent.chat ? forks?.lineage.get(agent.chat.sessionId) : undefined
     // A fork is the person's own chat, never a worker, so its source is its only parent.
@@ -232,4 +258,63 @@ export function projectMapChatSessions(
     }
   }
   return sessions
+}
+
+/** Fork ends with no open card, sources before the children forked from them. */
+function closedForkEnds(
+  forks: ProjectMapForkInput,
+  open: ReadonlyMap<string, string>
+): ProjectMapHistoryChat[] {
+  const order: string[] = []
+  const placed = new Set<string>()
+  const place = (sessionId: string, trail: Set<string>): void => {
+    if (placed.has(sessionId) || trail.has(sessionId)) {
+      return
+    }
+    trail.add(sessionId)
+    const source = forks.lineage.get(sessionId)
+    if (source) {
+      place(source, trail)
+    }
+    placed.add(sessionId)
+    order.push(sessionId)
+  }
+  for (const [child, source] of forks.lineage) {
+    place(source, new Set())
+    place(child, new Set())
+  }
+  return order.flatMap((sessionId) => {
+    const chat = open.has(sessionId) ? undefined : forks.history?.get(sessionId)
+    return chat ? [chat] : []
+  })
+}
+
+export const PROJECT_MAP_HISTORY_PANE_PREFIX = 'project-map-history:'
+
+function projectMapHistoryCard(
+  chat: ProjectMapHistoryChat,
+  workspace: ProjectMapWorkspace
+): DashboardCard {
+  return {
+    paneKey: `${PROJECT_MAP_HISTORY_PANE_PREFIX}${chat.sessionId}`,
+    ptyId: null,
+    agentType: chat.agent,
+    bucket: 'idle',
+    dotState: 'idle',
+    task: chat.title ?? '',
+    ...(chat.title ? { conversationName: chat.title } : {}),
+    repoId: workspace.repoId,
+    worktreeId: workspace.worktreeId,
+    tabId: structuredAgentSessionTabId(chat.sessionId),
+    leafId: null,
+    repoName: workspace.repoName,
+    worktreeName: workspace.worktreeName,
+    hostKind: workspace.hostKind,
+    ...(chat.executionHostId ? { executionHostId: chat.executionHostId } : {}),
+    workspaceKind: workspace.workspaceKind,
+    startedAt: 0,
+    finishedAt: null,
+    stateChangedAt: 0,
+    unseen: false
+  }
 }

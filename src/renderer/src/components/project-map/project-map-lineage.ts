@@ -4,6 +4,7 @@ import type { ExecutionHostId } from '../../../../shared/execution-host/executio
 import { isStructuredTab } from '../../../../shared/agent-session/view/structured-agent-session-tab'
 import type { Tab } from '../../../../shared/workspace-layout/tab-groups/tab-types'
 import type { AgentSessionConversationNames } from '../../../../shared/agent-session/conversation-naming/agent-session-conversation-names'
+import type { AgentSessionStatusSnapshot } from '../../../../shared/agent-session/view/agent-session-status-snapshot-fold'
 
 /** A structured chat behind a map card: its session and the host that runs it. */
 export type ProjectMapChat = {
@@ -14,6 +15,12 @@ export type ProjectMapChat = {
 
 /** Child session id to the session it was forked from, as each host's chat feed names it. */
 export type ProjectMapLineage = ReadonlyMap<string, string>
+
+/** A chat a host still records at the end of a fork, open or not. */
+export type ProjectMapHistoryChat = ProjectMapChat & {
+  workspaceId: string
+  title: string | null
+}
 
 /**
  * Which structured chat each card shows. A chat with an open tab is read from the tab; an
@@ -47,20 +54,53 @@ export function projectMapChatsByPaneKey(
   return chats
 }
 
-/** The fork sources of the given chats, read from their hosts' naming feeds. */
-export function projectMapLineageFromNames(
-  sessionIds: Iterable<string>,
-  names: readonly AgentSessionConversationNames[]
-): Map<string, string> {
+/** One host's naming and status feeds, as read for the map. */
+export type ProjectMapHostFeed = {
+  executionHostId: ExecutionHostId | null
+  names: AgentSessionConversationNames
+  statuses: AgentSessionStatusSnapshot
+}
+
+/**
+ * Fork sources of the open chats, followed up through chats that are no longer open, and each
+ * such closed chat a host still records, so a fork through it keeps its place on the map.
+ */
+export function projectMapLineageFromFeeds(
+  openSessionIds: Iterable<string>,
+  hosts: readonly ProjectMapHostFeed[]
+): { lineage: Map<string, string>; history: Map<string, ProjectMapHistoryChat> } {
+  const open = new Set(openSessionIds)
   const lineage = new Map<string, string>()
-  for (const sessionId of sessionIds) {
-    for (const host of names) {
-      const source = host.get(sessionId)?.forkedFrom?.sessionId
+  const history = new Map<string, ProjectMapHistoryChat>()
+  const pending = [...open]
+  const seen = new Set(pending)
+  while (pending.length > 0) {
+    const sessionId = pending.shift()!
+    for (const host of hosts) {
+      const name = host.names.get(sessionId)
+      const status = host.statuses.get(sessionId)
+      if (!name && !status) {
+        continue
+      }
+      if (!open.has(sessionId) && status) {
+        history.set(sessionId, {
+          sessionId,
+          agent: status.agent,
+          executionHostId: host.executionHostId,
+          workspaceId: status.workspaceId,
+          title: name?.conversationName?.trim() || null
+        })
+      }
+      const source = name?.forkedFrom?.sessionId
       if (source) {
         lineage.set(sessionId, source)
-        break
+        if (!seen.has(source)) {
+          seen.add(source)
+          pending.push(source)
+        }
       }
+      break
     }
   }
-  return lineage
+  return { lineage, history }
 }

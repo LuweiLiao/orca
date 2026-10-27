@@ -3,6 +3,7 @@
   --pm-kind-workspace: var(--git-decoration-modified);
   --pm-kind-folder: var(--muted-foreground);
   --pm-kind-agent: var(--callout-important);
+  --pm-kind-history: var(--muted-foreground);
   --pm-wire-derive: color-mix(in srgb, var(--pm-kind-workspace) 85%, var(--muted-foreground));
   --pm-wire-delegate: color-mix(in srgb, var(--pm-kind-agent) 85%, var(--muted-foreground));
   --pm-wire-fork: color-mix(in srgb, var(--callout-note) 90%, var(--muted-foreground));
@@ -64,6 +65,33 @@
 }
 .project-map-node[data-kind='folder'] {
   --pm-kind: var(--pm-kind-folder);
+}
+/* A closed chat still joined by a fork: drawn, but plainly not running. */
+.project-map-node[data-history='true'] {
+  --pm-kind: var(--pm-kind-history);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--card) 70%, var(--background));
+  box-shadow: none;
+}
+.project-map-node[data-history='true'] .project-map-node-header {
+  --pm-header-mix: 14%;
+}
+/* A stack of delegated chats: two offset edges read as cards behind it. */
+.project-map-node[data-kind='group'] {
+  box-shadow:
+    4px 4px 0 -1px var(--card),
+    4px 4px 0 0 var(--border),
+    8px 8px 0 -1px var(--card),
+    8px 8px 0 0 var(--border),
+    0 6px 14px rgb(0 0 0 / 0.08);
+}
+.project-map-node[data-kind='group'][data-selected='true'] {
+  box-shadow:
+    0 0 0 2px var(--ring),
+    4px 4px 0 -1px var(--card),
+    4px 4px 0 0 var(--border),
+    8px 8px 0 -1px var(--card),
+    8px 8px 0 0 var(--border);
 }
 .project-map-node:hover {
   border-color: color-mix(in srgb, var(--pm-kind) 45%, var(--border));

@@ -2895,6 +2895,9 @@
     }
   },
   "projectMap": {
+    "group": {
+      "title_one": "{{count}} delegated chat"
+    },
     "node": {
       "conversationCount_one": "{{count}} conversation",
       "forkCount_one": "{{count}} fork",

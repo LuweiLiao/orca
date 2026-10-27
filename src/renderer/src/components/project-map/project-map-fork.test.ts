@@ -9,7 +9,8 @@ import type { AgentSessionConversationNames } from '../../../../shared/agent-ses
 import { buildProjectMapGraph } from './project-map-graph'
 import { layoutProjectMap, PROJECT_MAP_NODE } from './project-map-layout'
 import { projectMapForkSources, projectMapLatestForkItemId } from './project-map-fork-sources'
-import { projectMapLineageFromNames, type ProjectMapChat } from './project-map-lineage'
+import { projectMapLineageFromFeeds, type ProjectMapChat } from './project-map-lineage'
+import type { AgentSessionStatusSummary } from '../../../../shared/agent-session/agent-session-wire'
 
 const workspace: DashboardWorkspace = {
   repoId: 'repo',
@@ -42,6 +43,15 @@ function card(paneKey: string, startedAt: number, parentPaneKey?: string): Dashb
     unseen: false
   }
 }
+
+const statusOf = (sessionId: string): AgentSessionStatusSummary => ({
+  sessionId,
+  workspaceId: 'main',
+  agent: 'claude',
+  status: null,
+  latestPrompt: '',
+  updatedAt: 0
+})
 
 const chat = (sessionId: string): ProjectMapChat => ({
   sessionId,
@@ -143,22 +153,42 @@ describe('forks on the project map', () => {
     ).toEqual([0])
   })
 
-  it('reads a fork source from whichever host names the chat', () => {
-    const names = (entries: [string, string][]): AgentSessionConversationNames =>
-      new Map(
-        entries.map(([child, source]) => [
-          child,
-          { sessionId: child, conversationName: null, forkedFrom: { sessionId: source } }
-        ])
-      )
-    const lineage = projectMapLineageFromNames(
-      ['a', 'b', 'c'],
-      [names([['a', 'root']]), names([['b', 'a']])]
+  it('reads fork sources from whichever host names the chat, through closed chats', () => {
+    const names: AgentSessionConversationNames = new Map(
+      [
+        ['leaf', 'gone'],
+        ['gone', 'root']
+      ].map(([child, source]) => [
+        child!,
+        {
+          sessionId: child!,
+          conversationName: child === 'gone' ? 'Old plan' : null,
+          forkedFrom: { sessionId: source! }
+        }
+      ])
+    )
+    const { lineage, history } = projectMapLineageFromFeeds(
+      ['leaf', 'root'],
+      [
+        { executionHostId: null, names: new Map(), statuses: new Map() },
+        {
+          executionHostId: 'local',
+          names,
+          statuses: new Map([['gone', statusOf('gone')]])
+        }
+      ]
     )
     expect([...lineage]).toEqual([
-      ['a', 'root'],
-      ['b', 'a']
+      ['leaf', 'gone'],
+      ['gone', 'root']
     ])
+    expect(history.get('gone')).toEqual({
+      sessionId: 'gone',
+      agent: 'claude',
+      executionHostId: 'local',
+      workspaceId: 'main',
+      title: 'Old plan'
+    })
   })
 
   it('forks through the newest response, and not through a prompt', () => {
