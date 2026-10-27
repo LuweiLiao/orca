@@ -29,6 +29,10 @@ type NodeShellProps = {
   headerOutPin?: HeaderPinKind
   /** A closed chat drawn because a fork still connects it. */
   history?: boolean
+  /** Present when the canvas reveals something, like the + handle, while the pointer is here. */
+  onHover?: (id: string | null) => void
+  /** Corner marker: waiting on the person, or finished and not looked at yet. */
+  badge?: { tone: 'attention' | 'unseen'; title: string }
 }
 
 function NodeShell({
@@ -45,7 +49,9 @@ function NodeShell({
   outPin,
   headerInPin,
   headerOutPin,
-  history
+  history,
+  onHover,
+  badge
 }: NodeShellProps): React.JSX.Element {
   return (
     <button
@@ -55,6 +61,10 @@ function NodeShell({
       data-selected={selected}
       data-linked={linked}
       data-history={history || undefined}
+      data-attention={badge?.tone === 'attention' || undefined}
+      {...(onHover
+        ? { onPointerEnter: () => onHover(box.id), onPointerLeave: () => onHover(null) }
+        : {})}
       aria-pressed={selected}
       aria-label={label}
       // Why: the canvas pans on background presses; a node press is a selection.
@@ -66,6 +76,9 @@ function NodeShell({
       className="project-map-node absolute flex flex-col text-left text-foreground"
       style={{ left: box.x, top: box.y, width: box.width, height: PROJECT_MAP_NODE.height }}
     >
+      {badge ? (
+        <span className="project-map-node-badge" data-tone={badge.tone} title={badge.title} />
+      ) : null}
       <span className="project-map-node-header relative flex h-10 w-full shrink-0 items-center gap-2 px-2.5">
         {headerInPin ? (
           <span
@@ -166,6 +179,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   box,
   agent,
   graphAgents,
+  onHover,
   selected,
   linked,
   onSelect
@@ -173,6 +187,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   box: ProjectMapNodeBox
   agent: ProjectMapAgent
   graphAgents: ReadonlyMap<string, ProjectMapAgent>
+  onHover?: (id: string | null) => void
   selected: boolean
   linked: boolean
   onSelect: (id: string) => void
@@ -200,6 +215,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
         : delegates > 0
           ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', { count: delegates })
           : undefined
+  const badge = agent.history ? undefined : agentBadge(card, state)
   return (
     <NodeShell
       box={box}
@@ -227,6 +243,8 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       rowLeft={rowLeft}
       rowRight={rowRight}
       history={agent.history}
+      {...(badge ? { badge } : {})}
+      {...(onHover ? { onHover } : {})}
       inPin={
         agent.fork
           ? undefined
@@ -333,4 +351,19 @@ function GroupCount({
       {count}
     </span>
   )
+}
+
+function agentBadge(
+  card: ProjectMapAgent['card'],
+  state: ReturnType<typeof dashboardCardDisplayState>
+): NodeShellProps['badge'] {
+  if (state === 'blocked' || state === 'waiting') {
+    return {
+      tone: 'attention',
+      title: card.askSummary || translate('projectMap.node.needsInput', 'Waiting for you')
+    }
+  }
+  return card.unseen && state === 'done'
+    ? { tone: 'unseen', title: translate('projectMap.node.unseen', 'Finished, not read yet') }
+    : undefined
 }

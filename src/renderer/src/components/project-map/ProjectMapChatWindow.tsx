@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Folder,
   GitBranch,
@@ -10,6 +10,7 @@ import {
   XIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAppStore } from '@/store'
 import { AgentTypeIcon } from '@/components/agent/icons/agent-type-icon'
 import { formatAgentTypeLabel } from '../../../../shared/agent-status/presentation/agent-type-label'
 import { AgentStateDot } from '@/components/agent/status/AgentStateDot'
@@ -94,6 +95,13 @@ export function ProjectMapChatWindow({
     subject.kind === 'agent'
       ? subject.agent
       : (workspaceAgents.find((agent) => agent.card.paneKey === activeTab) ?? workspaceAgents[0])
+  // Reading a chat here is looking at it, as in its tab: its unread marker clears.
+  const viewed = tabAgent && !tabAgent.history ? tabAgent.card : undefined
+  useEffect(() => {
+    if (viewed?.unseen) {
+      useAppStore.getState().acknowledgeAgents([viewed.paneKey], undefined, 'explicit')
+    }
+  }, [viewed?.paneKey, viewed?.unseen])
   const kind =
     subject.kind === 'agent'
       ? 'agent'

@@ -28478,7 +28478,9 @@
       "forkCount": "分叉 {{count}}",
       "closedSource": "已关闭的对话",
       "forkedFrom": "分叉自 {{source}}",
-      "closed": "已关闭"
+      "closed": "已关闭",
+      "needsInput": "在等你回复",
+      "unseen": "已完成，还没看"
     },
     "title": "项目关系图",
     "project": "项目",
@@ -28524,7 +28526,11 @@
       "noResponse": "这个对话还没有完成的回复，暂时不能从它分出。",
       "cancel": "取消",
       "creating": "创建中…",
-      "create": "创建子对话"
+      "create": "创建子对话",
+      "handleHint": "点击，或拖到地图空白处放置新对话",
+      "dropHint": "松开即放在这里",
+      "dropBlocked": "请放在空白处",
+      "hostUnsupported": "这个对话的主机或 Agent 不支持分叉。"
     },
     "group": {
       "title": "{{count}} 个子 agent",

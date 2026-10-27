@@ -29908,7 +29908,9 @@
       "forkCount_one": "{{count}} fork",
       "closedSource": "a closed chat",
       "forkedFrom": "Forked from {{source}}",
-      "closed": "Closed"
+      "closed": "Closed",
+      "needsInput": "Waiting for you",
+      "unseen": "Finished, not read yet"
     },
     "title": "Project Map",
     "project": "Project",
@@ -29954,7 +29956,11 @@
       "noResponse": "That chat has no finished response to continue from yet.",
       "cancel": "Cancel",
       "creating": "Creating…",
-      "create": "Create child chat"
+      "create": "Create child chat",
+      "handleHint": "Click, or drag onto the map to place the new chat",
+      "dropHint": "Release to place it here",
+      "dropBlocked": "Drop it on an empty spot",
+      "hostUnsupported": "This chat's host or agent cannot fork chats."
     },
     "group": {
       "title": "{{count}} delegated chats",
