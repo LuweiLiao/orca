@@ -71,3 +71,14 @@
     }
   }
 }
+
+/* A formula wider than the reply scrolls on its own instead of widening the transcript. */
+.native-chat-markdown .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* KaTeX lays out its own glyphs; prose wrapping would break a formula between symbols. */
+.native-chat-markdown .katex {
+  overflow-wrap: normal;
+}
