@@ -164,11 +164,13 @@ export function buildProjectMapGraph(
     })
     workspace.agentPaneKeys.push(card.paneKey)
   }
-  const paneKeyBySession = new Map(
-    [...agents.values()].flatMap((agent) =>
-      agent.chat ? [[agent.chat.sessionId, agent.card.paneKey] as const] : []
-    )
-  )
+  // One chat open in two panes (a split) wires its forks to the pane that opened it first.
+  const paneKeyBySession = new Map<string, string>()
+  for (const agent of agents.values()) {
+    if (agent.chat && !paneKeyBySession.has(agent.chat.sessionId)) {
+      paneKeyBySession.set(agent.chat.sessionId, agent.card.paneKey)
+    }
+  }
   for (const agent of agents.values()) {
     const entry = agent.chat ? forks?.lineage.get(agent.chat.sessionId) : undefined
     // A fork is the person's own chat, never a worker, so its source is its only parent.

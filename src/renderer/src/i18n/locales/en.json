@@ -21560,6 +21560,7 @@
       "instructionPlaceholder": "Empty: the chat opens and waits for you.",
       "sourceWorking": "That chat is still working; continue from it once its turn ends.",
       "unavailable": "This chat cannot be continued here.",
+      "hostUnsupported": "This chat's host runs an Orca version that cannot fork chats; update it to continue from here.",
       "cancel": "Cancel",
       "creating": "Creating…",
       "create": "Create child chat"

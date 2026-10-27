@@ -18,6 +18,8 @@ type Props = {
   activeWorktreeId: string | null
   onOpenAgent: (agent: ProjectMapAgent) => void
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
+  /** Hosts known to predate forks. */
+  forkUnsupportedHosts: ReadonlySet<string>
   /** A fork made a chat; its lineage is worth reading again. */
   onForked: () => void
 }
@@ -28,6 +30,8 @@ export function projectMapAgentForkable(agent: ProjectMapAgent | undefined): boo
     agent?.chat?.executionHostId && agent.card.hostKind !== 'ssh' && agent.card.hostKind !== 'wsl'
   )
 }
+
+const AWAIT_FORKED_CHAT_MS = 30_000
 
 const EMPTY_WORKTREES: readonly { id: string; branch: string }[] = []
 
@@ -55,13 +59,24 @@ export function ProjectMapCanvas({
   activeWorktreeId,
   onOpenAgent,
   onOpenWorkspace,
+  forkUnsupportedHosts,
   onForked
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [forkFor, setForkFor] = useState<string | null>(null)
   // A new child shows up on a later snapshot; select it then, by its chat's session.
-  const [awaitedSession, setAwaitedSession] = useState<string | null>(null)
+  const [awaited, setAwaited] = useState<{ sessionId: string; projectId: string } | null>(null)
+  // Waited for only on the project it was made from, and not forever: a child that lands
+  // elsewhere, or never shows, must not grab the selection later.
+  const awaitedSession = awaited?.projectId === graph.projectId ? awaited.sessionId : null
+  useEffect(() => {
+    if (!awaited) {
+      return
+    }
+    const timer = window.setTimeout(() => setAwaited(null), AWAIT_FORKED_CHAT_MS)
+    return () => window.clearTimeout(timer)
+  }, [awaited])
   const worktrees = useAppStore((s) => selectWorktreesByRepo(s)[graph.projectId] ?? EMPTY_WORKTREES)
   const branchById = useMemo(
     () =>
@@ -80,7 +95,7 @@ export function ProjectMapCanvas({
     : undefined
   if (arrived && layout.nodes.has(arrived.card.paneKey)) {
     setSelectedId(arrived.card.paneKey)
-    setAwaitedSession(null)
+    setAwaited(null)
   }
 
   const linked = useMemo(() => {
@@ -229,6 +244,9 @@ export function ProjectMapCanvas({
           <ForkHandle
             box={layout.nodes.get(selected)!}
             open={forkOrigin !== undefined}
+            unsupported={forkUnsupportedHosts.has(
+              graph.agents.get(selected)?.chat?.executionHostId ?? ''
+            )}
             onOpen={() => setForkFor(selected)}
           />
         ) : null}
@@ -244,7 +262,7 @@ export function ProjectMapCanvas({
           onClose={() => setForkFor(null)}
           onCreated={({ sessionId }) => {
             setForkFor(null)
-            setAwaitedSession(sessionId)
+            setAwaited({ sessionId, projectId: graph.projectId })
             onForked()
           }}
         />
@@ -258,7 +276,9 @@ export function ProjectMapCanvas({
           onClose={() => setSelectedId(null)}
           onOpenAgent={onOpenAgent}
           onOpenWorkspace={onOpenWorkspace}
-          {...(subject.kind === 'agent' && projectMapAgentForkable(subject.agent)
+          {...(subject.kind === 'agent' &&
+          projectMapAgentForkable(subject.agent) &&
+          !forkUnsupportedHosts.has(subject.agent.chat?.executionHostId ?? '')
             ? { onFork: () => setForkFor(selected) }
             : {})}
         />
@@ -321,24 +341,35 @@ function ProjectMapLegend(): React.JSX.Element {
 function ForkHandle({
   box,
   open,
+  unsupported,
   onOpen
 }: {
   box: { x: number; y: number; width: number }
   open: boolean
+  unsupported: boolean
   onOpen: () => void
 }): React.JSX.Element {
   const label = translate('projectMap.fork.title', 'New child chat')
+  const reason = unsupported
+    ? translate(
+        'projectMap.fork.hostUnsupported',
+        "This chat's host runs an Orca version that cannot fork chats; update it to continue from here."
+      )
+    : null
   return (
     <button
       type="button"
       aria-label={label}
       aria-expanded={open}
-      title={label}
+      aria-disabled={unsupported || undefined}
+      title={reason ?? label}
       data-project-map-fork-handle=""
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation()
-        onOpen()
+        if (!unsupported) {
+          onOpen()
+        }
       }}
       className="project-map-fork-handle absolute z-10 grid size-[22px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-primary-foreground"
       style={{ left: box.x + box.width + 4, top: box.y + PROJECT_MAP_NODE.headerPinOffsetY }}

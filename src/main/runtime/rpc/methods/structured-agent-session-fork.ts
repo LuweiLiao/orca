@@ -81,17 +81,22 @@ async function forkStructuredAgentSession(
   if (forkPoint && forkPoint.sourceSessionId !== params.sourceSessionId) {
     throw new Error('That fork point belongs to another chat.')
   }
-  if (params.cut.kind === 'latest') {
+  // Idle on both sides of the read: a turn that began in between would hand over a half reply.
+  // Journal turn rows are not proof here; a host that died mid-turn leaves them `running`.
+  const refuseWhileWorking = async (): Promise<void> => {
     const page = await host.history({ sessionId: source.sessionId, direction: 'tail', limit: 1 })
     if (page.page.working) {
       throw new Error('The source chat is still working. Start from it after its turn ends.')
     }
   }
-  const taken = forkSourceMessages(
-    await host.journalSnapshot(source.sessionId),
-    params.cut,
-    forkPoint
-  )
+  if (params.cut.kind === 'latest') {
+    await refuseWhileWorking()
+  }
+  const snapshot = await host.journalSnapshot(source.sessionId)
+  if (params.cut.kind === 'latest') {
+    await refuseWhileWorking()
+  }
+  const taken = forkSourceMessages(snapshot, params.cut, forkPoint)
   const [sourcePath, childPath] = await Promise.all([
     ctx.runtime.resolveStructuredAgentSessionLocalWorkspacePath(
       `id:${source.location.workspaceId}`
@@ -150,33 +155,46 @@ async function forkStructuredAgentSession(
   }
   // Recorded first: a chat that exists with no record of where it came from would draw unlinked.
   lineage.put(entry)
-  const prepared = await resolveUncommittedStructuredCreate(() =>
-    prepareStructuredAgentSessionCreateForWorktree({
-      runtime: ctx.runtime,
-      ensureHost: async () => host,
-      caller: callerFor(ctx),
-      structuredAgentCliSourceEvidence: ctx.structuredAgentCliSourceEvidence,
-      ...intent,
-      envelope,
-      atRest: Boolean(
-        firstMessage ||
-        ctx.clientCapabilities?.includes(AGENT_SESSION_CREATE_MESSAGE_RUNTIME_CAPABILITY)
-      )
-    })
-  )
-  if ('refusal' in prepared) {
-    lineage.delete(childSessionId)
-    return { ok: false, refusal: prepared.refusal }
+  // Kept only beside a chat: a create that refused, failed, or threw leaves no orphan behind.
+  const dropUnlessCreated = (): void => {
+    if (!host.deps.store.getRecord(childSessionId)) {
+      lineage.delete(childSessionId)
+    }
   }
-  const created = await commitStructuredAgentSessionCreate({
-    runtime: ctx.runtime,
-    caller: callerFor(ctx),
-    prepared,
-    // The person stays on the map; the new chat opens in its window there.
-    activate: false,
-    placedByWindow: ctx.caller?.kind === 'desktop'
-  })
+  let created: Awaited<ReturnType<typeof commitStructuredAgentSessionCreate>>
+  try {
+    const prepared = await resolveUncommittedStructuredCreate(() =>
+      prepareStructuredAgentSessionCreateForWorktree({
+        runtime: ctx.runtime,
+        ensureHost: async () => host,
+        caller: callerFor(ctx),
+        structuredAgentCliSourceEvidence: ctx.structuredAgentCliSourceEvidence,
+        ...intent,
+        envelope,
+        atRest: Boolean(
+          firstMessage ||
+          ctx.clientCapabilities?.includes(AGENT_SESSION_CREATE_MESSAGE_RUNTIME_CAPABILITY)
+        )
+      })
+    )
+    if ('refusal' in prepared) {
+      dropUnlessCreated()
+      return { ok: false, refusal: prepared.refusal }
+    }
+    created = await commitStructuredAgentSessionCreate({
+      runtime: ctx.runtime,
+      caller: callerFor(ctx),
+      prepared,
+      // The person stays on the map; the new chat opens in its window there.
+      activate: false,
+      placedByWindow: ctx.caller?.kind === 'desktop'
+    })
+  } catch (error) {
+    dropUnlessCreated()
+    throw error
+  }
   if (!created.ok) {
+    dropUnlessCreated()
     return created
   }
   await nameForkedChat(ctx, host, created.value.sessionId, source, params.instruction)

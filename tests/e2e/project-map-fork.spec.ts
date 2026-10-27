@@ -82,6 +82,10 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     await map.locator('[data-project-map-fork-handle]').click()
     const panel = map.locator('[data-project-map-fork-panel]')
     await expect(panel).toBeVisible()
+    // The footer stays on screen however low the node sits.
+    await expect(panel.getByRole('button', { name: 'Create child chat' })).toBeInViewport({
+      ratio: 1
+    })
     await expect(panel.getByRole('radio')).toHaveCount(1)
     await panel.getByRole('textbox').fill('CHILD-ONE: try ELK layered layout')
     await screenshot('fork-panel')

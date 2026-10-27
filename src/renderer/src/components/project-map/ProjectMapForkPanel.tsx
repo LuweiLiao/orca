@@ -140,7 +140,8 @@ export function ProjectMapForkPanel({
         left: position.x,
         top: position.y,
         width: SIZE.width,
-        maxHeight: viewport.height - 16
+        // Below its own top, so the footer with Create stays on screen.
+        maxHeight: Math.max(0, viewport.height - position.y - 8)
       }}
     >
       <header className="project-map-window-header flex h-12 shrink-0 items-center gap-2 border-b border-border pr-1.5 pl-3">
@@ -166,7 +167,7 @@ export function ProjectMapForkPanel({
         </Button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-3.5 py-3 scrollbar-sleek">
-        <fieldset className="flex flex-col gap-1">
+        <fieldset className="flex min-w-0 flex-col gap-1">
           <legend className="mb-1.5 text-[11px] font-semibold text-muted-foreground">
             {translate('projectMap.fork.inheritFrom', 'Inherit from')}
           </legend>

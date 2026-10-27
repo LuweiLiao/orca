@@ -33,25 +33,50 @@ export async function hostSupportsAgentSessionFork(target: RuntimeClientTarget):
   }
 }
 
+// Under `LineageParams`' cap, so a project with more chats is read in pages instead of refused.
+const LINEAGE_PAGE = 1024
+
+type HostLineage = { supported: boolean; entries: AgentSessionLineageEntry[] }
+
 async function readHostLineage(
   target: RuntimeClientTarget,
   sessionIds: readonly string[]
-): Promise<AgentSessionLineageEntry[]> {
+): Promise<HostLineage> {
   if (!(await hostSupportsAgentSessionFork(target))) {
-    return []
+    return { supported: false, entries: [] }
   }
-  try {
-    const result = await callStructuredAgentSession<{ entries?: unknown }>(
-      target,
-      'agentSession.lineage',
-      { sessionIds }
-    )
-    return Array.isArray(result.entries) ? result.entries.filter(isAgentSessionLineageEntry) : []
-  } catch {
-    // A host that cannot answer draws its chats without fork edges, as an older one does.
-    return []
+  const pages: string[][] = []
+  for (let start = 0; start < sessionIds.length; start += LINEAGE_PAGE) {
+    pages.push(sessionIds.slice(start, start + LINEAGE_PAGE))
   }
+  const entries = await Promise.all(
+    pages.map(async (page) => {
+      try {
+        const result = await callStructuredAgentSession<{ entries?: unknown }>(
+          target,
+          'agentSession.lineage',
+          { sessionIds: page }
+        )
+        return Array.isArray(result.entries)
+          ? result.entries.filter(isAgentSessionLineageEntry)
+          : []
+      } catch {
+        // A host that cannot answer draws its chats without fork edges, as an older one does.
+        return []
+      }
+    })
+  )
+  return { supported: true, entries: entries.flat() }
 }
+
+export type ProjectMapLineage = {
+  entries: ReadonlyMap<string, AgentSessionLineageEntry>
+  /** Hosts known to predate forks: their chats show the fork action disabled, with the reason. */
+  forkUnsupportedHosts: ReadonlySet<string>
+}
+
+const NO_HOSTS: ReadonlySet<string> = new Set()
+const EMPTY_LINEAGE: ProjectMapLineage = { entries: NO_LINEAGE, forkUnsupportedHosts: NO_HOSTS }
 
 /**
  * Forks recorded by every host whose chats are on the map. Re-read when the set of chats changes,
@@ -60,8 +85,8 @@ async function readHostLineage(
 export function useProjectMapLineage(
   chats: ReadonlyMap<string, ProjectMapChat>,
   revision: number
-): ReadonlyMap<string, AgentSessionLineageEntry> {
-  const [lineage, setLineage] = useState(NO_LINEAGE)
+): ProjectMapLineage {
+  const [lineage, setLineage] = useState(EMPTY_LINEAGE)
   const sessionsByHost = new Map<string, string[]>()
   for (const chat of chats.values()) {
     const host = chat.executionHostId ?? ''
@@ -75,18 +100,25 @@ export function useProjectMapLineage(
   useEffect(() => {
     let cancelled = false
     const reads = key
-      ? key.split('|').map((part) => {
-          const [host, ids] = part.split('=')
+      ? key.split('|').map(async (part) => {
+          const [host = '', ids] = part.split('=')
           const target = structuredAgentSessionTargetForHost(host || null)
-          return target ? readHostLineage(target, ids ? ids.split(',') : []) : Promise.resolve([])
+          const read = target
+            ? await readHostLineage(target, ids ? ids.split(',') : [])
+            : { supported: true, entries: [] }
+          return { host, ...read }
         })
       : []
-    void Promise.all(reads).then((pages) => {
-      if (!cancelled) {
-        setLineage(
-          pages.some((page) => page.length > 0) ? mergeProjectMapLineage(pages) : NO_LINEAGE
-        )
+    void Promise.all(reads).then((hosts) => {
+      if (cancelled) {
+        return
       }
+      const unsupported = hosts.filter((host) => !host.supported).map((host) => host.host)
+      const pages = hosts.map((host) => host.entries)
+      setLineage({
+        entries: pages.some((page) => page.length > 0) ? mergeProjectMapLineage(pages) : NO_LINEAGE,
+        forkUnsupportedHosts: unsupported.length > 0 ? new Set(unsupported) : NO_HOSTS
+      })
     })
     return () => {
       cancelled = true

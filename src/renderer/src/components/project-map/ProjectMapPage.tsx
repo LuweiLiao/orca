@@ -40,7 +40,7 @@ export default function ProjectMapPage(): React.JSX.Element {
     [sessions, snapshot.cards, tabsByWorktree]
   )
   const [lineageRevision, setLineageRevision] = useState(0)
-  const lineage = useProjectMapLineage(chats, lineageRevision)
+  const { entries: lineage, forkUnsupportedHosts } = useProjectMapLineage(chats, lineageRevision)
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
   const projectId =
@@ -171,6 +171,7 @@ export default function ProjectMapPage(): React.JSX.Element {
           activeWorktreeId={activeWorktreeId}
           onOpenAgent={openAgent}
           onOpenWorkspace={openWorkspace}
+          forkUnsupportedHosts={forkUnsupportedHosts}
           onForked={() => setLineageRevision((revision) => revision + 1)}
         />
       ) : (

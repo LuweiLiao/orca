@@ -21441,6 +21441,7 @@
       "instructionPlaceholder": "留空：对话打开后等你输入。",
       "sourceWorking": "这个对话还在运行，等这一轮结束再从它分出。",
       "unavailable": "这个对话不能在这里继续。",
+      "hostUnsupported": "这个对话所在主机的 Orca 版本不支持分叉，升级后才能从这里继续。",
       "cancel": "取消",
       "creating": "创建中…",
       "create": "创建子对话"

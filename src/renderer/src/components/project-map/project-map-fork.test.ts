@@ -122,6 +122,28 @@ describe('forks on the project map', () => {
     expect(graph.agents.get('leaf')?.fork?.sourceTitle).toBeNull()
   })
 
+  it('wires a fork to the pane that opened its source first when the source is split into two', () => {
+    const graph = buildProjectMapGraph(
+      {
+        generatedAt: 0,
+        workspaces: [workspace],
+        cards: [card('child', 3), card('split', 2), card('root', 1)]
+      },
+      'repo',
+      new Map(),
+      {
+        chatsByPaneKey: new Map([
+          ['root', chat('claude_root_chat')],
+          ['split', chat('claude_root_chat')],
+          ['child', chat('claude_child_chat')]
+        ]),
+        lineage: new Map([['claude_child_chat', forked('claude_child_chat', 'claude_root_chat')]]),
+        titleOf: (shown) => shown.task
+      }
+    )
+    expect(graph.edges).toEqual([{ kind: 'fork', from: 'root', to: 'child' }])
+  })
+
   it('offers the clicked chat and its ancestors, cutting each ancestor where it forked the next', () => {
     const graph = forkTree()
     const sources = projectMapForkSources(graph.agents.get('leaf')!, graph.agents)
