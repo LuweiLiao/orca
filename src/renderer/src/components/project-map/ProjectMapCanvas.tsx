@@ -253,6 +253,7 @@ export function ProjectMapCanvas({
                 key={`${wire.kind}:${wire.from}:${wire.to}`}
                 className="project-map-wire"
                 data-kind={wire.kind}
+                data-live={wire.live || undefined}
                 data-highlighted={highlighted}
                 d={wire.path}
               />

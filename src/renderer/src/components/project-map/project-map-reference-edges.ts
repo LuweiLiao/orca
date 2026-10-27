@@ -8,7 +8,7 @@ export function addReferenceEdges(
   paneKeyBySession: ReadonlyMap<string, string>,
   edges: ProjectMapEdge[]
 ): void {
-  const drawn = new Set<string>()
+  const drawn = new Map<string, ProjectMapEdge>()
   for (const link of links) {
     const to = paneKeyBySession.get(link.targetSessionId)
     const target = to ? agents.get(to) : undefined
@@ -21,9 +21,18 @@ export function addReferenceEdges(
       count: counted.count + 1,
       external: counted.external + (from && from !== to ? 0 : 1)
     }
-    if (from && from !== to && !drawn.has(`${from}|${to}`)) {
-      drawn.add(`${from}|${to}`)
-      edges.push({ kind: 'reference', from, to })
+    if (from && from !== to) {
+      const edge = drawn.get(`${from}|${to}`) ?? { kind: 'reference' as const, from, to }
+      if (!drawn.has(`${from}|${to}`)) {
+        drawn.set(`${from}|${to}`, edge)
+        edges.push(edge)
+      }
+      // The latest reference sent between the two decides how the wire reads.
+      if (link.sourceMessageCount === null) {
+        edge.live = true
+      } else {
+        delete edge.live
+      }
     }
   }
 }

@@ -5,13 +5,14 @@ import {
   ConversationReferenceSchema,
   ConversationReferencePageSchema,
   type ConversationReferenceCreate,
-  type ConversationReferenceRead
+  type ConversationReferenceRead,
+  type ConversationReferenceRetarget
 } from '../../shared/conversation-reference'
 import { callRuntimeEnvironment } from '../ipc/runtime-environments/runtime-environment-transport-routing'
 
 export async function forwardConversationReference(
-  method: 'conversation.createReference' | 'conversation.read',
-  request: ConversationReferenceCreate | ConversationReferenceRead
+  method: 'conversation.createReference' | 'conversation.read' | 'conversation.retargetReference',
+  request: ConversationReferenceCreate | ConversationReferenceRead | ConversationReferenceRetarget
 ): Promise<unknown> {
   const hostId =
     'source' in request

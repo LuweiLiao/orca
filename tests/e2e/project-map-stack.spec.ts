@@ -181,12 +181,20 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
     await expect(pill).toHaveCount(1)
     // A snapshot: it names how far into the coordinator's chat it reads.
     await expect(pill).toContainText(/#\d+/)
+    // Switched to follow the chat, the pill says so and the sent wire reads as live.
+    await pill.click()
+    const preview = page.getByRole('dialog', { name: /Coordinate the API work/ })
+    await preview.getByRole('button', { name: 'Follow the chat as it goes on' }).click()
+    await expect(pill).toContainText('live')
+    await expect(pill).not.toContainText(/#\d+/)
     await screenshot('reference-dropped')
     // Sent, the reference becomes a wire from its source; to a stacked chat it meets the stack.
     await windowComposer.pressSequentially('Use this plan.')
-    await chatWindow.getByRole('button', { name: 'Send', exact: true }).click()
+    // Enter, not the Send button: the star prompt can cover the window's corner.
+    await windowComposer.press('Enter')
     const referenceWire = map.locator('.project-map-wire[data-kind="reference"]')
     await expect(referenceWire).toHaveCount(1, { timeout: 30_000 })
+    await expect(referenceWire).toHaveAttribute('data-live', 'true')
 
     // Showing the fleet on the map draws each worker again.
     await node(paneKeyOf(parent)).click()

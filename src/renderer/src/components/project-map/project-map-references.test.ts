@@ -95,7 +95,9 @@ describe('references on the project map', () => {
   it('wires a reference from its source without moving any node', () => {
     const before = mapWith([]).layout.nodes
     const { graph, layout } = mapWith([link('claude_c', 'claude_b', 4)])
-    expect(graph.edges).toContainEqual({ kind: 'reference', from: 'b', to: 'c' })
+    expect(graph.edges).toContainEqual(
+      expect.objectContaining({ kind: 'reference', from: 'b', to: 'c' })
+    )
     expect(layout.nodes).toEqual(before)
     expect(layout.wires.find((wire) => wire.kind === 'reference')).not.toHaveProperty('backward')
   })
@@ -104,6 +106,16 @@ describe('references on the project map', () => {
     const { pins, layout } = mapWith([link('claude_a', 'claude_c'), link('claude_a', null)])
     expect(layout.wires.find((wire) => wire.kind === 'reference')?.backward).toBe(true)
     expect(pins.get('a')).toMatchObject({ count: 2, folded: 2, pinIn: false })
+  })
+
+  it('reads a wire as live when the latest reference between two chats follows its source', () => {
+    const { layout } = mapWith([
+      link('claude_c', 'claude_b'),
+      { ...link('claude_c', 'claude_b', 5), messageId: 'later' }
+    ])
+    expect(layout.wires.find((wire) => wire.kind === 'reference')?.live).toBe(true)
+    const pinned = mapWith([{ ...link('claude_c', 'claude_b'), sourceMessageCount: 9 }])
+    expect(pinned.layout.wires.find((wire) => wire.kind === 'reference')).not.toHaveProperty('live')
   })
 
   it('arcs a reference between chats in one column through the gutter on their right', () => {

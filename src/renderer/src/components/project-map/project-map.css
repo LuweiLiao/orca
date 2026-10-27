@@ -213,6 +213,10 @@
   stroke-width: 1.6;
   stroke-dasharray: 0.5 5;
 }
+/* Live: the target reads its source as it is at the time, not as it was. */
+.project-map-wire[data-kind='reference'][data-live='true'] {
+  stroke-dasharray: 6 4;
+}
 .project-map-reference-pin {
   position: absolute;
   top: 58px;

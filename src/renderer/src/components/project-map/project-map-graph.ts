@@ -60,6 +60,8 @@ export type ProjectMapEdge = {
   kind: ProjectMapEdgeKind
   from: string
   to: string
+  /** References only: the newest one between these chats reads its source live. */
+  live?: true
 }
 
 /** Forks the hosts recorded, and the chat behind each card, for drawing fork edges. */

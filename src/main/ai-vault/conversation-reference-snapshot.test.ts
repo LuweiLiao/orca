@@ -11,7 +11,8 @@ import { conversationReferenceSnapshotCount } from '../../shared/conversation-re
 import { setStructuredAgentSessionHost } from '../native-chat/agent-session-wire/structured-agent-session-registry'
 import {
   createLocalConversationReference,
-  readLocalConversationReference
+  readLocalConversationReference,
+  retargetLocalConversationReference
 } from './conversation-reference-reader'
 
 const said = (
@@ -100,6 +101,24 @@ describe('snapshot conversation references', () => {
     expect(conversationReferenceSnapshotCount(reference.uri)).toBe(2)
     snapshot = at('e1', [...snapshot.items, said('a4', 'assistant', 'blue wires', 4)])
     expect((await texts(reference.uri)).texts).toEqual(['plan the map', 'lanes'])
+  })
+
+  it('makes a live reference beside a snapshot, and pins a live one where the source is now', async () => {
+    const snapshot0 = await create()
+    snapshot = at('e1', [...snapshot.items, said('a3', 'user', 'add forks', 3)])
+    const live = await retargetLocalConversationReference({
+      reference: snapshot0.uri,
+      follow: 'live'
+    })
+    expect(conversationReferenceSnapshotCount(live!.uri)).toBeNull()
+    expect((await texts(live!.uri)).texts).toHaveLength(3)
+    // The snapshot the message was made with still reads what it did.
+    expect((await texts(snapshot0.uri)).texts).toHaveLength(2)
+    const pinned = await retargetLocalConversationReference({
+      reference: live!.uri,
+      follow: 'snapshot'
+    })
+    expect(conversationReferenceSnapshotCount(pinned!.uri)).toBe(3)
   })
 
   it('reads the current conversation, and says so, after a rewind past the snapshot', async () => {

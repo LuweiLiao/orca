@@ -31,6 +31,8 @@ import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
 import './project-map.css'
 
+const LINEAGE_REREAD_MS = 5000
+
 export default function ProjectMapPage(): React.JSX.Element {
   const snapshot = useLiveDashboardSnapshot()
   const activeRepoId = useAppStore((s) => s.activeRepoId)
@@ -43,11 +45,19 @@ export default function ProjectMapPage(): React.JSX.Element {
     [sessions, snapshot.cards, tabsByWorktree]
   )
   const [lineageRevision, setLineageRevision] = useState(0)
-  // A sent message records its references; every send moves some chat's state.
+  // A sent message records its references, and a chat that has no card (a released worker) moves
+  // no state the snapshot shows; so state changes re-read at once and a slow tick covers the rest.
   const lastStateChange = useMemo(
     () => snapshot.cards.reduce((latest, card) => Math.max(latest, card.stateChangedAt), 0),
     [snapshot.cards]
   )
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setLineageRevision((revision) => revision + 1),
+      LINEAGE_REREAD_MS
+    )
+    return () => window.clearInterval(timer)
+  }, [])
   const {
     entries: lineage,
     references,

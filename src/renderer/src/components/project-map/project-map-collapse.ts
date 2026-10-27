@@ -1,10 +1,5 @@
 import { dashboardCardDisplayState } from '../../../../shared/dashboard-snapshot'
-import type {
-  ProjectMapAgent,
-  ProjectMapEdge,
-  ProjectMapEdgeKind,
-  ProjectMapGraph
-} from './project-map-graph'
+import type { ProjectMapAgent, ProjectMapEdge, ProjectMapGraph } from './project-map-graph'
 
 /** A parent delegating at least this many chats shows them as one stack until expanded. */
 export const PROJECT_MAP_COLLAPSE_THRESHOLD = 4
@@ -157,15 +152,15 @@ function projectedGraph(
   }
   const edges: ProjectMapEdge[] = []
   const seen = new Set<string>()
-  const push = (kind: ProjectMapEdgeKind, from: string, to: string): void => {
-    const key = `${kind}|${from}|${to}`
+  const push = (edge: ProjectMapEdge, from: string, to: string): void => {
+    const key = `${edge.kind}|${from}|${to}`
     if (from !== to && !seen.has(key)) {
       seen.add(key)
-      edges.push({ kind, from, to })
+      edges.push({ ...edge, from, to })
     }
   }
   for (const edge of graph.edges) {
-    push(edge.kind, shown(edge.from), shown(edge.to))
+    push(edge, shown(edge.from), shown(edge.to))
   }
   // Stacks are reached through their parent; hidden chats are no lane's roots.
   const workspaces = new Map(

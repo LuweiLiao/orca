@@ -40,6 +40,8 @@ export function createWebAiVaultApi(): NonNullable<Partial<PreloadApi>['aiVault'
       return callRuntimeResult('conversation.createReference', request)
     },
     readConversationReference: (request) => callRuntimeResult('conversation.read', request),
+    retargetConversationReference: (request) =>
+      callRuntimeResult('conversation.retargetReference', request),
     // A browser searches only its selected paired runtime.
     searchSessions: (request, executionHostScope) =>
       addressesOwnRuntime(executionHostScope)

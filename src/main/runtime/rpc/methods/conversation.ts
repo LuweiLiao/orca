@@ -1,15 +1,31 @@
 import { defineMethod } from '../core'
 import {
   ConversationReferenceCreateParams,
-  ConversationReferenceReadParams
+  ConversationReferenceReadParams,
+  ConversationReferenceRetargetParams
 } from '../../../../shared/conversation-reference'
 import {
   createLocalConversationReference,
-  readLocalConversationReference
+  readLocalConversationReference,
+  retargetLocalConversationReference
 } from '../../../ai-vault/conversation-reference-reader'
 import { getRuntimeDesktopSurface } from '../../runtime-desktop-surface'
 
 export const CONVERSATION_METHODS = [
+  defineMethod({
+    name: 'conversation.retargetReference',
+    permission: 'workspace',
+    params: ConversationReferenceRetargetParams,
+    handler: async (params, { runtime }) => {
+      const reference = await retargetLocalConversationReference(params, () =>
+        runtime.ensureStructuredAgentSessionHost()
+      )
+      if (!reference) {
+        throw new Error('The referenced conversation is not stored on this host.')
+      }
+      return reference
+    }
+  }),
   defineMethod({
     name: 'conversation.createReference',
     permission: 'workspace',

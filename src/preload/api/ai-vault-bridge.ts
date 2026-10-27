@@ -37,6 +37,8 @@ export const aiVaultApi = {
   createConversationReference: (request) =>
     ipcRenderer.invoke('conversation:createReference', request),
   readConversationReference: (request) => ipcRenderer.invoke('conversation:read', request),
+  retargetConversationReference: (request) =>
+    ipcRenderer.invoke('conversation:retargetReference', request),
   searchSessions: (request: AiVaultSearchRequest, executionHostScope?: ExecutionHostScope) =>
     searchClient(executionHostScope).searchSessions(request),
   searchStatus: (executionHostScope?: ExecutionHostId) =>

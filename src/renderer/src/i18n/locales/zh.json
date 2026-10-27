@@ -18743,7 +18743,11 @@
         "assistant": "助手",
         "tool": "工具",
         "empty": "此对话没有可读取的文字。",
-        "snapshot": "快照：截至第 {{count}} 条"
+        "snapshot": "快照：截至第 {{count}} 条",
+        "liveShort": "实时",
+        "liveNote": "跟随对话：agent 读的时候它是什么样就读到什么。",
+        "pinNow": "固定在现在这一刻",
+        "followLive": "改为跟随对话最新内容"
       },
       "install": {
         "checking": "正在检查 {{agent}} 是否已在此主机上就绪…"

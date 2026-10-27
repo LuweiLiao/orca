@@ -26,7 +26,8 @@ import {
 } from '../bundled-skill-plan'
 import {
   ConversationReferenceCreateParams,
-  ConversationReferenceReadParams
+  ConversationReferenceReadParams,
+  ConversationReferenceRetargetParams
 } from '../conversation-reference'
 import { DelegatedMobileDeviceSyncParamsSchema } from '../delegated-mobile-device-contract'
 import {
@@ -925,6 +926,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'connector.watch': ConnectorWatch,
   'conversation.createReference': ConversationReferenceCreateParams,
   'conversation.read': ConversationReferenceReadParams,
+  'conversation.retargetReference': ConversationReferenceRetargetParams,
   'desktopBrowserBridge.attach': DesktopBrowserBridgeAttachParams,
   'desktopBrowserBridge.result': DesktopBrowserBridgeResultParams,
   'diagnostics.memory': null,

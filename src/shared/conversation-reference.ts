@@ -49,6 +49,16 @@ export const ConversationReferenceReadParams = z
   })
   .strict()
 
+/** Another reference to an existing one's source: live, or a snapshot of the source as it is now. */
+export const ConversationReferenceRetargetParams = z
+  .object({
+    reference: z.string().min(1).max(8192),
+    follow: z.enum(['live', 'snapshot'])
+  })
+  .strict()
+
+export type ConversationReferenceRetarget = z.infer<typeof ConversationReferenceRetargetParams>
+
 export type ConversationSource = z.infer<typeof ConversationSourceSchema>
 export type ConversationReferenceCreate = z.infer<typeof ConversationReferenceCreateParams>
 export type ConversationReferenceRead = z.infer<typeof ConversationReferenceReadParams>

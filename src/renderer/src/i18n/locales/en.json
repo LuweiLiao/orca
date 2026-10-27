@@ -19098,7 +19098,11 @@
         "assistant": "Assistant",
         "tool": "Tool",
         "empty": "This conversation has no readable text.",
-        "snapshot": "Snapshot through message {{count}}"
+        "snapshot": "Snapshot through message {{count}}",
+        "liveShort": "live",
+        "liveNote": "Follows the chat: the agent reads it as it is when it reads it.",
+        "pinNow": "Pin it where it is now",
+        "followLive": "Follow the chat as it goes on"
       },
       "install": {
         "checking": "Checking whether {{agent}} is ready on this host…"

@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { translate } from '@/i18n/i18n'
 import {
   conversationReferenceSnapshotCount,
+  type ConversationReference,
   type ConversationReferenceMessage
 } from '../../../../shared/conversation-reference'
 
@@ -20,12 +21,15 @@ export function NativeChatConversationReference({
   uri,
   title,
   selected = false,
-  onRemove
+  onRemove,
+  onReplace
 }: {
   uri: string
   title: string
   selected?: boolean
   onRemove?: () => void
+  /** Present in a draft: the pill swaps in a reference that follows its chat, or pins it. */
+  onReplace?: (reference: ConversationReference) => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ConversationReferenceMessage[]>([])
@@ -34,6 +38,23 @@ export function NativeChatConversationReference({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const generation = useRef(0)
+  const [switching, setSwitching] = useState(false)
+  const follow = async (mode: 'live' | 'snapshot'): Promise<void> => {
+    setSwitching(true)
+    setError(null)
+    try {
+      const next = await window.api.aiVault.retargetConversationReference({
+        reference: uri,
+        follow: mode
+      })
+      onReplace?.(next)
+      setOpen(false)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure))
+    } finally {
+      setSwitching(false)
+    }
+  }
   const snapshotCount = conversationReferenceSnapshotCount(uri)
   const snapshotLabel =
     snapshotCount === null
@@ -92,7 +113,13 @@ export function NativeChatConversationReference({
         >
           <MessageCircle aria-hidden="true" className="size-3 shrink-0" />
           <span className="truncate">{title}</span>
-          {snapshotCount === null ? null : (
+          {snapshotCount === null ? (
+            onReplace ? (
+              <span className="shrink-0 text-muted-foreground">
+                {translate('components.native-chat.conversationReference.liveShort', 'live')}
+              </span>
+            ) : null
+          ) : (
             <span className="shrink-0 text-muted-foreground tabular-nums">#{snapshotCount}</span>
           )}
         </button>
@@ -173,6 +200,34 @@ export function NativeChatConversationReference({
                   'This conversation has no readable text.'
                 )}
               </p>
+            ) : null}
+            {onReplace ? (
+              <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                <span className="flex-1">
+                  {snapshotCount === null
+                    ? translate(
+                        'components.native-chat.conversationReference.liveNote',
+                        'Follows the chat: the agent reads it as it is when it reads it.'
+                      )
+                    : (snapshotLabel ?? '')}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={switching}
+                  onClick={() => void follow(snapshotCount === null ? 'snapshot' : 'live')}
+                >
+                  {snapshotCount === null
+                    ? translate(
+                        'components.native-chat.conversationReference.pinNow',
+                        'Pin it where it is now'
+                      )
+                    : translate(
+                        'components.native-chat.conversationReference.followLive',
+                        'Follow the chat as it goes on'
+                      )}
+                </Button>
+              </div>
             ) : null}
             {!loading && (cursor || error) ? (
               <Button

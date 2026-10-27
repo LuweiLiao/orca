@@ -2,11 +2,15 @@ import { ipcMain } from 'electron'
 import { parseExecutionHostId } from '../../shared/execution-host'
 import {
   ConversationReferenceCreateParams,
-  ConversationReferenceReadParams
+  ConversationReferenceReadParams,
+  ConversationReferenceRetargetParams,
+  ConversationReferenceSchema,
+  parseConversationReferenceUri
 } from '../../shared/conversation-reference'
 import {
   createLocalConversationReference,
-  readLocalConversationReference
+  readLocalConversationReference,
+  retargetLocalConversationReference
 } from '../ai-vault/conversation-reference-reader'
 import { listAiVaultSessions } from '../ai-vault/cached-session-list'
 import { forwardConversationReference } from '../ai-vault/conversation-reference-routing'
@@ -25,6 +29,20 @@ export function registerConversationReferenceHandlers(ensureHost?: () => Promise
       await ensureHost?.()
     }
     return createLocalConversationReference(request, () => listAiVaultSessions({ unlimited: true }))
+  })
+  ipcMain.handle('conversation:retargetReference', async (_event, input: unknown) => {
+    const request = ConversationReferenceRetargetParams.parse(input)
+    const host = parseExecutionHostId(parseConversationReferenceUri(request.reference)?.hostId)
+    if (host?.kind === 'runtime') {
+      return ConversationReferenceSchema.parse(
+        await forwardConversationReference('conversation.retargetReference', request)
+      )
+    }
+    const reference = await retargetLocalConversationReference(request, ensureHost)
+    if (!reference) {
+      throw new Error('The referenced conversation is not stored on this host.')
+    }
+    return reference
   })
   ipcMain.handle('conversation:read', async (_event, input: unknown) => {
     const request = ConversationReferenceReadParams.parse(input)

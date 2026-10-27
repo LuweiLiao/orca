@@ -3,6 +3,7 @@ import type { AgentJournalSnapshot } from '../../shared/agent-session-journal-ty
 import type {
   ConversationReferenceCreate,
   ConversationReferenceRead,
+  ConversationReferenceRetarget,
   ConversationReferencePage,
   ConversationReference,
   ConversationSource
@@ -105,6 +106,38 @@ async function conversationReferenceCut(
     journalSequence: item.sequence,
     messageCount: kept.length
   }
+}
+
+/**
+ * A new reference to the same structured chat, live or pinned at its current settled point. The
+ * old one is left as it was: a message already sent with it keeps reading what it was sent with.
+ */
+export async function retargetLocalConversationReference(
+  request: ConversationReferenceRetarget,
+  ensureHost?: () => Promise<void>
+): Promise<ConversationReference | null> {
+  const identity = parseConversationReferenceUri(request.reference)
+  const stored = identity ? await loadConversationReference(identity.id) : null
+  if (!identity || !stored) {
+    return null
+  }
+  if (stored.source.kind !== 'structured') {
+    throw new Error('Only a reference to an Orca chat can follow its source.')
+  }
+  await ensureHost?.()
+  const host = getStructuredAgentSessionHost()
+  const record = host?.deps.store.getRecord(stored.source.sessionId)
+  if (!host || !record || record.location.workspaceId !== stored.source.workspaceId) {
+    throw new Error('The source chat is unavailable.')
+  }
+  const cut =
+    request.follow === 'snapshot' ? await conversationReferenceCut(host, record.sessionId) : null
+  // The same host name the old reference carried, so it routes the way the old one did.
+  return saveConversationReference(
+    { source: stored.source, title: stored.title, executionHostId: identity.hostId },
+    stored.agent,
+    cut ?? undefined
+  )
 }
 
 type JournalConversationMessage = {
