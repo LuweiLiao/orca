@@ -1,6 +1,7 @@
 import { Platform } from 'react-native'
 import { useClipboardWriter } from '../platform/clipboard'
 import { Copy, FileText, Globe, RefreshCw, SquareTerminal } from 'lucide-react-native'
+import { useMobileChatRelations } from './MobileChatRelationsSheet'
 import { MobileSessionHeaderMoreActionsSheet } from './MobileSessionHeaderMoreActionsSheet'
 import { QuickCommandsSheet } from './QuickCommandsSheet'
 import { triggerSuccess, triggerError } from '../platform/haptics'
@@ -96,6 +97,7 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
   } = controller
   const clipboard = useClipboardWriter()
   const onPairedHost = useWorkspaceOnPairedHost()
+  const relations = useMobileChatRelations(controller)
   return (
     <>
       <MobileSessionHeaderMoreActionsSheet
@@ -284,10 +286,12 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
             workspaceOnPairedHost: onPairedHost,
             onDismiss: () => setAgentSessionActionTarget(null)
           }),
+          ...relations.actionsFor(agentSessionActionTarget),
           ...closeWithBulkActions(agentSessionActionTarget, () => setAgentSessionActionTarget(null))
         ]}
         onClose={() => setAgentSessionActionTarget(null)}
       />
+      {relations.sheet}
       <ActionSheetModal
         visible={leaveDrafts != null}
         title="Unsaved markdown changes"

@@ -10,6 +10,11 @@ const sheets = vi.hoisted(() => ({ labelsByTitle: new Map<string, string[]>() })
 
 vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
 vi.mock('lucide-react-native', () => ({
+  ArrowDownRight: 'Icon',
+  ArrowUpLeft: 'Icon',
+  GitFork: 'Icon',
+  Network: 'Icon',
+  Quote: 'Icon',
   Copy: 'Icon',
   FileText: 'Icon',
   Globe: 'Icon',
@@ -76,5 +81,35 @@ describe('the New Tab sheet', () => {
   it('leaves out Markdown Note for a server workspace, whose host opens no editor tabs', async () => {
     const labels = await newTabLabels('runtime:vm')
     expect(labels).toEqual(['Terminal', 'Browser'])
+  })
+})
+
+async function chatTabLabels(hostCapabilities: string[]): Promise<string[]> {
+  sheets.labelsByTitle.clear()
+  const controller = mountFixture<Parameters<typeof MobileSessionSheets>[0]['controller']>({
+    worktreeId: 'repo::/wt',
+    isFolderWorkspaceRoute: false,
+    isFloatingWorkspaceRoute: false,
+    sessionTabs: [],
+    hostCapabilities,
+    agentSessionActionTarget: { sessionId: 'claude_chat', agent: 'claude', title: 'Plan' },
+    nativeChatController: { isTabChatView: () => false },
+    createTabAgentActions: [],
+    sendDiffNotesAgentActions: [],
+    closeWithBulkActions: () => []
+  })
+  await act(async () => {
+    create(createElement(MobileSessionSheets, { controller }))
+  })
+  return sheets.labelsByTitle.get('Plan') ?? []
+}
+
+describe("a chat tab's sheet", () => {
+  it("lists the chat's project-map relations when its host records forks", async () => {
+    expect(await chatTabLabels(['agent-session.fork.v1'])).toContain('Relations')
+  })
+
+  it('leaves Relations out on a host too old to record them', async () => {
+    expect(await chatTabLabels([])).not.toContain('Relations')
   })
 })
