@@ -1,29 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
-import { translate } from '@/i18n/i18n'
 import type { ProjectMapAgent, ProjectMapGraph, ProjectMapWorkspace } from './project-map-graph'
 import { PROJECT_MAP_NODE, type ProjectMapLayout } from './project-map-layout'
 import type { useProjectMapViewport } from './use-project-map-viewport'
-import { ProjectMapAgentNode, ProjectMapGroupNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
+import { ProjectMapNodeLayer } from './ProjectMapNodeLayer'
+import { ProjectMapCanvasMenu } from './ProjectMapCanvasMenu'
+import { ProjectMapSearch } from './ProjectMapSearch'
+import { ProjectMapNodeOverlays } from './ProjectMapNodeOverlays'
+import { ProjectMapBackdrop } from './ProjectMapBackdrop'
+import { projectMapNodeIdOf } from './project-map-node-target'
+import { useProjectMapLocate } from './use-project-map-locate'
+import type { Worktree } from '../../../../shared/worktree/types'
+import { ProjectFlowOverlay } from './ProjectFlowOverlay'
+import type { FlowSignal, FlowSignalBus } from './project-flow-signal'
+import type { FlowRoute } from './project-flow-particles'
+import { resolveFlowRoute } from './project-flow-wire-route'
+import { useProjectMapForkable } from './project-map-native-fork'
 import { ProjectMapGroupTray } from './ProjectMapGroupTray'
 import { ProjectMapLegend } from './ProjectMapLegend'
-import { PROJECT_MAP_GROUP_PREFIX, type ProjectMapCollapsedView } from './project-map-collapse'
-import { projectMapAgentTitle } from './project-map-labels'
-import { ProjectMapChatWindow } from './ProjectMapChatWindow'
 import {
   ProjectMapForkGhost,
   ProjectMapForkHandle,
   projectMapForkPin
 } from './ProjectMapForkHandle'
 import { useProjectMapForkDrag, useProjectMapHover } from './use-project-map-fork-drag'
+import { PROJECT_MAP_GROUP_PREFIX, type ProjectMapCollapsedView } from './project-map-collapse'
+import { projectMapAgentTitle } from './project-map-labels'
+import { ProjectMapChatWindow } from './ProjectMapChatWindow'
 import { projectMapAgentForkable, projectMapWindowSubject } from './project-map-window-subject'
 import { ProjectMapForkPanel } from './ProjectMapForkPanel'
-import { useProjectMapForkable } from './project-map-native-fork'
 import type { ProjectMapRect } from './project-map-window-placement'
-import { ProjectFlowOverlay } from './ProjectFlowOverlay'
-import type { FlowSignal, FlowSignalBus } from './project-flow-signal'
-import type { FlowRoute } from './project-flow-particles'
-import { resolveFlowRoute } from './project-flow-wire-route'
 import { projectMapDropSlot } from './project-map-drop-slot'
 import { noteProjectMapChatRow } from './project-map-chat-rows'
 
@@ -41,11 +47,12 @@ type Props = {
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
   /** Show a stacked parent's chats on the canvas, or fold them back. */
   onToggleCollapse: (parentPaneKey: string) => void
+  searchOpen: boolean
+  onSearchOpenChange: (open: boolean) => void
 }
 
 const AWAIT_FORKED_CHAT_MS = 30_000
-
-const EMPTY_WORKTREES: readonly { id: string; branch: string }[] = []
+const EMPTY_WORKTREES: readonly Worktree[] = []
 
 type CssVariables = React.CSSProperties & Record<`--${string}`, string | number>
 
@@ -58,16 +65,12 @@ export function ProjectMapCanvas({
   activeWorktreeId,
   onOpenAgent,
   onOpenWorkspace,
-  onToggleCollapse
+  onToggleCollapse,
+  searchOpen,
+  onSearchOpenChange
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const resolveFlow = (signal: FlowSignal): FlowRoute | null =>
-    layout.nodes.has(signal.from) && layout.nodes.has(signal.to)
-      ? resolveFlowRoute(layout.wires, signal.from, signal.to, {
-          handoff: signal.tone === 'handoff'
-        })
-      : null
   const [forkFor, setForkFor] = useState<string | null>(null)
   // A new child shows up on a later snapshot; select it then, by its chat's session.
   const [awaited, setAwaited] = useState<{ sessionId: string; projectId: string } | null>(null)
@@ -82,13 +85,15 @@ export function ProjectMapCanvas({
     return () => window.clearTimeout(timer)
   }, [awaited])
   const worktrees = useAppStore((s) => s.worktreesByRepo[graph.projectId] ?? EMPTY_WORKTREES)
-  const branchById = useMemo(
-    () =>
-      new Map(
-        worktrees.map((worktree) => [worktree.id, worktree.branch.replace(/^refs\/heads\//, '')])
-      ),
+  const worktreeById = useMemo(
+    () => new Map(worktrees.map((worktree) => [worktree.id, worktree])),
     [worktrees]
   )
+  const branchOf = useCallback(
+    (id: string) => worktreeById.get(id)?.branch.replace(/^refs\/heads\//, '') ?? null,
+    [worktreeById]
+  )
+  const [renamingId, setRenamingId] = useState<string | null>(null)
   // A chat folded into a stack is shown, and wired, through the stack.
   const shownAs = (id: string): string | null =>
     layout.nodes.has(id) ? id : (collapsed.groupOf.get(id) ?? null)
@@ -182,6 +187,23 @@ export function ProjectMapCanvas({
         }
       : null
   }
+  const resolveFlow = (signal: FlowSignal): FlowRoute | null => {
+    const [from, to] = [shownAs(signal.from), shownAs(signal.to)]
+    return from && to
+      ? resolveFlowRoute(layout.wires, from, to, { handoff: signal.tone === 'handoff' })
+      : null
+  }
+  const { locate, match } = useProjectMapLocate({
+    layout,
+    viewport,
+    shownAs,
+    select: setSelectedId
+  })
+  const openNodeAt = (event: React.MouseEvent): void => {
+    const id = projectMapNodeIdOf(event.target) ?? ''
+    const [agent, workspace] = [graph.agents.get(id), graph.workspaces.get(id)]
+    return agent ? onOpenAgent(agent) : workspace ? onOpenWorkspace(workspace) : undefined
+  }
   const subject = projectMapWindowSubject(graph, selected)
   // The grid background pans and scales with the content.
   const viewportStyle: CssVariables = {
@@ -216,119 +238,86 @@ export function ProjectMapCanvas({
       className="project-map-viewport relative min-h-0 flex-1 cursor-default overflow-hidden"
       style={viewportStyle}
     >
-      <div
-        className="absolute top-0 left-0 origin-top-left"
-        style={{
-          width: layout.width,
-          height: layout.height,
-          transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`
+      <ProjectMapCanvasMenu
+        graph={graph}
+        collapsed={collapsed}
+        onOpenAgent={onOpenAgent}
+        onNewChild={(paneKey) => {
+          setSelectedId(paneKey)
+          setForkFor(paneKey)
         }}
+        onRename={setRenamingId}
+        onFit={viewport.fit}
+        onSearch={() => onSearchOpenChange(true)}
       >
-        {layout.lanes.map((lane) => (
+        <div className="absolute inset-0">
           <div
-            key={lane.workspaceId}
-            aria-hidden
-            data-current={lane.workspaceId === activeWorktreeId}
-            className="project-map-lane absolute"
+            data-project-map-content=""
+            onDoubleClick={openNodeAt}
+            className="absolute top-0 left-0 origin-top-left"
             style={{
-              left: lane.x,
-              top: lane.y,
-              width: layout.width - lane.x - 16,
-              height: lane.height
-            }}
-          />
-        ))}
-        {layout.looseGroup ? (
-          <div
-            className="project-map-loose absolute"
-            style={{
-              left: 16,
-              right: 16,
-              top: layout.looseGroup.y,
-              height: layout.looseGroup.height
+              width: layout.width,
+              height: layout.height,
+              transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`
             }}
           >
-            <span className="absolute top-1.5 left-3 text-[11px] font-semibold tracking-wide text-muted-foreground">
-              {translate('projectMap.looseGroup', 'No lineage or conversations')}
-            </span>
-          </div>
-        ) : null}
-        <svg
-          aria-hidden
-          className="pointer-events-none absolute top-0 left-0 overflow-visible"
-          width={layout.width}
-          height={layout.height}
-        >
-          {layout.wires.map((wire) => (
-            <path
-              key={`${wire.kind}:${wire.from}:${wire.to}`}
-              className="project-map-wire"
-              data-kind={wire.kind}
-              data-highlighted={wire.from === selectedShown || wire.to === selectedShown}
-              d={wire.path}
+            <ProjectMapBackdrop
+              layout={layout}
+              activeWorktreeId={activeWorktreeId}
+              selectedShown={selectedShown}
             />
-          ))}
-        </svg>
-        <ProjectFlowOverlay bus={flowBus} resolve={resolveFlow} />
-        {[...layout.nodes.values()].map((box) => {
-          const workspace = graph.workspaces.get(box.id)
-          const agent = collapsed.graph.agents.get(box.id)
-          const stack = collapsed.groups.get(box.id)
-          const common = {
-            box,
-            selected: box.id === selectedShown,
-            linked: linked.has(box.id),
-            onSelect: setSelectedId
-          }
-          return workspace ? (
-            <ProjectMapWorkspaceNode
-              key={box.id}
-              {...common}
-              workspace={workspace}
-              branch={branchById.get(box.id) ?? null}
-              current={box.id === activeWorktreeId}
-            />
-          ) : stack ? (
-            <ProjectMapGroupNode
-              key={box.id}
-              {...common}
-              group={stack}
-              forksOut={(agent?.childPaneKeys.length ?? 0) > 0}
-            />
-          ) : agent ? (
-            <ProjectMapAgentNode
-              key={box.id}
-              {...common}
-              // The real chat, so a stacked parent still counts every chat it delegated.
-              agent={graph.agents.get(box.id) ?? agent}
-              graphAgents={graph.agents}
+            <ProjectFlowOverlay bus={flowBus} resolve={resolveFlow} />
+            <ProjectMapNodeLayer
+              graph={graph}
+              collapsed={collapsed}
+              layout={layout}
+              selectedShown={selectedShown}
+              linked={linked}
+              activeWorktreeId={activeWorktreeId}
+              worktreeById={worktreeById}
+              onSelect={setSelectedId}
               onHover={hoverNode}
             />
-          ) : null
-        })}
-        {handleFor && handleBox ? (
-          <ProjectMapForkHandle
-            box={handleBox}
-            open={forkOrigin !== undefined && forkFor === handleFor}
-            unsupported={!handleForkable}
-            onPointerDown={(event) => forkDrag.onHandlePointerDown(handleFor, event)}
-            onHover={(inside) => (inside ? hoverEnter(handleFor) : hoverLeave())}
-            onOpen={() => {
-              if (!forkDrag.consumeDrag()) {
-                setSelectedId(handleFor)
-                setForkFor(handleFor)
-              }
-            }}
-          />
-        ) : null}
-        {draft && draftFrom && draftOrigin ? (
-          <ProjectMapForkGhost
-            from={projectMapForkPin(draftFrom)}
-            draft={draft}
-            originTitle={projectMapAgentTitle(draftOrigin.card)}
-          />
-        ) : null}
-      </div>
+            {handleFor && handleBox ? (
+              <ProjectMapForkHandle
+                box={handleBox}
+                open={forkOrigin !== undefined && forkFor === handleFor}
+                unsupported={!handleForkable}
+                onPointerDown={(event) => forkDrag.onHandlePointerDown(handleFor, event)}
+                onHover={(inside) => (inside ? hoverEnter(handleFor) : hoverLeave())}
+                onOpen={() => {
+                  if (!forkDrag.consumeDrag()) {
+                    setSelectedId(handleFor)
+                    setForkFor(handleFor)
+                  }
+                }}
+              />
+            ) : null}
+            {draft && draftFrom && draftOrigin ? (
+              <ProjectMapForkGhost
+                from={projectMapForkPin(draftFrom)}
+                draft={draft}
+                originTitle={projectMapAgentTitle(draftOrigin.card)}
+              />
+            ) : null}
+            <ProjectMapNodeOverlays
+              layout={layout}
+              agents={graph.agents}
+              renamingId={renamingId}
+              onRenameEnd={() => setRenamingId(null)}
+              match={match}
+            />
+          </div>
+        </div>
+      </ProjectMapCanvasMenu>
+      {searchOpen ? (
+        <ProjectMapSearch
+          graph={graph}
+          branchOf={branchOf}
+          onPick={locate}
+          onClose={() => onSearchOpenChange(false)}
+        />
+      ) : null}
       {forkOrigin && anchor ? (
         <ProjectMapForkPanel
           key={`fork:${selected}:${placedDraft ? 'placed' : 'node'}`}
