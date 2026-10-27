@@ -124,12 +124,29 @@ export function useProjectMapViewport(content: { width: number; height: number }
     element.addEventListener('pointercancel', end)
   }, [])
 
+  /** Where a pointer at client coordinates falls on the unscaled content. */
+  const contentPoint = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
+      if (!element) {
+        return null
+      }
+      const rect = element.getBoundingClientRect()
+      const current = viewRef.current
+      return {
+        x: (clientX - rect.left - current.x) / current.zoom,
+        y: (clientY - rect.top - current.y) / current.zoom
+      }
+    },
+    [element]
+  )
+
   return {
     viewportRef,
     size,
     view,
     fit,
     zoomBy,
+    contentPoint,
     onBackgroundPointerDown,
     /** True when the last background press was a pan, so its click must not clear selection. */
     consumeDrag: () => {

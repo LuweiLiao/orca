@@ -21530,7 +21530,9 @@
       "referenceCount_one": "Referenced {{count}} conversation",
       "referenceFolded": "{{count}} of them are elsewhere or to the right; select to see them",
       "handedOffPartly": "Handed off from {{source}} · latest {{handed}} of {{count}} messages",
-      "terminalForkFrom": "Forked from terminal {{source}}"
+      "terminalForkFrom": "Forked from terminal {{source}}",
+      "needsInput": "Waiting for you",
+      "unseen": "Finished, not read yet"
     },
     "title": "Project Map",
     "project": "Project",
@@ -21577,7 +21579,10 @@
       "cancel": "Cancel",
       "creating": "Creating…",
       "create": "Create child chat",
-      "referenceHint": "Drag other chats from the map here to have this one read them too."
+      "referenceHint": "Drag other chats from the map here to have this one read them too.",
+      "handleHint": "Click, or drag onto the map to place the new chat",
+      "dropHint": "Release to place it here",
+      "dropBlocked": "Drop it on an empty spot"
     },
     "group": {
       "title": "{{count}} delegated chats",

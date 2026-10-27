@@ -77,10 +77,42 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
       await testInfo.attach(name, { path: file, contentType: 'image/png' })
     }
 
+    // Hovering shows the + handle; dragging it draws a dashed wire to a pending node.
+    const handle = map.locator('[data-project-map-fork-handle]')
+    const ghost = map.locator('[data-project-map-fork-draft]')
+    const draftWire = map.locator('.project-map-wire[data-kind="fork-draft"]')
+    const panel = map.locator('[data-project-map-fork-panel]')
+    await parentNode.hover()
+    await expect(handle).toHaveCount(1)
+    const from = await handle.boundingBox()
+    const drop = { x: (from?.x ?? 0) + 160, y: (from?.y ?? 0) + 260 }
+    await page.mouse.move((from?.x ?? 0) + 11, (from?.y ?? 0) + 11)
+    await page.mouse.down()
+    await page.mouse.move(drop.x, drop.y, { steps: 8 })
+    await expect(ghost).toHaveAttribute('data-project-map-fork-draft', 'dragging')
+    await expect(draftWire).toHaveCount(1)
+    await screenshot('fork-drag')
+    // Escape drops the drag without creating anything.
+    await page.keyboard.press('Escape')
+    await page.mouse.up()
+    await expect(ghost).toHaveCount(0)
+    await expect(panel).toHaveCount(0)
+    // Released on the canvas, the node stays there, wired, and the panel opens beside it.
+    await parentNode.hover()
+    await page.mouse.move((from?.x ?? 0) + 11, (from?.y ?? 0) + 11)
+    await page.mouse.down()
+    await page.mouse.move(drop.x, drop.y, { steps: 8 })
+    await page.mouse.up()
+    await expect(ghost).toHaveAttribute('data-project-map-fork-draft', 'placed')
+    await expect(panel).toBeVisible()
+    await expect(draftWire).toHaveCount(1)
+    await screenshot('fork-drag-placed')
+    await panel.getByRole('button', { name: 'Cancel' }).click()
+    await expect(ghost).toHaveCount(0)
+
     // Selecting the node shows its + handle; the panel offers only the chat itself as a source.
     await parentNode.click()
-    await map.locator('[data-project-map-fork-handle]').click()
-    const panel = map.locator('[data-project-map-fork-panel]')
+    await handle.click()
     await expect(panel).toBeVisible()
     // The footer stays on screen however low the node sits.
     await expect(panel.getByRole('button', { name: 'Create child chat' })).toBeInViewport({

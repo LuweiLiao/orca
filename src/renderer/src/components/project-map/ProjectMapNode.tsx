@@ -42,6 +42,10 @@ type NodeShellProps = {
   references?: ProjectMapNodeReferences
   /** Present when a conversation reference dropped here goes into this chat's next message. */
   onReferenceDrop?: (source: ConversationReferenceCreate) => void
+  /** Present when the canvas reveals something, like the + handle, while the pointer is here. */
+  onHover?: (id: string | null) => void
+  /** Corner marker: waiting on the person, or finished and not looked at yet. */
+  badge?: { tone: 'attention' | 'unseen'; title: string }
 }
 
 export function NodeShell({
@@ -61,7 +65,9 @@ export function NodeShell({
   history,
   onDragStart,
   references,
-  onReferenceDrop
+  onReferenceDrop,
+  onHover,
+  badge
 }: NodeShellProps): React.JSX.Element {
   const [dropping, setDropping] = useState(false)
   const drop = onReferenceDrop
@@ -94,6 +100,10 @@ export function NodeShell({
       data-linked={linked}
       data-history={history || undefined}
       data-reference-drop={dropping || undefined}
+      data-attention={badge?.tone === 'attention' || undefined}
+      {...(onHover
+        ? { onPointerEnter: () => onHover(box.id), onPointerLeave: () => onHover(null) }
+        : {})}
       draggable={onDragStart ? true : undefined}
       onDragStart={onDragStart}
       {...drop}
@@ -108,6 +118,9 @@ export function NodeShell({
       className="project-map-node absolute flex flex-col text-left text-foreground"
       style={{ left: box.x, top: box.y, width: box.width, height: PROJECT_MAP_NODE.height }}
     >
+      {badge ? (
+        <span className="project-map-node-badge" data-tone={badge.tone} title={badge.title} />
+      ) : null}
       <span className="project-map-node-header relative flex h-10 w-full shrink-0 items-center gap-2 px-2.5">
         {headerInPin ? (
           <span
@@ -222,6 +235,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   graphAgents,
   references,
   onReferenceDrop,
+  onHover,
   selected,
   linked,
   onSelect
@@ -231,6 +245,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   graphAgents: ReadonlyMap<string, ProjectMapAgent>
   references?: ProjectMapNodeReferences
   onReferenceDrop?: (target: string, source: ConversationReferenceCreate) => void
+  onHover?: (id: string | null) => void
   selected: boolean
   linked: boolean
   onSelect: (id: string) => void
@@ -270,6 +285,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       : null
   ].filter(Boolean)
   const rowRight = counts.length > 0 ? counts.join(' · ') : undefined
+  const badge = agent.history ? undefined : agentBadge(card, state)
   return (
     <NodeShell
       box={box}
@@ -298,6 +314,8 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       rowLeft={rowLeft}
       rowRight={rowRight}
       history={agent.history}
+      {...(badge ? { badge } : {})}
+      {...(onHover ? { onHover } : {})}
       {...(references ? { references } : {})}
       {...(onReferenceDrop && reference
         ? {
@@ -336,3 +354,18 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
     />
   )
 })
+
+function agentBadge(
+  card: ProjectMapAgent['card'],
+  state: ReturnType<typeof dashboardCardDisplayState>
+): NodeShellProps['badge'] {
+  if (state === 'blocked' || state === 'waiting') {
+    return {
+      tone: 'attention',
+      title: card.askSummary || translate('projectMap.node.needsInput', 'Waiting for you')
+    }
+  }
+  return card.unseen && state === 'done'
+    ? { tone: 'unseen', title: translate('projectMap.node.unseen', 'Finished, not read yet') }
+    : undefined
+}

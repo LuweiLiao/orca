@@ -247,6 +247,64 @@
 .project-map-wire[data-highlighted='true'] {
   stroke-width: 3.2;
 }
+/* A child chat still being placed: dashed and marching until it is created. */
+.project-map-wire[data-kind='fork-draft'] {
+  stroke: var(--pm-wire-fork);
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+  animation: project-map-draft-march 0.6s linear infinite;
+}
+.project-map-wire[data-kind='fork-draft'][data-blocked='true'] {
+  stroke: var(--muted-foreground);
+  animation: none;
+}
+@keyframes project-map-draft-march {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-map-wire[data-kind='fork-draft'] {
+    animation: none;
+  }
+}
+.project-map-ghost-node {
+  border: 1.5px dashed var(--pm-wire-fork);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+}
+.project-map-ghost-node[data-blocked='true'] {
+  border-color: var(--muted-foreground);
+  opacity: 0.6;
+}
+.project-map-fork-glyph {
+  color: var(--pm-wire-fork);
+}
+/* The canvas is the drop target while a child is placed; open windows step aside. */
+.project-map-viewport[data-fork-dragging='true'] {
+  cursor: grabbing;
+}
+.project-map-viewport[data-fork-dragging='true'] [data-project-map-window] {
+  visibility: hidden;
+}
+.project-map-node[data-attention='true'] {
+  border-color: color-mix(in srgb, var(--agent-question) 70%, var(--border));
+}
+.project-map-node-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--background);
+}
+.project-map-node-badge[data-tone='attention'] {
+  background: var(--agent-question);
+}
+.project-map-node-badge[data-tone='unseen'] {
+  background: var(--status-success);
+}
 .project-map-viewport[data-focusing='true'] .project-map-wire:not([data-highlighted='true']) {
   opacity: 0.28;
 }

@@ -21410,7 +21410,9 @@
       "referenceCount": "引用了 {{count}} 个对话",
       "referenceFolded": "其中 {{count}} 个来源在别处或右侧，选中后显示连线",
       "handedOffPartly": "交接自 {{source}} · 最近 {{handed}} / {{count}} 条",
-      "terminalForkFrom": "从终端 {{source}} 派生"
+      "terminalForkFrom": "从终端 {{source}} 派生",
+      "needsInput": "在等你回复",
+      "unseen": "已完成，还没看"
     },
     "title": "项目关系图",
     "project": "项目",
@@ -21457,7 +21459,10 @@
       "cancel": "取消",
       "creating": "创建中…",
       "create": "创建子对话",
-      "referenceHint": "把地图上的其他对话拖到这里，新对话也会去读它们。"
+      "referenceHint": "把地图上的其他对话拖到这里，新对话也会去读它们。",
+      "handleHint": "点击，或拖到地图空白处放置新对话",
+      "dropHint": "松开即放在这里",
+      "dropBlocked": "请放在空白处"
     },
     "group": {
       "title": "{{count}} 个子 agent",
