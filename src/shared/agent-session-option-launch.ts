@@ -1,6 +1,7 @@
 import type { AgentType } from './agent-status-types'
 import { findCatalogModel, getAgentSessionOptionCatalog } from './agent-session-option-catalog'
 import { OPENCODE_LAUNCH_OPTION_CATALOG } from './agent-session-option-catalog-opencode'
+import { PI_LAUNCH_OPTION_CATALOG } from './agent-session-option-catalog-pi'
 import type {
   AgentSessionOptionCatalog,
   CatalogOptionApply
@@ -20,7 +21,11 @@ function isOverriddenByAgentArgs(apply: CatalogOptionApply, tokens: readonly str
 export function getAgentSessionOptionLaunchCatalog(
   agent: AgentType
 ): AgentSessionOptionCatalog | null {
-  return agent === 'opencode' ? OPENCODE_LAUNCH_OPTION_CATALOG : getAgentSessionOptionCatalog(agent)
+  return agent === 'opencode'
+    ? OPENCODE_LAUNCH_OPTION_CATALOG
+    : agent === 'pi'
+      ? PI_LAUNCH_OPTION_CATALOG
+      : getAgentSessionOptionCatalog(agent)
 }
 
 export function removeOverriddenAgentSessionArgs(

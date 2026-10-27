@@ -49,6 +49,33 @@ describe('orchestration worker launch preferences', () => {
     ).toThrow('does not support effort low')
   })
 
+  it('passes a Pi provider/model selector through as its --model launch argument', () => {
+    const model = 'yuren-kimi/kimi-k3.1-pro'
+    const launch = resolveWorkerLaunchPreferences({ agent: 'pi', model })
+
+    expect(launch.receipt.effective).toEqual({ agent: 'pi', model, effort: null })
+    expect(resolveAgentSessionOptionLaunch('pi', launch.preferences, [], false)).toEqual({
+      args: ['--model', model],
+      appliedValues: { model }
+    })
+  })
+
+  it('refuses a bare Pi model id, which Pi cannot place under a provider', () => {
+    expect(() => resolveWorkerLaunchPreferences({ agent: 'pi', model: 'kimi-k3.1-pro' })).toThrow(
+      'Pi needs a provider/model selector'
+    )
+  })
+
+  it('rejects Pi effort until its launch catalog carries thinking levels', () => {
+    expect(() =>
+      resolveWorkerLaunchPreferences({
+        agent: 'pi',
+        model: 'yuren-kimi/kimi-k3.1-pro',
+        effort: 'high'
+      })
+    ).toThrow('does not support effort high')
+  })
+
   it('passes an opaque Claude model and portable effort through the shared catalog', () => {
     expect(
       resolveWorkerLaunchPreferences({
