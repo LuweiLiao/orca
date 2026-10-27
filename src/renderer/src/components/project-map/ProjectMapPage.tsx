@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Minus, Network, Plus, Scan } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,7 @@ import {
   type ProjectMapWorkspace
 } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
+import { projectMapChatRows, subscribeToProjectMapChatRows } from './project-map-chat-rows'
 import { collapseProjectMapGraph } from './project-map-collapse'
 import { activateAiVaultStructuredSession } from '@/lib/agent-session/open/activate-ai-vault-structured-session'
 import { structuredAgentSessionTargetForHost } from '@/runtime/native-chat/session-ownership/structured-agent-session-owner'
@@ -73,7 +74,11 @@ export default function ProjectMapPage(): React.JSX.Element {
     () => (graph ? collapseProjectMapGraph(graph, expanded) : null),
     [expanded, graph]
   )
-  const layout = useMemo(() => (collapsed ? layoutProjectMap(collapsed.graph) : null), [collapsed])
+  const chatRows = useSyncExternalStore(subscribeToProjectMapChatRows, projectMapChatRows)
+  const layout = useMemo(
+    () => (collapsed ? layoutProjectMap(collapsed.graph, chatRows) : null),
+    [chatRows, collapsed]
+  )
   const toggleCollapse = useCallback((parentPaneKey: string) => {
     setExpanded((current) => {
       const next = new Set(current)

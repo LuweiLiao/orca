@@ -24,6 +24,8 @@ import { ProjectFlowOverlay } from './ProjectFlowOverlay'
 import type { FlowSignal, FlowSignalBus } from './project-flow-signal'
 import type { FlowRoute } from './project-flow-particles'
 import { resolveFlowRoute } from './project-flow-wire-route'
+import { projectMapDropSlot } from './project-map-drop-slot'
+import { noteProjectMapChatRow } from './project-map-chat-rows'
 
 type Props = {
   /** Every chat on the map, the hidden ones in stacks included. */
@@ -104,6 +106,7 @@ export function ProjectMapCanvas({
   )
   const forkDrag = useProjectMapForkDrag({
     contentPoint: viewport.contentPoint,
+    snap: (originId, pointerY) => projectMapDropSlot(layout, graph, originId, pointerY),
     onStart: () => setForkFor(null),
     onPlace: (originId) => {
       setSelectedId(originId)
@@ -338,6 +341,9 @@ export function ProjectMapCanvas({
           )}
           onClose={() => setForkFor(null)}
           onCreated={({ sessionId }) => {
+            if (placedDraft) {
+              noteProjectMapChatRow(sessionId, placedDraft.row)
+            }
             setForkFor(null)
             setAwaited({ sessionId, projectId: graph.projectId })
           }}
