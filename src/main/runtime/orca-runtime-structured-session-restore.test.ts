@@ -186,6 +186,44 @@ describe('structured session cold restoration', () => {
     expect(restoreReadableSessions).toHaveBeenCalledWith(['session-survives-rollback'])
   })
 
+  it('does not reopen a closed chat that a background reader opened before the restore', async () => {
+    const runtime = new OrcaRuntimeService()
+    const showSessionTabs = vi.fn(async () => undefined)
+    const internal = runtime as unknown as {
+      hasPersistedStructuredAgentSessionStore(): boolean
+      getKnownWorkspaceSessionWorktreeIds(): Set<string>
+      hydrateHeadlessMobileSessionTabsFromWorkspaceSession(): Set<string>
+      refreshMobileSessionPtyRecords(): Promise<Set<string> | null>
+      ensureStructuredAgentSessionHost(): Promise<void>
+    }
+    internal.hasPersistedStructuredAgentSessionStore = () => true
+    internal.getKnownWorkspaceSessionWorktreeIds = () => new Set()
+    internal.hydrateHeadlessMobileSessionTabsFromWorkspaceSession = () => new Set()
+    internal.refreshMobileSessionPtyRecords = async () => new Set()
+    internal.ensureStructuredAgentSessionHost = async () => undefined
+    // The chat-name recovery read `closed-chat`'s journal, which holds it open in memory.
+    setStructuredAgentSessionHost({
+      reconcileRestartLeases: async () => undefined,
+      getPersistedVisibleSessionTabIndex: () => ({ present: true, sessionIds: ['open-chat'] }),
+      restoreReadableSessions: async () => undefined,
+      listSessionTabs: () => [
+        { sessionId: 'open-chat', workspaceId: 'workspace-1', agent: 'claude' },
+        { sessionId: 'closed-chat', workspaceId: 'workspace-1', agent: 'claude' }
+      ],
+      showSessionTabs,
+      deps: { logger: { warn: vi.fn() }, store: { getRecord: () => null } }
+    } as never)
+
+    await runtime.restoreStructuredAgentSessionTabs()
+
+    const shown = (await runtime.listMobileSessionTabs('id:workspace-1')).tabs.map(
+      (tab) => 'sessionId' in tab && tab.sessionId
+    )
+    expect(shown).toContain('open-chat')
+    expect(shown).not.toContain('closed-chat')
+    expect(showSessionTabs).not.toHaveBeenCalledWith(expect.arrayContaining(['closed-chat']))
+  })
+
   it('treats an empty durable visible-session index as authoritative', async () => {
     const runtime = new OrcaRuntimeService()
     const restoreReadableSessions = vi.fn(async () => undefined)
