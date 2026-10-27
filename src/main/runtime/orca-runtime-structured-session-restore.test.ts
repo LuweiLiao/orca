@@ -199,6 +199,7 @@ describe('structured session cold restoration', () => {
     internal.refreshMobileSessionPtyRecords = async () => new Set()
     internal.ensureStructuredAgentSessionHost = async () => undefined
     // The chat-name recovery read `closed-chat`'s journal, which holds it open in memory.
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the restore reads only these members of the host.
     setStructuredAgentSessionHost({
       reconcileRestartLeases: async () => undefined,
       getPersistedVisibleSessionTabIndex: () => ({ present: true, sessionIds: ['open-chat'] }),
