@@ -12,8 +12,12 @@ import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire
 import { collectConversationReferencePage } from './conversation-reference-page'
 import {
   saveConversationReference,
-  loadConversationReference
+  loadConversationReference,
+  loadConversationReferenceCut,
+  type ConversationReferenceCut
 } from './conversation-reference-store'
+import { journalItemsThrough } from '../native-chat/agent-session-journal-cut'
+import type { StructuredAgentSessionHost } from '../native-chat/agent-session-wire/structured-agent-session-host'
 import { readConversationTranscriptInService } from './session-scanner-service-spawn'
 import { localAiVaultScanRoots, findCachedAiVaultSession } from './cached-session-list'
 import { isWslUncPath } from '../../shared/wsl-paths'
@@ -53,11 +57,16 @@ export async function createLocalConversationReference(
 ): Promise<ConversationReference> {
   const source = request.source
   if (source.kind === 'structured') {
-    const record = getStructuredAgentSessionHost()?.deps.store.getRecord(source.sessionId)
-    if (!record || record.location.workspaceId !== source.workspaceId) {
+    const host = getStructuredAgentSessionHost()
+    const record = host?.deps.store.getRecord(source.sessionId)
+    if (!host || !record || record.location.workspaceId !== source.workspaceId) {
       throw new Error('The source chat is unavailable.')
     }
-    return saveConversationReference(request, record.provider)
+    return saveConversationReference(
+      request,
+      record.provider,
+      (await conversationReferenceCut(host, record.sessionId)) ?? undefined
+    )
   }
   const session = await resolveTranscript(source, list)
   return saveConversationReference(
@@ -67,6 +76,35 @@ export async function createLocalConversationReference(
     },
     session.agent
   )
+}
+
+/**
+ * The source as it stands now, minus a turn still running: a reference read later must see what
+ * the person saw when they made it, never a reply that was half written then.
+ */
+async function conversationReferenceCut(
+  host: StructuredAgentSessionHost,
+  sessionId: string
+): Promise<ConversationReferenceCut | null> {
+  const snapshot = await host.journalSnapshot(sessionId)
+  const messages = [...journalConversationMessages(snapshot)]
+  const working = (await host.history({ sessionId, direction: 'tail', limit: 1 })).page.working
+  const lastAsk = working ? messages.findLastIndex((message) => message.role === 'user') : -1
+  const kept = lastAsk >= 0 ? messages.slice(0, lastAsk) : messages
+  const last = kept.at(-1)
+  const item = last
+    ? snapshot.items.find((candidate) => candidate.itemId === last.id)
+    : snapshot.items.at(-1)
+  if (!item || kept.length === 0) {
+    // Nothing settled to pin yet; the reference reads the source live, as one made before cuts did.
+    return null
+  }
+  return {
+    journalItemId: item.itemId,
+    journalEpoch: snapshot.cursor.epoch,
+    journalSequence: item.sequence,
+    messageCount: kept.length
+  }
 }
 
 type JournalConversationMessage = {
@@ -159,10 +197,27 @@ export async function readLocalConversationReference(
       throw new Error('The source chat is unavailable.')
     }
     const snapshot = await host.journalSnapshot(record.sessionId)
-    const version = `${snapshot.cursor.epoch}:${snapshot.cursor.sequence}`
+    const cut = await loadConversationReferenceCut(identity.id)
+    const kept = cut ? journalItemsThrough(snapshot, cut) : null
+    // A snapshot's cursor stays valid while its source talks on; a live read's does not.
+    const version =
+      cut && kept
+        ? `cut:${cut.journalEpoch}:${cut.journalSequence}`
+        : `${snapshot.cursor.epoch}:${snapshot.cursor.sequence}`
     const page = collectConversationReferencePage(identity.id, version, request)
-    feedJournal(snapshot, page.push)
-    return { reference, ...page.finish() }
+    feedJournal(kept ? { ...snapshot, items: kept } : snapshot, page.push)
+    const finished = page.finish()
+    return {
+      reference,
+      ...finished,
+      warnings:
+        cut && !kept
+          ? [
+              ...finished.warnings,
+              'The source chat was rewound past the point this reference was made at; this is its current conversation.'
+            ]
+          : finished.warnings
+    }
   }
   const source = stored.source
   if (!source.filePath) {

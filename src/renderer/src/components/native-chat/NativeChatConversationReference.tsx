@@ -11,7 +11,10 @@ import { Button } from '@/components/ui/button'
 import { NativeChatPromptPillRemoveButton } from './NativeChatPromptPillRemoveButton'
 import { Badge } from '@/components/ui/badge'
 import { translate } from '@/i18n/i18n'
-import type { ConversationReferenceMessage } from '../../../../shared/conversation-reference'
+import {
+  conversationReferenceSnapshotCount,
+  type ConversationReferenceMessage
+} from '../../../../shared/conversation-reference'
 
 export function NativeChatConversationReference({
   uri,
@@ -31,6 +34,15 @@ export function NativeChatConversationReference({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const generation = useRef(0)
+  const snapshotCount = conversationReferenceSnapshotCount(uri)
+  const snapshotLabel =
+    snapshotCount === null
+      ? null
+      : translate(
+          'components.native-chat.conversationReference.snapshot',
+          'Snapshot through message {{count}}',
+          { count: snapshotCount }
+        )
   const load = async (next?: string): Promise<void> => {
     const request = ++generation.current
     setLoading(true)
@@ -69,7 +81,7 @@ export function NativeChatConversationReference({
           type="button"
           className="inline-flex min-w-0 items-center gap-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           data-native-chat-conversation-reference={uri}
-          title={title}
+          title={snapshotLabel ? `${title}\n${snapshotLabel}` : title}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.preventDefault()
@@ -80,6 +92,9 @@ export function NativeChatConversationReference({
         >
           <MessageCircle aria-hidden="true" className="size-3 shrink-0" />
           <span className="truncate">{title}</span>
+          {snapshotCount === null ? null : (
+            <span className="shrink-0 text-muted-foreground tabular-nums">#{snapshotCount}</span>
+          )}
         </button>
         {onRemove ? (
           <NativeChatPromptPillRemoveButton

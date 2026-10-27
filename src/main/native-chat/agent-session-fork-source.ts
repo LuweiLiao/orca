@@ -18,6 +18,7 @@ import { pendingAgentSessionRewindFork } from '../../shared/agent-session-rewind
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
 import { isWslUncPath } from '../../shared/wsl-paths'
 import { journalConversationMessages } from '../ai-vault/conversation-reference-reader'
+import { journalItemsThrough } from './agent-session-journal-cut'
 import { forkClaudeTranscript } from '../claude/claude-rewind-transcript'
 import { structuredAgentRuntimeRegistration } from '../runtime/structured-agent-runtime-registrations'
 import type { StructuredAgentSessionHost } from './agent-session-wire/structured-agent-session-host'
@@ -56,19 +57,15 @@ export function forkSourceMessages(
   }
 }
 
-/** Within the recorded epoch the sequence holds; after a rewind or clear only the item itself can. */
 function itemsThrough(
   snapshot: AgentJournalSnapshot,
   point: AgentSessionForkCut
 ): AgentJournalSnapshot['items'] {
-  const through =
-    point.journalEpoch === snapshot.cursor.epoch
-      ? point.journalSequence
-      : snapshot.items.find((item) => item.itemId === point.journalItemId)?.sequence
-  if (through === undefined) {
+  const items = journalItemsThrough(snapshot, point)
+  if (!items) {
     throw new Error('The source chat was rewound past that fork point; start from its latest turn.')
   }
-  return snapshot.items.filter((item) => item.sequence <= through)
+  return items
 }
 
 /** The person's instruction, after the source's messages when they travel as text. */

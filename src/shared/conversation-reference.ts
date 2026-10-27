@@ -78,8 +78,24 @@ export type ConversationReference = z.infer<typeof ConversationReferenceSchema>
 export type ConversationReferenceMessage = z.infer<typeof ConversationReferenceMessageSchema>
 export type ConversationReferencePage = z.infer<typeof ConversationReferencePageSchema>
 
-export function conversationReferenceUri(id: string, executionHostId = 'local'): string {
-  return `orca-conversation://reference/${id}?host=${encodeURIComponent(executionHostId)}`
+/** `at` is display-only: the message count a snapshot reference stops at. Older parsers skip it. */
+export function conversationReferenceUri(
+  id: string,
+  executionHostId = 'local',
+  at?: number
+): string {
+  const base = `orca-conversation://reference/${id}?host=${encodeURIComponent(executionHostId)}`
+  return at === undefined ? base : `${base}&at=${at}`
+}
+
+/** How many messages a snapshot reference covers, or null for one that reads its source live. */
+export function conversationReferenceSnapshotCount(uri: string): number | null {
+  try {
+    const at = new URL(uri).searchParams.get('at')
+    return at !== null && /^\d{1,9}$/.test(at) ? Number(at) : null
+  } catch {
+    return null
+  }
 }
 
 export function parseConversationReferenceUri(

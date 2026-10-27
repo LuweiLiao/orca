@@ -177,7 +177,10 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
 
     // The coordinator's node drops into that composer as a conversation reference.
     await node(paneKeyOf(parent)).dragTo(windowComposer)
-    await expect(windowComposer.locator('[data-native-chat-conversation-reference]')).toHaveCount(1)
+    const pill = windowComposer.locator('[data-native-chat-conversation-reference]')
+    await expect(pill).toHaveCount(1)
+    // A snapshot: it names how far into the coordinator's chat it reads.
+    await expect(pill).toContainText(/#\d+/)
     await screenshot('reference-dropped')
 
     // Showing the fleet on the map draws each worker again.

@@ -19097,7 +19097,8 @@
         "user": "User",
         "assistant": "Assistant",
         "tool": "Tool",
-        "empty": "This conversation has no readable text."
+        "empty": "This conversation has no readable text.",
+        "snapshot": "Snapshot through message {{count}}"
       },
       "install": {
         "checking": "Checking whether {{agent}} is ready on this host…"

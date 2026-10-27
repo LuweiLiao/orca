@@ -18742,7 +18742,8 @@
         "user": "用户",
         "assistant": "助手",
         "tool": "工具",
-        "empty": "此对话没有可读取的文字。"
+        "empty": "此对话没有可读取的文字。",
+        "snapshot": "快照：截至第 {{count}} 条"
       },
       "install": {
         "checking": "正在检查 {{agent}} 是否已在此主机上就绪…"
