@@ -3759,7 +3759,7 @@
               "session": {
                 "fork": {
                   "2317900211": "Failed to copy fork context.",
-                  "88e34d00eb": "Top-level session fork opened in a new workspace",
+                  "88e34d00eb": "Session fork opened in a new workspace under this one",
                   "fd3d12a1e1": "Failed to create fork workspace.",
                   "38e41edc6e": "This workspace cannot be forked into a git worktree.",
                   "f867385bb5": "Could not find the source workspace for this fork.",
@@ -21529,7 +21529,8 @@
       "referenceCount": "Referenced {{count}} conversations",
       "referenceCount_one": "Referenced {{count}} conversation",
       "referenceFolded": "{{count}} of them are elsewhere or to the right; select to see them",
-      "handedOffPartly": "Handed off from {{source}} · latest {{handed}} of {{count}} messages"
+      "handedOffPartly": "Handed off from {{source}} · latest {{handed}} of {{count}} messages",
+      "terminalForkFrom": "Forked from terminal {{source}}"
     },
     "title": "Project Map",
     "project": "Project",

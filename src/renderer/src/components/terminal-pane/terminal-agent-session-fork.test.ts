@@ -125,7 +125,7 @@ describe('forkAgentSessionFromPane', () => {
     })
   })
 
-  it('creates a top-level workspace fork with a draft agent tab when the source agent is known', async () => {
+  it('creates a workspace fork nested under its source with a draft agent tab when the source agent is known', async () => {
     store.agentStatusByPaneKey = {
       [`tab-1:${LEAF_ID}`]: { agentType: 'codex' }
     }
@@ -151,7 +151,7 @@ describe('forkAgentSessionFromPane', () => {
       undefined,
       'codex',
       ...Array(14).fill(undefined),
-      { executionHostId: 'local' }
+      { executionHostId: 'local', parentWorktreeId: 'wt-1' }
     )
 
     expect(mockLaunchAgentInNewTab).toHaveBeenCalledWith(
@@ -168,7 +168,7 @@ describe('forkAgentSessionFromPane', () => {
       providesInitialSurface: true
     })
     expect(mockToast.success).toHaveBeenCalledWith(
-      'Top-level session fork opened in a new workspace'
+      'Session fork opened in a new workspace under this one'
     )
   })
 
@@ -233,7 +233,7 @@ describe('forkAgentSessionFromPane', () => {
       providesInitialSurface: true
     })
     expect(mockToast.success).toHaveBeenCalledWith(
-      'Top-level session fork opened in a new workspace'
+      'Session fork opened in a new workspace under this one'
     )
   })
 
@@ -271,7 +271,7 @@ describe('forkAgentSessionFromPane', () => {
       // Why: the worktree already exists; a false return would keep the dialog open for a second fork.
       await expect(startAgentSessionFork(prepared!)).resolves.toBe(true)
       expect(mockToast.success).toHaveBeenCalledWith(
-        'Top-level session fork opened in a new workspace'
+        'Session fork opened in a new workspace under this one'
       )
       expect(mockWriteClipboardText).not.toHaveBeenCalled()
       expect(mockActivateAndRevealWorktree).toHaveBeenCalledWith('wt-fork', {
@@ -373,7 +373,7 @@ describe('forkAgentSessionFromPane', () => {
     )
   })
 
-  it('creates a top-level workspace fork and copies context when the source agent cannot be resolved', async () => {
+  it('creates a nested workspace fork and copies context when the source agent cannot be resolved', async () => {
     const pane = makePane('Assistant: here is the current plan')
     const { forkAgentSessionFromPane } = await import('./terminal-agent-session-fork')
 
@@ -397,7 +397,7 @@ describe('forkAgentSessionFromPane', () => {
       undefined,
       undefined,
       ...Array(14).fill(undefined),
-      { executionHostId: 'local' }
+      { executionHostId: 'local', parentWorktreeId: 'wt-1' }
     )
     expect(mockLaunchAgentInNewTab).not.toHaveBeenCalled()
     expect(mockActivateAndRevealWorktree).toHaveBeenCalledWith('wt-fork', {
@@ -427,7 +427,10 @@ describe('forkAgentSessionFromPane', () => {
       groupId: null
     })
 
-    expect(mockCreateWorktree.mock.calls[0]?.at(-1)).toEqual({ executionHostId: 'runtime:env-1' })
+    expect(mockCreateWorktree.mock.calls[0]?.at(-1)).toEqual({
+      executionHostId: 'runtime:env-1',
+      parentWorktreeId: 'wt-1'
+    })
   })
 
   it('keeps the fork dialog path open when the source workspace has no git branch', async () => {

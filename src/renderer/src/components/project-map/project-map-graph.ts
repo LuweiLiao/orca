@@ -15,6 +15,8 @@ import type { AgentSessionReferenceLink } from '../../../../shared/agent-session
 import type { ProjectMapChat, ProjectMapHistoryChat } from './project-map-lineage'
 import { closedForkEnds, projectMapHistoryCard } from './project-map-closed-chats'
 import { addReferenceEdges } from './project-map-reference-edges'
+import { addTerminalForkEdges } from './project-map-terminal-forks'
+import type { TerminalForkOrigin } from '@/lib/terminal-fork-origins'
 
 export type ProjectMapProject = {
   id: string
@@ -43,6 +45,8 @@ export type ProjectMapAgent = {
   childPaneKeys: string[]
   /** A chat whose tab is closed, drawn because a fork or reference still connects it. */
   history?: true
+  /** Set when a terminal "Fork Agent Session…" on this desktop launched it from its parent. */
+  terminalFork?: { sourceTitle: string }
   /** Conversations its sent messages referenced; `external` ones have no node on this map. */
   referencesIn?: { count: number; external: number }
   /** Set when this chat was forked from another; its parent above is that source. */
@@ -72,6 +76,8 @@ export type ProjectMapForkInput = {
   history?: ReadonlyMap<string, ProjectMapHistoryChat>
   /** References sent messages carried; drawn as wires that never change the layout's columns. */
   references?: readonly AgentSessionReferenceLink[]
+  /** Terminal forks this desktop made, from source pane to the agent it launched. */
+  terminalForks?: readonly TerminalForkOrigin[]
   titleOf: (card: DashboardCard) => string
 }
 
@@ -232,6 +238,15 @@ export function buildProjectMapGraph(
       from: parentKey,
       to: agent.card.paneKey
     })
+  }
+  if (forks?.terminalForks) {
+    addTerminalForkEdges(
+      forks.terminalForks,
+      agents,
+      edges,
+      (parentKey, childKey) => createsDelegationCycle(agents, parentKey, childKey),
+      (agent) => forks.titleOf(agent.card)
+    )
   }
   if (forks?.references) {
     addReferenceEdges(forks.references, agents, paneKeyBySession, edges)

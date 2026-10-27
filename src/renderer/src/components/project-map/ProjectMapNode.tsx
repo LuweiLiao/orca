@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { Folder, GitBranch, Quote } from 'lucide-react'
+import { Folder, GitBranch } from 'lucide-react'
 import { AgentTypeIcon } from '@/lib/agent-type-icon'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
 import { AgentStateDot } from '@/components/AgentStateDot'
@@ -16,6 +16,7 @@ import { projectMapConversationReference } from './project-map-reference'
 import { carriesConversationReference } from './project-map-reference-drop'
 import type { ConversationReferenceCreate } from '../../../../shared/conversation-reference'
 import type { ProjectMapNodeReferences } from './project-map-node-references'
+import { forkChildCount, forkSourceLabel, ReferenceCount } from './ProjectMapNodeLabels'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
 type HeaderPinKind = 'fork' | 'handoff' | 'unresolved'
@@ -243,6 +244,12 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   const reference = projectMapConversationReference(agent)
   const rowLeft = agent.fork ? (
     <span className="project-map-fork-source">{forkSourceLabel(agent.fork)}</span>
+  ) : agent.terminalFork ? (
+    <span className="project-map-fork-source">
+      {translate('projectMap.node.terminalForkFrom', 'Forked from terminal {{source}}', {
+        source: agent.terminalFork.sourceTitle
+      })}
+    </span>
   ) : agent.parentPaneKey ? (
     translate('projectMap.node.delegatedFrom', 'Delegated')
   ) : agent.hasUnresolvedParent ? (
@@ -305,7 +312,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
           }
         : {})}
       inPin={
-        agent.fork
+        agent.fork || agent.terminalFork
           ? undefined
           : agent.parentPaneKey
             ? 'delegate'
@@ -321,75 +328,11 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
               ? 'fork'
               : 'handoff'
             : 'unresolved'
-          : undefined
+          : agent.terminalFork
+            ? 'handoff'
+            : undefined
       }
       headerOutPin={forkChildren > 0 ? 'fork' : undefined}
     />
   )
 })
-
-function forkChildCount(
-  agent: ProjectMapAgent,
-  agents: ReadonlyMap<string, ProjectMapAgent>
-): number {
-  return agent.childPaneKeys.filter((paneKey) => agents.get(paneKey)?.fork).length
-}
-
-function forkSourceLabel(fork: NonNullable<ProjectMapAgent['fork']>): string {
-  const values = {
-    source: fork.sourceTitle ?? translate('projectMap.node.closedSource', 'a closed chat'),
-    count: fork.messageCount
-  }
-  const handedOver = fork.entry.handedOverCount
-  if (fork.mode === 'native') {
-    return translate(
-      'projectMap.node.forkedFrom',
-      'Forked from {{source}} · {{count}} messages',
-      values
-    )
-  }
-  // The rest are linked from the hand-off, not pasted into it.
-  return handedOver !== undefined && handedOver < fork.messageCount
-    ? translate(
-        'projectMap.node.handedOffPartly',
-        'Handed off from {{source}} · latest {{handed}} of {{count}} messages',
-        { ...values, handed: handedOver }
-      )
-    : translate(
-        'projectMap.node.handedOffFrom',
-        'Handed off from {{source}} · {{count}} messages',
-        values
-      )
-}
-
-/** How many conversations its messages referenced; the folded ones draw only while selected. */
-function ReferenceCount({
-  references
-}: {
-  references: ProjectMapNodeReferences
-}): React.JSX.Element {
-  const label = [
-    translate('projectMap.node.referenceCount', 'Referenced {{count}} conversations', {
-      count: references.count
-    }),
-    references.folded > 0
-      ? translate(
-          'projectMap.node.referenceFolded',
-          '{{count}} of them are elsewhere or to the right; select to see them',
-          { count: references.folded }
-        )
-      : null
-  ]
-    .filter(Boolean)
-    .join('\n')
-  return (
-    <span
-      className="project-map-reference-count inline-flex shrink-0 items-center gap-0.5 text-[10.5px] tabular-nums"
-      title={label}
-      data-project-map-reference-count={references.count}
-    >
-      <Quote aria-hidden className="size-3" />
-      {references.folded > 0 ? `↩${references.folded}/${references.count}` : references.count}
-    </span>
-  )
-}

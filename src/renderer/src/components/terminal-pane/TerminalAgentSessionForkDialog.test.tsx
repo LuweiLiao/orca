@@ -53,7 +53,9 @@ function makeFork(): PreparedAgentSessionFork {
     prompt: 'fork prompt',
     agent: null,
     worktreeId: 'wt-1',
-    pane: {} as PreparedAgentSessionFork['pane']
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the dialog only hands the fork back to its mocked actions; it never reads the pane.
+    pane: {} as PreparedAgentSessionFork['pane'],
+    sourcePaneKey: 'tab-1:leaf-1'
   }
 }
 

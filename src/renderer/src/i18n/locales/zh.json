@@ -3441,7 +3441,7 @@
               "session": {
                 "fork": {
                   "2317900211": "无法复制派生上下文。",
-                  "88e34d00eb": "顶级会话分支在新工作区中打开",
+                  "88e34d00eb": "会话分支已在当前工作区下的新工作区中打开",
                   "fd3d12a1e1": "无法创建派生工作区。",
                   "38e41edc6e": "该工作区无法派生为 Git 工作树。",
                   "f867385bb5": "找不到此派生的源工作区。",
@@ -21409,7 +21409,8 @@
       "closed": "已关闭",
       "referenceCount": "引用了 {{count}} 个对话",
       "referenceFolded": "其中 {{count}} 个来源在别处或右侧，选中后显示连线",
-      "handedOffPartly": "交接自 {{source}} · 最近 {{handed}} / {{count}} 条"
+      "handedOffPartly": "交接自 {{source}} · 最近 {{handed}} / {{count}} 条",
+      "terminalForkFrom": "从终端 {{source}} 派生"
     },
     "title": "项目关系图",
     "project": "项目",

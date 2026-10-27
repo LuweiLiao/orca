@@ -1,10 +1,7 @@
 import { toast } from 'sonner'
 import type { ManagedPane } from '@/lib/pane-manager/pane-manager'
 import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
-import {
-  buildAgentSessionForkPrompt,
-  buildBoundedSessionTranscript
-} from '../../../../shared/agent-session-fork-context'
+import { buildAgentSessionForkPrompt } from '../../../../shared/agent-session-fork-context'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import { resolveOwner } from '@/lib/resolve-owner'
 import { toRuntimeExecutionHostId, type ExecutionHostId } from '../../../../shared/execution-host'
@@ -20,6 +17,8 @@ import { translate } from '@/i18n/i18n'
 import { planAgentSessionLaunch } from '@/lib/agent-session-launch-plan'
 import { newAgentLaunchRequestId } from '@/lib/agent-launch-request-id'
 
+import { noteTerminalForkOrigin } from '@/lib/terminal-fork-origins'
+
 type ForkAgentSessionFromPaneArgs = {
   pane: ManagedPane
   tabId: string
@@ -32,6 +31,8 @@ export type PreparedAgentSessionFork = {
   agent: TuiAgent | null
   worktreeId: string
   pane: ManagedPane
+  /** The pane the fork is taken from, so the project map can draw where the fork came from. */
+  sourcePaneKey: string
 }
 
 function buildForkWorkspaceName(sourceName: string): string {
@@ -124,7 +125,8 @@ export function prepareAgentSessionForkFromPane({
     prompt,
     agent,
     worktreeId,
-    pane
+    pane,
+    sourcePaneKey: paneKey
   }
 }
 
@@ -134,46 +136,7 @@ export async function copyAgentSessionForkContext(
   return copyForkContext(fork.prompt, fork.pane)
 }
 
-// Why: the standalone "Copy Context" action copies the bounded transcript on its
-// own — for pasting into another tool — so it must not carry the fork prompt's
-// "this is a fork… acknowledge and wait" framing the dialog button uses.
-export async function copyAgentSessionContextFromPane(pane: ManagedPane): Promise<boolean> {
-  const transcript = buildBoundedSessionTranscript(
-    pane.serializeAddon.serialize({ scrollback: 800 })
-  )
-  if (!transcript) {
-    toast.error(
-      translate(
-        'auto.components.terminal.pane.terminal.agent.session.fork.f62b40e2c7',
-        'No terminal context to copy'
-      )
-    )
-    pane.terminal.focus()
-    return false
-  }
-  try {
-    await window.api.ui.writeTerminalClipboardText(transcript)
-    toast.message(
-      translate(
-        'auto.components.terminal.pane.terminal.agent.session.fork.373a3103e7',
-        'Context copied'
-      )
-    )
-    pane.terminal.focus()
-    return true
-  } catch (error) {
-    toast.error(
-      error instanceof Error
-        ? error.message
-        : translate(
-            'auto.components.terminal.pane.terminal.agent.session.fork.3fc568a49d',
-            'Failed to copy context.'
-          )
-    )
-    pane.terminal.focus()
-    return false
-  }
-}
+export { copyAgentSessionContextFromPane } from './terminal-agent-session-context-copy'
 
 /** The transport that owns the source: its server, else where this app reaches it (local or SSH). */
 function forkCreationHostId(
@@ -241,8 +204,12 @@ export async function startAgentSessionFork(fork: PreparedAgentSessionFork): Pro
       undefined,
       undefined,
       undefined,
-      // Why: a project two hosts publish refuses a host-less create; the fork belongs on its source's host.
-      { executionHostId: forkCreationHostId(store, fork.worktreeId) }
+      // Why: on its source's host (a project two hosts publish refuses a host-less create), and
+      // nested under its source so every client draws the fork beside where it came from.
+      {
+        executionHostId: forkCreationHostId(store, fork.worktreeId),
+        parentWorktreeId: fork.worktreeId
+      }
     )
   } catch (error) {
     toast.error(
@@ -256,8 +223,12 @@ export async function startAgentSessionFork(fork: PreparedAgentSessionFork): Pro
     return false
   }
   const forkWorktreeId = created.worktree.id
+  const { sourcePaneKey, worktreeId: sourceWorktreeId } = fork
+  const noteOrigin = (childTabId: string | null): void =>
+    noteTerminalForkOrigin({ forkWorktreeId, sourcePaneKey, sourceWorktreeId, childTabId })
 
   if (!fork.agent) {
+    noteOrigin(null)
     activateAndRevealWorktree(forkWorktreeId, { sidebarRevealBehavior: 'auto' })
     return copyAgentSessionForkContext(fork)
   }
@@ -290,9 +261,11 @@ export async function startAgentSessionFork(fork: PreparedAgentSessionFork): Pro
     ...(launchPlatform ? { launchPlatform } : {})
   })
   if (!result) {
+    noteOrigin(null)
     activateAndRevealWorktree(forkWorktreeId, { sidebarRevealBehavior: 'auto' })
     return copyAgentSessionForkContext(fork)
   }
+  noteOrigin(result.surface.kind === 'host-published' ? null : result.surface.tabId)
   notifyForkOpened()
   return true
 }
@@ -301,7 +274,7 @@ function notifyForkOpened(): void {
   toast.success(
     translate(
       'auto.components.terminal.pane.terminal.agent.session.fork.88e34d00eb',
-      'Top-level session fork opened in a new workspace'
+      'Session fork opened in a new workspace under this one'
     )
   )
 }

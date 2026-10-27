@@ -31,7 +31,7 @@ export type ProjectMapCollapsedView = {
 const delegatedChildren = (agent: ProjectMapAgent, agents: ProjectMapGraph['agents']): string[] =>
   agent.childPaneKeys.filter((paneKey) => {
     const child = agents.get(paneKey)
-    return child !== undefined && !child.fork
+    return child !== undefined && !child.fork && !child.terminalFork
   })
 
 /**

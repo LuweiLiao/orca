@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { subscribeToTerminalForkOrigins, terminalForkOrigins } from '@/lib/terminal-fork-origins'
 import { Minus, Network, Plus, Scan } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,7 @@ export default function ProjectMapPage(): React.JSX.Element {
   const [lineageRevision, setLineageRevision] = useState(0)
   // A sent message records its references, and a chat that has no card (a released worker) moves
   // no state the snapshot shows; so state changes re-read at once and a slow tick covers the rest.
+  const terminalForks = useSyncExternalStore(subscribeToTerminalForkOrigins, terminalForkOrigins)
   const lastStateChange = useMemo(
     () => snapshot.cards.reduce((latest, card) => Math.max(latest, card.stateChangedAt), 0),
     [snapshot.cards]
@@ -81,10 +83,11 @@ export default function ProjectMapPage(): React.JSX.Element {
             lineage,
             history,
             references,
+            terminalForks,
             titleOf: projectMapAgentTitle
           })
         : null,
-    [chats, history, lineage, projectId, references, sessions, snapshot]
+    [chats, history, lineage, projectId, references, sessions, snapshot, terminalForks]
   )
   // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())

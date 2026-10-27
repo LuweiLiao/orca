@@ -118,6 +118,44 @@ describe('references on the project map', () => {
     expect(pinned.layout.wires.find((wire) => wire.kind === 'reference')).not.toHaveProperty('live')
   })
 
+  it('draws a terminal fork from its source pane to the agent it launched in the fork workspace', () => {
+    const forkWorkspace: DashboardWorkspace = {
+      ...workspace,
+      worktreeId: 'fork',
+      worktreeName: 'fork',
+      parentWorktreeId: 'main'
+    }
+    const graph = buildProjectMapGraph(
+      {
+        generatedAt: 0,
+        workspaces: [workspace, forkWorkspace],
+        cards: [
+          card('a', 1),
+          { ...card('child', 2), worktreeId: 'fork', worktreeName: 'fork', tabId: 'tab-child' }
+        ]
+      },
+      'repo',
+      new Map(),
+      {
+        chatsByPaneKey: new Map(),
+        lineage: new Map(),
+        terminalForks: [
+          {
+            forkWorktreeId: 'fork',
+            sourcePaneKey: 'a',
+            sourceWorktreeId: 'main',
+            childTabId: 'tab-child',
+            createdAt: 0
+          }
+        ],
+        titleOf: (shown) => shown.task
+      }
+    )
+    expect(graph.edges).toContainEqual({ kind: 'handoff', from: 'a', to: 'child' })
+    expect(graph.edges).toContainEqual({ kind: 'derive', from: 'main', to: 'fork' })
+    expect(graph.agents.get('child')).toMatchObject({ terminalFork: { sourceTitle: 'a' } })
+  })
+
   it('arcs a reference between chats in one column through the gutter on their right', () => {
     const { pins, layout } = mapWith([link('claude_b', 'claude_a')])
     const wire = layout.wires.find((candidate) => candidate.kind === 'reference')
