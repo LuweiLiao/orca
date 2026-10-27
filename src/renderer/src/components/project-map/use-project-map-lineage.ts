@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import {
   AGENT_SESSION_FORK_RUNTIME_CAPABILITY,
   isAgentSessionLineageEntry,
-  type AgentSessionLineageEntry
+  isAgentSessionLineageSession,
+  type AgentSessionLineageEntry,
+  type AgentSessionLineageSession
 } from '../../../../shared/agent-session-fork'
 import { callStructuredAgentSession } from '@/runtime/structured-agent-session-client'
 import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
@@ -12,7 +14,12 @@ import {
   readLocalRuntimeCapabilitiesOrUnknown
 } from '@/runtime/local-runtime-capabilities'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
-import { mergeProjectMapLineage, type ProjectMapChat } from './project-map-lineage'
+import { normalizeExecutionHostId } from '../../../../shared/execution-host'
+import {
+  mergeProjectMapLineage,
+  type ProjectMapChat,
+  type ProjectMapHistoryChat
+} from './project-map-lineage'
 
 const NO_LINEAGE: ReadonlyMap<string, AgentSessionLineageEntry> = new Map()
 
@@ -36,47 +43,67 @@ export async function hostSupportsAgentSessionFork(target: RuntimeClientTarget):
 // Under `LineageParams`' cap, so a project with more chats is read in pages instead of refused.
 const LINEAGE_PAGE = 1024
 
-type HostLineage = { supported: boolean; entries: AgentSessionLineageEntry[] }
+type HostLineage = {
+  supported: boolean
+  entries: AgentSessionLineageEntry[]
+  sessions: AgentSessionLineageSession[]
+}
 
 async function readHostLineage(
   target: RuntimeClientTarget,
   sessionIds: readonly string[]
 ): Promise<HostLineage> {
   if (!(await hostSupportsAgentSessionFork(target))) {
-    return { supported: false, entries: [] }
+    return { supported: false, entries: [], sessions: [] }
   }
   const pages: string[][] = []
   for (let start = 0; start < sessionIds.length; start += LINEAGE_PAGE) {
     pages.push(sessionIds.slice(start, start + LINEAGE_PAGE))
   }
-  const entries = await Promise.all(
+  const results = await Promise.all(
     pages.map(async (page) => {
       try {
-        const result = await callStructuredAgentSession<{ entries?: unknown }>(
+        const result = await callStructuredAgentSession<{ entries?: unknown; sessions?: unknown }>(
           target,
           'agentSession.lineage',
           { sessionIds: page }
         )
-        return Array.isArray(result.entries)
-          ? result.entries.filter(isAgentSessionLineageEntry)
-          : []
+        return {
+          entries: Array.isArray(result.entries)
+            ? result.entries.filter(isAgentSessionLineageEntry)
+            : [],
+          sessions: Array.isArray(result.sessions)
+            ? result.sessions.filter(isAgentSessionLineageSession)
+            : []
+        }
       } catch {
         // A host that cannot answer draws its chats without fork edges, as an older one does.
-        return []
+        return { entries: [], sessions: [] }
       }
     })
   )
-  return { supported: true, entries: entries.flat() }
+  return {
+    supported: true,
+    entries: results.flatMap((result) => result.entries),
+    sessions: results.flatMap((result) => result.sessions)
+  }
 }
 
 export type ProjectMapLineage = {
   entries: ReadonlyMap<string, AgentSessionLineageEntry>
+  /** Chats at either end of a fork, keyed by session; the map draws closed ones as history. */
+  history: ReadonlyMap<string, ProjectMapHistoryChat>
   /** Hosts known to predate forks: their chats show the fork action disabled, with the reason. */
   forkUnsupportedHosts: ReadonlySet<string>
 }
 
 const NO_HOSTS: ReadonlySet<string> = new Set()
-const EMPTY_LINEAGE: ProjectMapLineage = { entries: NO_LINEAGE, forkUnsupportedHosts: NO_HOSTS }
+const NO_HISTORY: ReadonlyMap<string, ProjectMapHistoryChat> = new Map()
+const EMPTY_LINEAGE: ProjectMapLineage = {
+  entries: NO_LINEAGE,
+  history: NO_HISTORY,
+  forkUnsupportedHosts: NO_HOSTS
+}
 
 /**
  * Forks recorded by every host whose chats are on the map. Re-read when the set of chats changes,
@@ -105,7 +132,7 @@ export function useProjectMapLineage(
           const target = structuredAgentSessionTargetForHost(host || null)
           const read = target
             ? await readHostLineage(target, ids ? ids.split(',') : [])
-            : { supported: true, entries: [] }
+            : { supported: true, entries: [], sessions: [] }
           return { host, ...read }
         })
       : []
@@ -115,8 +142,18 @@ export function useProjectMapLineage(
       }
       const unsupported = hosts.filter((host) => !host.supported).map((host) => host.host)
       const pages = hosts.map((host) => host.entries)
+      const history = new Map<string, ProjectMapHistoryChat>()
+      for (const host of hosts) {
+        for (const session of host.sessions) {
+          history.set(session.sessionId, {
+            ...session,
+            executionHostId: normalizeExecutionHostId(host.host)
+          })
+        }
+      }
       setLineage({
         entries: pages.some((page) => page.length > 0) ? mergeProjectMapLineage(pages) : NO_LINEAGE,
+        history: history.size > 0 ? history : NO_HISTORY,
         forkUnsupportedHosts: unsupported.length > 0 ? new Set(unsupported) : NO_HOSTS
       })
     })

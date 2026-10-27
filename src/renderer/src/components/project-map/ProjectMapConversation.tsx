@@ -13,6 +13,7 @@ import { structuredAgentSessionTabId } from '../../../../shared/structured-agent
 import type { OrchestrationChatSession } from '../../../../shared/agent-status-types'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 import type { Tab } from '../../../../shared/tab-types'
+import type { ProjectMapChat } from './project-map-lineage'
 
 function findStructuredTab(
   tabs: readonly Tab[] | undefined,
@@ -35,16 +36,21 @@ function findStructuredTab(
  */
 export function ProjectMapConversation({
   card,
-  session
+  session,
+  closedChat
 }: {
   card: DashboardCard
   session?: OrchestrationChatSession
+  /** A chat whose tab is closed: read by its session, like a released worker's. */
+  closedChat?: ProjectMapChat
 }): React.JSX.Element {
   const tab = useAppStore((state) =>
     findStructuredTab(state.unifiedTabsByWorktree[card.worktreeId], card, session)
   )
   const owner = useAppStore((state) =>
-    tab ? structuredAgentSessionOwnerForTab(state, tab) : (session?.executionHostId ?? null)
+    tab
+      ? structuredAgentSessionOwnerForTab(state, tab)
+      : (session?.executionHostId ?? closedChat?.executionHostId ?? null)
   )
   const target = useMemo(() => structuredAgentSessionTargetForHost(owner), [owner])
 
@@ -58,7 +64,13 @@ export function ProjectMapConversation({
           sessionId: session.sessionId,
           agent: card.agentType
         }
-      : null
+      : closedChat
+        ? {
+            tabId: structuredAgentSessionTabId(closedChat.sessionId),
+            sessionId: closedChat.sessionId,
+            agent: closedChat.agent
+          }
+        : null
   if (structured && target) {
     return (
       <div className="relative flex min-h-0 flex-1">

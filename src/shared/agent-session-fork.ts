@@ -117,3 +117,25 @@ const LineageEntrySchema = z.object({
 export function isAgentSessionLineageEntry(value: unknown): value is AgentSessionLineageEntry {
   return LineageEntrySchema.safeParse(value).success
 }
+
+/**
+ * A chat at either end of a returned fork, described so the map can draw it after its tab closed.
+ * Added beside `entries` in the lineage result: older clients ignore it, older hosts omit it.
+ */
+export type AgentSessionLineageSession = {
+  sessionId: string
+  agent: string
+  workspaceId: string
+  title: string | null
+}
+
+const LineageSessionSchema = z.object({
+  sessionId: z.string().refine(isAgentSessionId),
+  agent: z.string().min(1).max(128),
+  workspaceId: z.string().min(1).max(4096),
+  title: z.string().max(1024).nullable()
+})
+
+export function isAgentSessionLineageSession(value: unknown): value is AgentSessionLineageSession {
+  return LineageSessionSchema.safeParse(value).success
+}

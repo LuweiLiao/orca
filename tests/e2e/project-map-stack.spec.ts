@@ -1,0 +1,200 @@
+import { mkdirSync } from 'node:fs'
+import path from 'node:path'
+import { expect } from './helpers/orca-app'
+import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-stub'
+import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
+import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
+import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { RuntimeClient } from '../../src/cli/runtime-client'
+import { orchestrationReferenceToken } from '../../src/shared/native-chat-orchestration-reference'
+import {
+  structuredAgentSessionPaneKey,
+  structuredAgentSessionTabId
+} from '../../src/shared/structured-agent-session-projection'
+
+function sessionClient(userDataDir: string, sessionId: string): RuntimeClient {
+  const previousCaller = process.env.ORCA_AGENT_SESSION_ID
+  process.env.ORCA_AGENT_SESSION_ID = sessionId
+  try {
+    return new RuntimeClient(userDataDir, 30_000, null, null)
+  } finally {
+    if (previousCaller === undefined) {
+      delete process.env.ORCA_AGENT_SESSION_ID
+    } else {
+      process.env.ORCA_AGENT_SESSION_ID = previousCaller
+    }
+  }
+}
+
+const paneKeyOf = (sessionId: string): string =>
+  structuredAgentSessionPaneKey(structuredAgentSessionTabId(sessionId), sessionId)
+
+const TASKS = ['CSV export', 'Cursor pagination', 'Rate limits', 'Audit log']
+
+test('stacks a busy coordinator’s workers, lists them beside it, and drags a node in as a reference', async ({
+  orcaPage: page,
+  electronApp,
+  claudeStub
+}, testInfo) => {
+  test.skip(!SUPPORTED, 'the Claude stub wrapper is POSIX-only')
+  test.setTimeout(300_000)
+  await waitForSessionReady(page)
+  const stopCapture = await startHiddenRendererFrameCapture(page)
+  try {
+    await page.setViewportSize({ width: 1440, height: 960 })
+    const worktreeId = await waitForActiveWorktree(page)
+    await page.evaluate(async (command) => {
+      await window.__store!.getState().updateSettings({
+        uiLanguage: 'en',
+        experimentalNativeChat: true,
+        defaultTuiAgent: 'claude',
+        tabAutoGenerateTitle: false,
+        agentCmdOverrides: { claude: command }
+      })
+    }, buildFakeAgentCommandOverride(claudeStub.command))
+    const parent = await createChatOnHost(page, worktreeId)
+    const parentTab = page.locator(
+      `[data-testid="sortable-tab"][data-tab-id="${structuredAgentSessionTabId(parent)}"]`
+    )
+    await expect(parentTab).toBeVisible({ timeout: 30_000 })
+    await parentTab.click()
+    // Only assignment cards the user sends authorize the coordinator to start workers.
+    const cards = TASKS.map((task) =>
+      orchestrationReferenceToken(
+        {
+          agent: 'claude',
+          label: 'Claude',
+          count: 1,
+          task: `Implement ${task}.`,
+          model: { id: 'sonnet', label: 'sonnet' },
+          effort: 'medium'
+        },
+        task
+      )
+    ).join('\n')
+    const chat = page.locator('[data-native-chat-root="true"]')
+    const composer = chat.getByRole('textbox')
+    await composer.fill('Coordinate the API work\n')
+    await composer.press('End')
+    await composer.evaluate((element, text) => {
+      const clipboardData = new DataTransfer()
+      clipboardData.setData('text/plain', text)
+      element.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true })
+      )
+    }, cards)
+    await expect(composer.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(4)
+    await chat.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(chat.getByText('Stub reply.', { exact: true })).toBeVisible()
+
+    const userDataDir = await electronApp.evaluate(({ app }) => app.getPath('userData'))
+    const client = sessionClient(userDataDir, parent)
+    const from = `orca_session_id:${parent}`
+    const run = await client.call<{ run: { id: string } }>('orchestration.runCreate', {
+      objective: 'API work',
+      from
+    })
+    const workers: { dispatchId: string; taskId: string; sessionId: string; handle: string }[] = []
+    for (const task of TASKS) {
+      const started = await client.call<{ dispatchId: string; taskId: string; state: string }>(
+        'orchestration.workerStart',
+        {
+          from,
+          run: run.result.run.id,
+          spec: `Implement ${task}.`,
+          agent: 'claude',
+          model: 'sonnet',
+          effort: 'medium',
+          timeoutMs: 60_000,
+          worktree: 'current',
+          displayName: task
+        }
+      )
+      expect(started.result.state).toBe('ready')
+      const dispatch = await client.call<{
+        dispatch: { assignee_orca_session_id: string; assignee_handle: string }
+      }>('orchestration.dispatchShow', { task: started.result.taskId })
+      workers.push({
+        ...started.result,
+        sessionId: dispatch.result.dispatch.assignee_orca_session_id,
+        handle: dispatch.result.dispatch.assignee_handle
+      })
+    }
+    // A finished, released worker must stay in the stack and keep its history readable.
+    const finished = workers[0]!
+    await sessionClient(userDataDir, finished.sessionId).call('orchestration.send', {
+      from: finished.handle,
+      to: `run:${run.result.run.id}`,
+      subject: 'Implemented',
+      type: 'worker_done',
+      payload: JSON.stringify({
+        taskId: finished.taskId,
+        dispatchId: finished.dispatchId,
+        outcome: 'succeeded'
+      })
+    })
+    await client.call('orchestration.workerRelease', { dispatch: finished.dispatchId })
+
+    await page.evaluate(() => window.__store!.getState().openProjectMapPage())
+    const map = page.locator('.project-map')
+    const node = (id: string) => map.locator(`[data-project-map-node="${id}"]`)
+    const stack = node(`project-map-group:${paneKeyOf(parent)}`)
+    await expect(stack).toBeVisible({ timeout: 30_000 })
+    await expect(stack).toContainText('4 delegated chats')
+    for (const { sessionId } of workers) {
+      await expect(node(paneKeyOf(sessionId))).toHaveCount(0)
+    }
+    await expect(map.locator('.project-map-wire[data-kind="delegate"]')).toHaveCount(1)
+    await expect(node(paneKeyOf(parent))).toContainText('Delegates 4')
+
+    const artifacts = path.join(process.cwd(), 'test-results', 'project-map-stack')
+    mkdirSync(artifacts, { recursive: true })
+    const screenshot = async (name: string): Promise<void> => {
+      const file = path.join(artifacts, `${name}.png`)
+      await page.screenshot({ path: file, animations: 'disabled' })
+      await testInfo.attach(name, { path: file, contentType: 'image/png' })
+    }
+    await screenshot('stacked')
+
+    await stack.click()
+    const tray = map.locator('[data-project-map-tray]')
+    await expect(tray.locator('[data-project-map-tray-row]')).toHaveCount(4)
+    await screenshot('tray')
+    await tray.getByRole('textbox').fill('pagination')
+    await expect(tray.locator('[data-project-map-tray-row]')).toHaveCount(1)
+    await tray.getByRole('textbox').fill('')
+
+    // Opening the released worker shows its whole chat, anchored on the stack.
+    await tray.locator(`[data-project-map-tray-row="${paneKeyOf(finished.sessionId)}"]`).click()
+    const chatWindow = map.locator('[data-project-map-window]')
+    await expect(tray).toHaveCount(0)
+    await expect(chatWindow.getByText('You are a dispatched worker.').first()).toBeVisible({
+      timeout: 30_000
+    })
+    const windowComposer = chatWindow.getByRole('textbox')
+    await expect(windowComposer).toBeVisible()
+    await expect(stack).toHaveAttribute('data-selected', 'true')
+
+    // The coordinator's node drops into that composer as a conversation reference.
+    await node(paneKeyOf(parent)).dragTo(windowComposer)
+    await expect(windowComposer.locator('[data-native-chat-conversation-reference]')).toHaveCount(1)
+    await screenshot('reference-dropped')
+
+    // Showing the fleet on the map draws each worker again.
+    await node(paneKeyOf(parent)).click()
+    await chatWindow.getByRole('button', { name: 'Show them on the map' }).click()
+    for (const { sessionId } of workers) {
+      await expect(node(paneKeyOf(sessionId))).toBeVisible()
+    }
+    await expect(stack).toHaveCount(0)
+    await expect(map.locator('.project-map-wire[data-kind="delegate"]')).toHaveCount(4)
+    await screenshot('expanded')
+    expect(
+      await electronApp.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows().some((window) => window.isVisible())
+      )
+    ).toBe(false)
+  } finally {
+    await stopCapture()
+  }
+})

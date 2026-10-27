@@ -17,6 +17,7 @@ import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import type { AgentSessionRecord } from '../../../../shared/agent-session-record'
 import { applyForkedChatName } from '../../../native-chat/agent-session-fork-name'
 import { agentSessionLineageTable } from '../../../native-chat/agent-session-journal/agent-session-lineage-table'
+import { agentSessionLineageView } from '../../../native-chat/agent-session-lineage-view'
 import {
   copyClaudeForkSource,
   forkHandoffText,
@@ -240,16 +241,12 @@ export const STRUCTURED_AGENT_SESSION_FORK_METHODS = [
     handler: async (params, ctx) => {
       await ensureHostInstalled(ctx)
       const host = requireHost(ctx)
-      const wanted = params.sessionIds ? new Set(params.sessionIds) : null
-      // A fork that never made its chat leaves an entry with no record; it is not drawn.
-      const entries = agentSessionLineageTable(host.deps.journalDatabase)
-        .list()
-        .filter(
-          (entry) =>
-            host.deps.store.getRecord(entry.childSessionId) &&
-            (!wanted || wanted.has(entry.childSessionId) || wanted.has(entry.sourceSessionId))
-        )
-      return { entries }
+      // `sessions` describes closed chats too, so the map can still draw them.
+      return agentSessionLineageView(
+        agentSessionLineageTable(host.deps.journalDatabase).list(),
+        (sessionId) => host.deps.store.getRecord(sessionId),
+        params.sessionIds
+      )
     }
   })
 ]

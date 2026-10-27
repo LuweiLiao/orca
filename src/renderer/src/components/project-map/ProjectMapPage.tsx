@@ -21,6 +21,9 @@ import {
   type ProjectMapWorkspace
 } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
+import { collapseProjectMapGraph } from './project-map-collapse'
+import { activateAiVaultStructuredSession } from '@/lib/activate-ai-vault-structured-session'
+import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import { projectMapAgentTitle } from './project-map-labels'
 import { projectMapChatsByPaneKey } from './project-map-lineage'
 import { useProjectMapLineage } from './use-project-map-lineage'
@@ -40,7 +43,11 @@ export default function ProjectMapPage(): React.JSX.Element {
     [sessions, snapshot.cards, tabsByWorktree]
   )
   const [lineageRevision, setLineageRevision] = useState(0)
-  const { entries: lineage, forkUnsupportedHosts } = useProjectMapLineage(chats, lineageRevision)
+  const {
+    entries: lineage,
+    history,
+    forkUnsupportedHosts
+  } = useProjectMapLineage(chats, lineageRevision)
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
   const projectId =
@@ -56,12 +63,28 @@ export default function ProjectMapPage(): React.JSX.Element {
         ? buildProjectMapGraph(snapshot, projectId, sessions, {
             chatsByPaneKey: chats,
             lineage,
+            history,
             titleOf: projectMapAgentTitle
           })
         : null,
-    [chats, lineage, projectId, sessions, snapshot]
+    [chats, history, lineage, projectId, sessions, snapshot]
   )
-  const layout = useMemo(() => (graph ? layoutProjectMap(graph) : null), [graph])
+  // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
+  const collapsed = useMemo(
+    () => (graph ? collapseProjectMapGraph(graph, expanded) : null),
+    [expanded, graph]
+  )
+  const layout = useMemo(() => (collapsed ? layoutProjectMap(collapsed.graph) : null), [collapsed])
+  const toggleCollapse = useCallback((parentPaneKey: string) => {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (!next.delete(parentPaneKey)) {
+        next.add(parentPaneKey)
+      }
+      return next
+    })
+  }, [])
   const contentWidth = layout?.width ?? 0
   const contentHeight = layout?.height ?? 0
   // Keyed by size so a status refresh with the same layout keeps a stable fit target.
@@ -81,6 +104,18 @@ export default function ProjectMapPage(): React.JSX.Element {
   }, [projectId, viewportReady])
 
   const openAgent = useCallback((agent: ProjectMapAgent) => {
+    // A closed chat has no tab to reveal; the host republishes one from its record.
+    if (agent.history && agent.chat) {
+      const target = structuredAgentSessionTargetForHost(agent.chat.executionHostId)
+      void activateAiVaultStructuredSession(
+        {
+          structuredSession: { sessionId: agent.chat.sessionId, workspaceId: agent.card.worktreeId }
+        },
+        undefined,
+        target ?? undefined
+      )
+      return
+    }
     revealDashboardAgent({
       repoId: agent.card.repoId,
       worktreeId: agent.card.worktreeId,
@@ -163,15 +198,17 @@ export default function ProjectMapPage(): React.JSX.Element {
           </Button>
         </div>
       </header>
-      {graph && layout ? (
+      {graph && collapsed && layout ? (
         <ProjectMapCanvas
           graph={graph}
+          collapsed={collapsed}
           layout={layout}
           viewport={viewport}
           activeWorktreeId={activeWorktreeId}
           onOpenAgent={openAgent}
           onOpenWorkspace={openWorkspace}
           forkUnsupportedHosts={forkUnsupportedHosts}
+          onToggleCollapse={toggleCollapse}
           onForked={() => setLineageRevision((revision) => revision + 1)}
         />
       ) : (

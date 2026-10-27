@@ -21376,7 +21376,8 @@
       "delegate": "委派",
       "unresolved": "来源未加载",
       "fork": "分叉",
-      "handoff": "交接"
+      "handoff": "交接",
+      "history": "已关闭"
     },
     "window": {
       "openInTab": "在标签页中打开",
@@ -21398,7 +21399,8 @@
       "forkCount": "分叉 {{count}}",
       "closedSource": "已关闭的对话",
       "forkedFrom": "分叉自 {{source}} · {{count}} 条",
-      "handedOffFrom": "交接自 {{source}} · {{count}} 条"
+      "handedOffFrom": "交接自 {{source}} · {{count}} 条",
+      "closed": "已关闭"
     },
     "title": "项目关系图",
     "project": "项目",
@@ -21445,6 +21447,19 @@
       "cancel": "取消",
       "creating": "创建中…",
       "create": "创建子对话"
+    },
+    "group": {
+      "title": "{{count}} 个子 agent",
+      "nested": "另有 {{count}} 个孙级",
+      "open": "点开查看列表",
+      "filterAll": "全部 {{count}}",
+      "filterWaiting": "待你 {{count}}",
+      "filterWorking": "工作中 {{count}}",
+      "trayLabel": "{{name}} 委派的对话",
+      "expand": "在画布上展开",
+      "fold": "收起子 agent",
+      "search": "按标题筛选",
+      "empty": "没有匹配的对话。"
     }
   }
 }

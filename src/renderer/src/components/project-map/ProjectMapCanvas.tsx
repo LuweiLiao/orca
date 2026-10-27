@@ -6,18 +6,27 @@ import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
 import type { ProjectMapAgent, ProjectMapGraph, ProjectMapWorkspace } from './project-map-graph'
 import { PROJECT_MAP_NODE, type ProjectMapLayout } from './project-map-layout'
 import type { useProjectMapViewport } from './use-project-map-viewport'
-import { ProjectMapAgentNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
+import { ProjectMapAgentNode, ProjectMapGroupNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
+import { ProjectMapGroupTray } from './ProjectMapGroupTray'
+import { ProjectMapLegend } from './ProjectMapLegend'
+import { PROJECT_MAP_GROUP_PREFIX, type ProjectMapCollapsedView } from './project-map-collapse'
+import { projectMapAgentTitle } from './project-map-labels'
 import { ProjectMapChatWindow, type ProjectMapWindowSubject } from './ProjectMapChatWindow'
 import { ProjectMapForkPanel } from './ProjectMapForkPanel'
 import type { ProjectMapRect } from './project-map-window-placement'
 
 type Props = {
+  /** Every chat on the map, the hidden ones in stacks included. */
   graph: ProjectMapGraph
+  /** What is drawn: `graph` with busy parents' delegated chats folded into stacks. */
+  collapsed: ProjectMapCollapsedView
   layout: ProjectMapLayout
   viewport: ReturnType<typeof useProjectMapViewport>
   activeWorktreeId: string | null
   onOpenAgent: (agent: ProjectMapAgent) => void
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
+  /** Show a stacked parent's chats on the canvas, or fold them back. */
+  onToggleCollapse: (parentPaneKey: string) => void
   /** Hosts known to predate forks. */
   forkUnsupportedHosts: ReadonlySet<string>
   /** A fork made a chat; its lineage is worth reading again. */
@@ -54,12 +63,14 @@ function windowSubject(graph: ProjectMapGraph, id: string | null): ProjectMapWin
 
 export function ProjectMapCanvas({
   graph,
+  collapsed,
   layout,
   viewport,
   activeWorktreeId,
   onOpenAgent,
   onOpenWorkspace,
   forkUnsupportedHosts,
+  onToggleCollapse,
   onForked
 }: Props): React.JSX.Element {
   const { view } = viewport
@@ -85,30 +96,36 @@ export function ProjectMapCanvas({
       ),
     [worktrees]
   )
+  // A chat folded into a stack is shown, and wired, through the stack.
+  const shownAs = (id: string): string | null =>
+    layout.nodes.has(id) ? id : (collapsed.groupOf.get(id) ?? null)
   // A node that vanished (agent closed, project switched) takes its window with it.
-  const selected = selectedId && layout.nodes.has(selectedId) ? selectedId : null
+  const selected = selectedId && shownAs(selectedId) ? selectedId : null
+  const selectedShown = selected ? shownAs(selected) : null
   const forkOrigin = forkFor === selected && selected ? graph.agents.get(selected) : undefined
+  const group = selectedShown ? collapsed.groups.get(selectedShown) : undefined
+  const trayOpen = group !== undefined && selected === selectedShown
 
   // Adjusted during render, not in an effect, so the new node never draws unselected first.
   const arrived = awaitedSession
     ? [...graph.agents.values()].find((agent) => agent.chat?.sessionId === awaitedSession)
     : undefined
-  if (arrived && layout.nodes.has(arrived.card.paneKey)) {
+  if (arrived && shownAs(arrived.card.paneKey)) {
     setSelectedId(arrived.card.paneKey)
     setAwaited(null)
   }
 
   const linked = useMemo(() => {
     const ids = new Set<string>()
-    for (const edge of graph.edges) {
-      if (edge.from === selected) {
+    for (const edge of collapsed.graph.edges) {
+      if (edge.from === selectedShown) {
         ids.add(edge.to)
-      } else if (edge.to === selected) {
+      } else if (edge.to === selectedShown) {
         ids.add(edge.from)
       }
     }
     return ids
-  }, [graph.edges, selected])
+  }, [collapsed.graph.edges, selectedShown])
 
   useEffect(() => {
     if (!selected) {
@@ -145,7 +162,7 @@ export function ProjectMapCanvas({
     '--pm-pan-x': `${view.x}px`,
     '--pm-pan-y': `${view.y}px`
   }
-  const anchor = selected ? toViewport(selected) : null
+  const anchor = selectedShown ? toViewport(selectedShown) : null
 
   return (
     <div
@@ -209,17 +226,18 @@ export function ProjectMapCanvas({
               key={`${wire.kind}:${wire.from}:${wire.to}`}
               className="project-map-wire"
               data-kind={wire.kind}
-              data-highlighted={wire.from === selected || wire.to === selected}
+              data-highlighted={wire.from === selectedShown || wire.to === selectedShown}
               d={wire.path}
             />
           ))}
         </svg>
         {[...layout.nodes.values()].map((box) => {
           const workspace = graph.workspaces.get(box.id)
-          const agent = graph.agents.get(box.id)
+          const agent = collapsed.graph.agents.get(box.id)
+          const stack = collapsed.groups.get(box.id)
           const common = {
             box,
-            selected: box.id === selected,
+            selected: box.id === selectedShown,
             linked: linked.has(box.id),
             onSelect: setSelectedId
           }
@@ -231,16 +249,26 @@ export function ProjectMapCanvas({
               branch={branchById.get(box.id) ?? null}
               current={box.id === activeWorktreeId}
             />
+          ) : stack ? (
+            <ProjectMapGroupNode
+              key={box.id}
+              {...common}
+              group={stack}
+              forksOut={(agent?.childPaneKeys.length ?? 0) > 0}
+            />
           ) : agent ? (
             <ProjectMapAgentNode
               key={box.id}
               {...common}
-              agent={agent}
+              // The real chat, so a stacked parent still counts every chat it delegated.
+              agent={graph.agents.get(box.id) ?? agent}
               graphAgents={graph.agents}
             />
           ) : null
         })}
-        {selected && projectMapAgentForkable(graph.agents.get(selected)) ? (
+        {selected &&
+        selected === selectedShown &&
+        projectMapAgentForkable(graph.agents.get(selected)) ? (
           <ForkHandle
             box={layout.nodes.get(selected)!}
             open={forkOrigin !== undefined}
@@ -266,6 +294,25 @@ export function ProjectMapCanvas({
             onForked()
           }}
         />
+      ) : trayOpen && group && anchor ? (
+        <ProjectMapGroupTray
+          key={group.id}
+          group={group}
+          parentTitle={projectMapAgentTitle(
+            graph.agents.get(group.parentPaneKey)?.card ??
+              collapsed.graph.agents.get(group.id)!.card
+          )}
+          agents={graph.agents}
+          anchor={anchor}
+          viewport={viewport.size}
+          avoid={[...linked].flatMap((id) => toViewport(id) ?? [])}
+          onClose={() => setSelectedId(null)}
+          onOpenMember={setSelectedId}
+          onExpand={() => {
+            setSelectedId(group.parentPaneKey)
+            onToggleCollapse(group.parentPaneKey)
+          }}
+        />
       ) : subject && anchor ? (
         <ProjectMapChatWindow
           key={selected}
@@ -281,58 +328,19 @@ export function ProjectMapCanvas({
           !forkUnsupportedHosts.has(subject.agent.chat?.executionHostId ?? '')
             ? { onFork: () => setForkFor(selected) }
             : {})}
+          {...(subject.kind === 'agent' && collapsed.collapsible.has(subject.agent.card.paneKey)
+            ? {
+                collapse: {
+                  folded: collapsed.groups.has(
+                    `${PROJECT_MAP_GROUP_PREFIX}${subject.agent.card.paneKey}`
+                  ),
+                  onToggle: () => onToggleCollapse(subject.agent.card.paneKey)
+                }
+              }
+            : {})}
         />
       ) : null}
       <ProjectMapLegend />
-    </div>
-  )
-}
-
-const WORKSPACE_SWATCH: CssVariables = { '--pm-kind': 'var(--pm-kind-workspace)' }
-const AGENT_SWATCH: CssVariables = { '--pm-kind': 'var(--pm-kind-agent)' }
-
-function ProjectMapLegend(): React.JSX.Element {
-  const item = 'inline-flex items-center gap-1.5 whitespace-nowrap'
-  return (
-    <div
-      aria-label={translate('projectMap.legendLabel', 'Legend')}
-      onPointerDown={(event) => event.stopPropagation()}
-      className="absolute bottom-3 left-3 z-10 flex h-8 items-center gap-3.5 rounded-md border border-border bg-card px-3 text-[11px] text-muted-foreground shadow-xs"
-    >
-      <span className={item}>
-        <span
-          className="project-map-legend-swatch size-3 rounded-[3px] border border-border"
-          style={WORKSPACE_SWATCH}
-        />
-        {translate('projectMap.legend.workspace', 'Workspace')}
-      </span>
-      <span className={item}>
-        <span
-          className="project-map-legend-swatch size-3 rounded-[3px] border border-border"
-          style={AGENT_SWATCH}
-        />
-        {translate('projectMap.legend.conversation', 'Conversation')}
-      </span>
-      <span className={item}>
-        <span className="project-map-pin" data-legend data-wire="derive" />
-        {translate('projectMap.legend.derive', 'Derived')}
-      </span>
-      <span className={item}>
-        <span className="project-map-pin" data-legend data-wire="delegate" />
-        {translate('projectMap.legend.delegate', 'Delegated')}
-      </span>
-      <span className={item}>
-        <span className="project-map-fork-pin" data-legend data-wire="fork" />
-        {translate('projectMap.legend.fork', 'Forked')}
-      </span>
-      <span className={item}>
-        <span className="project-map-fork-pin" data-legend data-wire="handoff" />
-        {translate('projectMap.legend.handoff', 'Handed off')}
-      </span>
-      <span className={item}>
-        <span className="project-map-pin" data-legend data-wire="unresolved" />
-        {translate('projectMap.legend.unresolved', 'Source not loaded')}
-      </span>
     </div>
   )
 }

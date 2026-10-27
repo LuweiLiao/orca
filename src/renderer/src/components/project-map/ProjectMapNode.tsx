@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Folder, GitBranch } from 'lucide-react'
+import { Folder, GitBranch, Layers } from 'lucide-react'
 import { AgentTypeIcon } from '@/lib/agent-type-icon'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
 import { AgentStateDot } from '@/components/AgentStateDot'
@@ -8,13 +8,16 @@ import { dashboardCardDisplayState } from '../../../../shared/dashboard-snapshot
 import type { ProjectMapAgent, ProjectMapWorkspace } from './project-map-graph'
 import { PROJECT_MAP_NODE, type ProjectMapNodeBox } from './project-map-layout'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
+import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import { projectMapConversationReference } from './project-map-reference'
+import type { ProjectMapGroup } from './project-map-collapse'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
 type HeaderPinKind = 'fork' | 'handoff' | 'unresolved'
 
 type NodeShellProps = {
   box: ProjectMapNodeBox
-  kind: 'workspace' | 'folder' | 'agent'
+  kind: 'workspace' | 'folder' | 'agent' | 'group'
   label: string
   selected: boolean
   linked: boolean
@@ -26,6 +29,10 @@ type NodeShellProps = {
   outPin?: PinKind
   headerInPin?: HeaderPinKind
   headerOutPin?: HeaderPinKind
+  /** A closed chat drawn because a fork still connects it. */
+  history?: boolean
+  /** Present when the node can be dropped into a composer as a conversation reference. */
+  onDragStart?: (event: React.DragEvent<HTMLButtonElement>) => void
 }
 
 function NodeShell({
@@ -41,7 +48,9 @@ function NodeShell({
   inPin,
   outPin,
   headerInPin,
-  headerOutPin
+  headerOutPin,
+  history,
+  onDragStart
 }: NodeShellProps): React.JSX.Element {
   return (
     <button
@@ -50,6 +59,9 @@ function NodeShell({
       data-kind={kind}
       data-selected={selected}
       data-linked={linked}
+      data-history={history || undefined}
+      draggable={onDragStart ? true : undefined}
+      onDragStart={onDragStart}
       aria-pressed={selected}
       aria-label={label}
       // Why: the canvas pans on background presses; a node press is a selection.
@@ -178,6 +190,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   const subagentCount = card.subagents?.length ?? 0
   const forkChildren = forkChildCount(agent, graphAgents)
   const delegates = agent.childPaneKeys.length - forkChildren
+  const reference = projectMapConversationReference(agent)
   const rowLeft = agent.fork ? (
     <span className="project-map-fork-source">{forkSourceLabel(agent.fork)}</span>
   ) : agent.parentPaneKey ? (
@@ -210,13 +223,24 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
           </span>
           <HeaderText
             title={title}
-            subtitle={`${formatAgentTypeLabel(card.agentType)} · ${projectMapStateLabel(state)}`}
+            subtitle={`${formatAgentTypeLabel(card.agentType)} · ${
+              agent.history
+                ? translate('projectMap.node.closed', 'Closed')
+                : projectMapStateLabel(state)
+            }`}
           />
-          <AgentStateDot state={state} title={null} />
+          {agent.history ? null : <AgentStateDot state={state} title={null} />}
         </>
       }
       rowLeft={rowLeft}
       rowRight={rowRight}
+      history={agent.history}
+      {...(reference
+        ? {
+            onDragStart: (event: React.DragEvent<HTMLButtonElement>) =>
+              writeConversationReferenceDrag(event.dataTransfer, reference)
+          }
+        : {})}
       inPin={
         agent.fork
           ? undefined
@@ -260,4 +284,83 @@ function forkSourceLabel(fork: NonNullable<ProjectMapAgent['fork']>): string {
         'Handed off from {{source}} · {{count}} messages',
         values
       )
+}
+
+/** Stands in for a busy parent's delegated chats until the person opens them. */
+export const ProjectMapGroupNode = memo(function ProjectMapGroupNode({
+  box,
+  group,
+  forksOut,
+  selected,
+  linked,
+  onSelect
+}: {
+  box: ProjectMapNodeBox
+  group: ProjectMapGroup
+  /** A hidden chat was forked; the fork wire leaves from the stack. */
+  forksOut: boolean
+  selected: boolean
+  linked: boolean
+  onSelect: (id: string) => void
+}): React.JSX.Element {
+  const count = group.childPaneKeys.length
+  const nested = group.memberPaneKeys.length - count
+  const title = translate('projectMap.group.title', '{{count}} delegated chats', { count })
+  const { working, waiting, settled } = group.counts
+  return (
+    <NodeShell
+      box={box}
+      kind="group"
+      label={title}
+      selected={selected}
+      linked={linked}
+      onSelect={onSelect}
+      header={
+        <>
+          <Layers aria-hidden className="project-map-node-glyph size-3.5 shrink-0" />
+          <HeaderText
+            title={title}
+            subtitle={
+              nested > 0
+                ? translate('projectMap.group.nested', 'and {{count}} they delegated', {
+                    count: nested
+                  })
+                : translate('projectMap.group.open', 'Click to list them')
+            }
+          />
+        </>
+      }
+      rowLeft={
+        <span className="inline-flex items-center gap-2.5 tabular-nums">
+          <GroupCount state="working" count={working} />
+          <GroupCount state="waiting" count={waiting} />
+          <GroupCount state="idle" count={settled} />
+        </span>
+      }
+      inPin="delegate"
+      headerOutPin={forksOut ? 'fork' : undefined}
+    />
+  )
+})
+
+function GroupCount({
+  state,
+  count
+}: {
+  state: 'working' | 'waiting' | 'idle'
+  count: number
+}): React.JSX.Element | null {
+  if (count === 0) {
+    return null
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1"
+      data-project-map-group-count={state}
+      title={projectMapStateLabel(state)}
+    >
+      <AgentStateDot state={state} title={null} />
+      {count}
+    </span>
+  )
 }

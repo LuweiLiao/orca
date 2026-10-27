@@ -12,6 +12,12 @@ export type ProjectMapChat = {
   executionHostId: ExecutionHostId | null
 }
 
+/** A chat a host still records at the end of a fork, open or not. */
+export type ProjectMapHistoryChat = ProjectMapChat & {
+  workspaceId: string
+  title: string | null
+}
+
 /**
  * Which structured chat each card shows. A chat with an open tab is read from the tab; an
  * orchestrated chat whose tab was retired is read from the session the runtime published.

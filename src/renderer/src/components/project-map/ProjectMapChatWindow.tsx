@@ -1,5 +1,14 @@
 import { useCallback, useState } from 'react'
-import { Folder, GitBranch, GitFork, Maximize2, MessageSquarePlus, XIcon } from 'lucide-react'
+import {
+  Folder,
+  GitBranch,
+  GitFork,
+  Layers,
+  ListTree,
+  Maximize2,
+  MessageSquarePlus,
+  XIcon
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AgentTypeIcon } from '@/lib/agent-type-icon'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
@@ -28,6 +37,8 @@ type Props = {
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
   /** Present when this chat can seed a child chat. */
   onFork?: () => void
+  /** Present when this chat delegated enough to stack: fold its chats or show them on the map. */
+  collapse?: { folded: boolean; onToggle: () => void }
 }
 
 const DEFAULT_SIZE = { width: 480, height: 640 }
@@ -40,7 +51,8 @@ export function ProjectMapChatWindow({
   onClose,
   onOpenAgent,
   onOpenWorkspace,
-  onFork
+  onFork,
+  collapse
 }: Props): React.JSX.Element {
   // Placed once per mount; the canvas keys this window by node, so opening another node re-anchors.
   const [position, setPosition] = useState(() =>
@@ -130,6 +142,27 @@ export function ProjectMapChatWindow({
             <GitFork className="size-3.5" />
           </Button>
         ) : null}
+        {collapse ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-pressed={!collapse.folded}
+            aria-label={
+              collapse.folded
+                ? translate('projectMap.group.expand', 'Show them on the map')
+                : translate('projectMap.group.fold', 'Stack its delegated chats')
+            }
+            title={
+              collapse.folded
+                ? translate('projectMap.group.expand', 'Show them on the map')
+                : translate('projectMap.group.fold', 'Stack its delegated chats')
+            }
+            onClick={collapse.onToggle}
+          >
+            {collapse.folded ? <ListTree className="size-3.5" /> : <Layers className="size-3.5" />}
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -189,6 +222,7 @@ export function ProjectMapChatWindow({
           key={tabAgent.card.paneKey}
           card={tabAgent.card}
           session={tabAgent.session}
+          {...(tabAgent.history && tabAgent.chat ? { closedChat: tabAgent.chat } : {})}
         />
       ) : subject.kind === 'workspace' ? (
         <div className="m-auto flex max-w-72 flex-col items-center gap-3 px-4 text-center text-sm text-muted-foreground">
@@ -224,9 +258,11 @@ function AgentHeader({ agent }: { agent: ProjectMapAgent }): React.JSX.Element {
           {projectMapAgentTitle(agent.card)}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 truncate text-[11px] leading-4 text-muted-foreground">
-          <AgentStateDot state={state} title={null} />
+          {agent.history ? null : <AgentStateDot state={state} title={null} />}
           {[
-            projectMapStateLabel(state),
+            agent.history
+              ? translate('projectMap.node.closed', 'Closed')
+              : projectMapStateLabel(state),
             formatAgentTypeLabel(agent.card.agentType),
             agent.card.worktreeName
           ].join(' · ')}

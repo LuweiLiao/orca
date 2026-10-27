@@ -21492,7 +21492,8 @@
       "delegate": "Delegated",
       "unresolved": "Source not loaded",
       "fork": "Forked",
-      "handoff": "Handed off"
+      "handoff": "Handed off",
+      "history": "Closed"
     },
     "window": {
       "openInTab": "Open in tab",
@@ -21517,7 +21518,8 @@
       "forkCount_one": "{{count}} fork",
       "closedSource": "a closed chat",
       "forkedFrom": "Forked from {{source}} · {{count}} messages",
-      "handedOffFrom": "Handed off from {{source}} · {{count}} messages"
+      "handedOffFrom": "Handed off from {{source}} · {{count}} messages",
+      "closed": "Closed"
     },
     "title": "Project Map",
     "project": "Project",
@@ -21564,6 +21566,20 @@
       "cancel": "Cancel",
       "creating": "Creating…",
       "create": "Create child chat"
+    },
+    "group": {
+      "title": "{{count}} delegated chats",
+      "title_one": "{{count}} delegated chat",
+      "nested": "and {{count}} they delegated",
+      "open": "Click to list them",
+      "filterAll": "All {{count}}",
+      "filterWaiting": "Needs you {{count}}",
+      "filterWorking": "Working {{count}}",
+      "trayLabel": "Chats {{name}} delegated",
+      "expand": "Show them on the map",
+      "fold": "Stack its delegated chats",
+      "search": "Filter by title",
+      "empty": "No chats match."
     }
   }
 }
