@@ -111,6 +111,7 @@ export function ProjectMapChatWindow({
       }
       data-kind={kind}
       data-project-map-window=""
+      data-project-map-chat-window=""
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       className="project-map-window absolute z-20 flex min-h-[320px] min-w-[360px] resize flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"

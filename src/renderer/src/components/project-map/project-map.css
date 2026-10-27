@@ -94,6 +94,11 @@
     8px 8px 0 -1px var(--card),
     8px 8px 0 0 var(--border);
 }
+.project-map-fork-window[data-reference-drop='true'],
+.project-map-node[data-reference-drop='true'] {
+  outline: 2px dashed var(--pm-wire-reference);
+  outline-offset: 3px;
+}
 .project-map-node:hover {
   border-color: color-mix(in srgb, var(--pm-kind) 45%, var(--border));
 }

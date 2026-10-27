@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { GitFork, XIcon } from 'lucide-react'
+import { NativeChatConversationReference } from '@/components/native-chat/NativeChatConversationReference'
+import { readConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import {
+  conversationReferenceToken,
+  withConversationReferenceInstructions,
+  type ConversationReference
+} from '../../../../shared/conversation-reference'
+import { toRuntimeExecutionHostId } from '../../../../shared/execution-host'
+import { carriesConversationReference } from './project-map-reference-drop'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { translate } from '@/i18n/i18n'
@@ -58,6 +67,9 @@ export function ProjectMapForkPanel({
     agent: origin.chat?.agent ?? origin.card.agentType
   })
   const [instruction, setInstruction] = useState('')
+  // Other chats this child should read too, beside the one it inherits.
+  const [references, setReferences] = useState<ConversationReference[]>([])
+  const [dropping, setDropping] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const sourceWorking =
@@ -82,11 +94,48 @@ export function ProjectMapForkPanel({
     setError(null)
   }, [sourceIndex, choice.agent])
 
+  const target = structuredAgentSessionTargetForHost(origin.chat?.executionHostId)
+  const addReference = async (event: React.DragEvent<HTMLElement>): Promise<void> => {
+    setDropping(false)
+    const dropped = readConversationReferenceDrag(event.dataTransfer)
+    if (!dropped) {
+      return
+    }
+    event.preventDefault()
+    // The child runs on the chat's host; it can read only references that host can reach.
+    const environment = target?.kind === 'environment' ? target.environmentId : undefined
+    if (environment && dropped.executionHostId !== toRuntimeExecutionHostId(environment)) {
+      setError(
+        translate(
+          'components.native-chat.conversationReference.differentHost',
+          'This agent cannot reach the conversation on its source host. Open the chat on that host to reference it.'
+        )
+      )
+      return
+    }
+    try {
+      const made = await window.api.aiVault.createConversationReference(dropped)
+      setReferences((current) =>
+        current.some((reference) => reference.uri === made.uri) ? current : [...current, made]
+      )
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure))
+    }
+  }
+  // Typed text first so the child is named for it; references after, with how to read them.
+  const firstInstruction =
+    references.length === 0
+      ? instruction
+      : withConversationReferenceInstructions(
+          [instruction.trim(), references.map(conversationReferenceToken).join(' ')]
+            .filter(Boolean)
+            .join('\n\n')
+        )
+
   const create = async (): Promise<void> => {
     setPending(true)
     setError(null)
     try {
-      const target = structuredAgentSessionTargetForHost(origin.chat?.executionHostId)
       const request = source
         ? projectMapForkRequest({
             source,
@@ -94,7 +143,7 @@ export function ProjectMapForkPanel({
             agent: choice.agent,
             ...(choice.model ? { model: choice.model } : {}),
             ...(choice.effort ? { effort: choice.effort } : {}),
-            instruction,
+            instruction: firstInstruction,
             randomUuid: createBrowserUuid
           })
         : null
@@ -129,6 +178,21 @@ export function ProjectMapForkPanel({
       data-project-map-fork-panel=""
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
+      data-reference-drop={dropping || undefined}
+      onDragOver={(event) => {
+        if (carriesConversationReference(event)) {
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'copy'
+          setDropping(true)
+        }
+      }}
+      onDragLeave={(event) => {
+        const next = event.relatedTarget
+        if (!(next instanceof Node) || !event.currentTarget.contains(next)) {
+          setDropping(false)
+        }
+      }}
+      onDrop={(event) => void addReference(event)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !pending) {
           event.preventDefault()
@@ -230,6 +294,22 @@ export function ProjectMapForkPanel({
           <span className="text-[11px] font-semibold text-muted-foreground">
             {translate('projectMap.fork.instruction', 'First instruction (optional)')}
           </span>
+          {references.length > 0 ? (
+            <span className="flex flex-wrap gap-1">
+              {references.map((reference) => (
+                <NativeChatConversationReference
+                  key={reference.uri}
+                  uri={reference.uri}
+                  title={reference.title}
+                  onRemove={() =>
+                    setReferences((current) =>
+                      current.filter((candidate) => candidate.uri !== reference.uri)
+                    )
+                  }
+                />
+              ))}
+            </span>
+          ) : null}
           <Textarea
             rows={3}
             value={instruction}
@@ -239,6 +319,12 @@ export function ProjectMapForkPanel({
               'Empty: the chat opens and waits for you.'
             )}
           />
+          <span className="text-[11px] text-muted-foreground">
+            {translate(
+              'projectMap.fork.referenceHint',
+              'Drag other chats from the map here to have this one read them too.'
+            )}
+          </span>
         </label>
         {sourceWorking ? (
           <p className="text-[11px] text-muted-foreground">

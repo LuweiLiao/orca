@@ -1,5 +1,9 @@
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
 import { conversationNameSeed } from '../../shared/conversation-name-generation'
+import {
+  splitConversationReferences,
+  withoutConversationReferenceInstructions
+} from '../../shared/conversation-reference'
 
 type NameFields = Pick<AgentSessionRecord, 'conversationName' | 'conversationNameSource'>
 
@@ -29,8 +33,14 @@ export function forkedChatNameUpdate(
   source: Pick<AgentSessionRecord, 'conversationName'>,
   instruction: string | undefined
 ): ForkedChatNameUpdate | null {
+  // Named for what the person typed, not for the references or their reading instructions.
+  const typed = splitConversationReferences(
+    withoutConversationReferenceInstructions(instruction ?? '')
+  )
+    .filter((part) => typeof part === 'string')
+    .join(' ')
   const name =
-    conversationNameSeed(instruction ?? '') ??
+    conversationNameSeed(typed) ??
     (source.conversationName ? `Fork of ${source.conversationName}` : null)
   const expected = child?.conversationName ?? null
   const expectedSource = child?.conversationNameSource ?? null

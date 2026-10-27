@@ -21450,7 +21450,8 @@
       "hostUnsupported": "这个对话所在主机的 Orca 版本不支持分叉，升级后才能从这里继续。",
       "cancel": "取消",
       "creating": "创建中…",
-      "create": "创建子对话"
+      "create": "创建子对话",
+      "referenceHint": "把地图上的其他对话拖到这里，新对话也会去读它们。"
     },
     "group": {
       "title": "{{count}} 个子 agent",

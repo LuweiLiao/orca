@@ -202,6 +202,45 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
       node(paneKeyOf(finished.sessionId)).locator('[data-project-map-reference-count="1"]')
     ).toBeVisible()
     await screenshot('expanded')
+
+    // A node dropped on another opens that chat with the reference in its message box.
+    const [, second, third] = workers
+    await chatWindow.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(chatWindow).toHaveCount(0)
+    await node(paneKeyOf(second!.sessionId)).dragTo(node(paneKeyOf(third!.sessionId)))
+    await expect(node(paneKeyOf(third!.sessionId))).toHaveAttribute('data-selected', 'true')
+    const thirdComposer = map.locator('[data-project-map-chat-window]').getByRole('textbox')
+    await expect(thirdComposer.locator('[data-native-chat-conversation-reference]')).toHaveCount(
+      1,
+      { timeout: 15_000 }
+    )
+    await screenshot('node-dropped-on-node')
+
+    // A new child chat can read other chats besides the one it inherits.
+    await map
+      .locator('[data-project-map-chat-window]')
+      .getByRole('button', { name: 'Close', exact: true })
+      .click()
+    await node(paneKeyOf(parent)).click()
+    await map.locator('[data-project-map-fork-handle]').click()
+    const panel = map.locator('[data-project-map-fork-panel]')
+    await expect(panel).toBeVisible()
+    await node(paneKeyOf(second!.sessionId)).dragTo(panel)
+    await node(paneKeyOf(third!.sessionId)).dragTo(panel)
+    await expect(panel.locator('[data-native-chat-conversation-reference]')).toHaveCount(2)
+    await panel.getByRole('textbox').fill('MERGE: compare the two workers')
+    await screenshot('fork-with-references')
+    await panel.getByRole('button', { name: 'Create child chat' }).click()
+    await expect(panel).toHaveCount(0, { timeout: 60_000 })
+    // Named for the typed text, and drawn with a wire from each chat it was told to read.
+    await expect(
+      map.getByRole('button', { name: 'MERGE: compare the two workers', exact: true })
+    ).toBeVisible({ timeout: 30_000 })
+    await expect(map.locator('.project-map-wire[data-kind="reference"]')).toHaveCount(3, {
+      timeout: 30_000
+    })
+    await expect(node(paneKeyOf(parent))).toContainText('Delegates 4 · 1 fork')
+    await screenshot('fork-references-drawn')
     expect(
       await electronApp.evaluate(({ BrowserWindow }) =>
         BrowserWindow.getAllWindows().some((window) => window.isVisible())

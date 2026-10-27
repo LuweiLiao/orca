@@ -67,6 +67,17 @@ type FocusedComposer =
   | { composer: ConversationReferenceComposer }
   | { refusal: 'none' | 'ambiguous' | 'unavailable' }
 
+/** The one composer shown inside `root`, such as a project-map chat window; null for none or two. */
+export function conversationReferenceComposerWithin(
+  root: Element
+): ConversationReferenceComposer | null {
+  const shown = [...composers].filter((composer) => {
+    const element = composer.element()
+    return element !== null && root.contains(element) && shownOnScreen(composer)
+  })
+  return shown.length === 1 ? shown[0]! : null
+}
+
 /** The composer of the chat visible in the focused group; never a guess between two. */
 export function focusedConversationReferenceComposer(): FocusedComposer {
   const root = focusedNativeChatRoot()

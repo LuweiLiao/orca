@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Folder, GitBranch, Quote } from 'lucide-react'
 import { AgentTypeIcon } from '@/lib/agent-type-icon'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
@@ -8,8 +8,13 @@ import { dashboardCardDisplayState } from '../../../../shared/dashboard-snapshot
 import type { ProjectMapAgent, ProjectMapWorkspace } from './project-map-graph'
 import { PROJECT_MAP_NODE, type ProjectMapNodeBox } from './project-map-layout'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
-import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import {
+  readConversationReferenceDrag,
+  writeConversationReferenceDrag
+} from '@/lib/conversation-reference-drag'
 import { projectMapConversationReference } from './project-map-reference'
+import { carriesConversationReference } from './project-map-reference-drop'
+import type { ConversationReferenceCreate } from '../../../../shared/conversation-reference'
 import type { ProjectMapNodeReferences } from './project-map-node-references'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
@@ -34,6 +39,8 @@ type NodeShellProps = {
   /** Present when the node can be dropped into a composer as a conversation reference. */
   onDragStart?: (event: React.DragEvent<HTMLButtonElement>) => void
   references?: ProjectMapNodeReferences
+  /** Present when a conversation reference dropped here goes into this chat's next message. */
+  onReferenceDrop?: (source: ConversationReferenceCreate) => void
 }
 
 export function NodeShell({
@@ -52,8 +59,31 @@ export function NodeShell({
   headerOutPin,
   history,
   onDragStart,
-  references
+  references,
+  onReferenceDrop
 }: NodeShellProps): React.JSX.Element {
+  const [dropping, setDropping] = useState(false)
+  const drop = onReferenceDrop
+    ? {
+        onDragOver: (event: React.DragEvent<HTMLButtonElement>) => {
+          if (carriesConversationReference(event)) {
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'copy'
+            setDropping(true)
+          }
+        },
+        onDragLeave: () => setDropping(false),
+        onDrop: (event: React.DragEvent<HTMLButtonElement>) => {
+          setDropping(false)
+          const source = readConversationReferenceDrag(event.dataTransfer)
+          if (source) {
+            event.preventDefault()
+            event.stopPropagation()
+            onReferenceDrop(source)
+          }
+        }
+      }
+    : {}
   return (
     <button
       type="button"
@@ -62,8 +92,10 @@ export function NodeShell({
       data-selected={selected}
       data-linked={linked}
       data-history={history || undefined}
+      data-reference-drop={dropping || undefined}
       draggable={onDragStart ? true : undefined}
       onDragStart={onDragStart}
+      {...drop}
       aria-pressed={selected}
       aria-label={label}
       // Why: the canvas pans on background presses; a node press is a selection.
@@ -188,6 +220,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   agent,
   graphAgents,
   references,
+  onReferenceDrop,
   selected,
   linked,
   onSelect
@@ -196,6 +229,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   agent: ProjectMapAgent
   graphAgents: ReadonlyMap<string, ProjectMapAgent>
   references?: ProjectMapNodeReferences
+  onReferenceDrop?: (target: string, source: ConversationReferenceCreate) => void
   selected: boolean
   linked: boolean
   onSelect: (id: string) => void
@@ -216,14 +250,19 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   ) : (
     projectMapStateLabel(state)
   )
-  const rowRight =
+  // Every relation it has, so a fork never hides the fleet a coordinator still delegates.
+  const counts = [
     subagentCount > 0
       ? translate('projectMap.node.subagentCount', '{{count}} subagents', { count: subagentCount })
-      : forkChildren > 0
-        ? translate('projectMap.node.forkCount', '{{count}} forks', { count: forkChildren })
-        : delegates > 0
-          ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', { count: delegates })
-          : undefined
+      : null,
+    delegates > 0
+      ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', { count: delegates })
+      : null,
+    forkChildren > 0
+      ? translate('projectMap.node.forkCount', '{{count}} forks', { count: forkChildren })
+      : null
+  ].filter(Boolean)
+  const rowRight = counts.length > 0 ? counts.join(' · ') : undefined
   return (
     <NodeShell
       box={box}
@@ -253,6 +292,12 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       rowRight={rowRight}
       history={agent.history}
       {...(references ? { references } : {})}
+      {...(onReferenceDrop && reference
+        ? {
+            onReferenceDrop: (source: ConversationReferenceCreate) =>
+              onReferenceDrop(box.id, source)
+          }
+        : {})}
       {...(reference
         ? {
             onDragStart: (event: React.DragEvent<HTMLButtonElement>) =>

@@ -21570,7 +21570,8 @@
       "hostUnsupported": "This chat's host runs an Orca version that cannot fork chats; update it to continue from here.",
       "cancel": "Cancel",
       "creating": "Creating…",
-      "create": "Create child chat"
+      "create": "Create child chat",
+      "referenceHint": "Drag other chats from the map here to have this one read them too."
     },
     "group": {
       "title": "{{count}} delegated chats",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
 
+import { withConversationReferenceInstructions } from '../../shared/conversation-reference'
 import { applyForkedChatName, forkedChatNameUpdate } from './agent-session-fork-name'
 
 type Names = Pick<AgentSessionRecord, 'conversationName' | 'conversationNameSource'>
@@ -56,6 +57,12 @@ describe('applyForkedChatName', () => {
 })
 
 describe('forkedChatNameUpdate', () => {
+  it('names a child after the typed instruction, not the references sent with it', () => {
+    const uri = 'orca-conversation://reference/00000000-0000-4000-8000-000000000000?host=local'
+    const instruction = withConversationReferenceInstructions(`Merge these [Plan](${uri})`)
+    expect(forkedChatNameUpdate(null, source, instruction)?.name).toBe('Merge these')
+  })
+
   it('names an unnamed child after its source when no instruction was given', () => {
     expect(forkedChatNameUpdate(null, source, undefined)).toEqual({
       name: 'Fork of Lineage data',

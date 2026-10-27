@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
 import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
@@ -8,6 +8,8 @@ import type { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapAgentNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
 import { ProjectMapGroupNode } from './ProjectMapGroupNode'
 import { projectMapNodeReferences } from './project-map-node-references'
+import { insertReferenceInMapWindow } from './project-map-reference-drop'
+import type { ConversationReferenceCreate } from '../../../../shared/conversation-reference'
 import { ProjectMapGroupTray } from './ProjectMapGroupTray'
 import { ProjectMapLegend } from './ProjectMapLegend'
 import { ProjectMapForkHandle } from './ProjectMapForkHandle'
@@ -43,6 +45,7 @@ export function projectMapAgentForkable(agent: ProjectMapAgent | undefined): boo
 }
 
 const AWAIT_FORKED_CHAT_MS = 30_000
+const PROJECT_MAP_CHAT_WINDOW = '[data-project-map-chat-window]'
 
 const EMPTY_WORKTREES: readonly { id: string; branch: string }[] = []
 
@@ -132,6 +135,20 @@ export function ProjectMapCanvas({
   const referencesOf = useMemo(
     () => projectMapNodeReferences(collapsed.graph.agents, layout.wires),
     [collapsed.graph.agents, layout.wires]
+  )
+
+  // Opens the chat a reference was dropped on and puts the reference in its message box.
+  const dropReference = useCallback(
+    (target: string, source: ConversationReferenceCreate) => {
+      const chat = graph.agents.get(target)?.chat
+      if (source.source.kind === 'structured' && source.source.sessionId === chat?.sessionId) {
+        return
+      }
+      setForkFor(null)
+      setSelectedId(target)
+      void insertReferenceInMapWindow(PROJECT_MAP_CHAT_WINDOW, source)
+    },
+    [graph.agents]
   )
 
   useEffect(() => {
@@ -274,6 +291,7 @@ export function ProjectMapCanvas({
               // The real chat, so a stacked parent still counts every chat it delegated.
               agent={graph.agents.get(box.id) ?? agent}
               references={referencesOf.get(box.id)}
+              onReferenceDrop={dropReference}
               graphAgents={graph.agents}
             />
           ) : null
