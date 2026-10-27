@@ -62,12 +62,16 @@ export abstract class OrcaRuntimeWithRestoreStructuredAgentSessionTabsOnce exten
     }
     this.hydrateHeadlessMobileSessionTabsFromWorkspaceSession()
     // Every session here is of an agent this host registered: its store holds no other agent's records.
+    // A chat a background reader opened (name recovery, a reference) is not a tab to bring back.
+    const listed = persistedVisibleIndex.present ? new Set(targets) : null
     const restored = (host?.listSessionTabs() ?? []).flatMap((session) => {
       let sessionId = session.sessionId
       while (sessionId.startsWith('agent-session:')) {
         sessionId = sessionId.slice('agent-session:'.length)
       }
-      return [{ ...session, agent: session.agent, sessionId }]
+      return listed && !listed.has(sessionId)
+        ? []
+        : [{ ...session, agent: session.agent, sessionId }]
     })
     await seedStructuredAgentSessionTabIndex(
       host,
