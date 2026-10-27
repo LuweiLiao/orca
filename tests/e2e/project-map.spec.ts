@@ -189,7 +189,7 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
 
     // The wheel scrolls the chat under the pointer; only the bare canvas pans.
     const viewport = map.locator('.project-map-viewport')
-    const content = viewport.locator(':scope > div').first()
+    const content = viewport.locator('[data-project-map-content]')
     const panOf = (): Promise<string> => content.evaluate((element) => element.style.transform)
     const panBefore = await panOf()
     await page.mouse.move(windowBox.x + windowBox.width / 2, windowBox.y + windowBox.height / 2)

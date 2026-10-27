@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { subscribeToTerminalForkOrigins, terminalForkOrigins } from '@/lib/terminal-fork-origins'
-import { Minus, Network, Plus, Scan } from 'lucide-react'
+import { Minus, Network, Plus, Scan, Search } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,6 +28,7 @@ import { activateAiVaultStructuredSession } from '@/lib/activate-ai-vault-struct
 import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import { projectMapAgentTitle } from './project-map-labels'
 import { projectMapChatsByPaneKey } from './project-map-lineage'
+import { projectMapAgentHasTab } from './project-map-node-actions'
 import { useProjectMapLineage } from './use-project-map-lineage'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
@@ -47,6 +48,7 @@ export default function ProjectMapPage(): React.JSX.Element {
     [sessions, snapshot.cards, tabsByWorktree]
   )
   const [lineageRevision, setLineageRevision] = useState(0)
+  const [searchOpen, setSearchOpen] = useState(false)
   // A sent message records its references, and a chat that has no card (a released worker) moves
   // no state the snapshot shows; so state changes re-read at once and a slow tick covers the rest.
   const terminalForks = useSyncExternalStore(subscribeToTerminalForkOrigins, terminalForkOrigins)
@@ -129,8 +131,13 @@ export default function ProjectMapPage(): React.JSX.Element {
   }, [projectId, viewportReady])
 
   const openAgent = useCallback((agent: ProjectMapAgent) => {
-    // A closed chat has no tab to reveal; the host republishes one from its record.
-    if (agent.history && agent.chat) {
+    // A closed chat, or a worker that never had a tab, has none to reveal; the host republishes
+    // one from the chat's record.
+    const tabless =
+      agent.history ||
+      (agent.chat &&
+        !projectMapAgentHasTab(useAppStore.getState().unifiedTabsByWorktree, agent.card))
+    if (tabless && agent.chat) {
       const target = structuredAgentSessionTargetForHost(agent.chat.executionHostId)
       void activateAiVaultStructuredSession(
         {
@@ -151,6 +158,29 @@ export default function ProjectMapPage(): React.JSX.Element {
   }, [])
   const openWorkspace = useCallback((workspace: ProjectMapWorkspace) => {
     activateAndRevealWorkspace(workspace.worktreeId, { executionHostId: workspace.executionHostId })
+  }, [])
+
+  // The map's own find; typing in a chat window or a field keeps the key for itself.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target
+      if (
+        !(event.metaKey || event.ctrlKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== 'f' ||
+        event.defaultPrevented ||
+        (target instanceof Element &&
+          (target.closest('[data-project-map-window]') ||
+            target.closest('input, textarea, select, [contenteditable]')))
+      ) {
+        return
+      }
+      event.preventDefault()
+      setSearchOpen(true)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
   }, [])
 
   return (
@@ -195,6 +225,16 @@ export default function ProjectMapPage(): React.JSX.Element {
             type="button"
             variant="ghost"
             size="icon-xs"
+            aria-label={translate('projectMap.search.open', 'Search the map')}
+            aria-pressed={searchOpen}
+            onClick={() => setSearchOpen((open) => !open)}
+          >
+            <Search className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
             aria-label={translate('projectMap.zoomOut', 'Zoom out')}
             onClick={() => viewport.zoomBy(1 / 1.2)}
           >
@@ -235,6 +275,8 @@ export default function ProjectMapPage(): React.JSX.Element {
           forkUnsupportedHosts={forkUnsupportedHosts}
           onToggleCollapse={toggleCollapse}
           onForked={() => setLineageRevision((revision) => revision + 1)}
+          searchOpen={searchOpen}
+          onSearchOpenChange={setSearchOpen}
         />
       ) : (
         <div

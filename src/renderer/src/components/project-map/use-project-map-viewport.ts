@@ -8,6 +8,19 @@ const FIT_PADDING = 24
 
 const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
 
+/** The view that puts the middle of `box` in the middle of a viewport of `size`. */
+export function projectMapCenteredView(
+  size: { width: number; height: number },
+  box: { x: number; y: number; width: number; height: number },
+  zoom: number
+): ProjectMapView {
+  return {
+    zoom,
+    x: size.width / 2 - (box.x + box.width / 2) * zoom,
+    y: size.height / 2 - (box.y + box.height / 2) * zoom
+  }
+}
+
 /** Pan and zoom for the map canvas: drag the background to pan, wheel pans, Ctrl/⌘+wheel zooms. */
 export function useProjectMapViewport(content: { width: number; height: number } | null) {
   // Callback ref: the page swaps the empty state for the canvas, so the observed element can change.
@@ -46,6 +59,16 @@ export function useProjectMapViewport(content: { width: number; height: number }
     )
     setView({ x: FIT_PADDING, y: FIT_PADDING, zoom })
   }, [content, size.height, size.width])
+
+  const centerOn = useCallback(
+    (box: { x: number; y: number; width: number; height: number }) => {
+      if (size.width === 0) {
+        return
+      }
+      setView((current) => projectMapCenteredView(size, box, current.zoom))
+    },
+    [size]
+  )
 
   const zoomBy = useCallback(
     (factor: number, origin?: { x: number; y: number }) => {
@@ -145,6 +168,7 @@ export function useProjectMapViewport(content: { width: number; height: number }
     size,
     view,
     fit,
+    centerOn,
     zoomBy,
     contentPoint,
     onBackgroundPointerDown,

@@ -21476,6 +21476,36 @@
       "fold": "收起子 agent",
       "search": "按标题筛选",
       "empty": "没有匹配的对话。"
+    },
+    "search": {
+      "open": "搜索地图",
+      "label": "搜索地图",
+      "placeholder": "标题、任务、分支或状态",
+      "empty": "地图上没有匹配项"
+    },
+    "rename": {
+      "label": "对话名称"
+    },
+    "menu": {
+      "openTab": "在标签页中打开",
+      "showTerminal": "在终端中显示",
+      "reference": "引用到当前聊天",
+      "newChild": "新建子对话",
+      "rename": "重命名",
+      "markRead": "标为已读",
+      "markUnread": "标为未读",
+      "markAllRead": "全部标为已读",
+      "search": "搜索地图",
+      "reason": {
+        "noTerminal": "这个对话背后没有终端",
+        "noChat": "不是结构化聊天",
+        "remoteHost": "SSH 或 WSL 主机上不可用",
+        "hostTooOld": "该主机版本过旧，无法分叉聊天",
+        "closed": "已关闭：请先在标签页中打开",
+        "noTab": "请先在标签页中打开再重命名",
+        "notFinished": "只有已完成的对话才能标为未读",
+        "allRead": "没有未读内容"
+      }
     }
   }
 }

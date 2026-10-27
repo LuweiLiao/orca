@@ -21597,6 +21597,36 @@
       "fold": "Stack its delegated chats",
       "search": "Filter by title",
       "empty": "No chats match."
+    },
+    "search": {
+      "open": "Search the map",
+      "label": "Search the map",
+      "placeholder": "Title, task, branch or state",
+      "empty": "Nothing on this map matches"
+    },
+    "rename": {
+      "label": "Conversation name"
+    },
+    "menu": {
+      "openTab": "Open in tab",
+      "showTerminal": "Show in terminal",
+      "reference": "Reference in current chat",
+      "newChild": "New child conversation",
+      "rename": "Rename",
+      "markRead": "Mark as read",
+      "markUnread": "Mark as unread",
+      "markAllRead": "Mark all as read",
+      "search": "Search the map",
+      "reason": {
+        "noTerminal": "No terminal behind this conversation",
+        "noChat": "Not a structured chat",
+        "remoteHost": "Not available on SSH or WSL hosts",
+        "hostTooOld": "This host is too old to fork chats",
+        "closed": "Closed: open it in a tab first",
+        "noTab": "Open it in a tab to rename it",
+        "notFinished": "Only a finished conversation can be unread",
+        "allRead": "Nothing unread"
+      }
     }
   }
 }

@@ -124,7 +124,12 @@ export default function WorktreeContextMenuView({ model }: { model: WorktreeCont
         setDeveloperMenuRevealed(event.altKey)
         setContextWorktrees(onContextMenuSelect?.(event) ?? effectiveSelectedWorktrees)
         const bounds = event.currentTarget.getBoundingClientRect()
-        setMenuPoint({ x: event.clientX - bounds.left, y: event.clientY - bounds.top })
+        // Why: the project map draws this wrapper inside a scaled canvas; the anchor lives in the same space.
+        const scale = bounds.width / (event.currentTarget.offsetWidth || 1) || 1
+        setMenuPoint({
+          x: (event.clientX - bounds.left) / scale,
+          y: (event.clientY - bounds.top) / scale
+        })
         setMenuOpenState(true)
       }}
       onClickCapture={(event) => {

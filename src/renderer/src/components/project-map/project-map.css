@@ -258,6 +258,22 @@
   stroke: var(--muted-foreground);
   animation: none;
 }
+/* A search hit: a ring that settles after a moment, so the eye lands on the node. */
+.project-map-match {
+  border-radius: 9px;
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+  animation: project-map-match-flash 1.8s ease-out forwards;
+}
+@keyframes project-map-match-flash {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 @keyframes project-map-draft-march {
   to {
     stroke-dashoffset: -12;
@@ -266,6 +282,10 @@
 @media (prefers-reduced-motion: reduce) {
   .project-map-wire[data-kind='fork-draft'] {
     animation: none;
+  }
+  .project-map-match {
+    animation-duration: 0.01ms;
+    animation-delay: 1.8s;
   }
 }
 .project-map-ghost-node {
