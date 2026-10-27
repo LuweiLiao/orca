@@ -26,6 +26,8 @@ type Props = {
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
 }
 
+const AWAIT_FORKED_CHAT_MS = 30_000
+
 const EMPTY_WORKTREES: readonly { id: string; branch: string }[] = []
 
 type CssVariables = React.CSSProperties & Record<`--${string}`, string | number>
@@ -64,7 +66,17 @@ export function ProjectMapCanvas({
       : null
   const [forkFor, setForkFor] = useState<string | null>(null)
   // A new child shows up on a later snapshot; select it then, by its chat's session.
-  const [awaitedSession, setAwaitedSession] = useState<string | null>(null)
+  const [awaited, setAwaited] = useState<{ sessionId: string; projectId: string } | null>(null)
+  // Waited for only on the project it was made from, and not forever: a child that lands
+  // elsewhere, or never shows, must not grab the selection later.
+  const awaitedSession = awaited?.projectId === graph.projectId ? awaited.sessionId : null
+  useEffect(() => {
+    if (!awaited) {
+      return
+    }
+    const timer = window.setTimeout(() => setAwaited(null), AWAIT_FORKED_CHAT_MS)
+    return () => window.clearTimeout(timer)
+  }, [awaited])
   const worktrees = useAppStore((s) => s.worktreesByRepo[graph.projectId] ?? EMPTY_WORKTREES)
   const branchById = useMemo(
     () =>
@@ -86,7 +98,7 @@ export function ProjectMapCanvas({
     : undefined
   if (arrived && layout.nodes.has(arrived.card.paneKey)) {
     setSelectedId(arrived.card.paneKey)
-    setAwaitedSession(null)
+    setAwaited(null)
   }
 
   const linked = useMemo(() => {
@@ -251,7 +263,7 @@ export function ProjectMapCanvas({
           onClose={() => setForkFor(null)}
           onCreated={({ sessionId }) => {
             setForkFor(null)
-            setAwaitedSession(sessionId)
+            setAwaited({ sessionId, projectId: graph.projectId })
           }}
         />
       ) : subject && anchor ? (
