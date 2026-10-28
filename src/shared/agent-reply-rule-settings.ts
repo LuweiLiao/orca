@@ -6,4 +6,6 @@ export type AgentReplyRuleSettings = {
   experimentalCodexTrustUserSafety?: boolean
   /** Codex: lead with the conclusion and drop filler, at any reasoning effort. */
   experimentalCodexConciseReplies?: boolean
+  /** Claude and Codex: talk in the Doubao persona's voice; wording only, never the substance. */
+  experimentalDoubaoPersona?: boolean
 }

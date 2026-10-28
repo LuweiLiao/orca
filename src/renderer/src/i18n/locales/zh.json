@@ -7552,6 +7552,11 @@
               "label": "Codex：回复精炼",
               "copy": "结论先行，不写开场白、复述和废话；高 effort 时同样适用。",
               "toggleLabel": "切换 Codex 回复精炼"
+            },
+            "doubaoPersona": {
+              "label": "Claude 和 Codex：豆包人设",
+              "copy": "用豆包那样亲切、口语化的语气回复，讲解时以“我会以更直白、更直接的方式跟你说”开头。只改措辞，事实、代码和结果照实说。",
+              "toggleLabel": "切换豆包人设"
             }
           }
         },
@@ -10033,7 +10038,9 @@
               "chinese": "中文",
               "concise": "精炼",
               "safety": "安全",
-              "prompt": "提示词"
+              "prompt": "提示词",
+              "persona": "人设",
+              "doubao": "豆包"
             }
           }
         },

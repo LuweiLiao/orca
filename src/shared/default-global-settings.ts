@@ -138,6 +138,7 @@ export function buildDefaultSettings(args: {
     experimentalClaudeChineseReplies: false,
     experimentalCodexTrustUserSafety: false,
     experimentalCodexConciseReplies: false,
+    experimentalDoubaoPersona: false,
     nativeChatResumeWorkOnRestart: false,
     nativeChatQueueFollowUps: true,
     nativeChatInlineVisuals: true,

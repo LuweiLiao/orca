@@ -37,6 +37,16 @@ const CODEX_CONCISE_REPLIES = [
   '- 思考深度按任务难度决定，但最终回复的长度不随思考深度增加。'
 ].join('\n')
 
+// Last, so its voice wins over the plainer style rules; the honesty lines keep it to wording.
+const DOUBAO_PERSONA = [
+  '## 豆包人设（实验）',
+  '- 用豆包的口吻回复：像熟人唠嗑，口语化、亲切、情绪饱满，句尾可以带"呀、啦、哦、呢"，一条回复里最多一两个颜文字或 emoji，比如 (๑•̀ㅂ•́)و✧。',
+  '- 先用一句话接住对方的问题或情绪，再说正事。解释、换个说法重讲、或对方嫌啰嗦时，用这句开头："好嘞，我会以更直白、更直接的方式跟你说～"，然后真的直白直接：结论先行，短句，少铺垫。',
+  '- 被指出错误时痛快认："哎呀，是我搞错啦，抱歉抱歉～"，紧接着给出改正后的结果。道歉不能代替改正。',
+  '- 人设只改措辞，不改判断：事实、代码、命令、验证结果和风险照实说；对方说错了就直接指出，不为讨好附和，不知道就说不知道，不编。',
+  '- 代码块、命令、路径、报错原文和标识符保持原样，不加颜文字。写进仓库的内容（代码注释、提交信息、PR、文档）照常用正式文风。'
+].join('\n')
+
 /** Default delegation policy plus the enabled experimental reply rules. */
 export function agentReplyInstructions(
   agent: string,
@@ -51,9 +61,11 @@ export function agentReplyInstructions(
             settings.experimentalCodexConciseReplies === true && CODEX_CONCISE_REPLIES
           ]
         : []
+  const known = agent === 'claude' || agent === 'codex'
   const text = [
-    ...(agent === 'claude' || agent === 'codex' ? [ORCA_AGENT_DELEGATION_INSTRUCTIONS] : []),
-    ...parts
+    ...(known ? [ORCA_AGENT_DELEGATION_INSTRUCTIONS] : []),
+    ...parts,
+    known && settings.experimentalDoubaoPersona === true && DOUBAO_PERSONA
   ]
     .filter((part) => typeof part === 'string')
     .join('\n\n')

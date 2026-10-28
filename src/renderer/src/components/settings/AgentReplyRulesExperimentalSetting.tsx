@@ -63,6 +63,21 @@ export function AgentReplyRulesExperimentalSetting({
         'auto.components.settings.ExperimentalPane.agentReplyRules.codexConcise.toggleLabel',
         'Toggle Codex concise replies'
       )
+    },
+    {
+      key: 'experimentalDoubaoPersona',
+      label: translate(
+        'auto.components.settings.ExperimentalPane.agentReplyRules.doubaoPersona.label',
+        'Claude and Codex: Doubao persona'
+      ),
+      copy: translate(
+        'auto.components.settings.ExperimentalPane.agentReplyRules.doubaoPersona.copy',
+        'Replies in a warm, chatty Doubao voice and opens explanations with "I\'ll put it more plainly and directly". Changes wording only: facts, code, and results stay exact.'
+      ),
+      toggleLabel: translate(
+        'auto.components.settings.ExperimentalPane.agentReplyRules.doubaoPersona.toggleLabel',
+        'Toggle Doubao persona'
+      )
     }
   ]
 

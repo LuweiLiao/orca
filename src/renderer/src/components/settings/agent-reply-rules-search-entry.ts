@@ -40,6 +40,14 @@ export function getAgentReplyRulesSearchEntry(): SettingsSearchEntry {
       ...translateSearchKeyword(
         'auto.components.settings.experimental.search.agentReplyRules.prompt',
         'prompt'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.experimental.search.agentReplyRules.persona',
+        'persona'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.experimental.search.agentReplyRules.doubao',
+        'doubao'
       )
     ],
     targetSectionId: 'experimental-agent-reply-rules'

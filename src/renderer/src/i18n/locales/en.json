@@ -7873,6 +7873,11 @@
               "label": "Codex: concise replies",
               "copy": "Leads with the conclusion and drops preambles, recaps, and filler, including at high reasoning effort.",
               "toggleLabel": "Toggle Codex concise replies"
+            },
+            "doubaoPersona": {
+              "label": "Claude and Codex: Doubao persona",
+              "copy": "Replies in a warm, chatty Doubao voice and opens explanations with \"I'll put it more plainly and directly\". Changes wording only: facts, code, and results stay exact.",
+              "toggleLabel": "Toggle Doubao persona"
             }
           }
         },
@@ -10403,7 +10408,9 @@
               "chinese": "chinese",
               "concise": "concise",
               "safety": "safety",
-              "prompt": "prompt"
+              "prompt": "prompt",
+              "persona": "persona",
+              "doubao": "doubao"
             }
           }
         },
