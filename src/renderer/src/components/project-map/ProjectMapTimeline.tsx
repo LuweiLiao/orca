@@ -2,10 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { GitBranchPlus, GitFork, Link2, Undo2 } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
-import { readStructuredAgentSessionConversationOutline } from '@/runtime/structured-agent-session-client'
 import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import { requestNativeChatNavigation } from '@/components/native-chat/native-chat-outside-navigation'
-import type { AgentSessionConversationOutline } from '../../../../shared/agent-session-conversation-outline'
 import type { ProjectMapAgent } from './project-map-graph'
 import {
   projectMapTimeline,
@@ -19,6 +17,7 @@ import {
 } from './project-map-session-relations'
 import type { ProjectMapForkAt } from './project-map-fork-sources'
 import { hostSupportsAgentSessionForkMerge } from './use-project-map-lineage'
+import { useProjectMapOutline } from './use-project-map-outline'
 
 type Props = {
   agent: ProjectMapAgent
@@ -28,13 +27,6 @@ type Props = {
   /** Present when this chat can seed a child: start one from the end of a turn. */
   onForkAt?: (at: ProjectMapForkAt) => void
 }
-
-type Outline =
-  | { state: 'loading' | 'unsupported' | 'failed' }
-  | {
-      state: 'ready'
-      outline: AgentSessionConversationOutline
-    }
 
 /** A chat's turns beside its transcript, with what forked off each and what each one referenced. */
 export function ProjectMapTimeline({
@@ -48,30 +40,8 @@ export function ProjectMapTimeline({
     () => structuredAgentSessionTargetForHost(chat?.executionHostId ?? null),
     [chat?.executionHostId]
   )
-  const [read, setRead] = useState<Outline>({ state: 'loading' })
   // Re-read when the chat moves on, so a finished turn and a new fork show up.
-  const revision = `${agent.card.stateChangedAt}:${agent.card.dotState}`
-  useEffect(() => {
-    if (!chat || !target) {
-      return
-    }
-    let cancelled = false
-    readStructuredAgentSessionConversationOutline(target, chat.sessionId).then(
-      (outline) => {
-        if (!cancelled) {
-          setRead(outline ? { state: 'ready', outline } : { state: 'unsupported' })
-        }
-      },
-      () => {
-        if (!cancelled) {
-          setRead({ state: 'failed' })
-        }
-      }
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [chat, target, revision])
+  const read = useProjectMapOutline(chat, `${agent.card.stateChangedAt}:${agent.card.dotState}`)
   const relations = useProjectMapSessionRelations()
   // An older host refuses a cut at a message, so the action shows only where the host takes one.
   const [forksAtMessage, setForksAtMessage] = useState(false)

@@ -1,6 +1,8 @@
-import { GitMerge, Plus } from 'lucide-react'
+import { Columns2, GitMerge, Plus } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
-import { PROJECT_MAP_NODE, wirePath } from './project-map-layout'
+import { PROJECT_MAP_NODE, wirePath, type ProjectMapLayout } from './project-map-layout'
+import type { ProjectMapGraph } from './project-map-graph'
+import { projectMapAgentTitle } from './project-map-labels'
 import type { ProjectMapForkDraft } from './use-project-map-fork-drag'
 
 /** Where a node's fork wires leave it: the + handle and every draft wire start here. */
@@ -152,15 +154,48 @@ export function ProjectMapForkGhost({
   )
 }
 
-/** Beside the picked chats: click to merge them into a new chat, or drag it out to place one. */
+/** The ghost of a drag in progress, wired from its chat and, for a merge, from the others. */
+export function ProjectMapDraftGhost({
+  draft,
+  layout,
+  graph
+}: {
+  draft: ProjectMapForkDraft | null
+  layout: ProjectMapLayout
+  graph: ProjectMapGraph
+}): React.JSX.Element | null {
+  const from = draft ? layout.nodes.get(draft.originId) : undefined
+  const origin = draft ? graph.agents.get(draft.originId) : undefined
+  if (!draft || !from || !origin) {
+    return null
+  }
+  return (
+    <ProjectMapForkGhost
+      from={projectMapForkPin(from)}
+      draft={draft}
+      originTitle={projectMapAgentTitle(origin.card)}
+      mergeFrom={(draft.mergeWith ?? []).flatMap((id) => {
+        const box = layout.nodes.get(id)
+        return box ? [projectMapForkPin(box)] : []
+      })}
+    />
+  )
+}
+
+/**
+ * Beside the picked chats: click to merge them into a new chat, or drag it out to place one.
+ * Two picked chats can also be compared.
+ */
 export function ProjectMapMergeHandle({
   boxes,
   onPointerDown,
-  onOpen
+  onOpen,
+  onCompare
 }: {
   boxes: readonly { x: number; y: number; width: number }[]
   onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void
   onOpen: () => void
+  onCompare?: () => void
 }): React.JSX.Element {
   const right = Math.max(...boxes.map((box) => box.x + box.width))
   const top = Math.min(...boxes.map((box) => box.y))
@@ -168,28 +203,47 @@ export function ProjectMapMergeHandle({
   const label = translate('projectMap.merge.handle', 'Merged handoff · {{count}} chats', {
     count: boxes.length
   })
+  const middle = (top + bottom) / 2
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={translate(
-        'projectMap.merge.handleHint',
-        'Click, or drag onto the map to place the merged handoff'
-      )}
-      data-project-map-merge-handle=""
-      onPointerDown={(event) => {
-        event.stopPropagation()
-        onPointerDown(event)
-      }}
-      onClick={(event) => {
-        event.stopPropagation()
-        onOpen()
-      }}
-      className="project-map-fork-handle absolute z-10 flex h-[26px] -translate-y-1/2 touch-none items-center gap-1 rounded-full bg-primary px-2.5 text-[12px] font-medium text-primary-foreground"
-      style={{ left: right + 14, top: (top + bottom) / 2 }}
-    >
-      <GitMerge aria-hidden className="size-3.5" />
-      {label}
-    </button>
+    <>
+      <button
+        type="button"
+        aria-label={label}
+        title={translate(
+          'projectMap.merge.handleHint',
+          'Click, or drag onto the map to place the merged handoff'
+        )}
+        data-project-map-merge-handle=""
+        onPointerDown={(event) => {
+          event.stopPropagation()
+          onPointerDown(event)
+        }}
+        onClick={(event) => {
+          event.stopPropagation()
+          onOpen()
+        }}
+        className="project-map-fork-handle absolute z-10 flex h-[26px] -translate-y-1/2 touch-none items-center gap-1 rounded-full bg-primary px-2.5 text-[12px] font-medium text-primary-foreground"
+        style={{ left: right + 14, top: middle }}
+      >
+        <GitMerge aria-hidden className="size-3.5" />
+        {label}
+      </button>
+      {onCompare ? (
+        <button
+          type="button"
+          data-project-map-compare-handle=""
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation()
+            onCompare()
+          }}
+          className="project-map-fork-handle absolute z-10 flex h-[26px] -translate-y-1/2 items-center gap-1 rounded-full border border-border bg-popover px-2.5 text-[12px] font-medium text-popover-foreground"
+          style={{ left: right + 14, top: middle + 34 }}
+        >
+          <Columns2 aria-hidden className="size-3.5" />
+          {translate('projectMap.compare.handle', 'Compare')}
+        </button>
+      ) : null}
+    </>
   )
 }

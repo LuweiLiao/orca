@@ -21573,6 +21573,18 @@
     "undo": {
       "action": "撤销",
       "failed": "无法撤销“{{label}}”，它所在的主机是否可达？"
+    },
+    "compare": {
+      "title": "对比分支",
+      "handle": "对比",
+      "ancestor": "「{{descendant}}」是从「{{ancestor}}」的前 {{count}} 条消息交接出来的。",
+      "siblings": "两个都是从「{{common}}」交接出来的：一个在第 {{first}} 条消息后，另一个在第 {{second}} 条后。",
+      "unrelated": "两个对话之间没有交接关系，也没有共同的来源。",
+      "loading": "正在读取轮次…",
+      "unavailable": "这里读不到它的轮次",
+      "since": "交接之后 {{count}} 轮",
+      "rewound": "交接之后回退过；显示全部 {{count}} 轮",
+      "own": "它自己的 {{count}} 轮"
     }
   }
 }

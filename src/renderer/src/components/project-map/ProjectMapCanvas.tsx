@@ -16,17 +16,16 @@ import { projectMapNodeReferences } from './project-map-node-references'
 import { useProjectMapReferenceDrop } from './use-project-map-reference-drop'
 import { ProjectMapLegend } from './ProjectMapLegend'
 import {
-  ProjectMapForkGhost,
+  ProjectMapDraftGhost,
   ProjectMapForkHandle,
-  ProjectMapMergeHandle,
-  projectMapForkPin
+  ProjectMapMergeHandle
 } from './ProjectMapForkHandle'
+import { ProjectMapComparePanel } from './ProjectMapComparePanel'
 import { useProjectMapMergePicks } from './use-project-map-merge-picks'
 import { useProjectMapAwaitedChild, useProjectMapEscape } from './use-project-map-canvas-selection'
 import { ProjectMapForkWindow, type ProjectMapForkIntent } from './ProjectMapForkWindow'
 import { useProjectMapForkDrag, useProjectMapHover } from './use-project-map-fork-drag'
 import type { ProjectMapCollapsedView } from './project-map-collapse'
-import { projectMapAgentTitle } from './project-map-labels'
 import { ProjectMapSelectionWindow } from './ProjectMapSelectionWindow'
 import {
   projectMapAgentForkable,
@@ -133,6 +132,10 @@ export function ProjectMapCanvas({
   const rowMoves = useProjectMapRowMoves(graph, layout)
   const commands = useProjectMapNodeCommands(graph)
   const merging = picks.picked.length >= 2
+  const [compare, setCompare] = useState<readonly [string, string] | null>(null)
+  const [first, second, extra] = picks.picked
+  const pair = first && second && !extra ? ([first, second] as const) : null
+  const comparing = compare?.map((id) => graph.agents.get(id))
   // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click drops the merge and opens the chat.
   const selectNode = (id: string, adding?: boolean): void => {
     if (adding) {
@@ -159,8 +162,6 @@ export function ProjectMapCanvas({
       ? forkable(forkDrag.pressed)
       : (forkable(hovered) ?? (selected === selectedShown ? forkable(selected) : null))
   const handleBox = handleFor ? layout.nodes.get(handleFor) : undefined
-  const draftFrom = draft ? layout.nodes.get(draft.originId) : undefined
-  const draftOrigin = draft ? graph.agents.get(draft.originId) : undefined
   const group = selectedShown ? collapsed.groups.get(selectedShown) : undefined
   const trayOpen = group !== undefined && selected === selectedShown
 
@@ -319,19 +320,10 @@ export function ProjectMapCanvas({
                     setFork({ paneKey: picks.picked[0]!, merge: picks.picked.slice(1) })
                   }
                 }}
+                onCompare={pair ? () => setCompare(pair) : undefined}
               />
             ) : null}
-            {draft && draftFrom && draftOrigin ? (
-              <ProjectMapForkGhost
-                from={projectMapForkPin(draftFrom)}
-                draft={draft}
-                originTitle={projectMapAgentTitle(draftOrigin.card)}
-                mergeFrom={(draft.mergeWith ?? []).flatMap((id) => {
-                  const box = layout.nodes.get(id)
-                  return box ? [projectMapForkPin(box)] : []
-                })}
-              />
-            ) : null}
+            <ProjectMapDraftGhost draft={draft} layout={layout} graph={graph} />
             <ProjectMapNodeOverlays
               layout={layout}
               agents={graph.agents}
@@ -391,6 +383,13 @@ export function ProjectMapCanvas({
           onOpenWorkspace={onOpenWorkspace}
           onToggleCollapse={onToggleCollapse}
           onFork={setFork}
+        />
+      ) : null}
+      {comparing?.[0] && comparing[1] ? (
+        <ProjectMapComparePanel
+          pair={[comparing[0], comparing[1]]}
+          onSelectNode={locate}
+          onClose={() => setCompare(null)}
         />
       ) : null}
       <ProjectMapLegend />

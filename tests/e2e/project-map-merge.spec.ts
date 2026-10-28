@@ -136,6 +136,28 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     await expect(map.locator('[data-merge-picked="true"]')).toHaveCount(2)
     const handle = map.locator('[data-project-map-merge-handle]')
     await expect(handle).toHaveText('Merged handoff · 2 chats')
+
+    // Two picks also compare: the parent lists only what it did after handing the child off.
+    await map.locator('[data-project-map-compare-handle]').click()
+    const compare = map.locator('[data-project-map-compare]')
+    await expect(compare.locator('[data-project-map-compare-relation="ancestor"]')).toContainText(
+      'after its first 2 messages'
+    )
+    const parentColumn = compare.locator(`[data-project-map-compare-column="${paneKeyOf(parent)}"]`)
+    await expect(parentColumn).toContainText('1 turn since the handoff')
+    await expect(parentColumn.locator('ol')).toContainText('SECOND-TURN')
+    await expect(parentColumn.locator('ol')).not.toContainText('FIRST-TURN')
+    // The child's hand-off message is the parent's story, not a turn of the child's own.
+    const childColumn = compare.locator(
+      `[data-project-map-compare-column="${paneKeyOf(child.childSessionId)}"]`
+    )
+    await expect(childColumn).toContainText('0 turns of its own')
+    await expect(childColumn.locator('ol li')).toHaveCount(0)
+    await screenshot('compare')
+    await compare.getByRole('button', { name: 'Close' }).click()
+    await expect(compare).toHaveCount(0)
+    await expect(map.locator('[data-merge-picked="true"]')).toHaveCount(2)
+
     const from = (await handle.boundingBox())!
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
     await page.mouse.down()

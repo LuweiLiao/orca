@@ -21694,6 +21694,20 @@
     "undo": {
       "action": "Undo",
       "failed": "Could not undo \"{{label}}\". Is its host reachable?"
+    },
+    "compare": {
+      "title": "Compare branches",
+      "handle": "Compare",
+      "ancestor": "\"{{descendant}}\" was handed off from \"{{ancestor}}\" after its first {{count}} messages.",
+      "siblings": "Both were handed off from \"{{common}}\": one after {{first}} messages, the other after {{second}}.",
+      "unrelated": "Neither was handed off from the other, nor from a common chat.",
+      "loading": "Reading turns…",
+      "unavailable": "Its turns cannot be read here",
+      "since": "{{count}} turns since the handoff",
+      "since_one": "{{count}} turn since the handoff",
+      "rewound": "Rewound since the handoff; showing all {{count}} turns",
+      "own": "{{count}} turns of its own",
+      "own_one": "{{count}} turn of its own"
     }
   }
 }

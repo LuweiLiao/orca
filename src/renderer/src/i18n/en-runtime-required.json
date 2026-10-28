@@ -3443,6 +3443,10 @@
     "quitApp": "Quit {{appName}}"
   },
   "projectMap": {
+    "compare": {
+      "own_one": "{{count}} turn of its own",
+      "since_one": "{{count}} turn since the handoff"
+    },
     "group": {
       "title_one": "{{count}} delegated chat"
     },
