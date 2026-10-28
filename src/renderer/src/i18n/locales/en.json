@@ -21601,8 +21601,15 @@
     "search": {
       "open": "Search the map",
       "label": "Search the map",
-      "placeholder": "Title, task, branch or state",
-      "empty": "Nothing on this map matches"
+      "placeholder": "Title, task, branch, state or what was said",
+      "empty": "Nothing on this map matches",
+      "inMessages": "In messages",
+      "messagesLoading": "Searching messages…",
+      "messagesOff": "Message search is off on some computers; turn it on in Settings to search what was said.",
+      "messagesNotReady": "Messages are still being indexed.",
+      "messagesUnavailable": "Message search is unavailable.",
+      "messagesElsewhere": "{{count}} more chats match off this map",
+      "messagesElsewhere_one": "{{count}} more chat matches off this map"
     },
     "rename": {
       "label": "Conversation name"

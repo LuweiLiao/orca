@@ -21480,8 +21480,14 @@
     "search": {
       "open": "搜索地图",
       "label": "搜索地图",
-      "placeholder": "标题、任务、分支或状态",
-      "empty": "地图上没有匹配项"
+      "placeholder": "标题、任务、分支、状态或说过的话",
+      "empty": "地图上没有匹配项",
+      "inMessages": "消息中",
+      "messagesLoading": "正在搜索消息…",
+      "messagesOff": "有的电脑没开启消息搜索；到设置里开启后才能搜说过的话。",
+      "messagesNotReady": "消息还在建立索引。",
+      "messagesUnavailable": "消息搜索不可用。",
+      "messagesElsewhere": "还有 {{count}} 个不在这张图上的对话匹配"
     },
     "rename": {
       "label": "对话名称"

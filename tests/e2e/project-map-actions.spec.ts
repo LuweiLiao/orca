@@ -17,7 +17,8 @@ const paneKeyOf = (sessionId: string): string =>
 
 test('right-clicks, renames, searches and opens map nodes, closed history chats included', async ({
   orcaPage: page,
-  claudeStub
+  claudeStub,
+  electronApp
 }, testInfo) => {
   test.skip(!SUPPORTED, 'the Claude stub wrapper is POSIX-only')
   test.setTimeout(300_000)
@@ -170,7 +171,7 @@ test('right-clicks, renames, searches and opens map nodes, closed history chats 
 
     // Search finds the closed chat by its title, centers it and flags it.
     await search.getByRole('combobox').fill('child-one')
-    const hit = search.locator('[data-project-map-search-hit]')
+    const hit = search.locator('[data-project-map-search-kind="title"]')
     await expect(hit).toHaveCount(1)
     await expect(hit).toContainText('Closed')
     await page.keyboard.press('Enter')
@@ -193,7 +194,63 @@ test('right-clicks, renames, searches and opens map nodes, closed history chats 
     await expect(chatWindow).toHaveCount(0)
     await page.keyboard.press('Control+f')
     await expect(search).toBeVisible()
+
+    // What chats said comes from the session index: a hit on the map leads to its node, one off
+    // the map is only counted. The index is stubbed; its own search has its own specs.
+    await electronApp.evaluate(
+      ({ ipcMain }, sessions) => {
+        const hit = (sessionId: string, snippet: string) => ({
+          agent: 'claude',
+          executionHostId: 'local',
+          sessionId: `provider-${sessionId}`,
+          title: 'transcript',
+          cwd: null,
+          branch: null,
+          updatedAt: null,
+          messageCount: 2,
+          score: 1,
+          source: { presence: 'missing' },
+          evidence: { snippet, role: 'assistant', timestamp: null },
+          structuredSession: { sessionId, workspaceId: 'w' }
+        })
+        ipcMain.removeHandler('aiVault:searchSessions')
+        ipcMain.handle('aiVault:searchSessions', () => ({
+          kind: 'results',
+          hits: [
+            hit(sessions.onMap, 'the lanes need a [[gutter]] between them'),
+            hit(sessions.offMap, 'a [[gutter]] elsewhere')
+          ],
+          page: { cursor: null, hasMore: false },
+          generation: 1,
+          truncated: { candidates: false, snippets: 0, query: false, freshness: false },
+          durationMs: 1
+        }))
+      },
+      { onMap: parent, offMap: 'claude_00000000_0000_4000_8000_000000000000' }
+    )
+    await search.getByRole('combobox').fill('gutter')
+    const said = search.locator('[data-project-map-search-kind="message"]')
+    await expect(said).toHaveCount(1)
+    await expect(said).toContainText('gutter between them')
+    await expect(search.locator('mark')).toHaveText('gutter')
+    await expect(search.locator('[data-project-map-search-status]')).toContainText(
+      '1 more chat matches off this map'
+    )
+    await screenshot('search-messages')
+    await said.click()
+    await expect(search).toHaveCount(0)
+    await expect(parentNode).toHaveAttribute('data-selected', 'true')
+    await viewport.click({ position: { x: 8, y: 8 } })
+    await page.keyboard.press('Control+f')
+    await expect(search).toBeVisible()
+    await electronApp.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('aiVault:searchSessions')
+      ipcMain.handle('aiVault:searchSessions', () => ({ kind: 'unavailable', reason: 'disabled' }))
+    })
     await search.getByRole('combobox').fill('no such conversation')
+    await expect(search.locator('[data-project-map-search-status]')).toContainText(
+      'Message search is off'
+    )
     await expect(search).toContainText('Nothing on this map matches')
     await page.keyboard.press('Escape')
     await expect(search).toHaveCount(0)

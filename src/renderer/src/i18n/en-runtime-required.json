@@ -3456,6 +3456,9 @@
       "forkCount_one": "{{count}} handoff",
       "referenceCount_one": "Referenced {{count}} conversation",
       "subagentCount_one": "{{count}} subagent"
+    },
+    "search": {
+      "messagesElsewhere_one": "{{count}} more chat matches off this map"
     }
   },
   "resourceManager": {
