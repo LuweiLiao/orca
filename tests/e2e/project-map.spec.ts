@@ -261,6 +261,14 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     await workspaceWindow.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(nodeWindows).toHaveCount(1)
     await expect(workerWindow.getByRole('textbox')).toBeVisible()
+    // A second click on a node closes the window its first click opened, and a third reopens it.
+    await node(worktreeId).click()
+    await expect(workspaceWindow).toHaveCount(1)
+    await node(worktreeId).click()
+    await expect(workspaceWindow).toHaveCount(0)
+    await expect(workerWindow).toHaveCount(1)
+    await node(worktreeId).click()
+    await expect(workspaceWindow).toHaveCount(1)
     await closeProjectMapWindows(map)
     await screenshot('map')
     expect(

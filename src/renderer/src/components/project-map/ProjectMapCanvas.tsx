@@ -81,7 +81,6 @@ export function ProjectMapCanvas({
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // Each clicked node keeps its own window open until its close button.
   const windows = useProjectMapOpenWindows(viewport.element, setSelectedId)
   const { open: openWindow } = windows
   // The chat a new child is being made from: one chat, a turn on its timeline, or a merge.
@@ -139,7 +138,7 @@ export function ProjectMapCanvas({
   const [first, second, extra] = picks.picked
   const pair = first && second && !extra ? ([first, second] as const) : null
   const comparing = compare?.map((id) => graph.agents.get(id))
-  // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click drops the merge and opens its window.
+  // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click opens its window, a second one closes it.
   const selectNode = (id: string, adding?: boolean): void => {
     if (adding) {
       picks.toggle(id, selected)
@@ -148,7 +147,9 @@ export function ProjectMapCanvas({
       return
     }
     picks.clear()
-    windows.open(id)
+    if (windows.toggle(id) === 'closed' && forkFor === id) {
+      setFork(null)
+    }
   }
   const { draft } = forkDrag
   // A placed child lives only while its panel is open; closing or creating drops it.
