@@ -21582,7 +21582,8 @@
       "referenceHint": "Drag other chats from the map here to have this one read them too.",
       "handleHint": "Click, or drag onto the map to place the new chat",
       "dropHint": "Release to place it here",
-      "dropBlocked": "Drop it on an empty spot"
+      "dropBlocked": "Drop it on an empty spot",
+      "cutMessage": "Through turn {{turn}}: {{preview}}"
     },
     "group": {
       "title": "{{count}} delegated chats",
@@ -21647,7 +21648,8 @@
       "forkDetail": "{{count}} messages",
       "live": "live",
       "snapshot": "first {{count}} messages",
-      "rewindForks": "{{count}} chats were forked after this point: {{names}}. They keep what they were handed, but the point they were forked from goes away here."
+      "rewindForks": "{{count}} chats were forked after this point: {{names}}. They keep what they were handed, but the point they were forked from goes away here.",
+      "forkHere": "New child chat from here"
     }
   }
 }

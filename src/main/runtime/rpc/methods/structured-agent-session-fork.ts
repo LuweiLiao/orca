@@ -14,21 +14,23 @@ import {
 import { agentSessionFingerprintConflict } from '../../../../shared/agent-session-mutation-envelope'
 import type { AgentSessionMutationResult } from '../../../../shared/agent-session-wire'
 import { AGENT_SESSION_CREATE_MESSAGE_RUNTIME_CAPABILITY } from '../../../../shared/agent-session-create-capabilities'
-import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import type { AgentSessionRecord } from '../../../../shared/agent-session-record'
 import { applyForkedChatName } from '../../../native-chat/agent-session-fork-name'
 import { agentSessionLineageTable } from '../../../native-chat/agent-session-journal/agent-session-lineage-table'
 import { agentSessionLineageView } from '../../../native-chat/agent-session-lineage-view'
-import { saveConversationReference } from '../../../ai-vault/conversation-reference-store'
-import { conversationReferenceToken } from '../../../../shared/conversation-reference'
 import { agentSessionReferenceView } from '../../../native-chat/agent-session-reference-links'
 import { agentSessionReferenceLinkTable } from '../../../native-chat/agent-session-journal/agent-session-reference-link-table'
 import { ReferencesParams } from '../../../../shared/agent-session-reference-link'
 import {
   copyClaudeForkSource,
   forkHandoffText,
-  forkSourceMessages
+  forkMergeHandoffText
 } from '../../../native-chat/agent-session-fork-source'
+import {
+  forkSourceReference,
+  resolveForkSource,
+  resolveMergeSources
+} from './structured-agent-session-fork-sources'
 import { assertPersonCreatesAgent } from './agent-creation-caller-admission'
 import {
   ensureStructuredHostInstalled as ensureHostInstalled,
@@ -76,43 +78,23 @@ async function forkStructuredAgentSession(
       }
     }
   }
-  const source = host.deps.store.getRecord(params.sourceSessionId)
-  if (
-    !source ||
-    source.location.executionHostId !== LOCAL_EXECUTION_HOST_ID ||
-    source.location.wslDistro !== null
-  ) {
-    throw new Error('The source chat is not on this host, so it cannot be continued here.')
-  }
-  const forkPoint = params.cut.kind === 'fork-point' ? lineage.get(params.cut.childSessionId) : null
-  if (forkPoint && forkPoint.sourceSessionId !== params.sourceSessionId) {
-    throw new Error('That fork point belongs to another chat.')
-  }
-  // Idle on both sides of the read: a turn that began in between would hand over a half reply.
-  // Journal turn rows are not proof here; a host that died mid-turn leaves them `running`.
-  const refuseWhileWorking = async (): Promise<void> => {
-    const page = await host.history({ sessionId: source.sessionId, direction: 'tail', limit: 1 })
-    if (page.page.working) {
-      throw new Error('The source chat is still working. Start from it after its turn ends.')
-    }
-  }
-  if (params.cut.kind === 'latest') {
-    await refuseWhileWorking()
-  }
-  const snapshot = await host.journalSnapshot(source.sessionId)
-  if (params.cut.kind === 'latest') {
-    await refuseWhileWorking()
-  }
-  const taken = forkSourceMessages(snapshot, params.cut, forkPoint)
+  const primary = await resolveForkSource(host, lineage, params.sourceSessionId, params.cut)
+  const merged = await resolveMergeSources(host, lineage, params, childSessionId)
+  const { record: source, taken, forkPoint } = primary
   const [sourcePath, childPath] = await Promise.all([
     ctx.runtime.resolveStructuredAgentSessionLocalWorkspacePath(
       `id:${source.location.workspaceId}`
     ),
     ctx.runtime.resolveStructuredAgentSessionLocalWorkspacePath(params.worktree)
   ])
-  // A Claude copy resumes only where Claude stored it: the same agent in the same workspace.
+  // A Claude copy resumes only where Claude stored it: the same agent in the same workspace, from
+  // one chat, at a point Claude recorded. A merge or a cut at a message travels as text.
   const copy =
-    params.agent === 'claude' && sourcePath && sourcePath === childPath
+    params.agent === 'claude' &&
+    merged.length === 0 &&
+    params.cut.kind !== 'message' &&
+    sourcePath &&
+    sourcePath === childPath
       ? await copyClaudeForkSource({
           host,
           source,
@@ -135,36 +117,42 @@ async function forkStructuredAgentSession(
     sourceProvider: source.provider,
     createdAt: Date.now()
   }
+  const sections = [primary, ...merged]
+  // Only when the earliest messages are left out: the child reads them through a reference.
   const handoff = copy
     ? null
-    : await forkHandoffText({
-        source,
-        messages: taken.messages,
-        instruction: params.instruction,
-        // Only when the earliest messages are left out: the child reads them through this.
-        referenceSource: async () => {
-          const reference = await saveConversationReference(
-            {
-              source: {
-                kind: 'structured',
-                sessionId: source.sessionId,
-                workspaceId: source.location.workspaceId
-              },
-              title: source.conversationName ?? source.provider
-            },
-            source.provider,
-            {
-              journalItemId: taken.cut.journalItemId,
-              journalEpoch: taken.cut.journalEpoch,
-              journalSequence: taken.cut.journalSequence,
-              messageCount: taken.cut.messageCount
-            }
-          )
-          return conversationReferenceToken(reference)
-        }
-      })
-  if (handoff && handoff.handedOver < entry.cut.messageCount) {
-    entry.handedOverCount = handoff.handedOver
+    : merged.length > 0
+      ? await forkMergeHandoffText({
+          sections: sections.map((section) => ({
+            source: section.record,
+            messages: section.taken.messages,
+            referenceSource: () => forkSourceReference(section.record, section.taken.cut)
+          })),
+          instruction: params.instruction
+        })
+      : await forkHandoffText({
+          source,
+          messages: taken.messages,
+          instruction: params.instruction,
+          referenceSource: () => forkSourceReference(source, taken.cut)
+        }).then((single) => ({ text: single.text, handedOver: [single.handedOver] }))
+  const handedOver = (index: number): number | undefined => {
+    const count = handoff?.handedOver[index]
+    return count !== undefined && count < sections[index]!.taken.cut.messageCount
+      ? count
+      : undefined
+  }
+  if (merged.length > 0) {
+    entry.sources = sections.map((section, index) => ({
+      sessionId: section.record.sessionId,
+      cut: section.taken.cut,
+      sourceProvider: section.record.provider,
+      ...(handedOver(index) === undefined ? {} : { handedOverCount: handedOver(index) })
+    }))
+  }
+  const primaryHandedOver = handedOver(0)
+  if (primaryHandedOver !== undefined) {
+    entry.handedOverCount = primaryHandedOver
   }
   const text = copy ? params.instruction?.trim() : handoff?.text
   const firstMessage = text

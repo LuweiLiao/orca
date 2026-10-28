@@ -21,7 +21,11 @@ import { callStructuredAgentSession } from '@/runtime/structured-agent-session-c
 import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import type { ProjectMapAgent } from './project-map-graph'
 import { projectMapAgentTitle } from './project-map-labels'
-import { projectMapForkRequest, projectMapForkSources } from './project-map-fork-sources'
+import {
+  projectMapForkRequest,
+  projectMapForkSources,
+  type ProjectMapForkAt
+} from './project-map-fork-sources'
 import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
 import {
   ProjectMapForkAgentPicker,
@@ -38,6 +42,8 @@ type Props = {
   avoid: ProjectMapRect[]
   onClose: () => void
   onCreated: (child: { sessionId: string; tabId?: string }) => void
+  /** Picked on the timeline: the child starts from the end of that turn, not the latest one. */
+  at?: ProjectMapForkAt
 }
 
 function relationLabel(depth: number): string {
@@ -57,10 +63,23 @@ export function ProjectMapForkPanel({
   viewport,
   avoid,
   onClose,
-  onCreated
+  onCreated,
+  at
 }: Props): React.JSX.Element {
   const [position] = useState(() => placeProjectMapWindow(anchor, SIZE, viewport, avoid))
-  const sources = useMemo(() => projectMapForkSources(origin, agents), [agents, origin])
+  const sources = useMemo(
+    () =>
+      at
+        ? [
+            {
+              agent: origin,
+              depth: 0,
+              cut: { kind: 'message' as const, itemId: at.itemId, epoch: at.epoch }
+            }
+          ]
+        : projectMapForkSources(origin, agents),
+    [agents, at, origin]
+  )
   const [sourceIndex, setSourceIndex] = useState(0)
   const source = sources[sourceIndex] ?? sources[0]
   const [choice, setChoice] = useState<ProjectMapForkAgentChoice>({
@@ -73,7 +92,8 @@ export function ProjectMapForkPanel({
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const sourceWorking =
-    source?.cut.kind === 'latest' && dashboardCardDisplayState(source.agent.card) === 'working'
+    (source?.cut.kind === 'latest' || (source?.cut.kind === 'message' && at?.last === true)) &&
+    dashboardCardDisplayState(source.agent.card) === 'working'
   const busyNeighbours = useMemo(
     () =>
       [...agents.values()].filter(
@@ -85,8 +105,10 @@ export function ProjectMapForkPanel({
     [agents, origin]
   )
   const sameAgent = choice.agent === source?.agent.chat?.agent
+  // A cut at a picked message has no point Claude recorded, so it always travels as text.
   const native =
     sameAgent &&
+    source?.cut.kind !== 'message' &&
     choice.agent === 'claude' &&
     source?.agent.card.worktreeId === origin.card.worktreeId
 
@@ -259,7 +281,16 @@ export function ProjectMapForkPanel({
                   <span className="truncate text-[11px] text-muted-foreground">
                     {candidate.cut.kind === 'fork-point'
                       ? translate('projectMap.fork.cutForkPoint', 'Where it forked the next chat')
-                      : translate('projectMap.fork.cutLatest', 'Through its last completed turn')}
+                      : candidate.cut.kind === 'message' && at
+                        ? translate(
+                            'projectMap.fork.cutMessage',
+                            'Through turn {{turn}}: {{preview}}',
+                            {
+                              turn: at.turn,
+                              preview: at.preview
+                            }
+                          )
+                        : translate('projectMap.fork.cutLatest', 'Through its last completed turn')}
                   </span>
                 </span>
                 <span className="shrink-0 rounded bg-muted px-1.5 text-[10.5px] leading-[18px] text-muted-foreground">

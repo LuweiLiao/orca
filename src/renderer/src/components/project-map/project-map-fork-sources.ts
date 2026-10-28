@@ -7,6 +7,17 @@ import { createStructuredAgentSessionOperationId } from '../../../../shared/stru
 import { toRuntimeWorktreeSelector } from '@/runtime/runtime-worktree-selector'
 import type { ProjectMapAgent } from './project-map-graph'
 
+/** A turn picked on the timeline: the child is handed the chat through the end of that turn. */
+export type ProjectMapForkAt = {
+  itemId: string
+  epoch: string
+  /** One-based, as the timeline numbers it. */
+  turn: number
+  preview: string
+  /** The chat's last turn, which the host refuses to read while it runs. */
+  last: boolean
+}
+
 export type ProjectMapForkSource = {
   agent: ProjectMapAgent
   /** 0 is the clicked node, 1 its parent, 2 its grandparent... */

@@ -22,6 +22,7 @@ import type { ProjectMapAgent, ProjectMapWorkspace } from './project-map-graph'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
 import { ProjectMapConversation } from './ProjectMapConversation'
 import { ProjectMapTimeline } from './ProjectMapTimeline'
+import type { ProjectMapForkAt } from './project-map-fork-sources'
 import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
 
 export type ProjectMapWindowSubject =
@@ -40,6 +41,8 @@ type Props = {
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
   /** Present when this chat can seed a child chat. */
   onFork?: () => void
+  /** Present with `onFork`: seed a child from the end of a turn picked on the timeline. */
+  onForkAt?: (at: ProjectMapForkAt) => void
   /** Present when this chat delegated enough to stack: fold its chats or show them on the map. */
   collapse?: { folded: boolean; onToggle: () => void }
   /** Select another node, from a timeline marker. */
@@ -58,6 +61,7 @@ export function ProjectMapChatWindow({
   onOpenAgent,
   onOpenWorkspace,
   onFork,
+  onForkAt,
   collapse,
   onSelectNode
 }: Props): React.JSX.Element {
@@ -263,6 +267,7 @@ export function ProjectMapChatWindow({
               agent={tabAgent}
               scope={sectionRef}
               onSelectNode={onSelectNode}
+              {...(onForkAt ? { onForkAt } : {})}
             />
           ) : null}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">

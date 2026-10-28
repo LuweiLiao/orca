@@ -230,7 +230,7 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     await screenshot('timeline')
     // Rewinding there warns that both children were forked after it; cancelled, nothing changes.
     await turn.hover()
-    await turn.locator('[data-project-map-timeline-rewind]').click()
+    await turn.locator('[data-project-map-timeline-action="rewind"]').click()
     const confirm = page
       .getByRole('alertdialog')
       .or(page.getByRole('dialog', { name: 'Rewind to here?' }))

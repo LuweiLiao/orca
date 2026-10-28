@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { GitFork, Link2, Undo2 } from 'lucide-react'
+import { GitBranchPlus, GitFork, Link2, Undo2 } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { readStructuredAgentSessionConversationOutline } from '@/runtime/structured-agent-session-client'
@@ -17,12 +17,16 @@ import {
   projectMapTimelineNode,
   useProjectMapSessionRelations
 } from './project-map-session-relations'
+import type { ProjectMapForkAt } from './project-map-fork-sources'
+import { hostSupportsAgentSessionForkMerge } from './use-project-map-lineage'
 
 type Props = {
   agent: ProjectMapAgent
   /** The window holding this chat's transcript, which answers jumps and rewinds. */
   scope: React.RefObject<HTMLElement | null>
   onSelectNode: (paneKey: string) => void
+  /** Present when this chat can seed a child: start one from the end of a turn. */
+  onForkAt?: (at: ProjectMapForkAt) => void
 }
 
 type Outline =
@@ -36,7 +40,8 @@ type Outline =
 export function ProjectMapTimeline({
   agent,
   scope,
-  onSelectNode
+  onSelectNode,
+  onForkAt
 }: Props): React.JSX.Element | null {
   const chat = agent.chat
   const target = useMemo(
@@ -68,6 +73,22 @@ export function ProjectMapTimeline({
     }
   }, [chat, target, revision])
   const relations = useProjectMapSessionRelations()
+  // An older host refuses a cut at a message, so the action shows only where the host takes one.
+  const [forksAtMessage, setForksAtMessage] = useState(false)
+  useEffect(() => {
+    if (!target || !onForkAt) {
+      return
+    }
+    let cancelled = false
+    void hostSupportsAgentSessionForkMerge(target).then((supported) => {
+      if (!cancelled) {
+        setForksAtMessage(supported)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [onForkAt, target])
   const timeline = useMemo(
     () =>
       chat && read.state === 'ready'
@@ -165,18 +186,34 @@ export function ProjectMapTimeline({
                 ) : null}
               </span>
             </button>
-            {agent.history ? null : (
-              <button
-                type="button"
-                aria-label={translate('projectMap.timeline.rewind', 'Rewind to here')}
-                title={translate('projectMap.timeline.rewind', 'Rewind to here')}
-                data-project-map-timeline-rewind=""
-                onClick={() => navigate(turn.itemId, true)}
-                className="absolute top-1 right-1 hidden size-5 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:grid"
-              >
-                <Undo2 aria-hidden className="size-3" />
-              </button>
-            )}
+            <span className="absolute top-1 right-1 hidden gap-0.5 group-focus-within:flex group-hover:flex">
+              {onForkAt && forksAtMessage && read.state === 'ready' ? (
+                <TurnAction
+                  label={translate('projectMap.timeline.forkHere', 'New child chat from here')}
+                  marker="fork"
+                  onClick={() =>
+                    onForkAt({
+                      itemId: turn.itemId,
+                      epoch: read.outline.cursor.epoch,
+                      turn: index + 1 + timeline.omittedTurns,
+                      preview: turn.preview,
+                      last: index === timeline.turns.length - 1
+                    })
+                  }
+                >
+                  <GitBranchPlus aria-hidden className="size-3" />
+                </TurnAction>
+              ) : null}
+              {agent.history ? null : (
+                <TurnAction
+                  label={translate('projectMap.timeline.rewind', 'Rewind to here')}
+                  marker="rewind"
+                  onClick={() => navigate(turn.itemId, true)}
+                >
+                  <Undo2 aria-hidden className="size-3" />
+                </TurnAction>
+              )}
+            </span>
             <Markers
               forks={turn.forks}
               references={turn.referencesSent}
@@ -219,6 +256,31 @@ export function ProjectMapTimeline({
         ) : null}
       </ol>
     </aside>
+  )
+}
+
+function TurnAction({
+  label,
+  marker,
+  onClick,
+  children
+}: {
+  label: string
+  marker: 'fork' | 'rewind'
+  onClick: () => void
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      data-project-map-timeline-action={marker}
+      onClick={onClick}
+      className="grid size-5 place-items-center rounded-sm bg-background/80 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {children}
+    </button>
   )
 }
 

@@ -12,6 +12,7 @@ import {
   buildAgentSessionHandoffPrompt,
   type AgentSessionHandoffMessage
 } from '../../shared/agent-session-fork-context'
+import { buildAgentSessionMergeHandoffPrompt } from '../../shared/agent-session-merge-handoff'
 import { isLegacyAgentSessionAccountHome } from '../../shared/agent-session-account-home'
 import { agentSessionProviderHandleChainHead } from '../../shared/agent-session-provider-handle'
 import { pendingAgentSessionRewindFork } from '../../shared/agent-session-rewind'
@@ -26,6 +27,8 @@ import type { StructuredAgentSessionHost } from './agent-session-wire/structured
 export type ForkSourceMessages = {
   messages: (AgentSessionHandoffMessage & { id: string })[]
   cut: Omit<AgentSessionForkCut, 'providerSessionId' | 'providerMessageId'>
+  /** The cut takes the source's last turn, so it must not be read while that turn runs. */
+  reachesLatest: boolean
 }
 
 /** The source's messages through the cut. Refuses a cut whose place the source no longer has. */
@@ -38,7 +41,11 @@ export function forkSourceMessages(
   if (cut.kind === 'fork-point' && !point) {
     throw new Error('That fork point is not recorded on this host.')
   }
-  const kept = point ? itemsThrough(snapshot, point) : snapshot.items
+  const kept = point
+    ? itemsThrough(snapshot, point)
+    : cut.kind === 'message'
+      ? itemsThroughTurn(snapshot, cut)
+      : snapshot.items
   const messages = [...journalConversationMessages({ ...snapshot, items: kept })].map(
     ({ id, role, text }) => ({ id, role, text })
   )
@@ -53,8 +60,27 @@ export function forkSourceMessages(
       journalEpoch: snapshot.cursor.epoch,
       journalSequence: last.sequence,
       messageCount: messages.length
-    }
+    },
+    reachesLatest: kept.length === snapshot.items.length
   }
+}
+
+/** Through the end of the turn a user message opened: everything before the next user message. */
+function itemsThroughTurn(
+  snapshot: AgentJournalSnapshot,
+  cut: { itemId: string; epoch: string }
+): AgentJournalSnapshot['items'] {
+  if (cut.epoch !== snapshot.cursor.epoch) {
+    throw new Error('The source chat changed since that message was read; pick the message again.')
+  }
+  const said = [...journalConversationMessages(snapshot)]
+  const at = said.findIndex((message) => message.id === cut.itemId && message.role === 'user')
+  if (at === -1) {
+    throw new Error('That message is not in the source chat any more.')
+  }
+  const next = said.slice(at + 1).find((message) => message.role === 'user')
+  const end = next ? snapshot.items.find((item) => item.itemId === next.id)?.sequence : undefined
+  return end === undefined ? snapshot.items : snapshot.items.filter((item) => item.sequence < end)
 }
 
 function itemsThrough(
@@ -95,6 +121,45 @@ export async function forkHandoffText(input: {
   }
   const reference = await input.referenceSource().catch(() => null)
   return (reference ? build(reference) : null) ?? first
+}
+
+/** One section of a merge hand-off: a source's messages, and how to reference what did not fit. */
+export type ForkMergeSection = {
+  source: Pick<AgentSessionRecord, 'conversationName' | 'provider'>
+  messages: readonly AgentSessionHandoffMessage[]
+  referenceSource?: () => Promise<string | null>
+}
+
+/**
+ * The first message of a child merged from several chats. A source that does not fit whole gets a
+ * reference to read the rest through; the budget is shared before any reference is made.
+ */
+export async function forkMergeHandoffText(input: {
+  sections: readonly ForkMergeSection[]
+  instruction?: string
+}): Promise<{ text: string; handedOver: number[] }> {
+  const build = (references: readonly (string | null)[]) =>
+    buildAgentSessionMergeHandoffPrompt({
+      sources: input.sections.map((section, index) => ({
+        messages: section.messages,
+        sourceLabel: section.source.conversationName ?? null,
+        agentLabel: section.source.provider,
+        sourceReference: references[index] ?? null
+      })),
+      instruction: input.instruction ?? null
+    })
+  const first = build([])
+  if (!first) {
+    throw new Error('The chats to merge have no messages to continue from yet.')
+  }
+  const references = await Promise.all(
+    input.sections.map((section, index) =>
+      first.handedOver[index]! < first.totals[index]! && section.referenceSource
+        ? section.referenceSource().catch(() => null)
+        : Promise.resolve(null)
+    )
+  )
+  return references.some(Boolean) ? (build(references) ?? first) : first
 }
 
 /**

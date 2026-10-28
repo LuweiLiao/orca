@@ -1,6 +1,7 @@
-import type {
-  AgentSessionLineageEntry,
-  AgentSessionLineageSession
+import {
+  agentSessionLineageSources,
+  type AgentSessionLineageEntry,
+  type AgentSessionLineageSession
 } from '../../shared/agent-session-fork'
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
 
@@ -18,6 +19,11 @@ export function agentSessionLineageView(
   wanted: readonly string[] | undefined
 ): { entries: AgentSessionLineageEntry[]; sessions: AgentSessionLineageSession[] } {
   const made = entries.filter((entry) => getRecord(entry.childSessionId))
+  // A merged child is joined to every chat it was handed, not only the primary one.
+  const ends = (entry: AgentSessionLineageEntry): string[] => [
+    entry.childSessionId,
+    ...agentSessionLineageSources(entry).map((source) => source.sessionId)
+  ]
   let kept = made
   if (wanted) {
     const reached = new Set(wanted)
@@ -26,13 +32,9 @@ export function agentSessionLineageView(
     for (let grew = true; grew;) {
       grew = false
       for (const entry of made) {
-        if (
-          !keep.has(entry) &&
-          (reached.has(entry.childSessionId) || reached.has(entry.sourceSessionId))
-        ) {
+        if (!keep.has(entry) && ends(entry).some((sessionId) => reached.has(sessionId))) {
           keep.add(entry)
-          reached.add(entry.childSessionId)
-          reached.add(entry.sourceSessionId)
+          ends(entry).forEach((sessionId) => reached.add(sessionId))
           grew = true
         }
       }
@@ -41,7 +43,7 @@ export function agentSessionLineageView(
   }
   const sessions = new Map<string, AgentSessionLineageSession>()
   for (const entry of kept) {
-    for (const sessionId of [entry.childSessionId, entry.sourceSessionId]) {
+    for (const sessionId of ends(entry)) {
       const record = sessions.has(sessionId) ? null : getRecord(sessionId)
       if (record) {
         sessions.set(sessionId, {

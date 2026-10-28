@@ -28,6 +28,7 @@ import { projectMapAgentTitle } from './project-map-labels'
 import { ProjectMapChatWindow } from './ProjectMapChatWindow'
 import { projectMapAgentForkable, projectMapWindowSubject } from './project-map-window-subject'
 import { ProjectMapForkPanel } from './ProjectMapForkPanel'
+import type { ProjectMapForkAt } from './project-map-fork-sources'
 import type { ProjectMapRect } from './project-map-window-placement'
 import { projectMapDropSlot } from './project-map-drop-slot'
 import { noteProjectMapChatRow } from './project-map-chat-rows'
@@ -74,7 +75,13 @@ export function ProjectMapCanvas({
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [forkFor, setForkFor] = useState<string | null>(null)
+  // The chat a new child is being made from, and the turn picked on its timeline, when one was.
+  const [fork, setFork] = useState<{ paneKey: string; at?: ProjectMapForkAt } | null>(null)
+  const forkFor = fork?.paneKey ?? null
+  const setForkFor = useCallback(
+    (paneKey: string | null) => setFork(paneKey ? { paneKey } : null),
+    []
+  )
   // A new child shows up on a later snapshot; select it then, by its chat's session.
   const [awaited, setAwaited] = useState<{ sessionId: string; projectId: string } | null>(null)
   // Waited for only on the project it was made from, and not forever: a child that lands
@@ -169,7 +176,7 @@ export function ProjectMapCanvas({
       if (source.source.kind === 'structured' && source.source.sessionId === chat?.sessionId) {
         return
       }
-      setForkFor(null)
+      setFork(null)
       setSelectedId(target)
       void insertReferenceInMapWindow(PROJECT_MAP_CHAT_WINDOW, source)
     },
@@ -335,7 +342,7 @@ export function ProjectMapCanvas({
       ) : null}
       {forkOrigin && anchor ? (
         <ProjectMapForkPanel
-          key={`fork:${selected}:${placedDraft ? 'placed' : 'node'}`}
+          key={`fork:${selected}:${placedDraft ? 'placed' : (fork?.at?.itemId ?? 'node')}`}
           origin={forkOrigin}
           agents={graph.agents}
           anchor={anchor}
@@ -343,6 +350,7 @@ export function ProjectMapCanvas({
           avoid={[...linked, ...(placedDraft ? [placedDraft.originId] : [])].flatMap(
             (id) => toViewport(id) ?? []
           )}
+          {...(fork?.at ? { at: fork.at } : {})}
           onClose={() => setForkFor(null)}
           onCreated={({ sessionId }) => {
             if (placedDraft) {
@@ -386,7 +394,10 @@ export function ProjectMapCanvas({
           {...(subject.kind === 'agent' &&
           projectMapAgentForkable(subject.agent) &&
           !forkUnsupportedHosts.has(subject.agent.chat?.executionHostId ?? '')
-            ? { onFork: () => setForkFor(selected) }
+            ? {
+                onFork: () => setForkFor(selected),
+                onForkAt: (at: ProjectMapForkAt) => selected && setFork({ paneKey: selected, at })
+              }
             : {})}
           {...(subject.kind === 'agent' && collapsed.collapsible.has(subject.agent.card.paneKey)
             ? {

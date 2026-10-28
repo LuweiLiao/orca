@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY,
   AGENT_SESSION_FORK_RUNTIME_CAPABILITY,
   isAgentSessionLineageEntry,
   isAgentSessionLineageSession,
@@ -39,6 +40,11 @@ async function hostSupports(target: RuntimeClientTarget, capability: string): Pr
   } catch {
     return false
   }
+}
+
+/** Whether this chat's host forks at a picked message and merges several chats into one. */
+export function hostSupportsAgentSessionForkMerge(target: RuntimeClientTarget): Promise<boolean> {
+  return hostSupports(target, AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY)
 }
 
 /** Whether this chat's host records forks; an older host answers neither fork nor lineage. */

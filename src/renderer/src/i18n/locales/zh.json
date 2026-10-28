@@ -21462,7 +21462,8 @@
       "referenceHint": "把地图上的其他对话拖到这里，新对话也会去读它们。",
       "handleHint": "点击，或拖到地图空白处放置新对话",
       "dropHint": "松开即放在这里",
-      "dropBlocked": "请放在空白处"
+      "dropBlocked": "请放在空白处",
+      "cutMessage": "到第 {{turn}} 轮结束：{{preview}}"
     },
     "group": {
       "title": "{{count}} 个子 agent",
@@ -21526,7 +21527,8 @@
       "forkDetail": "{{count}} 条",
       "live": "实时",
       "snapshot": "前 {{count}} 条",
-      "rewindForks": "这个点之后分出了 {{count}} 个对话：{{names}}。它们已拿到的内容不受影响，但这里的分叉点会消失。"
+      "rewindForks": "这个点之后分出了 {{count}} 个对话：{{names}}。它们已拿到的内容不受影响，但这里的分叉点会消失。",
+      "forkHere": "从这里新建子对话"
     }
   }
 }

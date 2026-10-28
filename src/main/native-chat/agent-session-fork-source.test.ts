@@ -6,7 +6,11 @@ import type {
 import type { AgentSessionLineageEntry } from '../../shared/agent-session-fork'
 import type { AgentSessionRecord } from '../../shared/agent-session-record'
 
-import { forkHandoffText, forkSourceMessages } from './agent-session-fork-source'
+import {
+  forkHandoffText,
+  forkMergeHandoffText,
+  forkSourceMessages
+} from './agent-session-fork-source'
 
 const said = (
   itemId: string,
@@ -113,6 +117,42 @@ describe('what a fork takes from its source', () => {
     ).toThrow(/rewound past that fork point/)
   })
 
+  it('cuts at a message through the end of its turn, before the next message', () => {
+    const taken = forkSourceMessages(
+      snapshot('e1', conversation),
+      { kind: 'message', itemId: 'a1', epoch: 'e1' },
+      null
+    )
+    expect(taken.messages.map((message) => message.text)).toEqual(['plan the map', 'use lanes'])
+    expect(taken.cut).toMatchObject({ journalItemId: 'a2', journalSequence: 2, messageCount: 2 })
+    expect(taken.reachesLatest).toBe(false)
+    const last = forkSourceMessages(
+      snapshot('e1', conversation),
+      { kind: 'message', itemId: 'a3', epoch: 'e1' },
+      null
+    )
+    // The last turn is the whole rest of the chat, so it must wait for that turn like `latest`.
+    expect(last.messages).toHaveLength(4)
+    expect(last.reachesLatest).toBe(true)
+  })
+
+  it('refuses a message cut read in another epoch, or one the chat no longer has', () => {
+    expect(() =>
+      forkSourceMessages(
+        snapshot('e2', conversation),
+        { kind: 'message', itemId: 'a1', epoch: 'e1' },
+        null
+      )
+    ).toThrow(/pick the message again/)
+    expect(() =>
+      forkSourceMessages(
+        snapshot('e1', conversation),
+        { kind: 'message', itemId: 'a2', epoch: 'e1' },
+        null
+      )
+    ).toThrow(/not in the source chat/)
+  })
+
   it('refuses a source with nothing said yet', () => {
     expect(() => forkSourceMessages(snapshot('e1', []), { kind: 'latest' }, null)).toThrow(
       /no messages/
@@ -173,5 +213,63 @@ describe('the hand-off a transcript fork sends', () => {
     expect(text).not.toContain('START')
     expect(text).toContain('END')
     expect(text).toMatch(/Earlier message text omitted: \d+ characters/)
+  })
+})
+
+describe('the hand-off a merge sends', () => {
+  const chat = (conversationName: string) => ({ conversationName, provider: 'claude' })
+
+  it('gives every chat its own section, the primary first, then the instruction', async () => {
+    const { text, handedOver } = await forkMergeHandoffText({
+      sections: [
+        { source: chat('API plan'), messages: [{ role: 'user', text: 'PLAN the api' }] },
+        { source: chat('CSV export'), messages: [{ role: 'assistant', text: 'CSV done' }] }
+      ],
+      instruction: 'Compare them.'
+    })
+    expect(handedOver).toEqual([1, 1])
+    expect(text).toContain('continues from 2 other Orca conversations, merged')
+    expect(text.indexOf('## Source 1 of 2: API plan')).toBeLessThan(
+      text.indexOf('## Source 2 of 2: CSV export')
+    )
+    expect(text).toContain('file paths in them can differ from yours')
+    expect(text.trimEnd().endsWith('Compare them.')).toBe(true)
+  })
+
+  it('keeps a short chat whole and cuts only the long one, which gets a reference', async () => {
+    const references: string[] = []
+    const long = Array.from({ length: 30 }, (_, index) => ({
+      role: 'user' as const,
+      text: `LONG-${index} ${'x'.repeat(3_000)}`
+    }))
+    const { text, handedOver } = await forkMergeHandoffText({
+      sections: [
+        {
+          source: chat('Short'),
+          messages: [{ role: 'user', text: 'SHORT whole' }],
+          referenceSource: async () => {
+            references.push('short')
+            return 'never'
+          }
+        },
+        {
+          source: chat('Long'),
+          messages: long,
+          referenceSource: async () => {
+            references.push('long')
+            return '[Long](orca-conversation://reference/long)'
+          }
+        }
+      ]
+    })
+    expect(handedOver[0]).toBe(1)
+    expect(handedOver[1]).toBeLessThan(30)
+    expect(handedOver[1]).toBeGreaterThan(10)
+    expect(references).toEqual(['long'])
+    expect(text).toContain('SHORT whole')
+    expect(text).toContain('LONG-29')
+    expect(text).not.toContain('LONG-0 ')
+    expect(text).toContain('orca-conversation://reference/long')
+    expect(text.length).toBeLessThanOrEqual(60_000 + 2_000)
   })
 })

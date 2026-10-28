@@ -9,6 +9,13 @@ import { MutationEnvelope, StructuredAgent } from './rpc-contract/structured-age
 // method_not_found, so a client offers "new child" only on a host advertising this.
 export const AGENT_SESSION_FORK_RUNTIME_CAPABILITY = 'agent-session.fork.v1' as const
 
+// Why: `ForkParams` is strict, so an older host refuses a message cut or merge sources outright;
+// a client sends either only to a host advertising this.
+export const AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY = 'agent-session.fork-merge.v1' as const
+
+/** Chats one child can be merged from, the primary source included. */
+export const AGENT_SESSION_FORK_MAX_SOURCES = 8
+
 /** Native: a provider copy of the source conversation. Transcript: the source's messages handed to a
  *  fresh conversation as its first message, for another provider or where no copy is possible. */
 export type AgentSessionForkMode = 'native' | 'transcript'
@@ -27,6 +34,14 @@ export type AgentSessionForkCut = {
   providerMessageId?: string
 }
 
+/** One chat a child was handed messages from. */
+export type AgentSessionLineageSource = {
+  sessionId: string
+  cut: AgentSessionForkCut
+  sourceProvider: string
+  handedOverCount?: number
+}
+
 /** One fork, recorded once by the host that created the child. */
 export type AgentSessionLineageEntry = {
   childSessionId: string
@@ -40,14 +55,27 @@ export type AgentSessionLineageEntry = {
   createdAt: number
   /** Transcript forks only: the newest messages that fit the hand-off, when fewer than all. */
   handedOverCount?: number
+  /** A merge: every chat the child was handed, the primary first and mirrored by the fields above.
+   *  Absent from a single-source fork and from older hosts. */
+  sources?: AgentSessionLineageSource[]
 }
 
 const ForkCut = z.discriminatedUnion('kind', [
   /** The source's last completed turn; refused while the source is working. */
   z.object({ kind: z.literal('latest') }).strict(),
   /** Where `childSessionId` was cut from this source, read from the host's own lineage. */
-  z.object({ kind: z.literal('fork-point'), childSessionId: SessionId }).strict()
+  z.object({ kind: z.literal('fork-point'), childSessionId: SessionId }).strict(),
+  /** Through the end of the turn this user message opened, in the epoch it was read in. */
+  z
+    .object({
+      kind: z.literal('message'),
+      itemId: z.string().min(1).max(512),
+      epoch: z.string().min(1).max(512)
+    })
+    .strict()
 ])
+
+const MergeSource = z.object({ sessionId: SessionId, cut: ForkCut }).strict()
 
 export const ForkParams = z
   .object({
@@ -63,6 +91,12 @@ export const ForkParams = z
     instruction: z
       .string()
       .max(64 * 1024)
+      .optional(),
+    /** More chats to hand the child, after the primary source; a merge is always a transcript. */
+    mergeSources: z
+      .array(MergeSource)
+      .min(1)
+      .max(AGENT_SESSION_FORK_MAX_SOURCES - 1)
       .optional()
   })
   .strict()
@@ -94,28 +128,60 @@ export function agentSessionForkFingerprint(
       worktree: params.worktree,
       agent: params.agent,
       options: params.options,
-      instruction: params.instruction
+      instruction: params.instruction,
+      // Dropped when absent, so a single-source fork keeps the fingerprint it always had.
+      mergeSources: params.mergeSources
     }
   })
 }
 
+const LineageCutSchema = z.object({
+  journalItemId: z.string().min(1).max(512),
+  journalEpoch: z.string().min(1).max(512),
+  journalSequence: z.number().int().nonnegative(),
+  messageCount: z.number().int().nonnegative(),
+  providerSessionId: z.string().min(1).max(512).optional(),
+  providerMessageId: z.string().min(1).max(512).optional()
+})
+
+// Not strict, like the entry: an older host reading a newer row ignores what it does not know.
 const LineageEntrySchema = z.object({
   childSessionId: z.string().refine(isAgentSessionId),
   sourceSessionId: z.string().refine(isAgentSessionId),
   originSessionId: z.string().refine(isAgentSessionId),
   mode: z.enum(['native', 'transcript']),
-  cut: z.object({
-    journalItemId: z.string().min(1).max(512),
-    journalEpoch: z.string().min(1).max(512),
-    journalSequence: z.number().int().nonnegative(),
-    messageCount: z.number().int().nonnegative(),
-    providerSessionId: z.string().min(1).max(512).optional(),
-    providerMessageId: z.string().min(1).max(512).optional()
-  }),
+  cut: LineageCutSchema,
   sourceProvider: z.string().min(1).max(128),
   createdAt: z.number().int().nonnegative(),
-  handedOverCount: z.number().int().nonnegative().optional()
+  handedOverCount: z.number().int().nonnegative().optional(),
+  sources: z
+    .array(
+      z.object({
+        sessionId: z.string().refine(isAgentSessionId),
+        cut: LineageCutSchema,
+        sourceProvider: z.string().min(1).max(128),
+        handedOverCount: z.number().int().nonnegative().optional()
+      })
+    )
+    .max(AGENT_SESSION_FORK_MAX_SOURCES)
+    .optional()
 })
+
+/** Every chat a fork was handed, the primary first; one for a fork that is not a merge. */
+export function agentSessionLineageSources(
+  entry: AgentSessionLineageEntry
+): AgentSessionLineageSource[] {
+  return entry.sources && entry.sources.length > 0
+    ? entry.sources
+    : [
+        {
+          sessionId: entry.sourceSessionId,
+          cut: entry.cut,
+          sourceProvider: entry.sourceProvider,
+          ...(entry.handedOverCount === undefined ? {} : { handedOverCount: entry.handedOverCount })
+        }
+      ]
+}
 
 export function isAgentSessionLineageEntry(value: unknown): value is AgentSessionLineageEntry {
   return LineageEntrySchema.safeParse(value).success
