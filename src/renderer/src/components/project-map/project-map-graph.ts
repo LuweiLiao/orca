@@ -60,8 +60,11 @@ export type ProjectMapAgent = {
   }
 }
 
-/** `merge`: a merged chat's other sources, drawn like references so the columns follow one parent. */
-export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork' | 'handoff' | 'reference' | 'merge'
+/**
+ * `handoff`: a child chat the person made, however its context was carried. `merge`: a merged
+ * hand-off's other sources, routed like references so the columns follow one parent.
+ */
+export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'handoff' | 'reference' | 'merge'
 
 export type ProjectMapEdge = {
   kind: ProjectMapEdgeKind
@@ -237,7 +240,7 @@ export function buildProjectMapGraph(
     agent.parentPaneKey = parentKey
     parent.childPaneKeys.push(agent.card.paneKey)
     edges.push({
-      kind: entry ? (entry.mode === 'native' ? 'fork' : 'handoff') : 'delegate',
+      kind: entry ? 'handoff' : 'delegate',
       from: parentKey,
       to: agent.card.paneKey
     })

@@ -77,7 +77,7 @@ const REASONS: Record<ProjectMapActionBlock, () => string> = {
   'remote-host': () =>
     translate('projectMap.menu.reason.remoteHost', 'Not available on SSH or WSL hosts'),
   'host-too-old': () =>
-    translate('projectMap.menu.reason.hostTooOld', 'This host is too old to fork chats'),
+    translate('projectMap.menu.reason.hostTooOld', 'This host is too old to hand off chats'),
   closed: () => translate('projectMap.menu.reason.closed', 'Closed: open it in a tab first'),
   'no-tab': () => translate('projectMap.menu.reason.noTab', 'Open it in a tab to rename it'),
   'not-finished': () =>

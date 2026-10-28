@@ -77,7 +77,7 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
       await testInfo.attach(name, { path: file, contentType: 'image/png' })
     }
 
-    // Hovering shows the + handle; dragging it draws a dashed wire to a pending node.
+    // Hovering shows the + handle; dragging it draws a faint wire to a pending node.
     const handle = map.locator('[data-project-map-fork-handle]')
     const ghost = map.locator('[data-project-map-fork-draft]')
     const draftWire = map.locator('.project-map-wire[data-kind="fork-draft"]')
@@ -189,7 +189,7 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
       await page.evaluate(() => localStorage.getItem('orca.project-map-chat-rows.v1'))
     ).toContain('"row":')
 
-    // From the child, go back to its parent where it forked, beside the first child.
+    // From the child, go back to its parent where it handed off, beside the first child.
     const childKey = await childWindow.evaluate(() => {
       const selected = document.querySelector('[data-project-map-node][data-selected="true"]')
       return selected?.getAttribute('data-project-map-node') ?? null
@@ -198,11 +198,11 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     // The child's chat window may cover its handle where the child was dropped, so click it in place.
     await map.locator('[data-project-map-fork-handle]').dispatchEvent('click')
     await expect(panel.getByRole('radio')).toHaveCount(2)
-    await panel.getByText('Where it forked the next chat').click()
+    await panel.getByText('Where it handed off the next chat').click()
     await panel.getByRole('textbox').fill('CHILD-TWO: try force-directed layout')
     await panel.getByRole('button', { name: 'Create child chat' }).click()
     await expect(wires).toHaveCount(2)
-    await expect(parentNode).toContainText('2 forks')
+    await expect(parentNode).toContainText('2 handoffs')
     await expect
       .poll(() => sentPrompts(claudeStub.launchLog).find((prompt) => prompt.includes('CHILD-TWO')))
       .toBeTruthy()
@@ -228,13 +228,13 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     await expect(turn).toContainText('Plan the project map forks')
     await expect(turn.locator('[data-project-map-timeline-marker="fork"]')).toHaveCount(2)
     await screenshot('timeline')
-    // Rewinding there warns that both children were forked after it; cancelled, nothing changes.
+    // Rewinding there warns that both children were handed off after it; cancelled, nothing changes.
     await turn.hover()
     await turn.locator('[data-project-map-timeline-action="rewind"]').click()
     const confirm = page
       .getByRole('alertdialog')
       .or(page.getByRole('dialog', { name: 'Rewind to here?' }))
-    await expect(confirm.getByText(/2 chats were forked after this point/)).toBeVisible()
+    await expect(confirm.getByText(/2 chats were handed off after this point/)).toBeVisible()
     await screenshot('timeline-rewind-warning')
     await confirm.getByRole('button', { name: 'Cancel' }).click()
     await turn

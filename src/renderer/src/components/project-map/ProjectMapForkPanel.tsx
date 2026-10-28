@@ -280,7 +280,10 @@ export function ProjectMapForkPanel({
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
                     {candidate.cut.kind === 'fork-point'
-                      ? translate('projectMap.fork.cutForkPoint', 'Where it forked the next chat')
+                      ? translate(
+                          'projectMap.fork.cutForkPoint',
+                          'Where it handed off the next chat'
+                        )
                       : candidate.cut.kind === 'message' && at
                         ? translate(
                             'projectMap.fork.cutMessage',
@@ -361,7 +364,7 @@ export function ProjectMapForkPanel({
           <p className="text-[11px] text-muted-foreground">
             {translate(
               'projectMap.fork.sourceWorking',
-              'That chat is still working; continue from it once its turn ends.'
+              'That chat is still working; hand it off once its turn ends.'
             )}
           </p>
         ) : null}

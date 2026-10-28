@@ -109,7 +109,7 @@ export function ProjectMapMergePanel({
   return (
     <section
       role="dialog"
-      aria-label={translate('projectMap.merge.title', 'Merge into a new chat')}
+      aria-label={translate('projectMap.merge.title', 'Merged handoff into a new chat')}
       data-project-map-window=""
       data-project-map-merge-panel=""
       onClick={(event) => event.stopPropagation()}
@@ -132,7 +132,7 @@ export function ProjectMapMergePanel({
         <GitMerge aria-hidden className="project-map-fork-glyph size-4 shrink-0" />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[13px] leading-[18px] font-semibold">
-            {translate('projectMap.merge.title', 'Merge into a new chat')}
+            {translate('projectMap.merge.title', 'Merged handoff into a new chat')}
           </span>
           <span className="truncate text-[11px] leading-4 text-muted-foreground">
             {translate('projectMap.merge.subtitle', 'From {{count}} chats', {
@@ -248,7 +248,7 @@ export function ProjectMapMergePanel({
         >
           {pending
             ? translate('projectMap.fork.creating', 'Creating…')
-            : translate('projectMap.merge.create', 'Merge into a new chat')}
+            : translate('projectMap.merge.create', 'Create merged handoff')}
         </Button>
       </footer>
     </section>

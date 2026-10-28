@@ -4,8 +4,10 @@
 
 import {
   AGENT_SESSION_FORK_RUNTIME_CAPABILITY,
+  agentSessionLineageSources,
   isAgentSessionLineageEntry,
   isAgentSessionLineageSession,
+  withoutHandoffReferences,
   type AgentSessionLineageEntry,
   type AgentSessionLineageSession
 } from '../../../src/shared/agent-session-fork'
@@ -58,10 +60,10 @@ export function mobileChatRelations(
     'entries',
     isAgentSessionLineageEntry
   )
-  const links = listOf<AgentSessionReferenceLink>(
-    replies.references,
-    'links',
-    isAgentSessionReferenceLink
+  // The references a hand-off carries to its own sources are the hand-off, listed once above.
+  const links = withoutHandoffReferences(
+    listOf<AgentSessionReferenceLink>(replies.references, 'links', isAgentSessionReferenceLink),
+    (child) => entries.find((entry) => entry.childSessionId === child)
   )
   const sessions = new Map<string, AgentSessionLineageSession>()
   for (const reply of [replies.lineage, replies.references]) {
@@ -72,25 +74,28 @@ export function mobileChatRelations(
   const titleOf = (id: string): string => sessions.get(id)?.title ?? sessions.get(id)?.agent ?? id
   const relations: MobileChatRelation[] = []
   for (const entry of entries) {
-    const count =
-      entry.handedOverCount !== undefined && entry.handedOverCount < entry.cut.messageCount
-        ? `latest ${entry.handedOverCount} of ${entry.cut.messageCount} messages`
-        : `${entry.cut.messageCount} messages`
-    const how = entry.mode === 'native' ? 'Forked' : 'Handed off'
-    if (entry.childSessionId === sessionId) {
-      relations.push({
-        kind: 'forked-from',
-        sessionId: entry.sourceSessionId,
-        title: titleOf(entry.sourceSessionId),
-        detail: `${how} from here · ${count}`
-      })
-    } else if (entry.sourceSessionId === sessionId) {
-      relations.push({
-        kind: 'forked-into',
-        sessionId: entry.childSessionId,
-        title: titleOf(entry.childSessionId),
-        detail: `${how} from this chat · ${count}`
-      })
+    // A merged hand-off relates its child to every source, each with its own cut.
+    for (const source of agentSessionLineageSources(entry)) {
+      const total = source.cut.messageCount
+      const count =
+        source.handedOverCount !== undefined && source.handedOverCount < total
+          ? `latest ${source.handedOverCount} of ${total} messages`
+          : `${total} messages`
+      if (entry.childSessionId === sessionId) {
+        relations.push({
+          kind: 'forked-from',
+          sessionId: source.sessionId,
+          title: titleOf(source.sessionId),
+          detail: `Handed off from here · ${count}`
+        })
+      } else if (source.sessionId === sessionId) {
+        relations.push({
+          kind: 'forked-into',
+          sessionId: entry.childSessionId,
+          title: titleOf(entry.childSessionId),
+          detail: `Handed off from this chat · ${count}`
+        })
+      }
     }
   }
   for (const link of links) {

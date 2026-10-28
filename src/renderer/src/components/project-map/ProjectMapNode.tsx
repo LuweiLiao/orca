@@ -19,7 +19,7 @@ import type { ProjectMapNodeReferences } from './project-map-node-references'
 import { forkChildCount, forkSourceLabel, ReferenceCount } from './ProjectMapNodeLabels'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
-type HeaderPinKind = 'fork' | 'handoff' | 'merge' | 'unresolved'
+type HeaderPinKind = 'handoff' | 'unresolved'
 
 type NodeShellProps = {
   box: ProjectMapNodeBox
@@ -268,7 +268,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
     <span className="project-map-fork-source">{forkSourceLabel(agent.fork)}</span>
   ) : agent.terminalFork ? (
     <span className="project-map-fork-source">
-      {translate('projectMap.node.terminalForkFrom', 'Forked from terminal {{source}}', {
+      {translate('projectMap.node.terminalForkFrom', 'Handed off from terminal {{source}}', {
         source: agent.terminalFork.sourceTitle
       })}
     </span>
@@ -288,7 +288,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', { count: delegates })
       : null,
     forkChildren > 0
-      ? translate('projectMap.node.forkCount', '{{count}} forks', { count: forkChildren })
+      ? translate('projectMap.node.forkCount', '{{count}} handoffs', { count: forkChildren })
       : null
   ].filter(Boolean)
   const rowRight = counts.length > 0 ? counts.join(' · ') : undefined
@@ -350,17 +350,13 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       headerInPin={
         agent.fork
           ? agent.parentPaneKey
-            ? (agent.fork.sourceCount ?? 1) > 1
-              ? 'merge'
-              : agent.fork.mode === 'native'
-                ? 'fork'
-                : 'handoff'
+            ? 'handoff'
             : 'unresolved'
           : agent.terminalFork
             ? 'handoff'
             : undefined
       }
-      headerOutPin={forkChildren > 0 ? 'fork' : undefined}
+      headerOutPin={forkChildren > 0 ? 'handoff' : undefined}
     />
   )
 })

@@ -30,7 +30,7 @@ export function ProjectMapLegend(): React.JSX.Element {
       </span>
       <span className={item}>
         <span
-          className="project-map-legend-swatch size-3 rounded-[3px] border border-dashed border-border"
+          className="project-map-legend-swatch size-3 rounded-[3px] border border-border"
           style={HISTORY_SWATCH}
         />
         {translate('projectMap.legend.history', 'Closed')}
@@ -44,16 +44,8 @@ export function ProjectMapLegend(): React.JSX.Element {
         {translate('projectMap.legend.delegate', 'Delegated')}
       </span>
       <span className={item}>
-        <span className="project-map-fork-pin" data-legend data-wire="fork" />
-        {translate('projectMap.legend.fork', 'Forked')}
-      </span>
-      <span className={item}>
         <span className="project-map-fork-pin" data-legend data-wire="handoff" />
         {translate('projectMap.legend.handoff', 'Handed off')}
-      </span>
-      <span className={item}>
-        <span className="project-map-fork-pin" data-legend data-wire="merge" />
-        {translate('projectMap.legend.merge', 'Merged')}
       </span>
       <span className={item}>
         <span className="project-map-reference-pin" data-legend />

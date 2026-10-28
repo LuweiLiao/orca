@@ -110,10 +110,10 @@ describe('stacking a busy parent', () => {
       expect.arrayContaining([
         { kind: 'delegate', from: 'lead', to: id },
         { kind: 'delegate', from: 'lead', to: 'w2' },
-        { kind: 'fork', from: 'w2', to: 'mine' }
+        { kind: 'handoff', from: 'w2', to: 'mine' }
       ])
     )
-    expect(view.graph.edges.some((edge) => edge.from === id && edge.kind === 'fork')).toBe(false)
+    expect(view.graph.edges.some((edge) => edge.from === id && edge.kind === 'handoff')).toBe(false)
     expect(view.groupOf.get('g1')).toBe(id)
   })
 
@@ -158,7 +158,7 @@ describe('closed chats on the map', () => {
       card: { conversationName: 'Plan the map', worktreeId: 'main' }
     })
     expect(graph.agents.has(`${PROJECT_MAP_HISTORY_PANE_PREFIX}claude_child`)).toBe(false)
-    expect(graph.edges).toEqual([{ kind: 'fork', from: ghostKey, to: 'child' }])
+    expect(graph.edges).toEqual([{ kind: 'handoff', from: ghostKey, to: 'child' }])
     expect(graph.agents.get('child')).toMatchObject({
       hasUnresolvedParent: false,
       fork: { sourceTitle: 'Plan the map' }

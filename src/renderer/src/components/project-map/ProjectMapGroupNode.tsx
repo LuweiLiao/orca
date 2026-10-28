@@ -59,7 +59,7 @@ export const ProjectMapGroupNode = memo(function ProjectMapGroupNode({
         </span>
       }
       inPin="delegate"
-      headerOutPin={forksOut ? 'fork' : undefined}
+      headerOutPin={forksOut ? 'handoff' : undefined}
     />
   )
 })

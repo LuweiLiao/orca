@@ -90,11 +90,11 @@ function forkTree() {
 }
 
 describe('forks on the project map', () => {
-  it('draws each fork from its source, solid for a copy and dashed for a hand-off', () => {
+  it('draws every hand-off from its source as one kind, whether copied or sent as text', () => {
     const graph = forkTree()
     expect(graph.edges).toEqual([
-      { kind: 'fork', from: 'root', to: 'mid' },
-      { kind: 'fork', from: 'mid', to: 'leaf' },
+      { kind: 'handoff', from: 'root', to: 'mid' },
+      { kind: 'handoff', from: 'mid', to: 'leaf' },
       { kind: 'handoff', from: 'mid', to: 'other' }
     ])
     expect(graph.agents.get('leaf')?.fork?.sourceTitle).toBe('mid')
@@ -141,7 +141,7 @@ describe('forks on the project map', () => {
         titleOf: (shown) => shown.task
       }
     )
-    expect(graph.edges).toEqual([{ kind: 'fork', from: 'root', to: 'child' }])
+    expect(graph.edges).toEqual([{ kind: 'handoff', from: 'root', to: 'child' }])
   })
 
   it('keeps a hand-off whose earliest messages were left out marked with how many it carried', () => {

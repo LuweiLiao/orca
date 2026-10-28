@@ -3449,7 +3449,7 @@
     "node": {
       "closedSource": "a closed chat",
       "conversationCount_one": "{{count}} conversation",
-      "forkCount_one": "{{count}} fork",
+      "forkCount_one": "{{count}} handoff",
       "referenceCount_one": "Referenced {{count}} conversation",
       "subagentCount_one": "{{count}} subagent"
     }

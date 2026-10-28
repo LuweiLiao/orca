@@ -4,6 +4,7 @@ import {
   AGENT_SESSION_FORK_RUNTIME_CAPABILITY,
   isAgentSessionLineageEntry,
   isAgentSessionLineageSession,
+  withoutHandoffReferences,
   type AgentSessionLineageEntry,
   type AgentSessionLineageSession
 } from '../../../../shared/agent-session-fork'
@@ -188,9 +189,15 @@ export function useProjectMapLineage(
           })
         }
       }
-      const references = hosts.flatMap((host) => host.references)
+      const entries = pages.some((page) => page.length > 0)
+        ? mergeProjectMapLineage(pages)
+        : NO_LINEAGE
+      const references = withoutHandoffReferences(
+        hosts.flatMap((host) => host.references),
+        (child) => entries.get(child)
+      )
       setLineage({
-        entries: pages.some((page) => page.length > 0) ? mergeProjectMapLineage(pages) : NO_LINEAGE,
+        entries,
         references: references.length > 0 ? references : NO_REFERENCES,
         history: history.size > 0 ? history : NO_HISTORY,
         forkUnsupportedHosts: unsupported.length > 0 ? new Set(unsupported) : NO_HOSTS

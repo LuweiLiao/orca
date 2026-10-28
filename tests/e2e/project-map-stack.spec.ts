@@ -247,7 +247,7 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
     await expect(map.locator('.project-map-wire[data-kind="reference"]')).toHaveCount(3, {
       timeout: 30_000
     })
-    await expect(node(paneKeyOf(parent))).toContainText('Delegates 4 · 1 fork')
+    await expect(node(paneKeyOf(parent))).toContainText('Delegates 4 · 1 handoff')
     await screenshot('fork-references-drawn')
     expect(
       await electronApp.evaluate(({ BrowserWindow }) =>

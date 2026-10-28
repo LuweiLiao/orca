@@ -5,6 +5,7 @@
 import type { z } from 'zod'
 import { defineMethod, type RpcContext } from '../core'
 import {
+  AGENT_SESSION_FORK_MESSAGE_ID_PREFIX,
   ForkParams,
   LineageParams,
   agentSessionForkFingerprint,
@@ -157,7 +158,7 @@ async function forkStructuredAgentSession(
   const text = copy ? params.instruction?.trim() : handoff?.text
   const firstMessage = text
     ? {
-        clientMessageId: `fork-${params.envelope.clientOperationId}`,
+        clientMessageId: `${AGENT_SESSION_FORK_MESSAGE_ID_PREFIX}${params.envelope.clientOperationId}`,
         body: {
           kind: 'message' as const,
           role: 'user' as const,

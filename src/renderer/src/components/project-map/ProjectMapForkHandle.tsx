@@ -31,7 +31,7 @@ export function ProjectMapForkHandle({
   const reason = unsupported
     ? translate(
         'projectMap.fork.hostUnsupported',
-        "This chat's host runs an Orca version that cannot fork chats; update it to continue from here."
+        "This chat's host runs an Orca version that cannot hand off chats; update it to continue from here."
       )
     : null
   const pin = projectMapForkPin(box)
@@ -70,7 +70,7 @@ export function ProjectMapForkHandle({
 
 const NO_PINS: readonly { x: number; y: number }[] = []
 
-/** The dashed wire and outline of the chat a drag will create, drawn under the pointer. */
+/** The faint wire and outline of the chat a drag will create, drawn under the pointer. */
 export function ProjectMapForkGhost({
   from,
   draft,
@@ -131,11 +131,7 @@ export function ProjectMapForkGhost({
           height: PROJECT_MAP_NODE.height
         }}
       >
-        <span
-          className="project-map-fork-pin"
-          data-side="in"
-          data-wire={merging ? 'merge' : 'fork'}
-        />
+        <span className="project-map-fork-pin" data-side="in" data-wire="handoff" />
         {merging ? (
           <GitMerge aria-hidden className="project-map-fork-glyph size-4 shrink-0" />
         ) : (
@@ -144,7 +140,7 @@ export function ProjectMapForkGhost({
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[13px] leading-[17px] font-semibold">
             {merging
-              ? translate('projectMap.merge.ghost', 'Merged from {{count}} chats', {
+              ? translate('projectMap.merge.ghost', 'Merged handoff from {{count}} chats', {
                   count: mergeFrom.length + 1
                 })
               : translate('projectMap.fork.title', 'New child chat')}
@@ -169,7 +165,7 @@ export function ProjectMapMergeHandle({
   const right = Math.max(...boxes.map((box) => box.x + box.width))
   const top = Math.min(...boxes.map((box) => box.y))
   const bottom = Math.max(...boxes.map((box) => box.y + PROJECT_MAP_NODE.height))
-  const label = translate('projectMap.merge.handle', 'Merge {{count}} chats', {
+  const label = translate('projectMap.merge.handle', 'Merged handoff · {{count}} chats', {
     count: boxes.length
   })
   return (
@@ -178,7 +174,7 @@ export function ProjectMapMergeHandle({
       aria-label={label}
       title={translate(
         'projectMap.merge.handleHint',
-        'Click, or drag onto the map to place the merged chat'
+        'Click, or drag onto the map to place the merged handoff'
       )}
       data-project-map-merge-handle=""
       onPointerDown={(event) => {

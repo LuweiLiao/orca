@@ -16,6 +16,28 @@ export const AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY = 'agent-session.fork-m
 /** Chats one child can be merged from, the primary source included. */
 export const AGENT_SESSION_FORK_MAX_SOURCES = 8
 
+/** The hand-off a host sends as a child's first message carries an id with this prefix. */
+export const AGENT_SESSION_FORK_MESSAGE_ID_PREFIX = 'fork-'
+
+/**
+ * Drops the references a hand-off's own first message carries to its sources: they are how the
+ * agent reads what did not fit, and the hand-off already relates the two chats.
+ */
+export function withoutHandoffReferences<
+  T extends { targetSessionId: string; messageId: string; source: { sessionId: string } | null }
+>(
+  links: readonly T[],
+  lineageOf: (childSessionId: string) => AgentSessionLineageEntry | undefined
+): T[] {
+  return links.filter((link) => {
+    const entry = link.messageId.startsWith(AGENT_SESSION_FORK_MESSAGE_ID_PREFIX)
+      ? lineageOf(link.targetSessionId)
+      : undefined
+    const sourceId = link.source?.sessionId
+    return !entry || !agentSessionLineageSources(entry).some((s) => s.sessionId === sourceId)
+  })
+}
+
 /** Native: a provider copy of the source conversation. Transcript: the source's messages handed to a
  *  fresh conversation as its first message, for another provider or where no copy is possible. */
 export type AgentSessionForkMode = 'native' | 'transcript'

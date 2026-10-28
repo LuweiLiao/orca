@@ -135,14 +135,16 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     await childNode.click({ modifiers: ['Shift'] })
     await expect(map.locator('[data-merge-picked="true"]')).toHaveCount(2)
     const handle = map.locator('[data-project-map-merge-handle]')
-    await expect(handle).toHaveText('Merge 2 chats')
+    await expect(handle).toHaveText('Merged handoff · 2 chats')
     const from = (await handle.boundingBox())!
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
     await page.mouse.down()
     await page.mouse.move(from.x + 40, from.y + 220, { steps: 8 })
-    // One dashed wire from each picked chat meets the pending node.
+    // One faint wire from each picked chat meets the pending node.
     await expect(map.locator('.project-map-wire[data-kind="fork-draft"]')).toHaveCount(2)
-    await expect(map.locator('[data-project-map-fork-draft]')).toContainText('Merged from 2 chats')
+    await expect(map.locator('[data-project-map-fork-draft]')).toContainText(
+      'Merged handoff from 2 chats'
+    )
     await screenshot('merge-drag')
     await page.mouse.up()
     const mergePanel = map.locator('[data-project-map-merge-panel]')
@@ -150,7 +152,7 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     await expect(mergePanel.getByRole('radio')).toHaveCount(2)
     await mergePanel.getByRole('textbox').fill('MERGED: compare the two')
     await screenshot('merge-panel')
-    await mergePanel.getByRole('button', { name: 'Merge into a new chat' }).click()
+    await mergePanel.getByRole('button', { name: 'Create merged handoff' }).click()
     await expect(mergePanel).toHaveCount(0, { timeout: 30_000 })
     await expect
       .poll(() => sentPrompts(claudeStub.launchLog).find((prompt) => prompt.includes('MERGED:')))
@@ -170,7 +172,7 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
       .toEqual([parent, child.childSessionId])
     const mergedNode = map.getByRole('button', { name: 'MERGED: compare the two', exact: true })
     await expect(mergedNode).toBeVisible({ timeout: 30_000 })
-    await expect(mergedNode).toContainText('Merged from')
+    await expect(mergedNode).toContainText('Merged handoff from')
     // Its first source is its parent; the other one draws a merge wire into it.
     await expect(map.locator('.project-map-wire[data-kind="merge"]')).toHaveCount(1, {
       timeout: 15_000

@@ -60,7 +60,7 @@ function rewindImpact(rewind: {
   }
   return translate(
     'projectMap.timeline.rewindForks',
-    '{{count}} chats were forked after this point: {{names}}. They keep what they were handed, but the point they were forked from goes away here.',
+    '{{count}} chats were handed off after this point: {{names}}. They keep what they were handed, but the point they were handed off from goes away here.',
     {
       count: cut.length,
       names: cut

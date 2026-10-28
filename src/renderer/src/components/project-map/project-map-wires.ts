@@ -41,9 +41,7 @@ export function projectMapWires(
       return [{ ...edge, path: loopPath(x0, y0, to.x, y1), backward: true }]
     }
     const pinY =
-      edge.kind === 'fork' || edge.kind === 'handoff'
-        ? PROJECT_MAP_NODE.headerPinOffsetY
-        : PROJECT_MAP_NODE.pinOffsetY
+      edge.kind === 'handoff' ? PROJECT_MAP_NODE.headerPinOffsetY : PROJECT_MAP_NODE.pinOffsetY
     return [{ ...edge, path: wirePath(from.x + from.width, from.y + pinY, to.x, to.y + pinY) }]
   })
 }

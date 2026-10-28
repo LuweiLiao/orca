@@ -42,7 +42,7 @@
   border-color: color-mix(in srgb, var(--foreground) 18%, transparent);
 }
 .project-map-loose {
-  border: 1px dashed var(--pm-lane-border);
+  border: 1px solid var(--pm-lane-border);
   border-radius: var(--radius-lg);
 }
 
@@ -70,7 +70,6 @@
 /* A closed chat still joined by a fork: drawn, but plainly not running. */
 .project-map-node[data-history='true'] {
   --pm-kind: var(--pm-kind-history);
-  border-style: dashed;
   background: color-mix(in srgb, var(--card) 70%, var(--background));
   box-shadow: none;
 }
@@ -96,7 +95,7 @@
 }
 .project-map-fork-window[data-reference-drop='true'],
 .project-map-node[data-reference-drop='true'] {
-  outline: 2px dashed var(--pm-wire-reference);
+  outline: 2px solid var(--pm-wire-reference);
   outline-offset: 3px;
 }
 .project-map-node:hover {
@@ -157,7 +156,7 @@
 }
 .project-map-pin[data-wire='unresolved'] {
   background: var(--background);
-  border: 1.5px dashed var(--muted-foreground);
+  border: 1.5px solid var(--muted-foreground);
   box-shadow: none;
 }
 
@@ -176,9 +175,6 @@
 }
 .project-map-fork-pin[data-side='out'] {
   right: -7px;
-}
-.project-map-fork-pin[data-wire='handoff'] {
-  background: color-mix(in srgb, var(--pm-wire-fork) 45%, var(--card));
 }
 .project-map-fork-pin[data-wire='unresolved'] {
   background: var(--muted-foreground);
@@ -204,18 +200,20 @@
 .project-map-wire[data-kind='delegate'] {
   stroke: var(--pm-wire-delegate);
 }
-.project-map-wire[data-kind='fork'] {
+/* Solid: a chat the person handed off, from one source or, merged, from several. */
+.project-map-wire[data-kind='handoff'],
+.project-map-wire[data-kind='merge'] {
   stroke: var(--pm-wire-fork);
 }
-/* Dotted: a message pointed at another conversation; nothing was copied. */
+/* Thin: a message pointed at another conversation; nothing was handed over. */
 .project-map-wire[data-kind='reference'] {
   stroke: var(--pm-wire-reference);
   stroke-width: 1.6;
-  stroke-dasharray: 0.5 5;
+  stroke-opacity: 0.7;
 }
 /* Live: the target reads its source as it is at the time, not as it was. */
 .project-map-wire[data-kind='reference'][data-live='true'] {
-  stroke-dasharray: 6 4;
+  stroke-opacity: 1;
 }
 .project-map-reference-pin {
   position: absolute;
@@ -239,41 +237,22 @@
 .project-map-reference-count {
   color: color-mix(in srgb, var(--pm-wire-reference) 80%, var(--foreground));
 }
-/* Dashed: another provider got the messages as text, not the conversation itself. */
-.project-map-wire[data-kind='handoff'] {
-  stroke: var(--pm-wire-fork);
-  stroke-dasharray: 7 5;
-}
 .project-map-wire[data-highlighted='true'] {
   stroke-width: 3.2;
 }
-/* A merged chat's other sources: the fork colour, broken into long and short dashes. */
-.project-map-wire[data-kind='merge'] {
-  stroke: var(--pm-wire-fork);
-  stroke-dasharray: 10 3 2 3;
-}
-.project-map-fork-pin[data-wire='merge'] {
-  background: repeating-linear-gradient(
-    90deg,
-    var(--pm-wire-fork) 0 3px,
-    color-mix(in srgb, var(--pm-wire-fork) 35%, var(--card)) 3px 5px
-  );
-}
-/* Picked for a merge: ringed like the selected node, dashed so the two never read the same. */
+/* Picked for a merge: ringed in the hand-off colour, so it never reads as the selected node. */
 .project-map-node[data-merge-picked='true'] {
-  outline: 2px dashed var(--pm-wire-fork);
+  outline: 2px solid var(--pm-wire-fork);
   outline-offset: 3px;
 }
-/* A child chat still being placed: dashed and marching until it is created. */
+/* A child chat still being placed: faint until it is created. */
 .project-map-wire[data-kind='fork-draft'] {
   stroke: var(--pm-wire-fork);
   stroke-width: 2;
-  stroke-dasharray: 7 5;
-  animation: project-map-draft-march 0.6s linear infinite;
+  stroke-opacity: 0.5;
 }
 .project-map-wire[data-kind='fork-draft'][data-blocked='true'] {
   stroke: var(--muted-foreground);
-  animation: none;
 }
 /* A search hit: a ring that settles after a moment, so the eye lands on the node. */
 .project-map-match {
@@ -291,22 +270,14 @@
     opacity: 0;
   }
 }
-@keyframes project-map-draft-march {
-  to {
-    stroke-dashoffset: -12;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .project-map-wire[data-kind='fork-draft'] {
-    animation: none;
-  }
   .project-map-match {
     animation-duration: 0.01ms;
     animation-delay: 1.8s;
   }
 }
 .project-map-ghost-node {
-  border: 1.5px dashed var(--pm-wire-fork);
+  border: 1.5px solid color-mix(in srgb, var(--pm-wire-fork) 60%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--card) 80%, transparent);
 }

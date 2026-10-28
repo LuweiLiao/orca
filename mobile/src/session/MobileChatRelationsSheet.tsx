@@ -98,7 +98,7 @@ export function MobileChatRelationsSheet({
     : relations === null
       ? 'Reading relations…'
       : relations.length === 0
-        ? 'Not forked, and no references sent or received.'
+        ? 'No handoffs, and no references sent or received.'
         : 'Tap a chat open in this workspace to switch to it.'
   return (
     <ActionSheetModal

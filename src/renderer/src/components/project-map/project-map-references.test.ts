@@ -4,7 +4,10 @@ import type {
   DashboardSnapshot,
   DashboardWorkspace
 } from '../../../../shared/dashboard-snapshot'
-import type { AgentSessionLineageEntry } from '../../../../shared/agent-session-fork'
+import {
+  withoutHandoffReferences,
+  type AgentSessionLineageEntry
+} from '../../../../shared/agent-session-fork'
 import type { AgentSessionReferenceLink } from '../../../../shared/agent-session-reference-link'
 import { buildProjectMapGraph } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
@@ -116,6 +119,17 @@ describe('references on the project map', () => {
     expect(layout.wires.find((wire) => wire.kind === 'reference')?.live).toBe(true)
     const pinned = mapWith([{ ...link('claude_c', 'claude_b'), sourceMessageCount: 9 }])
     expect(pinned.layout.wires.find((wire) => wire.kind === 'reference')).not.toHaveProperty('live')
+  })
+
+  it("draws no reference for a hand-off's own link to its source, but does for a later one", () => {
+    const lineage = new Map([['claude_c', forked]])
+    const handoff = { ...link('claude_c', 'claude_a'), messageId: 'fork-op' }
+    const later = { ...link('claude_c', 'claude_a', 3), messageId: 'op-later' }
+    const unrelated = { ...link('claude_c', 'claude_b'), messageId: 'fork-op' }
+    expect(withoutHandoffReferences([handoff, later, unrelated], (id) => lineage.get(id))).toEqual([
+      later,
+      unrelated
+    ])
   })
 
   it('draws a terminal fork from its source pane to the agent it launched in the fork workspace', () => {

@@ -146,7 +146,7 @@ export function ProjectMapTimeline({
                   count: agent.fork.entry.handedOverCount ?? agent.fork.messageCount
                 }
               )}
-              prefix={translate('projectMap.timeline.forkedFrom', 'Forked from')}
+              prefix={translate('projectMap.timeline.forkedFrom', 'Handed off from')}
               onSelectNode={onSelectNode}
             />
           </li>
@@ -233,7 +233,9 @@ export function ProjectMapTimeline({
           </Section>
         ) : null}
         {timeline && timeline.rewoundForks.length > 0 ? (
-          <Section title={translate('projectMap.timeline.rewoundForks', 'Forked before a rewind')}>
+          <Section
+            title={translate('projectMap.timeline.rewoundForks', 'Handed off before a rewind')}
+          >
             <Markers forks={timeline.rewoundForks} references={[]} onSelectNode={onSelectNode} />
           </Section>
         ) : null}
