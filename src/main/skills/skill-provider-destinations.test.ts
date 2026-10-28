@@ -44,6 +44,18 @@ describe('resolveSkillProviderDestinations', () => {
     })
   })
 
+  it('does not link into ~/.gemini/skills, which Gemini CLI aliases to ~/.agents/skills', () => {
+    expect(
+      resolveSkillProviderDestinations({
+        scope: 'global',
+        homeDirectory: HOME,
+        detectedProviders: ['gemini']
+      })
+    ).toEqual([
+      { provider: 'gemini', readsCanonicalRoot: true, rootPath: join(HOME, '.agents', 'skills') }
+    ])
+  })
+
   it('places every detected agent that owns a directory', () => {
     const destinations = resolveSkillProviderDestinations({
       scope: 'global',

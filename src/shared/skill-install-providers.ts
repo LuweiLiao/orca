@@ -14,6 +14,8 @@ type SkillInstallProviderEntry = {
   workspaceSegments: readonly string[] | null
   /** Env var relocating the agent's home (skills in `<home>/skills`). */
   homeEnv?: string
+  /** Also reads `~/.agents/skills`, so a global install needs no placement; its own root is still scanned. */
+  globalReadsCanonicalRoot?: true
 }
 
 export const SKILL_INSTALL_PROVIDERS = Object.freeze([
@@ -31,19 +33,22 @@ export const SKILL_INSTALL_PROVIDERS = Object.freeze([
     workspaceSegments: ['.claude', 'skills'],
     homeEnv: 'CLAUDE_CONFIG_DIR'
   },
-  // Why: Cursor and Gemini read the canonical root inside a project but keep
-  // their own home directory, so they only need a placement at global scope.
+  // Why: Cursor reads the canonical root inside a project but keeps its own
+  // home directory, so it only needs a placement at global scope.
   {
     id: 'cursor',
     displayName: 'Cursor',
     globalSegments: ['.cursor', 'skills'],
     workspaceSegments: null
   },
+  // Why: Gemini CLI treats ~/.agents/skills as an alias of ~/.gemini/skills; a link in both
+  // makes it load each skill twice and warn "Skill conflict detected".
   {
     id: 'gemini',
     displayName: 'Gemini CLI',
     globalSegments: ['.gemini', 'skills'],
-    workspaceSegments: null
+    workspaceSegments: null,
+    globalReadsCanonicalRoot: true
   },
   {
     id: 'droid',
@@ -287,6 +292,17 @@ export const SKILL_INSTALL_PROVIDERS = Object.freeze([
 
 export type SkillInstallProviderDefinition = (typeof SKILL_INSTALL_PROVIDERS)[number]
 export type SkillInstallProviderId = SkillInstallProviderDefinition['id']
+
+/** Folder an install links into for this agent; null means the canonical `.agents/skills` root. */
+export function skillProviderPlacementSegments(
+  provider: SkillInstallProviderDefinition,
+  scope: 'global' | 'workspace'
+): readonly string[] | null {
+  if (scope === 'workspace') {
+    return provider.workspaceSegments
+  }
+  return provider.globalReadsCanonicalRoot ? null : provider.globalSegments
+}
 
 export function isSkillInstallProviderId(value: string): value is SkillInstallProviderId {
   return SKILL_INSTALL_PROVIDERS.some((provider) => provider.id === value)

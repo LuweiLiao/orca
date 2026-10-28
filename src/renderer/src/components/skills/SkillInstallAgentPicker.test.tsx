@@ -62,7 +62,7 @@ describe('SkillInstallAgentPicker', () => {
       <SkillInstallAgentPicker
         scope="global"
         selected={selected}
-        detectedAgents={['claude', 'cursor', 'gemini']}
+        detectedAgents={['claude', 'cursor', 'grok']}
         busy={false}
         onChange={onChange}
       />
@@ -76,7 +76,7 @@ describe('SkillInstallAgentPicker', () => {
     expect(onChange).toHaveBeenCalled()
     const [next] = onChange.mock.calls[0] as [Set<string>]
     expect(next.has('cursor')).toBe(true)
-    expect(next.has('gemini')).toBe(true)
+    expect(next.has('grok')).toBe(true)
   })
 
   it('shows canonical agents in standard agents section with explanation', () => {

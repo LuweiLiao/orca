@@ -2,6 +2,7 @@ import { join, resolve } from 'node:path'
 import {
   isSkillInstallProviderId,
   SKILL_INSTALL_PROVIDERS,
+  skillProviderPlacementSegments,
   type SkillInstallProviderId
 } from '../../shared/skill-install-providers'
 
@@ -39,7 +40,7 @@ export function resolveSkillProviderDestinations(input: {
     if (!detected.has(provider.id)) {
       continue
     }
-    const segments = input.scope === 'global' ? provider.globalSegments : provider.workspaceSegments
+    const segments = skillProviderPlacementSegments(provider, input.scope)
     const overriddenRoot =
       input.scope === 'global' ? input.providerRootOverrides?.[provider.id] : undefined
     const rootPath = overriddenRoot
