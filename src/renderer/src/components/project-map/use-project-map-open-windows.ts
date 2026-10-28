@@ -63,6 +63,15 @@ export function useProjectMapOpenWindows(
     },
     [setSelectedId]
   )
+  /** A second click on a node closes the window the first one opened. */
+  const toggle = (id: string): 'opened' | 'closed' => {
+    if (windows.some((entry) => entry.id === id)) {
+      close(id)
+      return 'closed'
+    }
+    open(id)
+    return 'opened'
+  }
   /**
    * Forgets windows whose node left the map (its tab closed, the project switched), so a chat that
    * comes back does not reopen one.
@@ -72,7 +81,7 @@ export function useProjectMapOpenWindows(
       setWindows(windows.filter((entry) => shown(entry.id)))
     }
   }
-  return { windows, open, close, raise, keepShown, select: setSelectedId }
+  return { windows, open, close, toggle, raise, keepShown, select: setSelectedId }
 }
 
 export type ProjectMapOpenWindows = ReturnType<typeof useProjectMapOpenWindows>

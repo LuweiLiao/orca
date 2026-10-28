@@ -78,7 +78,6 @@ export function ProjectMapCanvas({
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // Each clicked node keeps its own window open until its close button.
   const windows = useProjectMapOpenWindows(viewport.element, setSelectedId)
   const [forkFor, setForkFor] = useState<string | null>(null)
   // A new child shows up on a later snapshot; select it then, by its chat's session.
@@ -132,6 +131,12 @@ export function ProjectMapCanvas({
   const dropSelection = useCallback(() => setSelectedId(null), [])
   const rowMoves = useProjectMapRowMoves(graph, layout)
   const commands = useProjectMapNodeCommands(graph)
+  // A plain click opens its window, a second one closes it.
+  const toggleNode = (id: string): void => {
+    if (windows.toggle(id) === 'closed' && forkFor === id) {
+      setForkFor(null)
+    }
+  }
   const { draft } = forkDrag
   // A placed child lives only while its panel is open; closing or creating drops it.
   if (draft?.placed && (forkFor !== draft.originId || !forkOrigin)) {
@@ -292,7 +297,7 @@ export function ProjectMapCanvas({
               linked={linked}
               activeWorktreeId={activeWorktreeId}
               worktreeById={worktreeById}
-              onSelect={windows.open}
+              onSelect={toggleNode}
               onHover={hoverNode}
             />
             {handleFor && handleBox ? (
