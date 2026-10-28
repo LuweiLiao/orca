@@ -15,6 +15,21 @@ export function projectMapViewportRect(
   }
 }
 
+/** Where a placed, not yet created, child shows: its header pin sits on the dropped point. */
+export function projectMapDraftRect(
+  point: { x: number; y: number },
+  view: { x: number; y: number; zoom: number }
+): ProjectMapRect {
+  return projectMapViewportRect(
+    {
+      x: point.x,
+      y: point.y - PROJECT_MAP_NODE.headerPinOffsetY,
+      width: PROJECT_MAP_NODE.agentWidth
+    },
+    view
+  )
+}
+
 const GAP = 14
 const EDGE = 8
 

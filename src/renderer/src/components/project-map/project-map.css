@@ -101,6 +101,16 @@
 .project-map-node:hover {
   border-color: color-mix(in srgb, var(--pm-kind) 45%, var(--border));
 }
+.project-map-cursor {
+  border-radius: 8px;
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+  opacity: 0;
+}
+.project-map-viewport:focus-visible .project-map-cursor,
+.project-map-viewport:focus-within .project-map-cursor {
+  opacity: 1;
+}
 .project-map-node:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--ring);

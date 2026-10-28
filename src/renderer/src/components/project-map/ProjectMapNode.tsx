@@ -98,6 +98,8 @@ export function NodeShell({
   return (
     <button
       type="button"
+      // Why: the map is one tab stop; its arrow keys move between nodes.
+      tabIndex={-1}
       data-project-map-node={box.id}
       data-kind={kind}
       data-selected={selected}

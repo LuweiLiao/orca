@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
 import type { ProjectMapAgent, ProjectMapGraph, ProjectMapWorkspace } from './project-map-graph'
-import { PROJECT_MAP_NODE, type ProjectMapLayout } from './project-map-layout'
+import type { ProjectMapLayout } from './project-map-layout'
 import type { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapNodeLayer } from './ProjectMapNodeLayer'
 import { ProjectMapCanvasMenu } from './ProjectMapCanvasMenu'
@@ -13,9 +13,7 @@ import { projectMapNodeIdOf } from './project-map-node-target'
 import { useProjectMapLocate } from './use-project-map-locate'
 import type { Worktree } from '../../../../shared/worktree/types'
 import { projectMapNodeReferences } from './project-map-node-references'
-import { insertReferenceInMapWindow } from './project-map-reference-drop'
-import type { ConversationReferenceCreate } from '../../../../shared/conversation-reference'
-import { ProjectMapGroupTray } from './ProjectMapGroupTray'
+import { useProjectMapReferenceDrop } from './use-project-map-reference-drop'
 import { ProjectMapLegend } from './ProjectMapLegend'
 import {
   ProjectMapForkGhost,
@@ -27,17 +25,23 @@ import { useProjectMapMergePicks } from './use-project-map-merge-picks'
 import { useProjectMapAwaitedChild, useProjectMapEscape } from './use-project-map-canvas-selection'
 import { ProjectMapForkWindow, type ProjectMapForkIntent } from './ProjectMapForkWindow'
 import { useProjectMapForkDrag, useProjectMapHover } from './use-project-map-fork-drag'
-import { PROJECT_MAP_GROUP_PREFIX, type ProjectMapCollapsedView } from './project-map-collapse'
+import type { ProjectMapCollapsedView } from './project-map-collapse'
 import { projectMapAgentTitle } from './project-map-labels'
-import { ProjectMapChatWindow } from './ProjectMapChatWindow'
+import { ProjectMapSelectionWindow } from './ProjectMapSelectionWindow'
 import {
   projectMapAgentForkable,
   projectMapLinkedNodes,
   projectMapWindowSubject
 } from './project-map-window-subject'
-import { projectMapViewportRect, type ProjectMapRect } from './project-map-window-placement'
+import {
+  projectMapDraftRect,
+  projectMapViewportRect,
+  type ProjectMapRect
+} from './project-map-window-placement'
 import { projectMapDropSlot } from './project-map-drop-slot'
 import { noteProjectMapChatRow } from './project-map-chat-rows'
+import { useProjectMapKeyboard } from './use-project-map-keyboard'
+import { useProjectMapRowMoves } from './use-project-map-row-moves'
 
 type Props = {
   /** Every chat on the map, the hidden ones in stacks included. */
@@ -57,9 +61,10 @@ type Props = {
   onForked: () => void
   searchOpen: boolean
   onSearchOpenChange: (open: boolean) => void
+  /** Delete and undo keys, bound only when the page supplies them. */
+  keyboardExtras?: { onDelete?: (id: string) => void; onUndo?: () => void }
 }
 
-const PROJECT_MAP_CHAT_WINDOW = '[data-project-map-chat-window]'
 const EMPTY_WORKTREES: readonly Worktree[] = []
 
 type CssVariables = React.CSSProperties & Record<`--${string}`, string | number>
@@ -76,7 +81,8 @@ export function ProjectMapCanvas({
   onToggleCollapse,
   onForked,
   searchOpen,
-  onSearchOpenChange
+  onSearchOpenChange,
+  keyboardExtras
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -121,13 +127,12 @@ export function ProjectMapCanvas({
   const picks = useProjectMapMergePicks(graph, layout)
   const { clear: clearPicks } = picks
   const awaitChild = useProjectMapAwaitedChild(graph, (id) => shownAs(id) !== null, setSelectedId)
-  useProjectMapEscape(
-    selected !== null || picks.picked.length > 0,
-    useCallback(() => {
-      setSelectedId(null)
-      clearPicks()
-    }, [clearPicks])
-  )
+  const dropSelection = useCallback(() => {
+    setSelectedId(null)
+    clearPicks()
+  }, [clearPicks])
+  useProjectMapEscape(selected !== null || picks.picked.length > 0, dropSelection)
+  const rowMoves = useProjectMapRowMoves(graph, layout)
   const merging = picks.picked.length >= 2
   // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click drops the merge and opens the chat.
   const selectNode = (id: string, adding?: boolean): void => {
@@ -170,18 +175,12 @@ export function ProjectMapCanvas({
     [collapsed.graph.agents, layout.wires]
   )
 
-  // Opens the chat a reference was dropped on and puts the reference in its message box.
-  const dropReference = useCallback(
-    (target: string, source: ConversationReferenceCreate) => {
-      const chat = graph.agents.get(target)?.chat
-      if (source.source.kind === 'structured' && source.source.sessionId === chat?.sessionId) {
-        return
-      }
+  const dropReference = useProjectMapReferenceDrop(
+    graph,
+    useCallback((target: string) => {
       setFork(null)
       setSelectedId(target)
-      void insertReferenceInMapWindow(PROJECT_MAP_CHAT_WINDOW, source)
-    },
-    [graph.agents]
+    }, [])
   )
 
   const toViewport = (id: string): ProjectMapRect | null => {
@@ -200,6 +199,20 @@ export function ProjectMapCanvas({
     return agent ? onOpenAgent(agent) : workspace ? onOpenWorkspace(workspace) : undefined
   }
   const subject = projectMapWindowSubject(graph, selected)
+  const keyboard = useProjectMapKeyboard({
+    graph,
+    layout,
+    viewport,
+    selected,
+    open: selectNode,
+    togglePick: (id) => selectNode(id, true),
+    onOpenAgent,
+    onOpenWorkspace,
+    onRename: setRenamingId,
+    onMoveRow: (paneKey, direction) => void rowMoves.move(paneKey, direction),
+    onEscape: dropSelection,
+    ...keyboardExtras
+  })
   // The grid background pans and scales with the content.
   const viewportStyle: CssVariables = {
     '--pm-zoom': view.zoom,
@@ -207,14 +220,7 @@ export function ProjectMapCanvas({
     '--pm-pan-y': `${view.y}px`
   }
   const anchor = placedDraft
-    ? projectMapViewportRect(
-        {
-          x: placedDraft.point.x,
-          y: placedDraft.point.y - PROJECT_MAP_NODE.headerPinOffsetY,
-          width: PROJECT_MAP_NODE.agentWidth
-        },
-        view
-      )
+    ? projectMapDraftRect(placedDraft.point, view)
     : selectedShown
       ? toViewport(selectedShown)
       : null
@@ -224,16 +230,20 @@ export function ProjectMapCanvas({
       ref={viewport.viewportRef}
       data-focusing={selected !== null}
       data-project-map-canvas=""
+      tabIndex={0}
+      onKeyDown={keyboard.onKeyDown}
+      onKeyUp={keyboard.onKeyUp}
       data-fork-dragging={forkDrag.dragging || undefined}
       onPointerDown={viewport.onBackgroundPointerDown}
       onClick={() => {
         if (!viewport.consumeDrag()) {
+          keyboard.clearCursor()
           setSelectedId(null)
           setForkFor(null)
           picks.clear()
         }
       }}
-      className="project-map-viewport relative min-h-0 flex-1 cursor-default overflow-hidden"
+      className="project-map-viewport relative min-h-0 flex-1 cursor-default overflow-hidden outline-none"
       style={viewportStyle}
     >
       <ProjectMapCanvasMenu
@@ -248,6 +258,7 @@ export function ProjectMapCanvas({
         onRename={setRenamingId}
         onFit={viewport.fit}
         onSearch={() => onSearchOpenChange(true)}
+        rowMoves={rowMoves}
       >
         <div className="absolute inset-0">
           <div
@@ -328,6 +339,7 @@ export function ProjectMapCanvas({
               renamingId={renamingId}
               onRenameEnd={() => setRenamingId(null)}
               match={match}
+              cursorId={keyboard.cursor}
             />
           </div>
         </div>
@@ -364,55 +376,22 @@ export function ProjectMapCanvas({
             onForked()
           }}
         />
-      ) : trayOpen && group && anchor ? (
-        <ProjectMapGroupTray
-          key={group.id}
-          group={group}
-          parentTitle={projectMapAgentTitle(
-            graph.agents.get(group.parentPaneKey)?.card ??
-              collapsed.graph.agents.get(group.id)!.card
-          )}
-          agents={graph.agents}
-          anchor={anchor}
-          viewport={viewport.size}
-          avoid={[...linked].flatMap((id) => toViewport(id) ?? [])}
-          onClose={() => setSelectedId(null)}
-          onOpenMember={setSelectedId}
-          onExpand={() => {
-            setSelectedId(group.parentPaneKey)
-            onToggleCollapse(group.parentPaneKey)
-          }}
-        />
-      ) : subject && anchor ? (
-        <ProjectMapChatWindow
-          key={selected}
+      ) : anchor && (trayOpen || subject) ? (
+        <ProjectMapSelectionWindow
+          graph={graph}
+          collapsed={collapsed}
+          selected={selected}
           subject={subject}
+          group={trayOpen ? group : undefined}
           anchor={anchor}
           viewport={viewport.size}
           avoid={[...linked].flatMap((id) => toViewport(id) ?? [])}
-          onClose={() => setSelectedId(null)}
+          forkUnsupportedHosts={forkUnsupportedHosts}
+          onSelect={setSelectedId}
           onOpenAgent={onOpenAgent}
           onOpenWorkspace={onOpenWorkspace}
-          onSelectNode={setSelectedId}
-          {...(subject.kind === 'agent' &&
-          projectMapAgentForkable(subject.agent) &&
-          !forkUnsupportedHosts.has(subject.agent.chat?.executionHostId ?? '')
-            ? {
-                onFork: () => setForkFor(selected),
-                onForkAt: (at: NonNullable<ProjectMapForkIntent['at']>) =>
-                  selected && setFork({ paneKey: selected, at })
-              }
-            : {})}
-          {...(subject.kind === 'agent' && collapsed.collapsible.has(subject.agent.card.paneKey)
-            ? {
-                collapse: {
-                  folded: collapsed.groups.has(
-                    `${PROJECT_MAP_GROUP_PREFIX}${subject.agent.card.paneKey}`
-                  ),
-                  onToggle: () => onToggleCollapse(subject.agent.card.paneKey)
-                }
-              }
-            : {})}
+          onToggleCollapse={onToggleCollapse}
+          onFork={setFork}
         />
       ) : null}
       <ProjectMapLegend />

@@ -105,6 +105,17 @@ describe('projectMapAgentActions', () => {
   })
 })
 
+describe('row move actions', () => {
+  it('are offered only when the map can move rows, greyed at an edge', () => {
+    expect(byId(projectMapAgentActions(agent(), idle))['move-up']).toBeUndefined()
+    const actions = byId(
+      projectMapAgentActions(agent(), { ...idle, rowMoves: { up: false, down: true } })
+    )
+    expect(actions['move-up']).toMatchObject({ enabled: false, reason: 'row-edge' })
+    expect(actions['move-down']).toEqual({ id: 'move-down', enabled: true })
+  })
+})
+
 describe('projectMapGroupActions', () => {
   it('marks a stack read only while a chat inside is unread', () => {
     expect(projectMapGroupActions([agent(), agent({}, { unseen: true })])).toEqual([

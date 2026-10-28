@@ -14,6 +14,8 @@ export type ProjectMapAgentActionId =
   | 'rename'
   | 'mark-read'
   | 'mark-unread'
+  | 'move-up'
+  | 'move-down'
   | 'close'
   | 'hide'
   | 'hide-tree'
@@ -29,6 +31,7 @@ export type ProjectMapActionBlock =
   | 'no-tab'
   | 'not-finished'
   | 'all-read'
+  | 'row-edge'
 
 export type ProjectMapNodeAction<Id extends string = ProjectMapAgentActionId> = {
   id: Id
@@ -41,6 +44,8 @@ export type ProjectMapAgentActionContext = {
   hasTab: boolean
   /** The chat's host is known to predate forks. */
   hostTooOld: boolean
+  /** Which way the chat can change rows within its lane; absent when the map cannot move it. */
+  rowMoves?: { up: boolean; down: boolean }
 }
 
 /** A chat's tab, if one is open: terminals by their pty tab, structured chats by their own id. */
@@ -98,6 +103,12 @@ export function projectMapAgentActions(
     // Names live on tabs: a closed chat or a background worker has none to write to.
     available('rename', !agent.history && context.hasTab ? null : 'no-tab'),
     ...(toggleRead ? [toggleRead] : []),
+    ...(context.rowMoves
+      ? [
+          available('move-up', context.rowMoves.up ? null : 'row-edge'),
+          available('move-down', context.rowMoves.down ? null : 'row-edge')
+        ]
+      : []),
     ...closeAndHideActions(agent, context)
   ]
 }

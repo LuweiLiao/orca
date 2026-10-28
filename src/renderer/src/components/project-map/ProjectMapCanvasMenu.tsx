@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import {
+  ArrowDown,
+  ArrowUp,
   BookMarked,
   Eye,
   EyeOff,
   GitFork,
   MessageSquareQuote,
+  LayoutGrid,
   Pencil,
   RotateCcw,
   Trash2,
@@ -38,6 +41,7 @@ import {
 import { projectMapNodeIdOf } from './project-map-node-target'
 import { projectMapConversationReference } from './project-map-reference'
 import { useProjectMapNodeCommands } from './use-project-map-node-commands'
+import type { ProjectMapRowMoves } from './use-project-map-row-moves'
 
 type Props = {
   graph: ProjectMapGraph
@@ -48,6 +52,7 @@ type Props = {
   onRename: (paneKey: string) => void
   onFit: () => void
   onSearch: () => void
+  rowMoves: ProjectMapRowMoves
   /** The element the menu opens on: the canvas, whose nodes are found from the event target. */
   children: React.ReactElement
 }
@@ -62,6 +67,8 @@ const AGENT_LABELS: Record<ProjectMapAgentActionId, () => string> = {
   rename: () => translate('projectMap.menu.rename', 'Rename'),
   'mark-read': () => translate('projectMap.menu.markRead', 'Mark as read'),
   'mark-unread': () => translate('projectMap.menu.markUnread', 'Mark as unread'),
+  'move-up': () => translate('projectMap.menu.moveUp', 'Move up'),
+  'move-down': () => translate('projectMap.menu.moveDown', 'Move down'),
   close: () => translate('projectMap.menu.close', 'Close'),
   hide: () => translate('projectMap.menu.hide', 'Hide'),
   'hide-tree': () => translate('projectMap.menu.hideTree', 'Hide with its handoffs'),
@@ -76,10 +83,17 @@ const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
   rename: Pencil,
   'mark-read': Eye,
   'mark-unread': EyeOff,
+  'move-up': ArrowUp,
+  'move-down': ArrowDown,
   close: X,
   hide: EyeOff,
   'hide-tree': EyeOff,
   'remove-from-map': Trash2
+}
+
+const ROW_SHORTCUTS: Partial<Record<ProjectMapAgentActionId, string>> = {
+  'move-up': getShortcutPlatform() === 'darwin' ? '⌥↑' : 'Alt+↑',
+  'move-down': getShortcutPlatform() === 'darwin' ? '⌥↓' : 'Alt+↓'
 }
 
 const REASONS: Record<ProjectMapActionBlock, () => string> = {
@@ -94,18 +108,21 @@ const REASONS: Record<ProjectMapActionBlock, () => string> = {
   'no-tab': () => translate('projectMap.menu.reason.noTab', 'Open it in a tab to rename it'),
   'not-finished': () =>
     translate('projectMap.menu.reason.notFinished', 'Only a finished conversation can be unread'),
-  'all-read': () => translate('projectMap.menu.reason.allRead', 'Nothing unread')
+  'all-read': () => translate('projectMap.menu.reason.allRead', 'Nothing unread'),
+  'row-edge': () => translate('projectMap.menu.reason.rowEdge', 'Nothing beside it to swap with')
 }
 
 function MenuItem({
   action,
   label,
   Icon,
+  shortcut,
   onSelect
 }: {
   action: ProjectMapNodeAction<string>
   label: string
   Icon: typeof Pencil
+  shortcut?: string
   onSelect: () => void
 }): React.JSX.Element {
   return (
@@ -123,6 +140,7 @@ function MenuItem({
           </span>
         ) : null}
       </span>
+      {shortcut ? <ContextMenuShortcut>{shortcut}</ContextMenuShortcut> : null}
     </ContextMenuItem>
   )
 }
@@ -137,6 +155,7 @@ export function ProjectMapCanvasMenu({
   onRename,
   onFit,
   onSearch,
+  rowMoves,
   children
 }: Props): React.JSX.Element {
   const unifiedTabs = useAppStore((s) => s.unifiedTabsByWorktree)
@@ -153,6 +172,9 @@ export function ProjectMapCanvasMenu({
   const runAgent = (chat: ProjectMapAgent, id: ProjectMapAgentActionId): void => {
     const store = useAppStore.getState()
     switch (id) {
+      case 'move-up':
+      case 'move-down':
+        return void rowMoves.move(chat.card.paneKey, id === 'move-up' ? 'up' : 'down')
       case 'open-tab':
       case 'show-terminal':
         return onOpenAgent(chat)
@@ -197,7 +219,11 @@ export function ProjectMapCanvasMenu({
         {agent ? (
           projectMapAgentActions(agent, {
             hasTab: projectMapAgentHasTab(unifiedTabs, agent.card),
-            hostTooOld: forkUnsupportedHosts.has(agent.chat?.executionHostId ?? '')
+            hostTooOld: forkUnsupportedHosts.has(agent.chat?.executionHostId ?? ''),
+            rowMoves: {
+              up: rowMoves.can(agent.card.paneKey, 'up'),
+              down: rowMoves.can(agent.card.paneKey, 'down')
+            }
           }).map((action) => (
             <MenuItem
               key={action.id}
@@ -208,6 +234,7 @@ export function ProjectMapCanvasMenu({
                   : AGENT_LABELS[action.id]()
               }
               Icon={agent.history && action.id === 'open-tab' ? RotateCcw : AGENT_ICONS[action.id]}
+              shortcut={ROW_SHORTCUTS[action.id]}
               onSelect={() => runAgent(agent, action.id)}
             />
           ))
@@ -239,6 +266,14 @@ export function ProjectMapCanvasMenu({
               <Search />
               {translate('projectMap.menu.search', 'Search the map')}
               <ContextMenuShortcut>{searchKeys}</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem
+              data-project-map-action="tidy"
+              disabled={!rowMoves.canTidy}
+              onSelect={() => void rowMoves.tidy()}
+            >
+              <LayoutGrid />
+              {translate('projectMap.menu.tidy', 'Tidy layout')}
             </ContextMenuItem>
             {hiddenCount > 0 ? (
               <ContextMenuItem data-project-map-action="show-hidden" onSelect={commands.showHidden}>

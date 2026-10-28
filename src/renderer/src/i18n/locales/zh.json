@@ -21494,6 +21494,9 @@
       "rename": "重命名",
       "markRead": "标为已读",
       "markUnread": "标为未读",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "tidy": "整理布局",
       "markAllRead": "全部标为已读",
       "search": "搜索地图",
       "reason": {
@@ -21504,7 +21507,8 @@
         "closed": "已关闭：请先在标签页中打开",
         "noTab": "请先在标签页中打开再重命名",
         "notFinished": "只有已完成的对话才能标为未读",
-        "allRead": "没有未读内容"
+        "allRead": "没有未读内容",
+        "rowEdge": "旁边没有可交换的对话"
       },
       "close": "关闭",
       "hide": "隐藏",

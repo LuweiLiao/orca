@@ -21615,6 +21615,9 @@
       "rename": "Rename",
       "markRead": "Mark as read",
       "markUnread": "Mark as unread",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "tidy": "Tidy layout",
       "markAllRead": "Mark all as read",
       "search": "Search the map",
       "reason": {
@@ -21625,7 +21628,8 @@
         "closed": "Closed: open it in a tab first",
         "noTab": "Open it in a tab to rename it",
         "notFinished": "Only a finished conversation can be unread",
-        "allRead": "Nothing unread"
+        "allRead": "Nothing unread",
+        "rowEdge": "Nothing beside it to swap with"
       },
       "close": "Close",
       "hide": "Hide",

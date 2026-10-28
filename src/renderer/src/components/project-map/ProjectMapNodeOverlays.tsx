@@ -14,6 +14,8 @@ type Props = {
   onRenameEnd: () => void
   /** The node a search just found, flagged for a moment; `flash` restarts the animation. */
   match: { id: string; flash: number } | null
+  /** The node the keyboard is on, ringed while the map has focus. */
+  cursorId: string | null
 }
 
 /** What sits over nodes inside the canvas without being part of them: a name field, a flash. */
@@ -22,10 +24,12 @@ export function ProjectMapNodeOverlays({
   agents,
   renamingId,
   onRenameEnd,
-  match
+  match,
+  cursorId
 }: Props): React.JSX.Element {
   const renaming = renamingId ? agents.get(renamingId) : undefined
   const renamingBox = renaming ? layout.nodes.get(renaming.card.paneKey) : undefined
+  const cursorBox = cursorId ? layout.nodes.get(cursorId) : undefined
   const matchBox = match ? layout.nodes.get(match.id) : undefined
   return (
     <>
@@ -46,6 +50,19 @@ export function ProjectMapNodeOverlays({
             onRenameEnd()
           }}
           onCancel={onRenameEnd}
+        />
+      ) : null}
+      {cursorBox ? (
+        <div
+          aria-hidden
+          data-project-map-cursor={cursorId}
+          className="project-map-cursor pointer-events-none absolute"
+          style={{
+            left: cursorBox.x,
+            top: cursorBox.y,
+            width: cursorBox.width,
+            height: PROJECT_MAP_NODE.height
+          }}
         />
       ) : null}
       {match && matchBox ? (
