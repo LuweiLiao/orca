@@ -97,7 +97,7 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
   } = controller
   const clipboard = useClipboardWriter()
   const onPairedHost = useWorkspaceOnPairedHost()
-  const relations = useMobileChatRelations(controller)
+  const relations = useMobileChatRelations(controller, onPairedHost)
   return (
     <>
       <MobileSessionHeaderMoreActionsSheet

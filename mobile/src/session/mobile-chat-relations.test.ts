@@ -54,25 +54,29 @@ describe('mobileChatRelations', () => {
         kind: 'forked-from',
         sessionId: 'claude_parent',
         title: 'Plan',
-        detail: 'Handed off from here · 68 messages'
+        detail: 'Handoff · this chat started from it · 68 messages',
+        agent: 'claude'
       },
       {
         kind: 'forked-into',
         sessionId: 'codex_child',
         title: 'Try ELK',
-        detail: 'Handed off from this chat · latest 40 of 68 messages'
+        detail: 'Handoff · started from this chat · latest 40 of 68 messages',
+        agent: 'claude'
       },
       {
         kind: 'references',
         sessionId: null,
         title: 'Remote plan',
-        detail: 'Referenced in message 5 · through message 9'
+        detail: 'Referenced in message 5 · through message 9',
+        agent: null
       },
       {
         kind: 'referenced-by',
         sessionId: 'claude_other',
         title: 'Review',
-        detail: 'Referenced this chat in message 5 · live'
+        detail: 'Referenced this chat in message 5 · live',
+        agent: 'claude'
       }
     ])
   })
@@ -93,7 +97,24 @@ describe('mobileChatRelations', () => {
       ['forked-from', 'claude_a'],
       ['forked-from', 'claude_b']
     ])
-    expect(relations[1]!.detail).toBe('Handed off from here · latest 2 of 12 messages')
+    expect(relations.map((relation) => relation.detail)).toEqual([
+      'Merged handoff · 2 sources · this chat started from it · 12 messages',
+      'Merged handoff · 2 sources · this chat started from it · latest 2 of 12 messages'
+    ])
+  })
+
+  it('reads a range reference from its start, and the whole span for a host without ranges', () => {
+    const ranged = {
+      ...link('claude_me', 'claude_src', 9),
+      referenceUri: 'orca-conversation://reference/x?host=local&at=9&from=3'
+    }
+    const replies = { lineage: { entries: [] }, references: { links: [ranged] } }
+    expect(mobileChatRelations('claude_me', replies, { readsRanges: true })[0]!.detail).toBe(
+      'Referenced in message 5 · messages 4–9'
+    )
+    expect(mobileChatRelations('claude_me', replies)[0]!.detail).toBe(
+      'Referenced in message 5 · through message 9'
+    )
   })
 
   it('reads nothing from replies an older host shaped differently', () => {

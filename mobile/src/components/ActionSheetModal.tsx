@@ -15,6 +15,8 @@ export type ActionSheetAction = {
   skipAutoClose?: boolean
   closeBeforePress?: boolean
   onPress: () => void
+  /** Held press; the row's tap is unaffected. */
+  onLongPress?: () => void
 }
 
 type Props = {
@@ -74,6 +76,7 @@ export function ActionSheetContent({ title, message, children, actions, onClose 
                   pressed && !action.disabled && !action.loading && styles.actionPressed
                 ]}
                 disabled={action.disabled || action.loading}
+                onLongPress={action.onLongPress}
                 onPress={() => {
                   action.onPress()
                   if (!action.skipAutoClose && onClose) {
