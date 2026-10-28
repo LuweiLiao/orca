@@ -20,6 +20,7 @@ import {
   ensureMainI18n,
   mainI18n,
   setMainPluginLanguagePacks,
+  setMainSystemLocaleReader,
   setMainUiLanguage,
   translateMain
 } from './main-i18n'
@@ -77,6 +78,7 @@ describe('main-i18n lazy locale loading', () => {
   it('keeps a newer explicit language when system fallback catalog loading finishes late', async () => {
     const { getSystemLanguageDetection } = await import('./system-language')
     expect(getSystemLanguageDetection(['fr-FR'])?.locale).toBe('fr')
+    setMainSystemLocaleReader(() => getSystemLanguageDetection()?.locale ?? null)
     let finishLoad: () => void = () => {}
     const load = vi.spyOn(mainI18n, 'loadLanguages').mockImplementationOnce(
       () =>

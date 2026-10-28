@@ -49,7 +49,10 @@ describe('native language snapshot', () => {
       const fallback = getSystemLanguageDetection(['fr-FR'])
       expect(fallback).toMatchObject({ locale: 'fr', source: 'browser-fallback' })
       expect(getSystemLanguageDetection(['ja-JP'])).toBe(fallback)
-      const { getMainSystemLocale, setMainUiLanguage, mainI18n } = await import('./main-i18n')
+      const { getMainSystemLocale, setMainSystemLocaleReader, setMainUiLanguage, mainI18n } =
+        await import('./main-i18n')
+      // The desktop's startup wiring, as `initializeMainProcessI18nAndMenu` registers it.
+      setMainSystemLocaleReader(() => getSystemLanguageDetection()?.locale ?? null)
       expect(getMainSystemLocale()).toBe('fr')
       await setMainUiLanguage('system')
       expect(mainI18n.language).toBe('fr')

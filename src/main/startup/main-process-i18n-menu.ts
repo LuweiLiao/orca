@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import type { UIZoomDirection } from '../../shared/ui-zoom-level'
-import { ensureMainI18n, setMainUiLanguage } from '../i18n/main-i18n'
+import { ensureMainI18n, setMainSystemLocaleReader, setMainUiLanguage } from '../i18n/main-i18n'
+import { getSystemLanguageDetection } from '../i18n/system-language'
 import {
   registerAppMenu,
   rebuildAppMenu,
@@ -39,6 +40,7 @@ export async function initializeMainProcessI18nAndMenu(): Promise<void> {
   if (!store) {
     throw new Error('Store must be initialized before menu')
   }
+  setMainSystemLocaleReader(() => getSystemLanguageDetection()?.locale ?? null)
   await ensureMainI18n()
   await setMainUiLanguage(store.getSettings().uiLanguage)
   logStartupMilestone('i18n-ready')

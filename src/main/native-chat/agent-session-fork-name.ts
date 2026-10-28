@@ -55,8 +55,8 @@ function mergedTwoName(values: { source: string; second: string; count: number }
 }
 
 // A name keeps the language it was given in, whichever the desktop shows now.
-const MERGED_PREFIXES = ['Merged handoff: ', '合并交接：']
-const HANDOFF_PREFIXES = [LEGACY_PREFIX, 'Handoff: ', '交接：']
+const MERGED_PREFIXES = ['Merged handoff: ', '\u5408\u5e76\u4ea4\u63a5\uff1a']
+const HANDOFF_PREFIXES = [LEGACY_PREFIX, 'Handoff: ', '\u4ea4\u63a5\uff1a']
 
 /** What a merge's own name starts with, in either language and in the desktop's own. */
 function mergedPrefixes(): string[] {

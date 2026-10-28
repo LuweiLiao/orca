@@ -1,4 +1,3 @@
-import { getSystemLanguageDetection } from './system-language'
 import i18next, {
   type BackendModule,
   type i18n as I18nInstance,
@@ -48,8 +47,16 @@ const lazyLocaleBackend: BackendModule = {
   }
 }
 
+// Why: the desktop sets this at startup; reading Electron here would pull it into the orcad
+// server bundle, which runs on plain Node and keeps English.
+let readSystemLocale: () => string | null = () => null
+
+export function setMainSystemLocaleReader(reader: () => string | null): void {
+  readSystemLocale = reader
+}
+
 export function getMainSystemLocale(): string {
-  return getSystemLanguageDetection()?.locale ?? DEFAULT_UI_LOCALE
+  return readSystemLocale() ?? DEFAULT_UI_LOCALE
 }
 
 export async function ensureMainI18n(): Promise<I18nInstance> {
