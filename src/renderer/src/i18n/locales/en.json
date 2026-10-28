@@ -30003,7 +30003,13 @@
         "noTab": "Open it in a tab to rename it",
         "notFinished": "Only a finished conversation can be unread",
         "allRead": "Nothing unread"
-      }
+      },
+      "close": "Close",
+      "hide": "Hide",
+      "hideTree": "Hide with its forks",
+      "removeFromMap": "Remove from the map",
+      "reopen": "Reopen",
+      "showHidden": "Show hidden ({{count}})"
     }
   }
 }

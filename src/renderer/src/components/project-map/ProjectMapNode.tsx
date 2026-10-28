@@ -198,7 +198,9 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   const subagentCount = card.subagents?.length ?? 0
   const forkChildren = forkChildCount(agent, graphAgents)
   const delegates = agent.childPaneKeys.length - forkChildren
-  const rowLeft = agent.fork ? (
+  const rowLeft = agent.sourceHidden ? (
+    translate('projectMap.node.sourceNotLoaded', 'Source not loaded')
+  ) : agent.fork ? (
     <span className="project-map-fork-source">{forkSourceLabel(agent.fork)}</span>
   ) : agent.parentPaneKey ? (
     translate('projectMap.node.delegatedFrom', 'Delegated')

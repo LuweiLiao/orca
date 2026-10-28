@@ -1,18 +1,17 @@
-import type {
-  AgentStatusOrchestrationContext,
-  OrchestrationChatSession
-} from '../../../../shared/agent-status/contracts/agent-status-types'
+import type { OrchestrationChatSession } from '../../../../shared/agent-status/contracts/agent-status-types'
 import type {
   DashboardCard,
   DashboardSnapshot,
   DashboardWorkspace
 } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
-import { structuredAgentSessionTabId } from '../../../../shared/agent-session/view/structured-agent-session-projection'
 import type {
   ProjectMapChat,
   ProjectMapHistoryChat,
   ProjectMapLineage
 } from './project-map-lineage'
+import { closedChatsForGraph, projectMapHistoryCard } from './project-map-closed-chats'
+import { applyProjectMapHidden } from './project-map-hidden-filter'
+import type { ProjectMapClosedChat } from '@/lib/project-map-closed-by-map'
 
 export type ProjectMapProject = {
   id: string
@@ -41,6 +40,8 @@ export type ProjectMapAgent = {
   childPaneKeys: string[]
   /** A chat whose tab is closed, drawn because a fork still connects it to the map. */
   history?: true
+  /** Its fork source is hidden by the person, so the node shows it as not loaded. */
+  sourceHidden?: true
   /** Set when this chat was forked from another; its parent above is that source. */
   fork?: {
     sourceSessionId: string
@@ -62,6 +63,10 @@ export type ProjectMapForkInput = {
   lineage: ProjectMapLineage
   /** Chats at fork ends the hosts still record; the closed ones become history nodes. */
   history?: ReadonlyMap<string, ProjectMapHistoryChat>
+  /** Chats closed from this map on this desktop, drawn as history nodes even with no fork. */
+  closedByMap?: readonly ProjectMapClosedChat[]
+  /** Hide keys (session id, else pane key) of nodes taken off the map. */
+  hidden?: ReadonlySet<string>
   titleOf: (card: DashboardCard) => string
 }
 
@@ -70,6 +75,8 @@ export type ProjectMapGraph = {
   workspaces: Map<string, ProjectMapWorkspace>
   agents: Map<string, ProjectMapAgent>
   edges: ProjectMapEdge[]
+  /** Hide keys that matched a node of this project, left off the map. */
+  hiddenKeys?: string[]
 }
 
 export function listProjectMapProjects(snapshot: DashboardSnapshot): ProjectMapProject[] {
@@ -174,7 +181,7 @@ export function buildProjectMapGraph(
       paneKeyBySession.set(agent.chat.sessionId, agent.card.paneKey)
     }
   }
-  for (const chat of forks ? closedForkEnds(forks, paneKeyBySession) : []) {
+  for (const chat of forks ? closedChatsForGraph(forks, paneKeyBySession) : []) {
     const workspace = workspaces.get(chat.workspaceId)
     if (!workspace) {
       continue
@@ -221,7 +228,8 @@ export function buildProjectMapGraph(
       to: agent.card.paneKey
     })
   }
-  return { projectId, workspaces, agents, edges }
+  const hiddenKeys = applyProjectMapHidden(agents, workspaces, edges, forks?.hidden ?? new Set())
+  return { projectId, workspaces, agents, edges, ...(hiddenKeys.length > 0 ? { hiddenKeys } : {}) }
 }
 
 // Why: parentPaneKey comes from live status rows, so a stale pair can name each other.
@@ -240,81 +248,4 @@ function createsDelegationCycle(
     cursor = agents.get(cursor)?.parentPaneKey ?? null
   }
   return false
-}
-
-/** The structured chat behind each orchestrated pane, read from the sessions the runtime published. */
-export function projectMapChatSessions(
-  contexts: Readonly<Record<string, AgentStatusOrchestrationContext>> | undefined
-): Map<string, OrchestrationChatSession> {
-  const sessions = new Map<string, OrchestrationChatSession>()
-  for (const [paneKey, context] of Object.entries(contexts ?? {})) {
-    if (context.session) {
-      sessions.set(paneKey, context.session)
-    }
-  }
-  for (const context of Object.values(contexts ?? {})) {
-    if (context.parentPaneKey && context.parentSession && !sessions.has(context.parentPaneKey)) {
-      sessions.set(context.parentPaneKey, context.parentSession)
-    }
-  }
-  return sessions
-}
-
-/** Fork ends with no open card, sources before the children forked from them. */
-function closedForkEnds(
-  forks: ProjectMapForkInput,
-  open: ReadonlyMap<string, string>
-): ProjectMapHistoryChat[] {
-  const order: string[] = []
-  const placed = new Set<string>()
-  const place = (sessionId: string, trail: Set<string>): void => {
-    if (placed.has(sessionId) || trail.has(sessionId)) {
-      return
-    }
-    trail.add(sessionId)
-    const source = forks.lineage.get(sessionId)
-    if (source) {
-      place(source, trail)
-    }
-    placed.add(sessionId)
-    order.push(sessionId)
-  }
-  for (const [child, source] of forks.lineage) {
-    place(source, new Set())
-    place(child, new Set())
-  }
-  return order.flatMap((sessionId) => {
-    const chat = open.has(sessionId) ? undefined : forks.history?.get(sessionId)
-    return chat ? [chat] : []
-  })
-}
-
-export const PROJECT_MAP_HISTORY_PANE_PREFIX = 'project-map-history:'
-
-function projectMapHistoryCard(
-  chat: ProjectMapHistoryChat,
-  workspace: ProjectMapWorkspace
-): DashboardCard {
-  return {
-    paneKey: `${PROJECT_MAP_HISTORY_PANE_PREFIX}${chat.sessionId}`,
-    ptyId: null,
-    agentType: chat.agent,
-    bucket: 'idle',
-    dotState: 'idle',
-    task: chat.title ?? '',
-    ...(chat.title ? { conversationName: chat.title } : {}),
-    repoId: workspace.repoId,
-    worktreeId: workspace.worktreeId,
-    tabId: structuredAgentSessionTabId(chat.sessionId),
-    leafId: null,
-    repoName: workspace.repoName,
-    worktreeName: workspace.worktreeName,
-    hostKind: workspace.hostKind,
-    ...(chat.executionHostId ? { executionHostId: chat.executionHostId } : {}),
-    workspaceKind: workspace.workspaceKind,
-    startedAt: 0,
-    finishedAt: null,
-    stateChangedAt: 0,
-    unseen: false
-  }
 }

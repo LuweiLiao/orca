@@ -1,4 +1,7 @@
-import type { OrchestrationChatSession } from '../../../../shared/agent-status/contracts/agent-status-types'
+import type {
+  AgentStatusOrchestrationContext,
+  OrchestrationChatSession
+} from '../../../../shared/agent-status/contracts/agent-status-types'
 import type { DashboardCard } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
 import type { ExecutionHostId } from '../../../../shared/execution-host/execution-host'
 import { isStructuredTab } from '../../../../shared/agent-session/view/structured-agent-session-tab'
@@ -103,4 +106,22 @@ export function projectMapLineageFromFeeds(
     }
   }
   return { lineage, history }
+}
+
+/** The structured chat behind each orchestrated pane, read from the sessions the runtime published. */
+export function projectMapChatSessions(
+  contexts: Readonly<Record<string, AgentStatusOrchestrationContext>> | undefined
+): Map<string, OrchestrationChatSession> {
+  const sessions = new Map<string, OrchestrationChatSession>()
+  for (const [paneKey, context] of Object.entries(contexts ?? {})) {
+    if (context.session) {
+      sessions.set(paneKey, context.session)
+    }
+  }
+  for (const context of Object.values(contexts ?? {})) {
+    if (context.parentPaneKey && context.parentSession && !sessions.has(context.parentPaneKey)) {
+      sessions.set(context.parentPaneKey, context.parentSession)
+    }
+  }
+  return sessions
 }

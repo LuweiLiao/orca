@@ -5,6 +5,9 @@ import {
   EyeOff,
   GitFork,
   Pencil,
+  RotateCcw,
+  Trash2,
+  X,
   Scan,
   Search,
   SquareArrowOutUpRight,
@@ -32,6 +35,7 @@ import {
 } from './project-map-node-actions'
 import { projectMapNodeIdOf } from './project-map-node-target'
 import { useProjectMapForkable } from './project-map-native-fork'
+import { useProjectMapNodeCommands } from './use-project-map-node-commands'
 
 type Props = {
   graph: ProjectMapGraph
@@ -53,7 +57,11 @@ const AGENT_LABELS: Record<ProjectMapAgentActionId, () => string> = {
   'new-child': () => translate('projectMap.menu.newChild', 'New child conversation'),
   rename: () => translate('projectMap.menu.rename', 'Rename'),
   'mark-read': () => translate('projectMap.menu.markRead', 'Mark as read'),
-  'mark-unread': () => translate('projectMap.menu.markUnread', 'Mark as unread')
+  'mark-unread': () => translate('projectMap.menu.markUnread', 'Mark as unread'),
+  close: () => translate('projectMap.menu.close', 'Close'),
+  hide: () => translate('projectMap.menu.hide', 'Hide'),
+  'hide-tree': () => translate('projectMap.menu.hideTree', 'Hide with its forks'),
+  'remove-from-map': () => translate('projectMap.menu.removeFromMap', 'Remove from the map')
 }
 
 const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
@@ -62,7 +70,11 @@ const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
   'new-child': GitFork,
   rename: Pencil,
   'mark-read': Eye,
-  'mark-unread': EyeOff
+  'mark-unread': EyeOff,
+  close: X,
+  hide: EyeOff,
+  'hide-tree': EyeOff,
+  'remove-from-map': Trash2
 }
 
 const REASONS: Record<ProjectMapActionBlock, () => string> = {
@@ -129,6 +141,8 @@ export function ProjectMapCanvasMenu({
   const members = group
     ? group.memberPaneKeys.flatMap((paneKey) => graph.agents.get(paneKey) ?? [])
     : []
+  const commands = useProjectMapNodeCommands(graph)
+  const hiddenCount = graph.hiddenKeys?.length ?? 0
   const searchKeys = getShortcutPlatform() === 'darwin' ? '⌘F' : 'Ctrl+F'
 
   const runAgent = (chat: ProjectMapAgent, id: ProjectMapAgentActionId): void => {
@@ -145,6 +159,14 @@ export function ProjectMapCanvasMenu({
         return store.acknowledgeAgents([chat.card.paneKey], undefined, 'explicit')
       case 'mark-unread':
         return store.unacknowledgeAgents([chat.card.paneKey])
+      case 'close':
+        return void commands.close(chat)
+      case 'hide':
+        return commands.hide(chat, false)
+      case 'hide-tree':
+        return commands.hide(chat, true)
+      case 'remove-from-map':
+        return commands.removeFromMap(chat)
     }
   }
 
@@ -173,8 +195,12 @@ export function ProjectMapCanvasMenu({
             <MenuItem
               key={action.id}
               action={action}
-              label={AGENT_LABELS[action.id]()}
-              Icon={AGENT_ICONS[action.id]}
+              label={
+                agent.history && action.id === 'open-tab'
+                  ? translate('projectMap.menu.reopen', 'Reopen')
+                  : AGENT_LABELS[action.id]()
+              }
+              Icon={agent.history && action.id === 'open-tab' ? RotateCcw : AGENT_ICONS[action.id]}
               onSelect={() => runAgent(agent, action.id)}
             />
           ))
@@ -207,6 +233,14 @@ export function ProjectMapCanvasMenu({
               {translate('projectMap.menu.search', 'Search the map')}
               <ContextMenuShortcut>{searchKeys}</ContextMenuShortcut>
             </ContextMenuItem>
+            {hiddenCount > 0 ? (
+              <ContextMenuItem data-project-map-action="show-hidden" onSelect={commands.showHidden}>
+                <Eye />
+                {translate('projectMap.menu.showHidden', 'Show hidden ({{count}})', {
+                  count: hiddenCount
+                })}
+              </ContextMenuItem>
+            ) : null}
           </>
         )}
       </ContextMenuContent>

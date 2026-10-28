@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import {
+  projectMapClosedChats,
+  subscribeToProjectMapClosedChats
+} from '@/lib/project-map-closed-by-map'
+import { projectMapHiddenKeys, subscribeToProjectMapHidden } from '@/lib/project-map-hidden'
 import { Minus, Network, Plus, Scan, Search } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { Button } from '@/components/ui/button'
@@ -16,19 +21,18 @@ import { activateAndRevealWorkspace } from '@/lib/workspace/activation/worktree-
 import {
   buildProjectMapGraph,
   listProjectMapProjects,
-  projectMapChatSessions,
   type ProjectMapAgent,
   type ProjectMapWorkspace
 } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
 import { projectMapChatRows, subscribeToProjectMapChatRows } from './project-map-chat-rows'
 import { collapseProjectMapGraph } from './project-map-collapse'
-import { activateAiVaultStructuredSession } from '@/lib/agent-session/open/activate-ai-vault-structured-session'
-import { structuredAgentSessionTargetForHost } from '@/runtime/native-chat/session-ownership/structured-agent-session-owner'
+import { reopenProjectMapChat } from './project-map-reopen'
 import { projectMapAgentTitle } from './project-map-labels'
-import { projectMapChatsByPaneKey } from './project-map-lineage'
+import { projectMapChatSessions, projectMapChatsByPaneKey } from './project-map-lineage'
 import { projectMapAgentHasTab } from './project-map-node-actions'
 import { useProjectMapLineage } from './use-project-map-lineage'
+import { useProjectMapUndoKey } from './use-project-map-undo'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
 import { appFlowSignalBus } from './project-flow-app'
@@ -49,6 +53,9 @@ export default function ProjectMapPage(): React.JSX.Element {
   )
   const { lineage, history } = useProjectMapLineage(chats)
   const [searchOpen, setSearchOpen] = useState(false)
+  const closedByMap = useSyncExternalStore(subscribeToProjectMapClosedChats, projectMapClosedChats)
+  const hidden = useSyncExternalStore(subscribeToProjectMapHidden, projectMapHiddenKeys)
+  useProjectMapUndoKey()
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
   const projectId =
@@ -65,10 +72,12 @@ export default function ProjectMapPage(): React.JSX.Element {
             chatsByPaneKey: chats,
             lineage,
             history,
+            closedByMap,
+            hidden,
             titleOf: projectMapAgentTitle
           })
         : null,
-    [chats, history, lineage, projectId, sessions, snapshot]
+    [chats, closedByMap, hidden, history, lineage, projectId, sessions, snapshot]
   )
   // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
@@ -116,14 +125,7 @@ export default function ProjectMapPage(): React.JSX.Element {
       (agent.chat &&
         !projectMapAgentHasTab(useAppStore.getState().unifiedTabsByWorktree, agent.card))
     if (tabless && agent.chat) {
-      const target = structuredAgentSessionTargetForHost(agent.chat.executionHostId)
-      void activateAiVaultStructuredSession(
-        {
-          structuredSession: { sessionId: agent.chat.sessionId, workspaceId: agent.card.worktreeId }
-        },
-        undefined,
-        target ?? undefined
-      )
+      void reopenProjectMapChat(agent)
       return
     }
     revealDashboardAgent({

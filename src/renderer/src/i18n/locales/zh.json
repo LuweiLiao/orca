@@ -28572,7 +28572,13 @@
         "noTab": "请先在标签页中打开再重命名",
         "notFinished": "只有已完成的对话才能标为未读",
         "allRead": "没有未读内容"
-      }
+      },
+      "close": "关闭",
+      "hide": "隐藏",
+      "hideTree": "隐藏及其分叉",
+      "removeFromMap": "从图上移除",
+      "reopen": "重新打开",
+      "showHidden": "显示已隐藏（{{count}}）"
     }
   }
 }
