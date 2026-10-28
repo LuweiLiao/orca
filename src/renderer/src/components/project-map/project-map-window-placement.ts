@@ -1,4 +1,34 @@
+import { PROJECT_MAP_NODE } from './project-map-layout'
+
 export type ProjectMapRect = { x: number; y: number; width: number; height: number }
+
+/** A node-sized box on the content, where it shows in the viewport at the current pan and zoom. */
+export function projectMapViewportRect(
+  box: { x: number; y: number; width: number },
+  view: { x: number; y: number; zoom: number }
+): ProjectMapRect {
+  return {
+    x: box.x * view.zoom + view.x,
+    y: box.y * view.zoom + view.y,
+    width: box.width * view.zoom,
+    height: PROJECT_MAP_NODE.height * view.zoom
+  }
+}
+
+/** Where a placed, not yet created, child shows: its header pin sits on the dropped point. */
+export function projectMapDraftRect(
+  point: { x: number; y: number },
+  view: { x: number; y: number; zoom: number }
+): ProjectMapRect {
+  return projectMapViewportRect(
+    {
+      x: point.x,
+      y: point.y - PROJECT_MAP_NODE.headerPinOffsetY,
+      width: PROJECT_MAP_NODE.agentWidth
+    },
+    view
+  )
+}
 
 const GAP = 14
 const EDGE = 8
