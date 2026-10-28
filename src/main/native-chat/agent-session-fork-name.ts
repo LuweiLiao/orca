@@ -43,14 +43,44 @@ function interpolated(template: string, values: Record<string, string | number>)
   return template.replace(/\{\{(source|second|count)\}\}/g, (_, key: string) => String(values[key]))
 }
 
-/** The name under its hand-off prefixes, so a hand-off of a hand-off reads "Handoff: X" once. */
-function baseChatName(name: string): string {
+function mergedTwoName(values: { source: string; second: string; count: number }): string {
+  return interpolated(
+    translateMain(
+      'projectMap.childName.mergedTwo',
+      'Merged handoff: {{source}} and {{second}}',
+      values
+    ),
+    values
+  )
+}
+
+// A name keeps the language it was given in, whichever the desktop shows now.
+const MERGED_PREFIXES = ['Merged handoff: ', '合并交接：']
+const HANDOFF_PREFIXES = [LEGACY_PREFIX, 'Handoff: ', '交接：']
+
+/** What a merge's own name starts with, in either language and in the desktop's own. */
+function mergedPrefixes(): string[] {
   const marker = '\u0000'
-  const prefixes = [LEGACY_PREFIX, 'Handoff: ', handoffName(marker).split(marker)[0] ?? '']
+  const here = mergedTwoName({ source: marker, second: '', count: 2 }).split(marker)[0]
+  return [...new Set([...MERGED_PREFIXES, ...(here ? [here] : [])])]
+}
+
+/** What a hand-off's or a merge's own name starts with; merged first, being the longer. */
+function handoffPrefixes(): string[] {
+  const here = handoffName('\u0000').split('\u0000')[0]
+  return [...mergedPrefixes(), ...new Set([...HANDOFF_PREFIXES, ...(here ? [here] : [])])]
+}
+
+/**
+ * The name under its hand-off prefixes, so a hand-off of a hand-off reads "Handoff: X" once and a
+ * merge of a merge does not stack "Merged handoff:".
+ */
+function baseChatName(name: string): string {
+  const prefixes = handoffPrefixes()
   let base = name
-  for (let prefix = prefixes.find((p) => p && base.startsWith(p)); prefix;) {
+  for (let prefix = prefixes.find((p) => base.startsWith(p)); prefix;) {
     base = base.slice(prefix.length)
-    prefix = prefixes.find((p) => p && base.startsWith(p))
+    prefix = prefixes.find((p) => base.startsWith(p))
   }
   return base || name
 }
@@ -63,7 +93,8 @@ export function forkedChatFallbackName(
   sourceNames: readonly (string | null | undefined)[],
   sourceCount = sourceNames.length
 ): string | null {
-  const names = sourceNames.flatMap((name) => (name ? [baseChatName(name)] : []))
+  // Two chats of one title would read "A and A"; a title says each once.
+  const names = [...new Set(sourceNames.flatMap((name) => (name ? [baseChatName(name)] : [])))]
   const [source, second] = names
   if (!source) {
     return null
@@ -72,20 +103,16 @@ export function forkedChatFallbackName(
     return handoffName(source)
   }
   const values = { source, second: second ?? '', count: sourceCount }
-  return interpolated(
-    sourceCount === 2 && second
-      ? translateMain(
-          'projectMap.childName.mergedTwo',
-          'Merged handoff: {{source}} and {{second}}',
-          values
-        )
-      : translateMain(
+  return sourceCount === 2 && second
+    ? mergedTwoName(values)
+    : interpolated(
+        translateMain(
           'projectMap.childName.mergedMany',
           'Merged handoff: {{source}} and others, {{count}} chats',
           values
         ),
-    values
-  )
+        values
+      )
 }
 
 /**
@@ -162,21 +189,22 @@ type LegacyRenameStore = {
   ) => Promise<unknown>
 }
 
-// How builds llw31-34 named a merge: after one source, as if it came first.
-const ONE_SOURCE_MERGE_NAME = /^(Merged handoff: .+ and \d+ more|合并交接：.+ 和另外 \d+ 个对话)$/
-
-/** The equal-sources name for a merge still carrying the one-source name it was first given. */
+/**
+ * The current name for a merge whose automatic name an earlier build gave it: after one source,
+ * with stacked prefixes, or with one title twice. Null when it already reads so, or was chosen.
+ */
 export function oneSourceMergeRename(
   child: NameFields,
   sourceNames: readonly (string | null | undefined)[]
 ): string | null {
+  const name = child.conversationName ?? ''
   const automatic =
     child.conversationNameSource === undefined || child.conversationNameSource === 'seed'
-  return automatic &&
-    sourceNames.length > 1 &&
-    ONE_SOURCE_MERGE_NAME.test(child.conversationName ?? '')
-    ? forkedChatFallbackName(sourceNames)
-    : null
+  if (!automatic || sourceNames.length < 2 || !mergedPrefixes().some((p) => name.startsWith(p))) {
+    return null
+  }
+  const next = forkedChatFallbackName(sourceNames)
+  return next && next !== name ? next : null
 }
 
 /** Renames the children an older build named "Fork of …"; returns the sessions it renamed. */

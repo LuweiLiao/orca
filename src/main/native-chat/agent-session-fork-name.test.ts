@@ -74,6 +74,15 @@ describe('forkedChatFallbackName', () => {
     expect(forkedChatFallbackName([null, null])).toBeNull()
   })
 
+  it('says one title once, and does not stack prefixes when a source was itself merged', () => {
+    expect(forkedChatFallbackName(['Lanes', 'Lanes'])).toBe(
+      'Merged handoff: Lanes and others, 2 chats'
+    )
+    expect(forkedChatFallbackName(['Merged handoff: Lanes and Wires', 'Lanes'])).toBe(
+      'Merged handoff: Lanes and Wires and Lanes'
+    )
+  })
+
   it('keeps one prefix when the source was itself a hand-off', () => {
     expect(forkedChatFallbackName(['Handoff: Lineage data'])).toBe('Handoff: Lineage data')
   })
@@ -134,5 +143,23 @@ describe('oneSourceMergeRename', () => {
         'B'
       ])
     ).toBeNull()
+  })
+})
+
+describe('oneSourceMergeRename on names this build gives', () => {
+  it('fixes stacked prefixes and a title said twice, and leaves a name already current', () => {
+    const seed = 'seed' as const
+    const stacked = {
+      conversationName: 'Merged handoff: Merged handoff: Lanes and Lanes and Lanes',
+      conversationNameSource: seed
+    }
+    expect(oneSourceMergeRename(stacked, ['Merged handoff: Lanes and Wires', 'Lanes'])).toBe(
+      'Merged handoff: Lanes and Wires and Lanes'
+    )
+    const current = {
+      conversationName: 'Merged handoff: Lanes and Wires',
+      conversationNameSource: seed
+    }
+    expect(oneSourceMergeRename(current, ['Lanes', 'Wires'])).toBeNull()
   })
 })
