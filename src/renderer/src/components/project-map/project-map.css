@@ -360,7 +360,9 @@
   );
 }
 
+/* Its label stays on one line even where the content box ends just past the picked chats. */
 .project-map-fork-handle {
+  white-space: nowrap;
   box-shadow:
     0 0 0 3px var(--background),
     0 4px 10px rgb(0 0 0 / 0.2);
