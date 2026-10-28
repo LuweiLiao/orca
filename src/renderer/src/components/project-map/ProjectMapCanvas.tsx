@@ -37,6 +37,7 @@ import { useProjectMapKeyboard } from './use-project-map-keyboard'
 import { useProjectMapRowMoves } from './use-project-map-row-moves'
 import { projectMapDropSlot } from './project-map-drop-slot'
 import { noteProjectMapChatRow } from './project-map-chat-rows'
+import { projectMapDeleteKey, useProjectMapNodeCommands } from './use-project-map-node-commands'
 
 type Props = {
   /** Every chat on the map, the hidden ones in stacks included. */
@@ -54,8 +55,6 @@ type Props = {
   onToggleCollapse: (parentPaneKey: string) => void
   searchOpen: boolean
   onSearchOpenChange: (open: boolean) => void
-  /** Delete and undo keys, bound only when the page supplies them. */
-  keyboardExtras?: { onDelete?: (id: string) => void; onUndo?: () => void }
 }
 
 const AWAIT_FORKED_CHAT_MS = 30_000
@@ -74,8 +73,7 @@ export function ProjectMapCanvas({
   onOpenWorkspace,
   onToggleCollapse,
   searchOpen,
-  onSearchOpenChange,
-  keyboardExtras
+  onSearchOpenChange
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -128,6 +126,7 @@ export function ProjectMapCanvas({
   })
   const dropSelection = useCallback(() => setSelectedId(null), [])
   const rowMoves = useProjectMapRowMoves(graph, layout)
+  const commands = useProjectMapNodeCommands(graph)
   const { draft } = forkDrag
   // A placed child lives only while its panel is open; closing or creating drops it.
   if (draft?.placed && (forkFor !== draft.originId || !forkOrigin)) {
@@ -219,7 +218,7 @@ export function ProjectMapCanvas({
     onRename: setRenamingId,
     onMoveRow: (paneKey, direction) => void rowMoves.move(paneKey, direction),
     onEscape: dropSelection,
-    ...keyboardExtras
+    onDelete: (id) => projectMapDeleteKey(graph, id, commands)
   })
   // The grid background pans and scales with the content.
   const viewportStyle: CssVariables = {
