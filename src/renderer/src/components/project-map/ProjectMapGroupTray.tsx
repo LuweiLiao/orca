@@ -12,7 +12,12 @@ import type { ProjectMapAgent } from './project-map-graph'
 import type { ProjectMapGroup } from './project-map-collapse'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
 import { projectMapConversationReference } from './project-map-reference'
-import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
+import {
+  placeProjectMapWindow,
+  type ProjectMapAvoidRect,
+  type ProjectMapRect,
+  type ProjectMapWindowLayer
+} from './project-map-window-placement'
 
 type Filter = 'all' | 'waiting' | 'working'
 
@@ -53,6 +58,7 @@ export function ProjectMapGroupTray({
   anchor,
   viewport,
   avoid,
+  layer,
   onClose,
   onOpenMember,
   onExpand
@@ -62,7 +68,8 @@ export function ProjectMapGroupTray({
   agents: ReadonlyMap<string, ProjectMapAgent>
   anchor: ProjectMapRect
   viewport: { width: number; height: number }
-  avoid: ProjectMapRect[]
+  avoid: ProjectMapAvoidRect[]
+  layer: ProjectMapWindowLayer
   onClose: () => void
   onOpenMember: (paneKey: string) => void
   onExpand: () => void
@@ -120,11 +127,14 @@ export function ProjectMapGroupTray({
       })}
       data-project-map-window=""
       data-project-map-tray=""
+      data-project-map-node-window=""
       onClick={(event) => event.stopPropagation()}
+      onPointerDownCapture={layer.onRaise}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={moveFocus}
-      className="project-map-window absolute z-20 flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
+      className="project-map-window pointer-events-auto absolute flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
       style={{
+        zIndex: layer.zIndex,
         left: position.x,
         top: position.y,
         width: SIZE.width,

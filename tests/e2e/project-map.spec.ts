@@ -5,6 +5,7 @@ import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-s
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { closeProjectMapWindows } from './helpers/project-map-windows'
 import { RuntimeClient } from '../../src/cli/runtime-client'
 import { orchestrationReferenceToken } from '../../src/shared/native-chat-orchestration-reference'
 import {
@@ -201,9 +202,13 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     await expect.poll(panOf).not.toBe(panBefore)
     await map.getByRole('button', { name: 'Fit to view' }).click()
 
-    // Releasing a finished worker retires its tab; the map still draws it and reads its history.
+    // An empty canvas press drops the selection but leaves the window for its own close button.
     await viewport.click({ position: { x: (viewportBox?.width ?? 200) - 12, y: 6 } })
-    await expect(chatWindow).toHaveCount(0)
+    await expect(worker).not.toHaveAttribute('data-selected', 'true')
+    await expect(chatWindow).toHaveCount(1)
+    await closeProjectMapWindows(map)
+
+    // Releasing a finished worker retires its tab; the map still draws it and reads its history.
     await sessionClient(userDataDir, derived.sessionId).call('orchestration.send', {
       from: derived.handle,
       to: `run:${run.result.run.id}`,
@@ -238,13 +243,25 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     await expect(chatWindow.getByRole('textbox')).toBeVisible()
     await screenshot('agent-window-released')
 
-    // The coordinator's worktree holds the parent chat and the worker placed on `current`.
+    // The coordinator's worktree holds the parent chat and the worker placed on `current`. Its
+    // window opens beside the worker's, which stays open; the last one touched is on top.
+    const nodeWindows = map.locator('[data-project-map-node-window]')
+    const workerWindow = nodeWindows.filter({ hasNot: page.getByRole('tablist') })
+    const workspaceWindow = nodeWindows.filter({ has: page.getByRole('tablist') })
     await node(worktreeId).click()
-    await expect(chatWindow.getByRole('tab')).toHaveCount(2)
+    await expect(workspaceWindow.getByRole('tab')).toHaveCount(2)
+    await expect(nodeWindows).toHaveCount(2)
+    const zOf = (locator: typeof chatWindow): Promise<number> =>
+      locator.first().evaluate((element) => Number(getComputedStyle(element).zIndex))
+    expect(await zOf(workspaceWindow)).toBeGreaterThan(await zOf(workerWindow))
     await screenshot('workspace-window')
-    // Escape stays with the chat while its composer has focus; an empty canvas press closes.
     await viewport.click({ position: { x: (viewportBox?.width ?? 200) - 12, y: 6 } })
-    await expect(chatWindow).toHaveCount(0)
+    await expect(nodeWindows).toHaveCount(2)
+    // Each window closes on its own, leaving the other open.
+    await workspaceWindow.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(nodeWindows).toHaveCount(1)
+    await expect(workerWindow.getByRole('textbox')).toBeVisible()
+    await closeProjectMapWindows(map)
     await screenshot('map')
     expect(
       await electronApp.evaluate(({ BrowserWindow }) =>

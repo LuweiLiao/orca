@@ -6,6 +6,7 @@ import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-s
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { closeProjectMapWindows } from './helpers/project-map-windows'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
@@ -216,6 +217,7 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     expect(new Set(fromParent).size).toBe(1)
     const viewport = map.locator('.project-map-viewport')
     const viewportBox = await viewport.boundingBox()
+    await closeProjectMapWindows(map)
     await viewport.click({ position: { x: (viewportBox?.width ?? 200) - 12, y: 6 } })
     await screenshot('fork-tree')
 

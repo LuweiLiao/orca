@@ -6,6 +6,7 @@ import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-s
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { closeProjectMapWindows } from './helpers/project-map-windows'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
@@ -165,7 +166,7 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     const childNode = map.locator(`[data-project-map-node="${paneKeyOf(child.childSessionId)}"]`)
     // The child must have answered before it can be read at its latest turn.
     await expect(childNode).toContainText('Idle', { timeout: 30_000 })
-    await map.locator('[data-project-map-window] button[aria-label="Close"]').first().click()
+    await closeProjectMapWindows(map)
     await parentNode.click({ modifiers: ['Shift'] })
     await childNode.click({ modifiers: ['Shift'] })
     await expect(map.locator('[data-merge-picked="true"]')).toHaveCount(2)

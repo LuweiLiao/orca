@@ -165,6 +165,8 @@ export function useProjectMapViewport(content: { width: number; height: number }
 
   return {
     viewportRef,
+    /** The mounted viewport, for reading where its overlays sit. */
+    element,
     size,
     view,
     fit,

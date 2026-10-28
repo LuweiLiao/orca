@@ -5,6 +5,7 @@ import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-s
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { closeProjectMapWindows } from './helpers/project-map-windows'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
@@ -107,6 +108,7 @@ test('right-clicks, renames, searches and opens map nodes, closed history chats 
     await page.evaluate((id) => window.__store!.getState().closeUnifiedTab(id), childTabId!)
     const history = map.locator('[data-project-map-node][data-history="true"]')
     await expect(history).toHaveCount(1, { timeout: 30_000 })
+    // Closing its tab closes the chat, and its window with it.
     await expect(chatWindow).toHaveCount(0)
 
     // A closed chat can be reopened or referenced; forking and renaming say what to do first.
@@ -190,8 +192,8 @@ test('right-clicks, renames, searches and opens map nodes, closed history chats 
     await chatWindow.getByRole('textbox').focus()
     await page.keyboard.press('Control+f')
     await expect(search).toHaveCount(0)
+    await closeProjectMapWindows(map)
     await viewport.click({ position: { x: 8, y: 8 } })
-    await expect(chatWindow).toHaveCount(0)
     await page.keyboard.press('Control+f')
     await expect(search).toBeVisible()
 
@@ -261,6 +263,7 @@ test('right-clicks, renames, searches and opens map nodes, closed history chats 
     await expect(search).toHaveCount(0)
 
     // Double-clicking a closed chat reopens its tab; double-clicking an open one shows its tab.
+    await closeProjectMapWindows(map)
     await history.dblclick()
     await expect
       .poll(() =>
@@ -275,6 +278,7 @@ test('right-clicks, renames, searches and opens map nodes, closed history chats 
       .toBe(true)
     await page.evaluate(() => window.__store!.getState().openProjectMapPage())
     await expect(parentNode).toBeVisible({ timeout: 30_000 })
+    await closeProjectMapWindows(map)
     await parentNode.dblclick()
     await expect(map).toHaveCount(0)
     await expect(parentTab).toBeVisible()

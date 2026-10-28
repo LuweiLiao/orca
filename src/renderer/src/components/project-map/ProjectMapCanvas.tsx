@@ -27,12 +27,9 @@ import { useProjectMapAwaitedChild, useProjectMapEscape } from './use-project-ma
 import { ProjectMapForkWindow, type ProjectMapForkIntent } from './ProjectMapForkWindow'
 import { useProjectMapForkDrag, useProjectMapHover } from './use-project-map-fork-drag'
 import type { ProjectMapCollapsedView } from './project-map-collapse'
-import { ProjectMapSelectionWindow } from './ProjectMapSelectionWindow'
-import {
-  projectMapAgentForkable,
-  projectMapLinkedNodes,
-  projectMapWindowSubject
-} from './project-map-window-subject'
+import { ProjectMapNodeWindows } from './ProjectMapNodeWindows'
+import { useProjectMapOpenWindows } from './use-project-map-open-windows'
+import { projectMapAgentForkable, projectMapLinkedNodes } from './project-map-window-subject'
 import {
   projectMapDraftRect,
   projectMapViewportRect,
@@ -84,6 +81,9 @@ export function ProjectMapCanvas({
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Each clicked node keeps its own window open until its close button.
+  const windows = useProjectMapOpenWindows(viewport.element, setSelectedId)
+  const { open: openWindow } = windows
   // The chat a new child is being made from: one chat, a turn on its timeline, or a merge.
   const [fork, setFork] = useState<ProjectMapForkIntent | null>(null)
   const forkFor = fork?.paneKey ?? null
@@ -104,7 +104,9 @@ export function ProjectMapCanvas({
   // A chat folded into a stack is shown, and wired, through the stack.
   const shownAs = (id: string): string | null =>
     layout.nodes.has(id) ? id : (collapsed.groupOf.get(id) ?? null)
-  // A node that vanished (agent closed, project switched) takes its window with it.
+  // A window goes with its node, adjusted in render so it never outlives it by a frame.
+  windows.keepShown((id) => shownAs(id) !== null)
+  // A node that vanished (agent closed, project switched) drops out of the selection.
   const selected = selectedId && shownAs(selectedId) ? selectedId : null
   const selectedShown = selected ? shownAs(selected) : null
   const forkOrigin = forkFor === selected && selected ? graph.agents.get(selected) : undefined
@@ -124,7 +126,7 @@ export function ProjectMapCanvas({
   })
   const picks = useProjectMapMultiSelect(graph, layout)
   const { clear: clearPicks } = picks
-  const awaitChild = useProjectMapAwaitedChild(graph, (id) => shownAs(id) !== null, setSelectedId)
+  const awaitChild = useProjectMapAwaitedChild(graph, (id) => shownAs(id) !== null, windows.open)
   const dropSelection = useCallback(() => {
     setSelectedId(null)
     clearPicks()
@@ -137,7 +139,7 @@ export function ProjectMapCanvas({
   const [first, second, extra] = picks.picked
   const pair = first && second && !extra ? ([first, second] as const) : null
   const comparing = compare?.map((id) => graph.agents.get(id))
-  // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click drops the merge and opens the chat.
+  // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click drops the merge and opens its window.
   const selectNode = (id: string, adding?: boolean): void => {
     if (adding) {
       picks.toggle(id, selected)
@@ -146,7 +148,7 @@ export function ProjectMapCanvas({
       return
     }
     picks.clear()
-    setSelectedId(id)
+    windows.open(id)
   }
   const { draft } = forkDrag
   // A placed child lives only while its panel is open; closing or creating drops it.
@@ -163,8 +165,6 @@ export function ProjectMapCanvas({
       ? forkable(forkDrag.pressed)
       : (forkable(hovered) ?? (selected === selectedShown ? forkable(selected) : null))
   const handleBox = handleFor ? layout.nodes.get(handleFor) : undefined
-  const group = selectedShown ? collapsed.groups.get(selectedShown) : undefined
-  const trayOpen = group !== undefined && selected === selectedShown
 
   const linked = useMemo(
     () => projectMapLinkedNodes(collapsed.graph.edges, selectedShown),
@@ -178,10 +178,13 @@ export function ProjectMapCanvas({
 
   const dropReference = useProjectMapReferenceDrop(
     graph,
-    useCallback((target: string) => {
-      setFork(null)
-      setSelectedId(target)
-    }, [])
+    useCallback(
+      (target: string) => {
+        setFork(null)
+        openWindow(target)
+      },
+      [openWindow]
+    )
   )
 
   const toViewport = (id: string): ProjectMapRect | null => {
@@ -192,14 +195,13 @@ export function ProjectMapCanvas({
     layout,
     viewport,
     shownAs,
-    select: setSelectedId
+    select: windows.open
   })
   const openNodeAt = (event: React.MouseEvent): void => {
     const id = projectMapNodeIdOf(event.target) ?? ''
     const [agent, workspace] = [graph.agents.get(id), graph.workspaces.get(id)]
     return agent ? onOpenAgent(agent) : workspace ? onOpenWorkspace(workspace) : undefined
   }
-  const subject = projectMapWindowSubject(graph, selected)
   const keyboard = useProjectMapKeyboard({
     graph,
     layout,
@@ -368,24 +370,21 @@ export function ProjectMapCanvas({
             onForked()
           }}
         />
-      ) : anchor && (trayOpen || subject) ? (
-        <ProjectMapSelectionWindow
-          graph={graph}
-          collapsed={collapsed}
-          selected={selected}
-          subject={subject}
-          group={trayOpen ? group : undefined}
-          anchor={anchor}
-          viewport={viewport.size}
-          avoid={[...linked].flatMap((id) => toViewport(id) ?? [])}
-          forkUnsupportedHosts={forkUnsupportedHosts}
-          onSelect={setSelectedId}
-          onOpenAgent={onOpenAgent}
-          onOpenWorkspace={onOpenWorkspace}
-          onToggleCollapse={onToggleCollapse}
-          onFork={setFork}
-        />
       ) : null}
+      <ProjectMapNodeWindows
+        graph={graph}
+        collapsed={collapsed}
+        windows={windows}
+        shownAs={shownAs}
+        toViewport={toViewport}
+        viewport={viewport.size}
+        forkUnsupportedHosts={forkUnsupportedHosts}
+        forkFor={forkOrigin && fork ? forkFor : null}
+        onOpenAgent={onOpenAgent}
+        onOpenWorkspace={onOpenWorkspace}
+        onToggleCollapse={onToggleCollapse}
+        onFork={setFork}
+      />
       {comparing?.[0] && comparing[1] ? (
         <ProjectMapComparePanel
           pair={[comparing[0], comparing[1]]}

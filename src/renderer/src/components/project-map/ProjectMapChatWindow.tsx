@@ -23,7 +23,12 @@ import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels
 import { ProjectMapConversation } from './ProjectMapConversation'
 import { ProjectMapTimeline } from './ProjectMapTimeline'
 import type { ProjectMapForkAt } from './project-map-fork-sources'
-import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
+import {
+  placeProjectMapWindow,
+  type ProjectMapAvoidRect,
+  type ProjectMapRect,
+  type ProjectMapWindowLayer
+} from './project-map-window-placement'
 
 export type ProjectMapWindowSubject =
   | { kind: 'agent'; agent: ProjectMapAgent }
@@ -35,7 +40,8 @@ type Props = {
   anchor: ProjectMapRect
   viewport: { width: number; height: number }
   /** Nodes the window should avoid covering, in viewport coordinates. */
-  avoid: ProjectMapRect[]
+  avoid: ProjectMapAvoidRect[]
+  layer: ProjectMapWindowLayer
   onClose: () => void
   onOpenAgent: (agent: ProjectMapAgent) => void
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
@@ -57,6 +63,7 @@ export function ProjectMapChatWindow({
   anchor,
   viewport,
   avoid,
+  layer,
   onClose,
   onOpenAgent,
   onOpenWorkspace,
@@ -67,7 +74,7 @@ export function ProjectMapChatWindow({
 }: Props): React.JSX.Element {
   const sectionRef = useRef<HTMLElement>(null)
   const [timelineOpen, setTimelineOpen] = useState(false)
-  // Placed once per mount; the canvas keys this window by node, so opening another node re-anchors.
+  // Placed once per mount, beside its node; panning the map afterwards leaves it where it is.
   const [position, setPosition] = useState(() =>
     placeProjectMapWindow(anchor, DEFAULT_SIZE, viewport, avoid)
   )
@@ -133,10 +140,13 @@ export function ProjectMapChatWindow({
       data-kind={kind}
       data-project-map-window=""
       data-project-map-chat-window=""
+      data-project-map-node-window=""
       onClick={(event) => event.stopPropagation()}
+      onPointerDownCapture={layer.onRaise}
       onPointerDown={(event) => event.stopPropagation()}
-      className="project-map-window absolute z-20 flex min-h-[320px] min-w-[360px] resize flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
+      className="project-map-window pointer-events-auto absolute flex min-h-[320px] min-w-[360px] resize flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
       style={{
+        zIndex: layer.zIndex,
         // Widened for the timeline, the window still keeps its right edge on screen.
         left: timelineOpen
           ? Math.max(

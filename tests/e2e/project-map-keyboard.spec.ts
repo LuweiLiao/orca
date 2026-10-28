@@ -5,6 +5,7 @@ import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-s
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { closeProjectMapWindows } from './helpers/project-map-windows'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
@@ -108,8 +109,8 @@ test('walks the map with the keyboard, reorders rows and tidies them', async ({
     expect(await yOf(first)).toBeLessThan(await yOf(second))
 
     // Arrows pick the nearest node, grey ones included, and open nothing.
+    await closeProjectMapWindows(map)
     await viewport.click({ position: { x: 6, y: 6 } })
-    await expect(chatWindow).toHaveCount(0)
     await viewport.focus()
     await page.keyboard.press('ArrowRight')
     await expect(cursor).toHaveAttribute('data-project-map-cursor', worktreeId)
@@ -161,11 +162,14 @@ test('walks the map with the keyboard, reorders rows and tidies them', async ({
     await goTo(closedKey)
     await expect(open).toHaveAttribute('data-selected', 'true')
 
-    // Escape drops the selection and the cursor.
+    // Escape drops the selection and the cursor; the window waits for its own close button.
     await viewport.focus()
     await page.keyboard.press('Escape')
     await expect(cursor).toHaveCount(0)
-    await expect(chatWindow).toHaveCount(0)
+    await expect(open).not.toHaveAttribute('data-selected', 'true')
+    await expect(chatWindow).toHaveCount(1)
+    await closeProjectMapWindows(map)
+    await viewport.focus()
 
     // Space joins a merge and leaves it, opening nothing; a grey chat cannot be merged.
     await page.keyboard.press('ArrowRight')
@@ -203,7 +207,8 @@ test('walks the map with the keyboard, reorders rows and tidies them', async ({
     await chatWindow.getByRole('textbox').press('Backspace')
     await viewport.focus()
     await page.keyboard.press('Escape')
-    await expect(chatWindow).toHaveCount(0)
+    await closeProjectMapWindows(map)
+    await viewport.focus()
 
     // Alt moves the open chat past its neighbour; nowhere further, and the order is kept.
     await page.keyboard.press('ArrowRight')

@@ -5,6 +5,7 @@ import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-s
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { closeProjectMapWindows } from './helpers/project-map-windows'
 import { RuntimeClient } from '../../src/cli/runtime-client'
 import { orchestrationReferenceToken } from '../../src/shared/native-chat-orchestration-reference'
 import {
@@ -164,10 +165,10 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
     await expect(tray.locator('[data-project-map-tray-row]')).toHaveCount(1)
     await tray.getByRole('textbox').fill('')
 
-    // Opening the released worker shows its whole chat, anchored on the stack.
+    // Opening the released worker shows its whole chat beside the stack; the list stays open.
     await tray.locator(`[data-project-map-tray-row="${paneKeyOf(finished.sessionId)}"]`).click()
-    const chatWindow = map.locator('[data-project-map-window]')
-    await expect(tray).toHaveCount(0)
+    const chatWindow = map.locator('[data-project-map-chat-window]')
+    await expect(tray).toHaveCount(1)
     await expect(chatWindow.getByText('You are a dispatched worker.').first()).toBeVisible({
       timeout: 30_000
     })
@@ -175,7 +176,17 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
     await expect(windowComposer).toBeVisible()
     await expect(stack).toHaveAttribute('data-selected', 'true')
 
-    // The coordinator's node drops into that composer as a conversation reference.
+    // The coordinator's node drops into that composer as a conversation reference; the list,
+    // which stays open beside it, is closed first so it does not cover the node.
+    // The chat opened last is on top; pressing the list's header brings the list forward.
+    const zOf = (locator: typeof tray): Promise<number> =>
+      locator.evaluate((element) => Number(getComputedStyle(element).zIndex))
+    expect(await zOf(chatWindow)).toBeGreaterThan(await zOf(tray))
+    await tray.locator('header').click({ position: { x: 8, y: 8 } })
+    await expect.poll(() => zOf(tray)).toBeGreaterThan(await zOf(chatWindow))
+    await tray.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(tray).toHaveCount(0)
+    await expect(windowComposer).toBeVisible()
     await node(paneKeyOf(parent)).dragTo(windowComposer)
     const pill = windowComposer.locator('[data-native-chat-conversation-reference]')
     await expect(pill).toHaveCount(1)
@@ -213,8 +224,7 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
 
     // A node dropped on another opens that chat with the reference in its message box.
     const [, second, third] = workers
-    await chatWindow.getByRole('button', { name: 'Close', exact: true }).click()
-    await expect(chatWindow).toHaveCount(0)
+    await closeProjectMapWindows(map)
     await node(paneKeyOf(second!.sessionId)).dragTo(node(paneKeyOf(third!.sessionId)))
     await expect(node(paneKeyOf(third!.sessionId))).toHaveAttribute('data-selected', 'true')
     const thirdComposer = map.locator('[data-project-map-chat-window]').getByRole('textbox')

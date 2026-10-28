@@ -213,7 +213,7 @@ export function ProjectMapForkPanel({
           void create()
         }
       }}
-      className="project-map-window project-map-fork-window absolute z-20 flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
+      className="project-map-window project-map-fork-window absolute z-30 flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
       style={{
         left: position.x,
         top: position.y,
