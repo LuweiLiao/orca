@@ -5,7 +5,8 @@ import { withConversationReferenceInstructions } from '../../shared/conversation
 import {
   applyForkedChatName,
   forkedChatFallbackName,
-  forkedChatNameUpdate
+  forkedChatNameUpdate,
+  legacyForkedChatRename
 } from './agent-session-fork-name'
 
 type Names = Pick<AgentSessionRecord, 'conversationName' | 'conversationNameSource'>
@@ -67,6 +68,26 @@ describe('forkedChatFallbackName', () => {
       'Merged handoff: Lineage data and 2 more'
     )
     expect(forkedChatFallbackName(null, 2)).toBeNull()
+  })
+
+  it('keeps one prefix when the source was itself a hand-off', () => {
+    expect(forkedChatFallbackName('Handoff: Lineage data', 1)).toBe('Handoff: Lineage data')
+  })
+})
+
+describe('legacyForkedChatRename', () => {
+  it('renames an automatic "Fork of" name once, however deep, and leaves chosen names', () => {
+    const seed = 'seed' as const
+    const deep = { conversationName: 'Fork of Fork of Plan', conversationNameSource: seed }
+    expect(legacyForkedChatRename(deep, 1)).toBe('Handoff: Plan')
+    expect(legacyForkedChatRename({ conversationName: 'Fork of Plan' }, 2)).toBe(
+      'Merged handoff: Plan and 1 more'
+    )
+    const manual = { conversationName: 'Fork of Plan', conversationNameSource: 'manual' as const }
+    expect(legacyForkedChatRename(manual, 1)).toBeNull()
+    expect(
+      legacyForkedChatRename({ conversationName: 'Plan', conversationNameSource: seed }, 1)
+    ).toBeNull()
   })
 })
 

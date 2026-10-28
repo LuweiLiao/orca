@@ -35,6 +35,7 @@ import {
   resolveMergeSources
 } from './structured-agent-session-fork-sources'
 import { assertPersonCreatesAgent } from './agent-creation-caller-admission'
+import { renameLegacyForkedChatsOnce } from './structured-agent-session-legacy-fork-names'
 import {
   ensureStructuredHostInstalled as ensureHostInstalled,
   requireStructuredAgentAudience,
@@ -268,9 +269,11 @@ export const STRUCTURED_AGENT_SESSION_FORK_METHODS = [
     handler: async (params, ctx) => {
       await ensureHostInstalled(ctx)
       const host = requireHost(ctx)
+      const entries = agentSessionLineageTable(host.deps.journalDatabase).list()
+      await renameLegacyForkedChatsOnce(ctx, host, entries)
       // `sessions` describes closed chats too, so the map can still draw them.
       return agentSessionLineageView(
-        agentSessionLineageTable(host.deps.journalDatabase).list(),
+        entries,
         (sessionId) => host.deps.store.getRecord(sessionId),
         params.sessionIds
       )
