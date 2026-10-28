@@ -5,6 +5,7 @@ import type { ProjectMapAgent, ProjectMapEdge } from './project-map-graph'
 import { projectMapConversationReference } from './project-map-reference'
 import { projectMapAgentForkable } from './project-map-window-subject'
 import { projectMapHideKey } from './project-map-hidden-filter'
+import { projectMapSummaryBlock } from './project-map-summary'
 
 export type ProjectMapAgentActionId =
   | 'open-tab'
@@ -20,6 +21,7 @@ export type ProjectMapAgentActionId =
   | 'hide'
   | 'hide-tree'
   | 'remove-from-map'
+  | 'summary'
 
 /** Why an action is greyed out; the menu words each one. */
 export type ProjectMapActionBlock =
@@ -32,6 +34,7 @@ export type ProjectMapActionBlock =
   | 'not-finished'
   | 'all-read'
   | 'row-edge'
+  | 'summary-host-too-old'
 
 export type ProjectMapNodeAction<Id extends string = ProjectMapAgentActionId> = {
   id: Id
@@ -46,6 +49,8 @@ export type ProjectMapAgentActionContext = {
   hostTooOld: boolean
   /** Which way the chat can change rows within its lane; absent when the map cannot move it. */
   rowMoves?: { up: boolean; down: boolean }
+  /** The chat's host predates summaries. */
+  summaryHostTooOld?: boolean
 }
 
 /** A chat's tab, if one is open: terminals by their pty tab, structured chats by their own id. */
@@ -99,6 +104,7 @@ export function projectMapAgentActions(
     { id: 'open-tab', enabled: true },
     available('show-terminal', agent.card.ptyId && !agent.history ? null : 'no-terminal'),
     available('reference', projectMapConversationReference(agent) ? null : 'no-chat'),
+    available('summary', projectMapSummaryBlock(agent, context.summaryHostTooOld === true)),
     available('new-child', forkBlock(agent, context)),
     // Names live on tabs: a closed chat or a background worker has none to write to.
     available('rename', !agent.history && context.hasTab ? null : 'no-tab'),

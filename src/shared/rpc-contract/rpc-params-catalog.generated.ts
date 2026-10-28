@@ -29,6 +29,12 @@ import {
   ConversationReferenceReadParams,
   ConversationReferenceRetargetParams
 } from '../conversation-reference'
+import {
+  ConversationSummaryCancelParams,
+  ConversationSummaryListParams,
+  ConversationSummaryReadParams,
+  ConversationSummaryWriteParams
+} from '../conversation-summary'
 import { DelegatedMobileDeviceSyncParamsSchema } from '../delegated-mobile-device-contract'
 import {
   DesktopBrowserBridgeAttachParams,
@@ -778,6 +784,11 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.subscribeAvailability': AvailabilityParams,
   'agentSession.subscribeStatus': null,
   'agentSession.subscribeTurnCompletions': SubscribeTurnCompletionsParams,
+  'agentSession.summaryCancel': ConversationSummaryCancelParams,
+  'agentSession.summaryGenerate': ConversationSummaryCancelParams,
+  'agentSession.summaryList': ConversationSummaryListParams,
+  'agentSession.summaryRead': ConversationSummaryReadParams,
+  'agentSession.summaryWrite': ConversationSummaryWriteParams,
   'agentSession.threadGoal': ThreadGoalParams,
   'agentSession.unsubscribe': UnsubscribeParams,
   'agentSessionAttachment.read': AttachmentReadParams,

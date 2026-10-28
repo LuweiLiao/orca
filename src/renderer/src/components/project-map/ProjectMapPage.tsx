@@ -37,6 +37,8 @@ import { usePublishProjectMapSessionRelations } from './project-map-session-rela
 import { useProjectMapUndoKey } from './use-project-map-undo'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
+import { ProjectMapSummaryHost } from './ProjectMapSummaryHost'
+import { useProjectMapSummaryIndex } from './use-project-map-summary-index'
 import './project-map.css'
 
 const LINEAGE_REREAD_MS = 5000
@@ -114,6 +116,7 @@ export default function ProjectMapPage(): React.JSX.Element {
     ]
   )
   usePublishProjectMapSessionRelations(graph, lineage, references)
+  useProjectMapSummaryIndex(graph)
   // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
   const collapsed = useMemo(
@@ -307,6 +310,7 @@ export default function ProjectMapPage(): React.JSX.Element {
           </div>
         </div>
       )}
+      {graph ? <ProjectMapSummaryHost graph={graph} /> : null}
     </main>
   )
 }

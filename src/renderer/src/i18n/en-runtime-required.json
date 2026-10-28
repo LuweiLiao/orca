@@ -3459,6 +3459,10 @@
     },
     "search": {
       "messagesElsewhere_one": "{{count}} more chat matches off this map"
+    },
+    "summary": {
+      "loadFailed": "Could not read the summary.",
+      "saveFailed": "Could not save the summary."
     }
   },
   "resourceManager": {

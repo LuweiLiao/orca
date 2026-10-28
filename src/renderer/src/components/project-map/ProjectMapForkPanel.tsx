@@ -2,11 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { GitFork, XIcon } from 'lucide-react'
 import { NativeChatConversationReference } from '@/components/native-chat/NativeChatConversationReference'
 import { readConversationReferenceDrag } from '@/lib/conversation-reference-drag'
-import {
-  conversationReferenceToken,
-  withConversationReferenceInstructions,
-  type ConversationReference
-} from '../../../../shared/conversation-reference'
+import type { ConversationReference } from '../../../../shared/conversation-reference'
 import { toRuntimeExecutionHostId } from '../../../../shared/execution-host'
 import { carriesConversationReference } from './project-map-reference-drop'
 import { Button } from '@/components/ui/button'
@@ -27,6 +23,8 @@ import {
   type ProjectMapForkAt
 } from './project-map-fork-sources'
 import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
+import { ProjectMapForkSummaryOption } from './ProjectMapForkSummaryOption'
+import { projectMapHandoffInstruction } from './project-map-summary'
 import {
   ProjectMapForkAgentPicker,
   type ProjectMapForkAgentChoice
@@ -86,6 +84,7 @@ export function ProjectMapForkPanel({
     agent: origin.chat?.agent ?? origin.card.agentType
   })
   const [instruction, setInstruction] = useState('')
+  const [summary, setSummary] = useState<string | null>(null)
   // Other chats this child should read too, beside the one it inherits.
   const [references, setReferences] = useState<ConversationReference[]>([])
   const [dropping, setDropping] = useState(false)
@@ -145,14 +144,7 @@ export function ProjectMapForkPanel({
     }
   }
   // Typed text first so the child is named for it; references after, with how to read them.
-  const firstInstruction =
-    references.length === 0
-      ? instruction
-      : withConversationReferenceInstructions(
-          [instruction.trim(), references.map(conversationReferenceToken).join(' ')]
-            .filter(Boolean)
-            .join('\n\n')
-        )
+  const firstInstruction = projectMapHandoffInstruction({ summary, instruction, references })
 
   const create = async (): Promise<void> => {
     setPending(true)
@@ -303,6 +295,7 @@ export function ProjectMapForkPanel({
             )
           })}
         </fieldset>
+        <ProjectMapForkSummaryOption source={source?.agent} onChange={setSummary} />
         <ProjectMapForkAgentPicker origin={origin} choice={choice} onChange={setChoice} />
         <p className="-mt-2 text-[11px] leading-relaxed text-muted-foreground">
           {native

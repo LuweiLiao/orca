@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import {
   ArrowDown,
   ArrowUp,
   BookMarked,
   Eye,
   EyeOff,
+  FileText,
   GitFork,
   MessageSquareQuote,
   LayoutGrid,
@@ -40,6 +41,11 @@ import {
 } from './project-map-node-actions'
 import { projectMapNodeIdOf } from './project-map-node-target'
 import { projectMapConversationReference } from './project-map-reference'
+import {
+  openProjectMapSummary,
+  projectMapSummaryState,
+  subscribeToProjectMapSummaryState
+} from './project-map-summary-state'
 import { useProjectMapNodeCommands } from './use-project-map-node-commands'
 import type { ProjectMapRowMoves } from './use-project-map-row-moves'
 
@@ -72,7 +78,8 @@ const AGENT_LABELS: Record<ProjectMapAgentActionId, () => string> = {
   close: () => translate('projectMap.menu.close', 'Close'),
   hide: () => translate('projectMap.menu.hide', 'Hide'),
   'hide-tree': () => translate('projectMap.menu.hideTree', 'Hide with its handoffs'),
-  'remove-from-map': () => translate('projectMap.menu.removeFromMap', 'Remove from the map')
+  'remove-from-map': () => translate('projectMap.menu.removeFromMap', 'Remove from the map'),
+  summary: () => translate('projectMap.menu.generateSummary', 'Generate summary')
 }
 
 const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
@@ -88,7 +95,8 @@ const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
   close: X,
   hide: EyeOff,
   'hide-tree': EyeOff,
-  'remove-from-map': Trash2
+  'remove-from-map': Trash2,
+  summary: FileText
 }
 
 const ROW_SHORTCUTS: Partial<Record<ProjectMapAgentActionId, string>> = {
@@ -109,7 +117,9 @@ const REASONS: Record<ProjectMapActionBlock, () => string> = {
   'not-finished': () =>
     translate('projectMap.menu.reason.notFinished', 'Only a finished conversation can be unread'),
   'all-read': () => translate('projectMap.menu.reason.allRead', 'Nothing unread'),
-  'row-edge': () => translate('projectMap.menu.reason.rowEdge', 'Nothing beside it to swap with')
+  'row-edge': () => translate('projectMap.menu.reason.rowEdge', 'Nothing beside it to swap with'),
+  'summary-host-too-old': () =>
+    translate('projectMap.menu.reason.summaryHostTooOld', 'This host is too old to summarize chats')
 }
 
 function MenuItem({
@@ -166,6 +176,7 @@ export function ProjectMapCanvasMenu({
     ? group.memberPaneKeys.flatMap((paneKey) => graph.agents.get(paneKey) ?? [])
     : []
   const commands = useProjectMapNodeCommands(graph)
+  const summaries = useSyncExternalStore(subscribeToProjectMapSummaryState, projectMapSummaryState)
   const hiddenCount = graph.hiddenKeys?.length ?? 0
   const searchKeys = getShortcutPlatform() === 'darwin' ? '⌘F' : 'Ctrl+F'
 
@@ -180,6 +191,8 @@ export function ProjectMapCanvasMenu({
         return onOpenAgent(chat)
       case 'reference':
         return void referenceConversationInFocusedChat(projectMapConversationReference(chat))
+      case 'summary':
+        return openProjectMapSummary(chat.card.paneKey)
       case 'new-child':
         return onNewChild(chat.card.paneKey)
       case 'rename':
@@ -220,6 +233,7 @@ export function ProjectMapCanvasMenu({
           projectMapAgentActions(agent, {
             hasTab: projectMapAgentHasTab(unifiedTabs, agent.card),
             hostTooOld: forkUnsupportedHosts.has(agent.chat?.executionHostId ?? ''),
+            summaryHostTooOld: summaries.unsupportedHosts.has(agent.chat?.executionHostId ?? ''),
             rowMoves: {
               up: rowMoves.can(agent.card.paneKey, 'up'),
               down: rowMoves.can(agent.card.paneKey, 'down')
@@ -231,7 +245,9 @@ export function ProjectMapCanvasMenu({
               label={
                 agent.history && action.id === 'open-tab'
                   ? translate('projectMap.menu.reopen', 'Reopen')
-                  : AGENT_LABELS[action.id]()
+                  : action.id === 'summary' && summaries.summarized.has(agent.chat?.sessionId ?? '')
+                    ? translate('projectMap.menu.viewSummary', 'View summary')
+                    : AGENT_LABELS[action.id]()
               }
               Icon={agent.history && action.id === 'open-tab' ? RotateCcw : AGENT_ICONS[action.id]}
               shortcut={ROW_SHORTCUTS[action.id]}

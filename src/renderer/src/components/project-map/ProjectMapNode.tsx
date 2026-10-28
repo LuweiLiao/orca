@@ -17,6 +17,7 @@ import { carriesConversationReference } from './project-map-reference-drop'
 import type { ConversationReferenceCreate } from '../../../../shared/conversation-reference'
 import type { ProjectMapNodeReferences } from './project-map-node-references'
 import { forkChildCount, forkSourceLabel, ReferenceCount } from './ProjectMapNodeLabels'
+import { ProjectMapSummaryMarker } from './ProjectMapSummaryMarker'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
 type HeaderPinKind = 'handoff' | 'unresolved'
@@ -319,6 +320,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
             }`}
           />
           {references && references.count > 0 ? <ReferenceCount references={references} /> : null}
+          <ProjectMapSummaryMarker sessionId={agent.chat?.sessionId} />
           {agent.history ? null : <AgentStateDot state={state} title={null} />}
         </>
       }
