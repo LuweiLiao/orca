@@ -18,6 +18,7 @@ export type ProjectMapAgentActionId =
   | 'hide'
   | 'hide-tree'
   | 'remove-from-map'
+  | 'stop'
 
 /** Why an action is greyed out; the menu words each one. */
 export type ProjectMapActionBlock =
@@ -30,6 +31,9 @@ export type ProjectMapActionBlock =
   | 'not-finished'
   | 'all-read'
   | 'row-edge'
+  | 'remote-worker'
+  | 'host-unreachable'
+  | 'stop-host-too-old'
 
 export type ProjectMapNodeAction<Id extends string = ProjectMapAgentActionId> = {
   id: Id
@@ -44,6 +48,8 @@ export type ProjectMapAgentActionContext = {
   hostTooOld: boolean
   /** Which way the chat can change rows within its lane; absent when the map cannot move it. */
   rowMoves?: { up: boolean; down: boolean }
+  /** Present when the node is running and can be stopped; `block` says why not right now. */
+  stop?: { block: ProjectMapActionBlock | null }
 }
 
 /** A chat's tab, if one is open: terminals by their pty tab, structured chats by their own id. */
@@ -106,7 +112,8 @@ export function projectMapAgentActions(
           available('move-down', context.rowMoves.down ? null : 'row-edge')
         ]
       : []),
-    ...closeAndHideActions(agent, context)
+    ...closeAndHideActions(agent, context),
+    ...(context.stop ? [available('stop', context.stop.block)] : [])
   ]
 }
 

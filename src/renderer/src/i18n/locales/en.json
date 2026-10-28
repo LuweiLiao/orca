@@ -30013,14 +30013,31 @@
         "noTab": "Open it in a tab to rename it",
         "notFinished": "Only a finished conversation can be unread",
         "allRead": "Nothing unread",
-        "rowEdge": "Nothing beside it to swap with"
+        "rowEdge": "Nothing beside it to swap with",
+        "remoteWorker": "A worker on another host: stop it from its chat",
+        "stopHostTooOld": "Its host is too old to stop it from here: stop it in the chat",
+        "hostUnreachable": "Its host has not answered yet"
       },
       "close": "Close",
       "hide": "Hide",
       "hideTree": "Hide with its forks",
       "removeFromMap": "Remove from the map",
       "reopen": "Reopen",
-      "showHidden": "Show hidden ({{count}})"
+      "showHidden": "Show hidden ({{count}})",
+      "stop": "Stop"
+    },
+    "stop": {
+      "title": "Stop \"{{title}}\"?",
+      "workerDescription": "This ends the worker for its assignment. It cannot be resumed.",
+      "chatDescription": "This stops the work the conversation has in progress. You can keep talking to it afterwards.",
+      "confirm": "Stop",
+      "done": "Stopped \"{{title}}\"",
+      "failed": "Could not stop \"{{title}}\": {{reason}}",
+      "error": {
+        "unreachable": "Its host cannot be reached.",
+        "unconfirmed": "The stop was not confirmed.",
+        "hostTooOld": "Its host is too old to stop it from here."
+      }
     }
   }
 }

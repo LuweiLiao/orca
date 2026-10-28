@@ -28581,14 +28581,31 @@
         "noTab": "请先在标签页中打开再重命名",
         "notFinished": "只有已完成的对话才能标为未读",
         "allRead": "没有未读内容",
-        "rowEdge": "旁边没有可交换的对话"
+        "rowEdge": "旁边没有可交换的对话",
+        "remoteWorker": "在其他主机上的委派对话：请在它的聊天里停止",
+        "stopHostTooOld": "它所在的主机版本太旧，无法从这里停止：请在聊天里停止",
+        "hostUnreachable": "它所在的主机还没有响应"
       },
       "close": "关闭",
       "hide": "隐藏",
       "hideTree": "隐藏及其分叉",
       "removeFromMap": "从图上移除",
       "reopen": "重新打开",
-      "showHidden": "显示已隐藏（{{count}}）"
+      "showHidden": "显示已隐藏（{{count}}）",
+      "stop": "停止"
+    },
+    "stop": {
+      "title": "停止“{{title}}”？",
+      "workerDescription": "这会结束该委派对话的当前任务，之后无法恢复。",
+      "chatDescription": "这会停止对话正在进行的工作，之后仍可以继续和它对话。",
+      "confirm": "停止",
+      "done": "已停止“{{title}}”",
+      "failed": "无法停止“{{title}}”：{{reason}}",
+      "error": {
+        "unreachable": "无法连接它所在的主机。",
+        "unconfirmed": "未能确认已停止。",
+        "hostTooOld": "它所在的主机版本太旧，无法从这里停止。"
+      }
     }
   }
 }
