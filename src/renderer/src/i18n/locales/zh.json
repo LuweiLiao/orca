@@ -21505,7 +21505,13 @@
         "noTab": "请先在标签页中打开再重命名",
         "notFinished": "只有已完成的对话才能标为未读",
         "allRead": "没有未读内容"
-      }
+      },
+      "close": "关闭",
+      "hide": "隐藏",
+      "hideTree": "隐藏及其交接",
+      "removeFromMap": "从图上移除",
+      "reopen": "重新打开",
+      "showHidden": "显示已隐藏（{{count}}）"
     },
     "timeline": {
       "toggle": "时间线",
@@ -21549,6 +21555,20 @@
     "childName": {
       "handoff": "交接：{{source}}",
       "merged": "合并交接：{{source}} 和另外 {{others}} 个对话"
+    },
+    "close": {
+      "title": "关闭“{{title}}”？",
+      "terminalDescription": "这会结束终端里运行的 Agent，无法重新打开。",
+      "runningDescription": "对话仍在运行。关闭会中断进行中的工作，之后可以从地图上重新打开。",
+      "confirm": "关闭",
+      "done": "已关闭“{{title}}”"
+    },
+    "hide": {
+      "done": "已从图上隐藏"
+    },
+    "undo": {
+      "action": "撤销",
+      "failed": "无法撤销“{{label}}”，它所在的主机是否可达？"
     }
   }
 }

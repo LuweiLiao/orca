@@ -1,7 +1,4 @@
-import type {
-  AgentStatusOrchestrationContext,
-  OrchestrationChatSession
-} from '../../../../shared/agent-status-types'
+import type { OrchestrationChatSession } from '../../../../shared/agent-status-types'
 import type {
   DashboardCard,
   DashboardSnapshot,
@@ -13,10 +10,12 @@ import type {
 } from '../../../../shared/agent-session-fork'
 import type { AgentSessionReferenceLink } from '../../../../shared/agent-session-reference-link'
 import type { ProjectMapChat, ProjectMapHistoryChat } from './project-map-lineage'
-import { closedForkEnds, projectMapHistoryCard } from './project-map-closed-chats'
+import { closedChatsForGraph, projectMapHistoryCard } from './project-map-closed-chats'
+import { applyProjectMapHidden } from './project-map-hidden-filter'
 import { addMergeEdges, addReferenceEdges } from './project-map-reference-edges'
 import { addTerminalForkEdges } from './project-map-terminal-forks'
 import type { TerminalForkOrigin } from '@/lib/terminal-fork-origins'
+import type { ProjectMapClosedChat } from '@/lib/project-map-closed-by-map'
 
 export type ProjectMapProject = {
   id: string
@@ -45,6 +44,8 @@ export type ProjectMapAgent = {
   childPaneKeys: string[]
   /** A chat whose tab is closed, drawn because a fork or reference still connects it. */
   history?: true
+  /** Its handoff source is hidden by the person, so the node shows it as not loaded. */
+  sourceHidden?: true
   /** Set when a terminal "Fork Agent Session…" on this desktop launched it from its parent. */
   terminalFork?: { sourceTitle: string }
   /** Conversations its sent messages referenced; `external` ones have no node on this map. */
@@ -84,6 +85,10 @@ export type ProjectMapForkInput = {
   references?: readonly AgentSessionReferenceLink[]
   /** Terminal forks this desktop made, from source pane to the agent it launched. */
   terminalForks?: readonly TerminalForkOrigin[]
+  /** Chats closed from this map on this desktop, drawn as history nodes even with no fork. */
+  closedByMap?: readonly ProjectMapClosedChat[]
+  /** Hide keys (session id, else pane key) of nodes taken off the map. */
+  hidden?: ReadonlySet<string>
   titleOf: (card: DashboardCard) => string
 }
 
@@ -92,6 +97,8 @@ export type ProjectMapGraph = {
   workspaces: Map<string, ProjectMapWorkspace>
   agents: Map<string, ProjectMapAgent>
   edges: ProjectMapEdge[]
+  /** Hide keys that matched a node of this project, left off the map. */
+  hiddenKeys?: string[]
 }
 
 export function listProjectMapProjects(snapshot: DashboardSnapshot): ProjectMapProject[] {
@@ -196,7 +203,7 @@ export function buildProjectMapGraph(
       paneKeyBySession.set(agent.chat.sessionId, agent.card.paneKey)
     }
   }
-  for (const chat of forks ? closedForkEnds(forks, paneKeyBySession) : []) {
+  for (const chat of forks ? closedChatsForGraph(forks, paneKeyBySession) : []) {
     const workspace = workspaces.get(chat.workspaceId)
     if (!workspace) {
       continue
@@ -258,7 +265,8 @@ export function buildProjectMapGraph(
   if (forks?.references) {
     addReferenceEdges(forks.references, agents, paneKeyBySession, edges)
   }
-  return { projectId, workspaces, agents, edges }
+  const hiddenKeys = applyProjectMapHidden(agents, workspaces, edges, forks?.hidden ?? new Set())
+  return { projectId, workspaces, agents, edges, ...(hiddenKeys.length > 0 ? { hiddenKeys } : {}) }
 }
 
 // Why: parentPaneKey comes from live status rows, so a stale pair can name each other.
@@ -277,22 +285,4 @@ function createsDelegationCycle(
     cursor = agents.get(cursor)?.parentPaneKey ?? null
   }
   return false
-}
-
-/** The structured chat behind each orchestrated pane, read from the sessions the runtime published. */
-export function projectMapChatSessions(
-  contexts: Readonly<Record<string, AgentStatusOrchestrationContext>> | undefined
-): Map<string, OrchestrationChatSession> {
-  const sessions = new Map<string, OrchestrationChatSession>()
-  for (const [paneKey, context] of Object.entries(contexts ?? {})) {
-    if (context.session) {
-      sessions.set(paneKey, context.session)
-    }
-  }
-  for (const context of Object.values(contexts ?? {})) {
-    if (context.parentPaneKey && context.parentSession && !sessions.has(context.parentPaneKey)) {
-      sessions.set(context.parentPaneKey, context.parentSession)
-    }
-  }
-  return sessions
 }

@@ -57,3 +57,26 @@ export function projectMapHistoryCard(
     unseen: false
   }
 }
+
+/** Fork ends and the chats closed from this map, as history nodes; a chat is listed once. */
+export function closedChatsForGraph(
+  forks: ProjectMapForkInput,
+  open: ReadonlyMap<string, string>
+): ProjectMapHistoryChat[] {
+  const ends = closedForkEnds(forks, open)
+  const listed = new Set(ends.map((chat) => chat.sessionId))
+  const closedByMap = (forks.closedByMap ?? []).flatMap((chat) =>
+    open.has(chat.sessionId) || listed.has(chat.sessionId)
+      ? []
+      : [
+          {
+            sessionId: chat.sessionId,
+            agent: chat.agent,
+            executionHostId: chat.executionHostId,
+            workspaceId: chat.workspaceId,
+            title: chat.title
+          }
+        ]
+  )
+  return [...ends, ...closedByMap]
+}

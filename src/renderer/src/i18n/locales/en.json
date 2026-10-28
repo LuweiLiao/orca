@@ -21626,7 +21626,13 @@
         "noTab": "Open it in a tab to rename it",
         "notFinished": "Only a finished conversation can be unread",
         "allRead": "Nothing unread"
-      }
+      },
+      "close": "Close",
+      "hide": "Hide",
+      "hideTree": "Hide with its handoffs",
+      "removeFromMap": "Remove from the map",
+      "reopen": "Reopen",
+      "showHidden": "Show hidden ({{count}})"
     },
     "timeline": {
       "toggle": "Timeline",
@@ -21670,6 +21676,20 @@
     "childName": {
       "handoff": "Handoff: {{source}}",
       "merged": "Merged handoff: {{source}} and {{others}} more"
+    },
+    "close": {
+      "title": "Close \"{{title}}\"?",
+      "terminalDescription": "This ends the agent running in the terminal. It cannot be reopened.",
+      "runningDescription": "The conversation is still running. Closing it stops the work in progress; you can reopen it from the map.",
+      "confirm": "Close",
+      "done": "Closed \"{{title}}\""
+    },
+    "hide": {
+      "done": "Hidden from the map"
+    },
+    "undo": {
+      "action": "Undo",
+      "failed": "Could not undo \"{{label}}\". Is its host reachable?"
     }
   }
 }

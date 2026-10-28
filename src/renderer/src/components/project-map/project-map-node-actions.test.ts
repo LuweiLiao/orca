@@ -5,7 +5,11 @@ import type { ProjectMapAgent } from './project-map-graph'
 import {
   projectMapAgentActions,
   projectMapAgentHasTab,
-  projectMapGroupActions
+  projectMapCloseConfirmation,
+  projectMapCloseUndoable,
+  projectMapGroupActions,
+  projectMapHideKeysOf,
+  projectMapHistoryIsWired
 } from './project-map-node-actions'
 
 function agent(
@@ -136,5 +140,64 @@ describe('projectMapAgentHasTab', () => {
     expect(projectMapAgentHasTab(tabs, { tabId: 'term-1' })).toBe(true)
     expect(projectMapAgentHasTab(tabs, { tabId: 'chat-tab' })).toBe(true)
     expect(projectMapAgentHasTab(tabs, { tabId: 'gone' })).toBe(false)
+  })
+})
+
+describe('closing and hiding', () => {
+  it('offers close and hide on an open chat, and hide alone on a worker with no tab', () => {
+    const open = byId(projectMapAgentActions(agent(), idle))
+    expect(open.close?.enabled).toBe(true)
+    expect(open.hide?.enabled).toBe(true)
+    expect(open['hide-tree']).toBeUndefined()
+    const worker = byId(projectMapAgentActions(agent(), { ...idle, hasTab: false }))
+    expect(worker.close).toBeUndefined()
+    expect(worker.hide?.enabled).toBe(true)
+  })
+
+  it('offers hiding the handoffs only to a chat that has some', () => {
+    const parent = byId(projectMapAgentActions(agent({ childPaneKeys: ['b'] }), idle))
+    expect(parent['hide-tree']?.enabled).toBe(true)
+  })
+
+  it('gives a closed chat only removal from the map', () => {
+    const closed = byId(
+      projectMapAgentActions(agent({ history: true }), { ...idle, hasTab: false })
+    )
+    expect(closed['remove-from-map']?.enabled).toBe(true)
+    expect(closed.close).toBeUndefined()
+    expect(closed.hide).toBeUndefined()
+  })
+
+  it('confirms a terminal agent and a running chat, not an idle chat', () => {
+    expect(projectMapCloseConfirmation(agent({ chat: undefined }, { ptyId: 'p' }))).toBe('terminal')
+    expect(projectMapCloseConfirmation(agent({}, { dotState: 'working' }))).toBe('running')
+    expect(projectMapCloseConfirmation(agent({}, { dotState: 'waiting' }))).toBe('running')
+    expect(projectMapCloseConfirmation(agent({}, { dotState: 'blocked' }))).toBe('running')
+    expect(projectMapCloseConfirmation(agent())).toBeNull()
+  })
+
+  it('lets a chat close be undone and a terminal close not', () => {
+    expect(projectMapCloseUndoable(agent())).toBe(true)
+    expect(projectMapCloseUndoable(agent({ chat: undefined }))).toBe(false)
+  })
+
+  it('hides a chat by its session, and its handoffs when asked', () => {
+    const root = agent({ childPaneKeys: ['b'] }, { paneKey: 'a' })
+    const child = agent(
+      { chat: { sessionId: 's2', agent: 'claude', executionHostId: 'local' } },
+      { paneKey: 'b' }
+    )
+    const agents = new Map([
+      ['a', root],
+      ['b', child]
+    ])
+    expect(projectMapHideKeysOf(agents, 'a', false)).toEqual(['s1'])
+    expect(projectMapHideKeysOf(agents, 'a', true)).toEqual(['s1', 's2'])
+  })
+
+  it('knows whether a wire still ends at a closed chat', () => {
+    const edges = [{ kind: 'handoff' as const, from: 'a', to: 'h' }]
+    expect(projectMapHistoryIsWired(edges, 'h')).toBe(true)
+    expect(projectMapHistoryIsWired(edges, 'z')).toBe(false)
   })
 })

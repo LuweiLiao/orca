@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { subscribeToTerminalForkOrigins, terminalForkOrigins } from '@/lib/terminal-fork-origins'
+import {
+  projectMapClosedChats,
+  subscribeToProjectMapClosedChats
+} from '@/lib/project-map-closed-by-map'
+import { projectMapHiddenKeys, subscribeToProjectMapHidden } from '@/lib/project-map-hidden'
 import { Minus, Network, Plus, Scan, Search } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { Button } from '@/components/ui/button'
@@ -17,20 +22,19 @@ import { activateAndRevealWorkspace } from '@/lib/worktree-activation'
 import {
   buildProjectMapGraph,
   listProjectMapProjects,
-  projectMapChatSessions,
   type ProjectMapAgent,
   type ProjectMapWorkspace
 } from './project-map-graph'
 import { layoutProjectMap } from './project-map-layout'
 import { projectMapChatRows, subscribeToProjectMapChatRows } from './project-map-chat-rows'
 import { collapseProjectMapGraph } from './project-map-collapse'
-import { activateAiVaultStructuredSession } from '@/lib/activate-ai-vault-structured-session'
-import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
+import { reopenProjectMapChat } from './project-map-reopen'
 import { projectMapAgentTitle } from './project-map-labels'
-import { projectMapChatsByPaneKey } from './project-map-lineage'
+import { projectMapChatSessions, projectMapChatsByPaneKey } from './project-map-lineage'
 import { projectMapAgentHasTab } from './project-map-node-actions'
 import { useProjectMapLineage } from './use-project-map-lineage'
 import { usePublishProjectMapSessionRelations } from './project-map-session-relations'
+import { useProjectMapUndoKey } from './use-project-map-undo'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
 import './project-map.css'
@@ -53,6 +57,9 @@ export default function ProjectMapPage(): React.JSX.Element {
   // A sent message records its references, and a chat that has no card (a released worker) moves
   // no state the snapshot shows; so state changes re-read at once and a slow tick covers the rest.
   const terminalForks = useSyncExternalStore(subscribeToTerminalForkOrigins, terminalForkOrigins)
+  const closedByMap = useSyncExternalStore(subscribeToProjectMapClosedChats, projectMapClosedChats)
+  const hidden = useSyncExternalStore(subscribeToProjectMapHidden, projectMapHiddenKeys)
+  useProjectMapUndoKey()
   const lastStateChange = useMemo(
     () => snapshot.cards.reduce((latest, card) => Math.max(latest, card.stateChangedAt), 0),
     [snapshot.cards]
@@ -88,10 +95,23 @@ export default function ProjectMapPage(): React.JSX.Element {
             history,
             references,
             terminalForks,
+            closedByMap,
+            hidden,
             titleOf: projectMapAgentTitle
           })
         : null,
-    [chats, history, lineage, projectId, references, sessions, snapshot, terminalForks]
+    [
+      chats,
+      closedByMap,
+      hidden,
+      history,
+      lineage,
+      projectId,
+      references,
+      sessions,
+      snapshot,
+      terminalForks
+    ]
   )
   usePublishProjectMapSessionRelations(graph, lineage, references)
   // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
@@ -140,14 +160,7 @@ export default function ProjectMapPage(): React.JSX.Element {
       (agent.chat &&
         !projectMapAgentHasTab(useAppStore.getState().unifiedTabsByWorktree, agent.card))
     if (tabless && agent.chat) {
-      const target = structuredAgentSessionTargetForHost(agent.chat.executionHostId)
-      void activateAiVaultStructuredSession(
-        {
-          structuredSession: { sessionId: agent.chat.sessionId, workspaceId: agent.card.worktreeId }
-        },
-        undefined,
-        target ?? undefined
-      )
+      void reopenProjectMapChat(agent)
       return
     }
     revealDashboardAgent({

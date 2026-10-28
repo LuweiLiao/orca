@@ -2,6 +2,8 @@ import { useAppStore } from '@/store'
 import type { ProjectMapAgent } from './project-map-graph'
 import { projectMapAgentTitle } from './project-map-labels'
 import { PROJECT_MAP_NODE, type ProjectMapLayout } from './project-map-layout'
+import { findRenamableUnifiedTab } from '@/store/terminals/renamable-unified-tab'
+import { pushProjectMapUndo } from './use-project-map-undo'
 import { ProjectMapRenameInput } from './ProjectMapRenameInput'
 
 type Props = {
@@ -33,7 +35,14 @@ export function ProjectMapNodeOverlays({
           box={renamingBox}
           title={projectMapAgentTitle(renaming.card)}
           onCommit={(title) => {
-            useAppStore.getState().setTabCustomTitle(renaming.card.tabId, title)
+            const store = useAppStore.getState()
+            const tabId = renaming.card.tabId
+            const before = findRenamableUnifiedTab(store.unifiedTabsByWorktree, tabId)?.customLabel
+            store.setTabCustomTitle(tabId, title)
+            pushProjectMapUndo({
+              label: projectMapAgentTitle(renaming.card),
+              undo: () => useAppStore.getState().setTabCustomTitle(tabId, before ?? null)
+            })
             onRenameEnd()
           }}
           onCancel={onRenameEnd}

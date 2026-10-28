@@ -1,9 +1,10 @@
 import type { Tab } from '../../../../shared/tab-types'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 import { findRenamableUnifiedTab } from '@/store/terminals/renamable-unified-tab'
-import type { ProjectMapAgent } from './project-map-graph'
+import type { ProjectMapAgent, ProjectMapEdge } from './project-map-graph'
 import { projectMapConversationReference } from './project-map-reference'
 import { projectMapAgentForkable } from './project-map-window-subject'
+import { projectMapHideKey } from './project-map-hidden-filter'
 
 export type ProjectMapAgentActionId =
   | 'open-tab'
@@ -13,6 +14,10 @@ export type ProjectMapAgentActionId =
   | 'rename'
   | 'mark-read'
   | 'mark-unread'
+  | 'close'
+  | 'hide'
+  | 'hide-tree'
+  | 'remove-from-map'
 
 /** Why an action is greyed out; the menu words each one. */
 export type ProjectMapActionBlock =
@@ -92,8 +97,75 @@ export function projectMapAgentActions(
     available('new-child', forkBlock(agent, context)),
     // Names live on tabs: a closed chat or a background worker has none to write to.
     available('rename', !agent.history && context.hasTab ? null : 'no-tab'),
-    ...(toggleRead ? [toggleRead] : [])
+    ...(toggleRead ? [toggleRead] : []),
+    ...closeAndHideActions(agent, context)
   ]
+}
+
+function closeAndHideActions(
+  agent: ProjectMapAgent,
+  context: ProjectMapAgentActionContext
+): ProjectMapNodeAction[] {
+  if (agent.history) {
+    return [{ id: 'remove-from-map', enabled: true }]
+  }
+  return [
+    // A background worker has no tab to close; hiding is all it offers.
+    ...(context.hasTab ? [{ id: 'close' as const, enabled: true }] : []),
+    { id: 'hide', enabled: true },
+    ...(agent.childPaneKeys.length > 0 ? [{ id: 'hide-tree' as const, enabled: true }] : [])
+  ]
+}
+
+/** What closing a chat stops: a terminal agent's process, or a chat still working. */
+export type ProjectMapCloseConfirmation = 'terminal' | 'running'
+
+export function projectMapCloseConfirmation(
+  agent: ProjectMapAgent
+): ProjectMapCloseConfirmation | null {
+  if (!agent.chat) {
+    return 'terminal'
+  }
+  const { dotState } = agent.card
+  return dotState === 'working' || dotState === 'blocked' || dotState === 'waiting'
+    ? 'running'
+    : null
+}
+
+/** A closed chat can be opened again from its record; a closed terminal's process cannot. */
+export function projectMapCloseUndoable(agent: ProjectMapAgent): boolean {
+  return agent.chat !== undefined
+}
+
+/** The hide keys of a node, with everything handed off or delegated beneath it when asked. */
+export function projectMapHideKeysOf(
+  agents: ReadonlyMap<string, ProjectMapAgent>,
+  paneKey: string,
+  withSubtree: boolean
+): string[] {
+  const keys: string[] = []
+  const seen = new Set<string>()
+  const visit = (key: string): void => {
+    const agent = agents.get(key)
+    if (!agent || seen.has(key)) {
+      return
+    }
+    seen.add(key)
+    keys.push(projectMapHideKey(agent))
+    if (withSubtree) {
+      agent.childPaneKeys.forEach(visit)
+    }
+  }
+  visit(paneKey)
+  return keys
+}
+
+/** A closed chat a wire still ends at stays drawn after its record goes, unless it is hidden. */
+export function projectMapHistoryIsWired(
+  edges: readonly ProjectMapEdge[],
+  paneKey: string
+): boolean {
+  return edges.some((edge) => edge.from === paneKey || edge.to === paneKey)
 }
 
 export type ProjectMapGroupActionId = 'mark-read'
