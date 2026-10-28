@@ -12,6 +12,9 @@ import remarkCjkFriendly from 'remark-cjk-friendly/parseOnly'
 import rehypeRaw from 'rehype-raw'
 import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize'
 import remend from 'remend'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import { normalizeMarkdownMathDelimiters } from './comment-markdown-math-delimiters'
 import { cn } from '@/lib/utils'
 import {
   selectCommentMarkdownComponents,
@@ -191,6 +194,14 @@ export function remarkGitHubReferences(
   return () => (tree) => transformGitHubReferenceChildren(tree, defaultRepo)
 }
 
+// Why: rehype-katex reads remark-math's classes after sanitize to tell text from display math.
+const mathCodeClassNames: NonNullable<SanitizeSchema['attributes']>[string][number] = [
+  'className',
+  /^language-[\w-]+$/,
+  'math-inline',
+  'math-display'
+]
+
 const commentMarkdownSanitizeSchema = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), 'details', 'summary', 'sub', 'sup', 'ins', 'kbd'],
@@ -201,6 +212,7 @@ const commentMarkdownSanitizeSchema = {
       ...(defaultSchema.attributes?.blockquote ?? []),
       GITHUB_CALLOUT_SANITIZE_ATTRIBUTE
     ],
+    code: [...(defaultSchema.attributes?.code ?? []), mathCodeClassNames],
     details: [...(defaultSchema.attributes?.details ?? []), 'open'],
     img: [...(defaultSchema.attributes?.img ?? []), 'src', 'alt', 'title', 'width', 'height'],
     input: [...(defaultSchema.attributes?.input ?? []), 'type', 'checked', 'disabled'],
@@ -275,7 +287,13 @@ type CommentMarkdownProps = React.ComponentPropsWithoutRef<'div'> & {
   extension?: CommentMarkdownExtension
   /** Show raw HTML that sanitize would strip as literal text instead of dropping its tags. */
   unknownHtmlAsText?: boolean
+  /** Typeset TeX written as `$$…$$`, `\[…\]`, `\(…\)`, or a `$…$` that reads as math. */
+  math?: boolean
 }
+
+// Why: a formula KaTeX cannot parse reads as its source, not as a red error.
+const mathRehypePlugins: MarkdownPlugins = [[rehypeKatex, { errorColor: 'inherit' }]]
+const mathRemarkPlugins: RemarkPlugins = [[remarkMath, { singleDollarTextMath: false }]]
 
 /** One render of the pipeline; memoized so an unchanged block is not parsed again. */
 const MemoizedMarkdown = React.memo(Markdown)
@@ -316,6 +334,7 @@ const CommentMarkdown = React.memo(
       fadeWords = false,
       extension,
       unknownHtmlAsText = false,
+      math = false,
       ...rest
     },
     ref
@@ -338,27 +357,40 @@ const CommentMarkdown = React.memo(
       () => ({ ...components, span: CommentMarkdownWords }),
       [components]
     )
-    const activeRehypePlugins = React.useMemo(
+    const sanitizedRehypePlugins = React.useMemo(
       () => (extension ? extensionRehypePlugins(extension) : rehypePlugins),
       [extension]
     )
+    const activeRehypePlugins = React.useMemo(
+      () => (math ? [...sanitizedRehypePlugins, ...mathRehypePlugins] : sanitizedRehypePlugins),
+      [math, sanitizedRehypePlugins]
+    )
     const activeRemarkPlugins = React.useMemo(() => {
       const basePlugins = unknownHtmlAsText ? unknownHtmlAsTextRemarkPlugins : remarkPlugins
+      const withMath = math ? [...basePlugins, ...mathRemarkPlugins] : basePlugins
       const plugins = fileLinkExists
-        ? [...basePlugins, remarkNativeChatFileLinks(fileLinkExists)]
-        : basePlugins
+        ? [...withMath, remarkNativeChatFileLinks(fileLinkExists)]
+        : withMath
       const withExtension = extension ? [...plugins, ...extension.remarkPlugins] : plugins
       return githubRepo ? [...withExtension, remarkGitHubReferences(githubRepo)] : withExtension
-    }, [extension, fileLinkExists, githubRepo, unknownHtmlAsText])
-    const blocks = useMarkdownBlocks(content, growing)
+    }, [extension, fileLinkExists, githubRepo, math, unknownHtmlAsText])
+    const source = React.useMemo(
+      () => (math ? normalizeMarkdownMathDelimiters(content) : content),
+      [content, math]
+    )
+    const blocks = useMarkdownBlocks(source, growing)
     const [hadWordFade, setHadWordFade] = React.useState(fadeWords)
     if (fadeWords && !hadWordFade) {
       setHadWordFade(true)
     }
     const wrapsWords = fadeWords || hadWordFade
+    // Why: words are wrapped before KaTeX runs, so its typeset spans are never split.
     const fadingRehypePlugins = React.useMemo(
-      () => [...activeRehypePlugins, rehypeWordFade],
-      [activeRehypePlugins]
+      () =>
+        math
+          ? [...sanitizedRehypePlugins, rehypeWordFade, ...mathRehypePlugins]
+          : [...sanitizedRehypePlugins, rehypeWordFade],
+      [math, sanitizedRehypePlugins]
     )
 
     return (
@@ -389,7 +421,11 @@ const CommentMarkdown = React.memo(
                   }
                 >
                   {growing && index === blocks.length - 1
-                    ? remend(block.text, { linkMode: 'text-only' })
+                    ? // Why: an unclosed formula already reads as text; closing it would typeset half.
+                      remend(block.text, {
+                        linkMode: 'text-only',
+                        ...(math ? { katex: false } : {})
+                      })
                     : block.text}
                 </MemoizedMarkdown>
               </CommentMarkdownBlockLineContext.Provider>

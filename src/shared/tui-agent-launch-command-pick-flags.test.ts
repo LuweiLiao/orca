@@ -43,6 +43,20 @@ describe('one copy of each chat-picked flag', () => {
     }
   )
 
+  it('starts Pi on a picked model, and yields to a model its arguments already name', () => {
+    const picked = { model: 'yuren-kimi/kimi-k3.1-pro' }
+    expect(launch({ agent: 'pi', sessionOptions: picked }).command).toBe(
+      "pi '--model' 'yuren-kimi/kimi-k3.1-pro'"
+    )
+    const configured = launch({
+      agent: 'pi',
+      sessionOptions: picked,
+      agentArgs: '--model anthropic/claude-opus-5'
+    })
+    expect(configured.command).toBe("pi '--model' 'anthropic/claude-opus-5'")
+    expect(configured.appliedSessionOptions).toEqual({})
+  })
+
   it('sends only the configured Grok model without the picked model effort', () => {
     const result = launch({
       agent: 'grok',

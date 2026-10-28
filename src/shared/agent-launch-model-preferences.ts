@@ -6,6 +6,7 @@
 
 import type { AgentLaunchPreferences } from './agent-session-host-authority'
 import { findCatalogModel, findCatalogOption } from './agent-session-option-catalog'
+import { isPiModelSelector } from './agent-session-option-catalog-pi'
 import {
   getAgentSessionOptionLaunchCatalog,
   resolveAgentSessionOptionLaunch
@@ -45,6 +46,13 @@ export function checkAgentLaunchModelPreferences(args: {
     return refuse(
       'capability_unsupported',
       'This OpenCode TUI cannot verify launch-time model selection. Omit --model or use a supported OpenCode CLI.'
+    )
+  }
+
+  if (args.agent === 'pi' && !isPiModelSelector(args.model)) {
+    return refuse(
+      'invalid_argument',
+      `Pi needs a provider/model selector such as anthropic/claude-sonnet-4-5, not ${args.model}. Run pi --list-models to see them.`
     )
   }
 

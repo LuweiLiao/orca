@@ -8,6 +8,7 @@
 
 import type { Nodes } from 'mdast'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 
@@ -30,7 +31,10 @@ export type MarkdownBlockSplit = {
 /** The last block, which is still growing, and the one it may yet join. */
 const UNSETTLED_BLOCKS = 2
 
-const blockParser = unified().use(remarkParse).use(remarkGfm)
+// Why: a `$$` display formula may hold blank lines, which must not cut it in two.
+const blockParser = unified().use(remarkParse).use(remarkGfm).use(remarkMath, {
+  singleDollarTextMath: false
+})
 
 /** Tags that cannot hold anything, so cannot hold a later block. */
 const VOID_TAG_PATTERN = /^<(?:br|hr|wbr|img)\b[^>]*>$/i
