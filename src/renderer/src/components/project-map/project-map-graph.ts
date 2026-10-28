@@ -14,7 +14,7 @@ import type {
 import type { AgentSessionReferenceLink } from '../../../../shared/agent-session-reference-link'
 import type { ProjectMapChat, ProjectMapHistoryChat } from './project-map-lineage'
 import { closedForkEnds, projectMapHistoryCard } from './project-map-closed-chats'
-import { addReferenceEdges } from './project-map-reference-edges'
+import { addMergeEdges, addReferenceEdges } from './project-map-reference-edges'
 import { addTerminalForkEdges } from './project-map-terminal-forks'
 import type { TerminalForkOrigin } from '@/lib/terminal-fork-origins'
 
@@ -55,10 +55,13 @@ export type ProjectMapAgent = {
     messageCount: number
     sourceTitle: string | null
     entry: AgentSessionLineageEntry
+    /** A merge: how many chats it was handed, the primary included. */
+    sourceCount?: number
   }
 }
 
-export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork' | 'handoff' | 'reference'
+/** `merge`: a merged chat's other sources, drawn like references so the columns follow one parent. */
+export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork' | 'handoff' | 'reference' | 'merge'
 
 export type ProjectMapEdge = {
   kind: ProjectMapEdgeKind
@@ -248,6 +251,7 @@ export function buildProjectMapGraph(
       (agent) => forks.titleOf(agent.card)
     )
   }
+  addMergeEdges(agents, paneKeyBySession, edges)
   if (forks?.references) {
     addReferenceEdges(forks.references, agents, paneKeyBySession, edges)
   }

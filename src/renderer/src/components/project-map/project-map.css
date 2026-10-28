@@ -247,6 +247,23 @@
 .project-map-wire[data-highlighted='true'] {
   stroke-width: 3.2;
 }
+/* A merged chat's other sources: the fork colour, broken into long and short dashes. */
+.project-map-wire[data-kind='merge'] {
+  stroke: var(--pm-wire-fork);
+  stroke-dasharray: 10 3 2 3;
+}
+.project-map-fork-pin[data-wire='merge'] {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--pm-wire-fork) 0 3px,
+    color-mix(in srgb, var(--pm-wire-fork) 35%, var(--card)) 3px 5px
+  );
+}
+/* Picked for a merge: ringed like the selected node, dashed so the two never read the same. */
+.project-map-node[data-merge-picked='true'] {
+  outline: 2px dashed var(--pm-wire-fork);
+  outline-offset: 3px;
+}
 /* A child chat still being placed: dashed and marching until it is created. */
 .project-map-wire[data-kind='fork-draft'] {
   stroke: var(--pm-wire-fork);

@@ -19,7 +19,7 @@ import type { ProjectMapNodeReferences } from './project-map-node-references'
 import { forkChildCount, forkSourceLabel, ReferenceCount } from './ProjectMapNodeLabels'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
-type HeaderPinKind = 'fork' | 'handoff' | 'unresolved'
+type HeaderPinKind = 'fork' | 'handoff' | 'merge' | 'unresolved'
 
 type NodeShellProps = {
   box: ProjectMapNodeBox
@@ -27,7 +27,8 @@ type NodeShellProps = {
   label: string
   selected: boolean
   linked: boolean
-  onSelect: (id: string) => void
+  /** `adding`: Shift, ⌘ or Ctrl was held, to add the node to a merge rather than open it. */
+  onSelect: (id: string, adding?: boolean) => void
   header: React.ReactNode
   rowLeft: React.ReactNode
   rowRight?: React.ReactNode
@@ -46,6 +47,8 @@ type NodeShellProps = {
   onHover?: (id: string | null) => void
   /** Corner marker: waiting on the person, or finished and not looked at yet. */
   badge?: { tone: 'attention' | 'unseen'; title: string }
+  /** One of the chats picked to merge into a new one. */
+  mergePicked?: boolean
 }
 
 export function NodeShell({
@@ -67,7 +70,8 @@ export function NodeShell({
   references,
   onReferenceDrop,
   onHover,
-  badge
+  badge,
+  mergePicked
 }: NodeShellProps): React.JSX.Element {
   const [dropping, setDropping] = useState(false)
   const drop = onReferenceDrop
@@ -101,6 +105,7 @@ export function NodeShell({
       data-history={history || undefined}
       data-reference-drop={dropping || undefined}
       data-attention={badge?.tone === 'attention' || undefined}
+      data-merge-picked={mergePicked || undefined}
       {...(onHover
         ? { onPointerEnter: () => onHover(box.id), onPointerLeave: () => onHover(null) }
         : {})}
@@ -113,7 +118,7 @@ export function NodeShell({
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation()
-        onSelect(box.id)
+        onSelect(box.id, event.shiftKey || event.metaKey || event.ctrlKey)
       }}
       className="project-map-node absolute flex flex-col text-left text-foreground"
       style={{ left: box.x, top: box.y, width: box.width, height: PROJECT_MAP_NODE.height }}
@@ -236,6 +241,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   references,
   onReferenceDrop,
   onHover,
+  mergePicked,
   selected,
   linked,
   onSelect
@@ -246,9 +252,10 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   references?: ProjectMapNodeReferences
   onReferenceDrop?: (target: string, source: ConversationReferenceCreate) => void
   onHover?: (id: string | null) => void
+  mergePicked?: boolean
   selected: boolean
   linked: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, adding?: boolean) => void
 }): React.JSX.Element {
   const { card } = agent
   const state = dashboardCardDisplayState(card)
@@ -315,6 +322,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       rowRight={rowRight}
       history={agent.history}
       {...(badge ? { badge } : {})}
+      {...(mergePicked ? { mergePicked } : {})}
       {...(onHover ? { onHover } : {})}
       {...(references ? { references } : {})}
       {...(onReferenceDrop && reference
@@ -342,9 +350,11 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       headerInPin={
         agent.fork
           ? agent.parentPaneKey
-            ? agent.fork.mode === 'native'
-              ? 'fork'
-              : 'handoff'
+            ? (agent.fork.sourceCount ?? 1) > 1
+              ? 'merge'
+              : agent.fork.mode === 'native'
+                ? 'fork'
+                : 'handoff'
             : 'unresolved'
           : agent.terminalFork
             ? 'handoff'

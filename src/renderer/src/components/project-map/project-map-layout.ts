@@ -1,4 +1,7 @@
 import type { ProjectMapEdge, ProjectMapGraph } from './project-map-graph'
+import { projectMapWires } from './project-map-wires'
+
+export { wirePath } from './project-map-wires'
 
 export const PROJECT_MAP_NODE = {
   workspaceWidth: 172,
@@ -200,55 +203,8 @@ export function layoutProjectMap(
   const width =
     Math.max(agentRight, looseRight, agentBaseX + PROJECT_MAP_NODE.agentWidth) + MARGIN + 40
 
-  const wires = graph.edges.flatMap((edge): ProjectMapWire[] => {
-    const from = nodes.get(edge.from)
-    const to = nodes.get(edge.to)
-    if (!from || !to) {
-      return []
-    }
-    if (edge.kind === 'reference') {
-      const y0 = from.y + PROJECT_MAP_NODE.referencePinOffsetY
-      const y1 = to.y + PROJECT_MAP_NODE.referencePinOffsetY
-      const x0 = from.x + from.width
-      if (x0 < to.x) {
-        return [{ ...edge, path: wirePath(x0, y0, to.x, y1) }]
-      }
-      if (from.x === to.x) {
-        const x1 = to.x + to.width
-        const bulge = 36
-        return [
-          {
-            ...edge,
-            path: `M${x0} ${y0} C${x0 + bulge} ${y0} ${x1 + bulge} ${y1} ${x1} ${y1}`,
-            side: true
-          }
-        ]
-      }
-      return [{ ...edge, path: loopPath(x0, y0, to.x, y1), backward: true }]
-    }
-    const pinY =
-      edge.kind === 'fork' || edge.kind === 'handoff'
-        ? PROJECT_MAP_NODE.headerPinOffsetY
-        : PROJECT_MAP_NODE.pinOffsetY
-    return [
-      {
-        ...edge,
-        path: wirePath(from.x + from.width, from.y + pinY, to.x, to.y + pinY)
-      }
-    ]
-  })
+  const wires = projectMapWires(graph.edges, nodes)
   return { nodes, lanes, wires, looseGroup, width, height: y + MARGIN }
-}
-
-/** Horizontal tangents capped at dx keep x monotonic, so a wire stays inside its gutter. */
-export function wirePath(x0: number, y0: number, x1: number, y1: number): string {
-  const k = Math.max(12, Math.min(Math.abs(x1 - x0) * 0.75, 160))
-  return `M${x0} ${y0} C${x0 + k} ${y0} ${x1 - k} ${y1} ${x1} ${y1}`
-}
-
-/** Leaves rightward and enters from the left, so a backward wire still reads source to target. */
-function loopPath(x0: number, y0: number, x1: number, y1: number): string {
-  return `M${x0} ${y0} C${x0 + 140} ${y0} ${x1 - 140} ${y1} ${x1} ${y1}`
 }
 
 function agentDepths(graph: ProjectMapGraph): Map<string, number> {

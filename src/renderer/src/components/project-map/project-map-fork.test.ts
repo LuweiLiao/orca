@@ -179,3 +179,46 @@ describe('forks on the project map', () => {
     ])
   })
 })
+
+describe('a chat merged from several', () => {
+  it('hangs under its first source and takes a merge wire from each other one', () => {
+    const merged: AgentSessionLineageEntry = {
+      ...forked('claude_merged', 'claude_a', 'transcript'),
+      sources: [
+        { sessionId: 'claude_a', cut: forked('x', 'y').cut, sourceProvider: 'claude' },
+        { sessionId: 'claude_b', cut: forked('x', 'y').cut, sourceProvider: 'claude' },
+        { sessionId: 'claude_gone', cut: forked('x', 'y').cut, sourceProvider: 'claude' }
+      ]
+    }
+    const graph = buildProjectMapGraph(
+      {
+        generatedAt: 0,
+        workspaces: [workspace],
+        cards: [card('a', 1), card('b', 2), card('merged', 3)]
+      },
+      'repo',
+      new Map(),
+      {
+        chatsByPaneKey: new Map([
+          ['a', chat('claude_a')],
+          ['b', chat('claude_b')],
+          ['merged', chat('claude_merged')]
+        ]),
+        lineage: new Map([['claude_merged', merged]]),
+        titleOf: (shown) => shown.task
+      }
+    )
+    expect(graph.agents.get('merged')).toMatchObject({
+      parentPaneKey: 'a',
+      fork: { sourceCount: 3 }
+    })
+    // A source with no node on the map is counted, never wired.
+    expect(graph.edges).toEqual([
+      { kind: 'handoff', from: 'a', to: 'merged' },
+      { kind: 'merge', from: 'b', to: 'merged' }
+    ])
+    // b sits in the same column as a, so its merge wire arcs in from the right of the column.
+    const wires = layoutProjectMap(graph).wires
+    expect(wires.find((wire) => wire.kind === 'merge')).toMatchObject({ from: 'b', to: 'merged' })
+  })
+})

@@ -21499,7 +21499,8 @@
       "fork": "Forked",
       "handoff": "Handed off",
       "history": "Closed",
-      "reference": "Referenced"
+      "reference": "Referenced",
+      "merge": "Merged"
     },
     "window": {
       "openInTab": "Open in tab",
@@ -21532,7 +21533,8 @@
       "handedOffPartly": "Handed off from {{source}} · latest {{handed}} of {{count}} messages",
       "terminalForkFrom": "Forked from terminal {{source}}",
       "needsInput": "Waiting for you",
-      "unseen": "Finished, not read yet"
+      "unseen": "Finished, not read yet",
+      "mergedFrom": "Merged from {{source}} and {{others}} more"
     },
     "title": "Project Map",
     "project": "Project",
@@ -21650,6 +21652,23 @@
       "snapshot": "first {{count}} messages",
       "rewindForks": "{{count}} chats were forked after this point: {{names}}. They keep what they were handed, but the point they were forked from goes away here.",
       "forkHere": "New child chat from here"
+    },
+    "merge": {
+      "title": "Merge into a new chat",
+      "subtitle": "From {{count}} chats",
+      "continues": "Continues most directly",
+      "primaryHint": "Its section comes first; the new chat joins its workspace",
+      "alsoHint": "Also handed over, in its own section",
+      "handoffHint": "Each chat is handed over as text, through its last completed turn; the longest are cut first, with a link to the rest.",
+      "hostUnsupported": "This chat's host runs an Orca version that cannot merge chats; update it to merge here.",
+      "working": "{{name}} is still working; merge once its turn ends.",
+      "create": "Merge into a new chat",
+      "cannotPick": "This chat cannot be merged from the map.",
+      "otherHost": "Only chats on the same host can be merged; this one runs on another.",
+      "tooMany": "A merge takes at most {{count}} chats.",
+      "ghost": "Merged from {{count}} chats",
+      "handle": "Merge {{count}} chats",
+      "handleHint": "Click, or drag onto the map to place the merged chat"
     }
   }
 }

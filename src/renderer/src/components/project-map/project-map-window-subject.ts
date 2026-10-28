@@ -1,4 +1,4 @@
-import type { ProjectMapAgent, ProjectMapGraph } from './project-map-graph'
+import type { ProjectMapAgent, ProjectMapEdge, ProjectMapGraph } from './project-map-graph'
 import type { ProjectMapWindowSubject } from './ProjectMapChatWindow'
 
 /** A chat this renderer can fork: structured, on a host the map can reach by runtime RPC. */
@@ -25,4 +25,20 @@ export function projectMapWindowSubject(
         agents: workspace.agentPaneKeys.flatMap((paneKey) => graph.agents.get(paneKey) ?? [])
       }
     : null
+}
+
+/** The nodes wired to the shown node, kept clear of its window and undimmed. */
+export function projectMapLinkedNodes(
+  edges: readonly ProjectMapEdge[],
+  shown: string | null
+): Set<string> {
+  const ids = new Set<string>()
+  for (const edge of edges) {
+    if (edge.from === shown) {
+      ids.add(edge.to)
+    } else if (edge.to === shown) {
+      ids.add(edge.from)
+    }
+  }
+  return ids
 }

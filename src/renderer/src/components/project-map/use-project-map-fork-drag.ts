@@ -13,6 +13,8 @@ export type ProjectMapForkDraft = {
   blocked: boolean
   /** Dropped; the fork panel is open for it. */
   placed: boolean
+  /** A merge: the other chats it is made from, each drawn a wire to the ghost. */
+  mergeWith?: readonly string[]
 }
 
 const DRAG_THRESHOLD = 4
@@ -23,7 +25,7 @@ type Options = {
   contentPoint: (clientX: number, clientY: number) => { x: number; y: number } | null
   snap: (originId: string, pointerY: number) => ProjectMapDropSlot | null
   onStart: (originId: string) => void
-  onPlace: (originId: string) => void
+  onPlace: (originId: string, mergeWith?: readonly string[]) => void
 }
 
 function offCanvas(clientX: number, clientY: number): boolean {
@@ -43,7 +45,7 @@ export function useProjectMapForkDrag({ contentPoint, snap, onStart, onPlace }: 
   const cancelRef = useRef<(() => void) | null>(null)
 
   const onHandlePointerDown = useCallback(
-    (originId: string, event: React.PointerEvent<HTMLElement>) => {
+    (originId: string, event: React.PointerEvent<HTMLElement>, mergeWith?: readonly string[]) => {
       if (event.button !== 0) {
         return
       }
@@ -69,7 +71,8 @@ export function useProjectMapForkDrag({ contentPoint, snap, onStart, onPlace }: 
             point: slotPin(slot) ?? pointer,
             row: slot?.row ?? 0,
             blocked: !slot || offCanvas(next.clientX, next.clientY),
-            placed: false
+            placed: false,
+            ...(mergeWith ? { mergeWith } : {})
           })
         }
       }
@@ -89,8 +92,15 @@ export function useProjectMapForkDrag({ contentPoint, snap, onStart, onPlace }: 
           setDraft(null)
           return
         }
-        setDraft({ originId, point: pin, row: slot.row, blocked: false, placed: true })
-        onPlace(originId)
+        setDraft({
+          originId,
+          point: pin,
+          row: slot.row,
+          blocked: false,
+          placed: true,
+          ...(mergeWith ? { mergeWith } : {})
+        })
+        onPlace(originId, mergeWith)
       }
       const up = (next: PointerEvent): void => finish(next)
       const cancel = (): void => finish(null)

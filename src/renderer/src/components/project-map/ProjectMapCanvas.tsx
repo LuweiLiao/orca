@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
 import type { ProjectMapAgent, ProjectMapGraph, ProjectMapWorkspace } from './project-map-graph'
@@ -20,16 +20,22 @@ import { ProjectMapLegend } from './ProjectMapLegend'
 import {
   ProjectMapForkGhost,
   ProjectMapForkHandle,
+  ProjectMapMergeHandle,
   projectMapForkPin
 } from './ProjectMapForkHandle'
+import { useProjectMapMergePicks } from './use-project-map-merge-picks'
+import { useProjectMapAwaitedChild, useProjectMapEscape } from './use-project-map-canvas-selection'
+import { ProjectMapForkWindow, type ProjectMapForkIntent } from './ProjectMapForkWindow'
 import { useProjectMapForkDrag, useProjectMapHover } from './use-project-map-fork-drag'
 import { PROJECT_MAP_GROUP_PREFIX, type ProjectMapCollapsedView } from './project-map-collapse'
 import { projectMapAgentTitle } from './project-map-labels'
 import { ProjectMapChatWindow } from './ProjectMapChatWindow'
-import { projectMapAgentForkable, projectMapWindowSubject } from './project-map-window-subject'
-import { ProjectMapForkPanel } from './ProjectMapForkPanel'
-import type { ProjectMapForkAt } from './project-map-fork-sources'
-import type { ProjectMapRect } from './project-map-window-placement'
+import {
+  projectMapAgentForkable,
+  projectMapLinkedNodes,
+  projectMapWindowSubject
+} from './project-map-window-subject'
+import { projectMapViewportRect, type ProjectMapRect } from './project-map-window-placement'
 import { projectMapDropSlot } from './project-map-drop-slot'
 import { noteProjectMapChatRow } from './project-map-chat-rows'
 
@@ -53,7 +59,6 @@ type Props = {
   onSearchOpenChange: (open: boolean) => void
 }
 
-const AWAIT_FORKED_CHAT_MS = 30_000
 const PROJECT_MAP_CHAT_WINDOW = '[data-project-map-chat-window]'
 const EMPTY_WORKTREES: readonly Worktree[] = []
 
@@ -75,25 +80,13 @@ export function ProjectMapCanvas({
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // The chat a new child is being made from, and the turn picked on its timeline, when one was.
-  const [fork, setFork] = useState<{ paneKey: string; at?: ProjectMapForkAt } | null>(null)
+  // The chat a new child is being made from: one chat, a turn on its timeline, or a merge.
+  const [fork, setFork] = useState<ProjectMapForkIntent | null>(null)
   const forkFor = fork?.paneKey ?? null
   const setForkFor = useCallback(
     (paneKey: string | null) => setFork(paneKey ? { paneKey } : null),
     []
   )
-  // A new child shows up on a later snapshot; select it then, by its chat's session.
-  const [awaited, setAwaited] = useState<{ sessionId: string; projectId: string } | null>(null)
-  // Waited for only on the project it was made from, and not forever: a child that lands
-  // elsewhere, or never shows, must not grab the selection later.
-  const awaitedSession = awaited?.projectId === graph.projectId ? awaited.sessionId : null
-  useEffect(() => {
-    if (!awaited) {
-      return
-    }
-    const timer = window.setTimeout(() => setAwaited(null), AWAIT_FORKED_CHAT_MS)
-    return () => window.clearTimeout(timer)
-  }, [awaited])
   const worktrees = useAppStore((s) => selectWorktreesByRepo(s)[graph.projectId] ?? EMPTY_WORKTREES)
   const worktreeById = useMemo(
     () => new Map(worktrees.map((worktree) => [worktree.id, worktree])),
@@ -120,11 +113,33 @@ export function ProjectMapCanvas({
     contentPoint: viewport.contentPoint,
     snap: (originId, pointerY) => projectMapDropSlot(layout, graph, originId, pointerY),
     onStart: () => setForkFor(null),
-    onPlace: (originId) => {
+    onPlace: (originId, merge) => {
       setSelectedId(originId)
-      setForkFor(originId)
+      setFork({ paneKey: originId, ...(merge ? { merge } : {}) })
     }
   })
+  const picks = useProjectMapMergePicks(graph, layout)
+  const { clear: clearPicks } = picks
+  const awaitChild = useProjectMapAwaitedChild(graph, (id) => shownAs(id) !== null, setSelectedId)
+  useProjectMapEscape(
+    selected !== null || picks.picked.length > 0,
+    useCallback(() => {
+      setSelectedId(null)
+      clearPicks()
+    }, [clearPicks])
+  )
+  const merging = picks.picked.length >= 2
+  // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click drops the merge and opens the chat.
+  const selectNode = (id: string, adding?: boolean): void => {
+    if (adding) {
+      picks.toggle(id, selected)
+      setSelectedId(null)
+      setFork(null)
+      return
+    }
+    picks.clear()
+    setSelectedId(id)
+  }
   const { draft } = forkDrag
   // A placed child lives only while its panel is open; closing or creating drops it.
   if (draft?.placed && (forkFor !== draft.originId || !forkOrigin)) {
@@ -134,35 +149,21 @@ export function ProjectMapCanvas({
   const forkable = (id: string | null): string | null =>
     id && layout.nodes.has(id) && projectMapAgentForkable(graph.agents.get(id)) ? id : null
   // One handle at a time: the one in use, else under the pointer, else on the selected node.
-  const handleFor = forkDrag.pressed
-    ? forkable(forkDrag.pressed)
-    : (forkable(hovered) ?? (selected === selectedShown ? forkable(selected) : null))
+  const handleFor = merging
+    ? null
+    : forkDrag.pressed
+      ? forkable(forkDrag.pressed)
+      : (forkable(hovered) ?? (selected === selectedShown ? forkable(selected) : null))
   const handleBox = handleFor ? layout.nodes.get(handleFor) : undefined
   const draftFrom = draft ? layout.nodes.get(draft.originId) : undefined
   const draftOrigin = draft ? graph.agents.get(draft.originId) : undefined
   const group = selectedShown ? collapsed.groups.get(selectedShown) : undefined
   const trayOpen = group !== undefined && selected === selectedShown
 
-  // Adjusted during render, not in an effect, so the new node never draws unselected first.
-  const arrived = awaitedSession
-    ? [...graph.agents.values()].find((agent) => agent.chat?.sessionId === awaitedSession)
-    : undefined
-  if (arrived && shownAs(arrived.card.paneKey)) {
-    setSelectedId(arrived.card.paneKey)
-    setAwaited(null)
-  }
-
-  const linked = useMemo(() => {
-    const ids = new Set<string>()
-    for (const edge of collapsed.graph.edges) {
-      if (edge.from === selectedShown) {
-        ids.add(edge.to)
-      } else if (edge.to === selectedShown) {
-        ids.add(edge.from)
-      }
-    }
-    return ids
-  }, [collapsed.graph.edges, selectedShown])
+  const linked = useMemo(
+    () => projectMapLinkedNodes(collapsed.graph.edges, selectedShown),
+    [collapsed.graph.edges, selectedShown]
+  )
 
   const referencesOf = useMemo(
     () => projectMapNodeReferences(collapsed.graph.agents, layout.wires),
@@ -183,33 +184,9 @@ export function ProjectMapCanvas({
     [graph.agents]
   )
 
-  useEffect(() => {
-    if (!selected) {
-      return
-    }
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (
-        event.key === 'Escape' &&
-        !event.defaultPrevented &&
-        !(event.target instanceof Element && event.target.closest('[data-project-map-window]'))
-      ) {
-        setSelectedId(null)
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [selected])
-
   const toViewport = (id: string): ProjectMapRect | null => {
     const box = layout.nodes.get(id)
-    return box
-      ? {
-          x: box.x * view.zoom + view.x,
-          y: box.y * view.zoom + view.y,
-          width: box.width * view.zoom,
-          height: PROJECT_MAP_NODE.height * view.zoom
-        }
-      : null
+    return box ? projectMapViewportRect(box, view) : null
   }
   const { locate, match } = useProjectMapLocate({
     layout,
@@ -230,12 +207,14 @@ export function ProjectMapCanvas({
     '--pm-pan-y': `${view.y}px`
   }
   const anchor = placedDraft
-    ? {
-        x: placedDraft.point.x * view.zoom + view.x,
-        y: (placedDraft.point.y - PROJECT_MAP_NODE.headerPinOffsetY) * view.zoom + view.y,
-        width: PROJECT_MAP_NODE.agentWidth * view.zoom,
-        height: PROJECT_MAP_NODE.height * view.zoom
-      }
+    ? projectMapViewportRect(
+        {
+          x: placedDraft.point.x,
+          y: placedDraft.point.y - PROJECT_MAP_NODE.headerPinOffsetY,
+          width: PROJECT_MAP_NODE.agentWidth
+        },
+        view
+      )
     : selectedShown
       ? toViewport(selectedShown)
       : null
@@ -251,6 +230,7 @@ export function ProjectMapCanvas({
         if (!viewport.consumeDrag()) {
           setSelectedId(null)
           setForkFor(null)
+          picks.clear()
         }
       }}
       className="project-map-viewport relative min-h-0 flex-1 cursor-default overflow-hidden"
@@ -294,7 +274,8 @@ export function ProjectMapCanvas({
               activeWorktreeId={activeWorktreeId}
               worktreeById={worktreeById}
               referencesOf={referencesOf}
-              onSelect={setSelectedId}
+              onSelect={selectNode}
+              picked={picks.picked}
               onHover={hoverNode}
               onReferenceDrop={dropReference}
             />
@@ -315,11 +296,30 @@ export function ProjectMapCanvas({
                 }}
               />
             ) : null}
+            {/* Mounted through its own drag: the press that holds the pointer must see it let go. */}
+            {merging && !fork?.merge ? (
+              <ProjectMapMergeHandle
+                boxes={picks.picked.flatMap((id) => layout.nodes.get(id) ?? [])}
+                onPointerDown={(event) =>
+                  forkDrag.onHandlePointerDown(picks.picked[0]!, event, picks.picked.slice(1))
+                }
+                onOpen={() => {
+                  if (!forkDrag.consumeDrag()) {
+                    setSelectedId(picks.picked[0]!)
+                    setFork({ paneKey: picks.picked[0]!, merge: picks.picked.slice(1) })
+                  }
+                }}
+              />
+            ) : null}
             {draft && draftFrom && draftOrigin ? (
               <ProjectMapForkGhost
                 from={projectMapForkPin(draftFrom)}
                 draft={draft}
                 originTitle={projectMapAgentTitle(draftOrigin.card)}
+                mergeFrom={(draft.mergeWith ?? []).flatMap((id) => {
+                  const box = layout.nodes.get(id)
+                  return box ? [projectMapForkPin(box)] : []
+                })}
               />
             ) : null}
             <ProjectMapNodeOverlays
@@ -340,24 +340,27 @@ export function ProjectMapCanvas({
           onClose={() => onSearchOpenChange(false)}
         />
       ) : null}
-      {forkOrigin && anchor ? (
-        <ProjectMapForkPanel
-          key={`fork:${selected}:${placedDraft ? 'placed' : (fork?.at?.itemId ?? 'node')}`}
+      {forkOrigin && anchor && fork ? (
+        <ProjectMapForkWindow
+          key={`fork:${selected}:${placedDraft ? 'placed' : (fork.at?.itemId ?? fork.merge?.join() ?? 'node')}`}
+          intent={fork}
           origin={forkOrigin}
           agents={graph.agents}
           anchor={anchor}
           viewport={viewport.size}
-          avoid={[...linked, ...(placedDraft ? [placedDraft.originId] : [])].flatMap(
-            (id) => toViewport(id) ?? []
-          )}
-          {...(fork?.at ? { at: fork.at } : {})}
+          avoid={[
+            ...linked,
+            ...(placedDraft ? [placedDraft.originId] : []),
+            ...(fork.merge ?? [])
+          ].flatMap((id) => toViewport(id) ?? [])}
           onClose={() => setForkFor(null)}
           onCreated={({ sessionId }) => {
             if (placedDraft) {
               noteProjectMapChatRow(sessionId, placedDraft.row)
             }
             setForkFor(null)
-            setAwaited({ sessionId, projectId: graph.projectId })
+            picks.clear()
+            awaitChild(sessionId)
             onForked()
           }}
         />
@@ -396,7 +399,8 @@ export function ProjectMapCanvas({
           !forkUnsupportedHosts.has(subject.agent.chat?.executionHostId ?? '')
             ? {
                 onFork: () => setForkFor(selected),
-                onForkAt: (at: ProjectMapForkAt) => selected && setFork({ paneKey: selected, at })
+                onForkAt: (at: NonNullable<ProjectMapForkIntent['at']>) =>
+                  selected && setFork({ paneKey: selected, at })
               }
             : {})}
           {...(subject.kind === 'agent' && collapsed.collapsible.has(subject.agent.card.paneKey)

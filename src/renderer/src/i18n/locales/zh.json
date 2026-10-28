@@ -21383,7 +21383,8 @@
       "fork": "分叉",
       "handoff": "交接",
       "history": "已关闭",
-      "reference": "引用"
+      "reference": "引用",
+      "merge": "合并"
     },
     "window": {
       "openInTab": "在标签页中打开",
@@ -21412,7 +21413,8 @@
       "handedOffPartly": "交接自 {{source}} · 最近 {{handed}} / {{count}} 条",
       "terminalForkFrom": "从终端 {{source}} 派生",
       "needsInput": "在等你回复",
-      "unseen": "已完成，还没看"
+      "unseen": "已完成，还没看",
+      "mergedFrom": "合并自 {{source}} 和另外 {{others}} 个对话"
     },
     "title": "项目关系图",
     "project": "项目",
@@ -21529,6 +21531,23 @@
       "snapshot": "前 {{count}} 条",
       "rewindForks": "这个点之后分出了 {{count}} 个对话：{{names}}。它们已拿到的内容不受影响，但这里的分叉点会消失。",
       "forkHere": "从这里新建子对话"
+    },
+    "merge": {
+      "title": "合并为新对话",
+      "subtitle": "来自 {{count}} 个对话",
+      "continues": "主要接续",
+      "primaryHint": "它的内容排在最前，新对话放进它所在的工作区",
+      "alsoHint": "也一起交接，单独成一节",
+      "handoffHint": "每个对话都以文字交接到最近一轮完成为止；放不下时先截最长的，其余给出链接。",
+      "hostUnsupported": "这个对话所在主机的 Orca 版本不支持合并，升级后才能在这里合并。",
+      "working": "「{{name}}」还在运行，等这一轮结束再合并。",
+      "create": "合并为新对话",
+      "cannotPick": "这个对话不能在地图上合并。",
+      "otherHost": "只能合并同一台主机上的对话，这个对话在另一台主机上。",
+      "tooMany": "一次最多合并 {{count}} 个对话。",
+      "ghost": "合并自 {{count}} 个对话",
+      "handle": "合并 {{count}} 个对话",
+      "handleHint": "点击，或拖到地图空白处放置合并后的对话"
     }
   }
 }

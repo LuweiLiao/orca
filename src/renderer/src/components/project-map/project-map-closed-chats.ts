@@ -1,6 +1,7 @@
 // Chats whose tabs are closed but that a fork or reference still connects to the map.
 
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
+import { agentSessionLineageSources } from '../../../../shared/agent-session-fork'
 import { structuredAgentSessionTabId } from '../../../../shared/structured-agent-session-projection'
 import type { ProjectMapForkInput, ProjectMapWorkspace } from './project-map-graph'
 import type { ProjectMapHistoryChat } from './project-map-lineage'
@@ -13,7 +14,10 @@ export function closedForkEnds(
   const order = [
     ...[...forks.lineage.values()]
       .sort((a, b) => a.createdAt - b.createdAt)
-      .flatMap((entry) => [entry.sourceSessionId, entry.childSessionId]),
+      .flatMap((entry) => [
+        ...agentSessionLineageSources(entry).map((source) => source.sessionId),
+        entry.childSessionId
+      ]),
     ...(forks.references ?? []).flatMap((link) =>
       link.source ? [link.source.sessionId, link.targetSessionId] : [link.targetSessionId]
     )

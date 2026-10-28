@@ -1,5 +1,8 @@
 import type { AgentSessionConversationOutline } from '../../../../shared/agent-session-conversation-outline'
-import type { AgentSessionLineageEntry } from '../../../../shared/agent-session-fork'
+import {
+  agentSessionLineageSources,
+  type AgentSessionLineageEntry
+} from '../../../../shared/agent-session-fork'
 import type { AgentSessionReferenceLink } from '../../../../shared/agent-session-reference-link'
 import { conversationReferenceSnapshotCount } from '../../../../shared/conversation-reference'
 
@@ -78,18 +81,20 @@ export function projectMapTimeline({
     }))
   const rewoundForks: ProjectMapTimelineFork[] = []
   for (const entry of lineage) {
-    if (entry.sourceSessionId !== sessionId) {
+    // A merge counts for every chat it was handed, each at its own cut.
+    const cut = agentSessionLineageSources(entry).find(
+      (source) => source.sessionId === sessionId
+    )?.cut
+    if (!cut) {
       continue
     }
     const fork = {
       childSessionId: entry.childSessionId,
       node: nodeOf(entry.childSessionId),
-      messageCount: entry.cut.messageCount
+      messageCount: cut.messageCount
     }
     const turn =
-      entry.cut.journalEpoch === outline.cursor.epoch
-        ? turnAt(turns, entry.cut.journalSequence)
-        : undefined
+      cut.journalEpoch === outline.cursor.epoch ? turnAt(turns, cut.journalSequence) : undefined
     if (turn) {
       turn.forks.push(fork)
     } else {
@@ -155,10 +160,12 @@ export function projectMapForksPastRewind(
   lineage: Iterable<AgentSessionLineageEntry>,
   rewind: { sessionId: string; epoch: string; sequence: number }
 ): AgentSessionLineageEntry[] {
-  return [...lineage].filter(
-    (entry) =>
-      entry.sourceSessionId === rewind.sessionId &&
-      entry.cut.journalEpoch === rewind.epoch &&
-      entry.cut.journalSequence >= rewind.sequence
+  return [...lineage].filter((entry) =>
+    agentSessionLineageSources(entry).some(
+      (source) =>
+        source.sessionId === rewind.sessionId &&
+        source.cut.journalEpoch === rewind.epoch &&
+        source.cut.journalSequence >= rewind.sequence
+    )
   )
 }

@@ -19,6 +19,12 @@ export function forkSourceLabel(fork: NonNullable<ProjectMapAgent['fork']>): str
     count: fork.messageCount
   }
   const handedOver = fork.entry.handedOverCount
+  if (fork.sourceCount !== undefined && fork.sourceCount > 1) {
+    return translate('projectMap.node.mergedFrom', 'Merged from {{source}} and {{others}} more', {
+      ...values,
+      others: fork.sourceCount - 1
+    })
+  }
   if (fork.mode === 'native') {
     return translate(
       'projectMap.node.forkedFrom',

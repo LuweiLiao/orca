@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
@@ -11,9 +10,6 @@ import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
 } from '../../src/shared/structured-agent-session-projection'
-import { agentSessionForkFingerprint } from '../../src/shared/agent-session-fork'
-import { createStructuredAgentSessionId } from '../../src/shared/structured-agent-session-create'
-import { createStructuredAgentSessionOperationId } from '../../src/shared/structured-agent-session-mutation'
 
 test.use({ orcaAppExtraEnv: { ORCA_E2E_STUB_EFFORT_CATALOG: '1' } })
 
@@ -47,7 +43,7 @@ const lineageResult = z.object({
   })
 })
 
-test('forks from a picked turn on the timeline, then merges two chats into one child', async ({
+test('forks from a picked turn on the timeline, then merges two picked chats into one child', async ({
   orcaPage: page,
   claudeStub
 }, testInfo) => {
@@ -123,7 +119,7 @@ test('forks from a picked turn on the timeline, then merges two chats into one c
     expect(fromTurn).not.toContain('SECOND-TURN')
     expect(fromTurn).toContain('Messages handed over: 2 of 2')
 
-    // Merge the parent and that child into one new chat, through the host the map would call.
+    // Shift-click both chats, drag the merge handle out, and merge them into one new chat.
     const lineage = async () =>
       lineageResult.parse(
         await page.evaluate(() =>
@@ -131,33 +127,31 @@ test('forks from a picked turn on the timeline, then merges two chats into one c
         )
       ).result.entries
     const child = (await lineage()).find((entry) => entry.sourceSessionId === parent)!
-    const sessionId = createStructuredAgentSessionId('claude', randomUUID)
-    const intent = {
-      sourceSessionId: parent,
-      originSessionId: parent,
-      cut: { kind: 'latest' as const },
-      worktree: `id:${worktreeId}`,
-      agent: 'claude',
-      instruction: 'MERGED: compare the two',
-      mergeSources: [{ sessionId: child.childSessionId, cut: { kind: 'latest' as const } }]
-    }
+    const childNode = map.locator(`[data-project-map-node="${paneKeyOf(child.childSessionId)}"]`)
     // The child must have answered before it can be read at its latest turn.
-    await expect(
-      map.getByRole('button', { name: 'FROM-TURN-ONE: try a grid', exact: true })
-    ).toContainText('Idle', { timeout: 30_000 })
-    const response = await page.evaluate(
-      (params) => window.api.runtime.call({ method: 'agentSession.fork', params }),
-      {
-        envelope: {
-          sessionId,
-          clientOperationId: createStructuredAgentSessionOperationId(randomUUID),
-          expectedRuntimeFence: null,
-          payloadFingerprint: agentSessionForkFingerprint({ ...intent, envelope: { sessionId } })
-        },
-        ...intent
-      }
-    )
-    expect(JSON.stringify(response)).toContain('"ok":true')
+    await expect(childNode).toContainText('Idle', { timeout: 30_000 })
+    await map.locator('[data-project-map-window] button[aria-label="Close"]').first().click()
+    await parentNode.click({ modifiers: ['Shift'] })
+    await childNode.click({ modifiers: ['Shift'] })
+    await expect(map.locator('[data-merge-picked="true"]')).toHaveCount(2)
+    const handle = map.locator('[data-project-map-merge-handle]')
+    await expect(handle).toHaveText('Merge 2 chats')
+    const from = (await handle.boundingBox())!
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 40, from.y + 220, { steps: 8 })
+    // One dashed wire from each picked chat meets the pending node.
+    await expect(map.locator('.project-map-wire[data-kind="fork-draft"]')).toHaveCount(2)
+    await expect(map.locator('[data-project-map-fork-draft]')).toContainText('Merged from 2 chats')
+    await screenshot('merge-drag')
+    await page.mouse.up()
+    const mergePanel = map.locator('[data-project-map-merge-panel]')
+    await expect(mergePanel).toBeVisible()
+    await expect(mergePanel.getByRole('radio')).toHaveCount(2)
+    await mergePanel.getByRole('textbox').fill('MERGED: compare the two')
+    await screenshot('merge-panel')
+    await mergePanel.getByRole('button', { name: 'Merge into a new chat' }).click()
+    await expect(mergePanel).toHaveCount(0, { timeout: 30_000 })
     await expect
       .poll(() => sentPrompts(claudeStub.launchLog).find((prompt) => prompt.includes('MERGED:')))
       .toBeTruthy()
@@ -167,14 +161,20 @@ test('forks from a picked turn on the timeline, then merges two chats into one c
     // The parent's whole conversation, and the child's own, each in its section.
     expect(merged).toContain('SECOND-TURN: colour the wires')
     expect(merged).toContain('FROM-TURN-ONE: try a grid')
-    const entry = (await lineage()).find((candidate) => candidate.childSessionId === sessionId)
-    expect(entry?.sources?.map((source) => source.sessionId)).toEqual([
-      parent,
-      child.childSessionId
-    ])
-    await expect(
-      map.getByRole('button', { name: 'MERGED: compare the two', exact: true })
-    ).toBeVisible({ timeout: 30_000 })
+    await expect
+      .poll(async () =>
+        (await lineage())
+          .find((entry) => entry.sources !== undefined)
+          ?.sources?.map((source) => source.sessionId)
+      )
+      .toEqual([parent, child.childSessionId])
+    const mergedNode = map.getByRole('button', { name: 'MERGED: compare the two', exact: true })
+    await expect(mergedNode).toBeVisible({ timeout: 30_000 })
+    await expect(mergedNode).toContainText('Merged from')
+    // Its first source is its parent; the other one draws a merge wire into it.
+    await expect(map.locator('.project-map-wire[data-kind="merge"]')).toHaveCount(1, {
+      timeout: 15_000
+    })
     await screenshot('merged')
   } finally {
     await stopCapture()

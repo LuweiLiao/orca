@@ -69,6 +69,8 @@ export function projectMapForkRequest(input: {
   effort?: string
   instruction: string
   randomUuid: () => string
+  /** A merge: the other chats, each handed over through its last completed turn. */
+  mergeWith?: readonly ProjectMapAgent[]
 }): AgentSessionForkParams | null {
   const sourceChat = input.source.agent.chat
   const originChat = input.origin.chat
@@ -80,6 +82,9 @@ export function projectMapForkRequest(input: {
     ...(input.model && input.effort ? { effort: input.effort } : {})
   }
   const instruction = input.instruction.trim()
+  const mergeSources = (input.mergeWith ?? []).flatMap((agent) =>
+    agent.chat ? [{ sessionId: agent.chat.sessionId, cut: { kind: 'latest' as const } }] : []
+  )
   const intent = {
     sourceSessionId: sourceChat.sessionId,
     originSessionId: originChat.sessionId,
@@ -88,7 +93,8 @@ export function projectMapForkRequest(input: {
     worktree: toRuntimeWorktreeSelector(input.origin.card.worktreeId),
     agent: input.agent,
     ...(Object.keys(options).length > 0 ? { options } : {}),
-    ...(instruction ? { instruction } : {})
+    ...(instruction ? { instruction } : {}),
+    ...(mergeSources.length > 0 ? { mergeSources } : {})
   }
   const sessionId = createStructuredAgentSessionId(input.agent, input.randomUuid)
   return {

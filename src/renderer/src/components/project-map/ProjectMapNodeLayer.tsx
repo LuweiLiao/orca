@@ -17,7 +17,9 @@ type Props = {
   activeWorktreeId: string | null
   worktreeById: ReadonlyMap<string, Worktree>
   referencesOf: ReadonlyMap<string, ProjectMapNodeReferences>
-  onSelect: (id: string) => void
+  onSelect: (id: string, adding?: boolean) => void
+  /** Chats picked to merge. */
+  picked: readonly string[]
   onHover: (id: string | null) => void
   onReferenceDrop: (target: string, source: ConversationReferenceCreate) => void
 }
@@ -33,6 +35,7 @@ export function ProjectMapNodeLayer({
   worktreeById,
   referencesOf,
   onSelect,
+  picked,
   onHover,
   onReferenceDrop
 }: Props): React.JSX.Element {
@@ -83,6 +86,7 @@ export function ProjectMapNodeLayer({
             references={referencesOf.get(box.id)}
             onReferenceDrop={onReferenceDrop}
             onHover={onHover}
+            mergePicked={picked.includes(box.id)}
             graphAgents={graph.agents}
           />
         ) : null

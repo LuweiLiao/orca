@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { GitMerge, Plus } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import { PROJECT_MAP_NODE, wirePath } from './project-map-layout'
 import type { ProjectMapForkDraft } from './use-project-map-fork-drag'
@@ -68,16 +68,22 @@ export function ProjectMapForkHandle({
   )
 }
 
+const NO_PINS: readonly { x: number; y: number }[] = []
+
 /** The dashed wire and outline of the chat a drag will create, drawn under the pointer. */
 export function ProjectMapForkGhost({
   from,
   draft,
-  originTitle
+  originTitle,
+  mergeFrom = NO_PINS
 }: {
   from: { x: number; y: number }
   draft: ProjectMapForkDraft
   originTitle: string
+  /** A merge: the other chats' fork pins, each wired to the ghost too. */
+  mergeFrom?: readonly { x: number; y: number }[]
 }): React.JSX.Element {
+  const merging = mergeFrom.length > 0
   const { x, y } = draft.point
   const hint = draft.blocked
     ? translate('projectMap.fork.dropBlocked', 'Drop it on an empty spot')
@@ -101,6 +107,17 @@ export function ProjectMapForkGhost({
           data-blocked={draft.blocked || undefined}
           d={wirePath(from.x, from.y, x, y)}
         />
+        {mergeFrom.map((pin) => (
+          <path
+            key={`${pin.x}:${pin.y}`}
+            className="project-map-wire"
+            data-kind="fork-draft"
+            data-merge=""
+            data-highlighted="true"
+            data-blocked={draft.blocked || undefined}
+            d={wirePath(pin.x, pin.y, x, y)}
+          />
+        ))}
       </svg>
       <div
         aria-hidden
@@ -114,15 +131,69 @@ export function ProjectMapForkGhost({
           height: PROJECT_MAP_NODE.height
         }}
       >
-        <span className="project-map-fork-pin" data-side="in" data-wire="fork" />
-        <Plus aria-hidden className="project-map-fork-glyph size-4 shrink-0" />
+        <span
+          className="project-map-fork-pin"
+          data-side="in"
+          data-wire={merging ? 'merge' : 'fork'}
+        />
+        {merging ? (
+          <GitMerge aria-hidden className="project-map-fork-glyph size-4 shrink-0" />
+        ) : (
+          <Plus aria-hidden className="project-map-fork-glyph size-4 shrink-0" />
+        )}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[13px] leading-[17px] font-semibold">
-            {translate('projectMap.fork.title', 'New child chat')}
+            {merging
+              ? translate('projectMap.merge.ghost', 'Merged from {{count}} chats', {
+                  count: mergeFrom.length + 1
+                })
+              : translate('projectMap.fork.title', 'New child chat')}
           </span>
           <span className="truncate text-[11px] leading-[15px] text-muted-foreground">{hint}</span>
         </span>
       </div>
     </>
+  )
+}
+
+/** Beside the picked chats: click to merge them into a new chat, or drag it out to place one. */
+export function ProjectMapMergeHandle({
+  boxes,
+  onPointerDown,
+  onOpen
+}: {
+  boxes: readonly { x: number; y: number; width: number }[]
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void
+  onOpen: () => void
+}): React.JSX.Element {
+  const right = Math.max(...boxes.map((box) => box.x + box.width))
+  const top = Math.min(...boxes.map((box) => box.y))
+  const bottom = Math.max(...boxes.map((box) => box.y + PROJECT_MAP_NODE.height))
+  const label = translate('projectMap.merge.handle', 'Merge {{count}} chats', {
+    count: boxes.length
+  })
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={translate(
+        'projectMap.merge.handleHint',
+        'Click, or drag onto the map to place the merged chat'
+      )}
+      data-project-map-merge-handle=""
+      onPointerDown={(event) => {
+        event.stopPropagation()
+        onPointerDown(event)
+      }}
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpen()
+      }}
+      className="project-map-fork-handle absolute z-10 flex h-[26px] -translate-y-1/2 touch-none items-center gap-1 rounded-full bg-primary px-2.5 text-[12px] font-medium text-primary-foreground"
+      style={{ left: right + 14, top: (top + bottom) / 2 }}
+    >
+      <GitMerge aria-hidden className="size-3.5" />
+      {label}
+    </button>
   )
 }
