@@ -97,19 +97,23 @@ describe('stacking a busy parent', () => {
     const view = collapseProjectMapGraph(fleet(), new Set())
     const id = `${PROJECT_MAP_GROUP_PREFIX}lead`
     expect(view.groups.get(id)).toMatchObject({
-      childPaneKeys: ['w1', 'w2', 'w3', 'w4', 'w5'],
-      memberPaneKeys: ['w1', 'g1', 'w2', 'w3', 'w4', 'w5'],
-      counts: { working: 1, waiting: 1, settled: 4 }
+      childPaneKeys: ['w1', 'w3', 'w4', 'w5'],
+      memberPaneKeys: ['w1', 'g1', 'w3', 'w4', 'w5'],
+      counts: { working: 1, waiting: 0, settled: 4 }
     })
     const layout = layoutProjectMap(view.graph)
-    expect([...layout.nodes.keys()].filter((key) => key.startsWith('w'))).toEqual([])
     expect(layout.nodes.has(id)).toBe(true)
-    // The fork out of a hidden worker stays on the canvas and leaves from the stack.
+    // The worker the person forked from stays out of the stack, so the fork leaves from it.
+    expect([...layout.nodes.keys()].filter((key) => key.startsWith('w'))).toEqual(['w2'])
     expect(layout.nodes.has('mine')).toBe(true)
-    expect(view.graph.edges).toEqual([
-      { kind: 'delegate', from: 'lead', to: id },
-      { kind: 'fork', from: id, to: 'mine' }
-    ])
+    expect(view.graph.edges).toEqual(
+      expect.arrayContaining([
+        { kind: 'delegate', from: 'lead', to: id },
+        { kind: 'delegate', from: 'lead', to: 'w2' },
+        { kind: 'fork', from: 'w2', to: 'mine' }
+      ])
+    )
+    expect(view.graph.edges.some((edge) => edge.from === id && edge.kind === 'fork')).toBe(false)
     expect(view.groupOf.get('g1')).toBe(id)
   })
 

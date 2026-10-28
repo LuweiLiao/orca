@@ -34,9 +34,22 @@ const delegatedChildren = (agent: ProjectMapAgent, agents: ProjectMapGraph['agen
     return child !== undefined && !child.fork && !child.terminalFork
   })
 
+// A chat the person forked from is one they worked with: it stays on the canvas, out of any stack.
+const forkedFrom = (
+  agent: ProjectMapAgent | undefined,
+  agents: ProjectMapGraph['agents']
+): boolean =>
+  Boolean(
+    agent?.childPaneKeys.some((paneKey) => {
+      const child = agents.get(paneKey)
+      return Boolean(child?.fork || child?.terminalFork)
+    })
+  )
+
 /**
  * Folds each busy parent's delegated chats into one stack node. Forks are the person's own chats
- * and stay on the canvas; a wire into or out of a hidden chat attaches to its stack instead.
+ * and stay on the canvas, and so do the chats they forked from; any other wire into or out of a
+ * hidden chat attaches to its stack instead.
  * Status changes only move the stack's counts, so a running fleet never reflows the map.
  */
 export function collapseProjectMapGraph(
@@ -49,16 +62,19 @@ export function collapseProjectMapGraph(
   const roots = [...graph.agents.values()].filter((agent) => !agent.parentPaneKey)
   const visit = (agent: ProjectMapAgent): void => {
     const children = delegatedChildren(agent, graph.agents)
+    const stacked = children.filter(
+      (childKey) => !forkedFrom(graph.agents.get(childKey), graph.agents)
+    )
     const paneKey = agent.card.paneKey
-    if (children.length >= PROJECT_MAP_COLLAPSE_THRESHOLD) {
+    if (stacked.length >= PROJECT_MAP_COLLAPSE_THRESHOLD) {
       collapsible.add(paneKey)
     }
-    if (children.length >= PROJECT_MAP_COLLAPSE_THRESHOLD && !expanded.has(paneKey)) {
+    if (stacked.length >= PROJECT_MAP_COLLAPSE_THRESHOLD && !expanded.has(paneKey)) {
       const id = `${PROJECT_MAP_GROUP_PREFIX}${paneKey}`
       const members: string[] = []
       const gather = (memberKey: string): void => {
         const member = graph.agents.get(memberKey)
-        if (!member || groupOf.has(memberKey)) {
+        if (!member || groupOf.has(memberKey) || forkedFrom(member, graph.agents)) {
           return
         }
         members.push(memberKey)
@@ -67,11 +83,11 @@ export function collapseProjectMapGraph(
           gather(next)
         }
       }
-      children.forEach(gather)
+      stacked.forEach(gather)
       groups.set(id, {
         id,
         parentPaneKey: paneKey,
-        childPaneKeys: children,
+        childPaneKeys: stacked,
         memberPaneKeys: members,
         counts: countStates(members.map((memberKey) => graph.agents.get(memberKey)!))
       })
