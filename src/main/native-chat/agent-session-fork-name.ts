@@ -40,7 +40,7 @@ function handoffName(source: string): string {
 
 // Before the main i18n loads, the fallback comes back uninterpolated.
 function interpolated(template: string, values: Record<string, string | number>): string {
-  return template.replace(/\{\{(source|others)\}\}/g, (_, key: string) => String(values[key]))
+  return template.replace(/\{\{(source|second|count)\}\}/g, (_, key: string) => String(values[key]))
 }
 
 /** The name under its hand-off prefixes, so a hand-off of a hand-off reads "Handoff: X" once. */
@@ -55,25 +55,35 @@ function baseChatName(name: string): string {
   return base || name
 }
 
-/** An unnamed child's name, in the desktop's language: a hand-off, or a merged one. */
+/**
+ * An unnamed child's name, in the desktop's language: a hand-off, or a merged one. A merge names
+ * its sources as equals, in the order picked: both of two, or the first and how many in all.
+ */
 export function forkedChatFallbackName(
-  sourceName: string | null | undefined,
-  sourceCount: number
+  sourceNames: readonly (string | null | undefined)[],
+  sourceCount = sourceNames.length
 ): string | null {
-  if (!sourceName) {
+  const names = sourceNames.flatMap((name) => (name ? [baseChatName(name)] : []))
+  const [source, second] = names
+  if (!source) {
     return null
   }
-  const source = baseChatName(sourceName)
   if (sourceCount <= 1) {
     return handoffName(source)
   }
-  const values = { source, others: sourceCount - 1 }
+  const values = { source, second: second ?? '', count: sourceCount }
   return interpolated(
-    translateMain(
-      'projectMap.childName.merged',
-      'Merged handoff: {{source}} and {{others}} more',
-      values
-    ),
+    sourceCount === 2 && second
+      ? translateMain(
+          'projectMap.childName.mergedTwo',
+          'Merged handoff: {{source}} and {{second}}',
+          values
+        )
+      : translateMain(
+          'projectMap.childName.mergedMany',
+          'Merged handoff: {{source}} and others, {{count}} chats',
+          values
+        ),
     values
   )
 }
@@ -87,7 +97,7 @@ export function legacyForkedChatRename(child: NameFields, sourceCount: number): 
   const automatic =
     child.conversationNameSource === undefined || child.conversationNameSource === 'seed'
   return name?.startsWith(LEGACY_PREFIX) && automatic
-    ? forkedChatFallbackName(name, sourceCount)
+    ? forkedChatFallbackName([name], sourceCount)
     : null
 }
 
@@ -152,6 +162,23 @@ type LegacyRenameStore = {
   ) => Promise<unknown>
 }
 
+// How builds llw31-34 named a merge: after one source, as if it came first.
+const ONE_SOURCE_MERGE_NAME = /^(Merged handoff: .+ and \d+ more|合并交接：.+ 和另外 \d+ 个对话)$/
+
+/** The equal-sources name for a merge still carrying the one-source name it was first given. */
+export function oneSourceMergeRename(
+  child: NameFields,
+  sourceNames: readonly (string | null | undefined)[]
+): string | null {
+  const automatic =
+    child.conversationNameSource === undefined || child.conversationNameSource === 'seed'
+  return automatic &&
+    sourceNames.length > 1 &&
+    ONE_SOURCE_MERGE_NAME.test(child.conversationName ?? '')
+    ? forkedChatFallbackName(sourceNames)
+    : null
+}
+
 /** Renames the children an older build named "Fork of …"; returns the sessions it renamed. */
 export async function renameLegacyForkedChats(
   store: LegacyRenameStore,
@@ -160,8 +187,13 @@ export async function renameLegacyForkedChats(
   const renamed: string[] = []
   for (const entry of entries) {
     const child = store.getRecord(entry.childSessionId)
+    const sources = agentSessionLineageSources(entry)
     const name = child
-      ? legacyForkedChatRename(child, agentSessionLineageSources(entry).length)
+      ? (legacyForkedChatRename(child, sources.length) ??
+        oneSourceMergeRename(
+          child,
+          sources.map((source) => store.getRecord(source.sessionId)?.conversationName)
+        ))
       : null
     if (!child || !name) {
       continue

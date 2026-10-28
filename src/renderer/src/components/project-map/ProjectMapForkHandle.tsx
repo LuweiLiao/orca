@@ -89,11 +89,13 @@ export function ProjectMapForkGhost({
   const { x, y } = draft.point
   const hint = draft.blocked
     ? translate('projectMap.fork.dropBlocked', 'Drop it on an empty spot')
-    : draft.placed
-      ? translate('projectMap.fork.subtitle', 'From {{name}}', {
-          name: originTitle
-        })
-      : translate('projectMap.fork.dropHint', 'Release to place it here')
+    : !draft.placed
+      ? translate('projectMap.fork.dropHint', 'Release to place it here')
+      : merging
+        ? translate('projectMap.merge.subtitle', 'From {{count}} chats', {
+            count: mergeFrom.length + 1
+          })
+        : translate('projectMap.fork.subtitle', 'From {{name}}', { name: originTitle })
   return (
     <>
       <svg

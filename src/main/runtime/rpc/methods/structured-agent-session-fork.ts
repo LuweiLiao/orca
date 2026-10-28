@@ -225,7 +225,7 @@ async function forkStructuredAgentSession(
     dropUnlessCreated()
     return created
   }
-  const name = forkedChatFallbackName(source.conversationName, sections.length)
+  const name = forkedChatFallbackName(sections.map((section) => section.record.conversationName))
   await nameForkedChat(ctx, host, created.value.sessionId, name, params.instruction)
   return {
     ok: true,

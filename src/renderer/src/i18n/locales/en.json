@@ -21531,7 +21531,7 @@
       "terminalForkFrom": "Handed off from terminal {{source}}",
       "needsInput": "Waiting for you",
       "unseen": "Finished, not read yet",
-      "mergedFrom": "Merged handoff from {{source}} and {{others}} more"
+      "mergedFrom": "Merged handoff from {{count}} chats"
     },
     "title": "Project Map",
     "project": "Project",
@@ -21676,9 +21676,6 @@
     "merge": {
       "title": "Merged handoff into a new chat",
       "subtitle": "From {{count}} chats",
-      "continues": "Continues most directly",
-      "primaryHint": "Its section comes first; the new chat joins its workspace",
-      "alsoHint": "Also handed over, in its own section",
       "handoffHint": "Each chat is handed over as text, through its last completed turn; the longest are cut first, with a link to the rest.",
       "hostUnsupported": "This chat's host runs an Orca version that cannot merge chats; update it to merge here.",
       "working": "{{name}} is still working; merge once its turn ends.",
@@ -21688,11 +21685,15 @@
       "tooMany": "A merge takes at most {{count}} chats.",
       "ghost": "Merged handoff from {{count}} chats",
       "handle": "Merged handoff · {{count}} chats",
-      "handleHint": "Click, or drag onto the map to place the merged handoff"
+      "handleHint": "Click, or drag onto the map to place the merged handoff",
+      "sources": "Handed off together",
+      "equalHint": "Each is handed over in its own section; none comes before the others.",
+      "workspace": "New chat goes into"
     },
     "childName": {
       "handoff": "Handoff: {{source}}",
-      "merged": "Merged handoff: {{source}} and {{others}} more"
+      "mergedTwo": "Merged handoff: {{source}} and {{second}}",
+      "mergedMany": "Merged handoff: {{source}} and others, {{count}} chats"
     },
     "close": {
       "title": "Close \"{{title}}\"?",

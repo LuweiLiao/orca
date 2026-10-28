@@ -71,6 +71,8 @@ export function projectMapForkRequest(input: {
   randomUuid: () => string
   /** A merge: the other chats, each handed over through its last completed turn. */
   mergeWith?: readonly ProjectMapAgent[]
+  /** Where the child goes when not the origin's workspace: a merge has no chat it follows. */
+  worktreeId?: string
 }): AgentSessionForkParams | null {
   const sourceChat = input.source.agent.chat
   const originChat = input.origin.chat
@@ -90,7 +92,7 @@ export function projectMapForkRequest(input: {
     originSessionId: originChat.sessionId,
     cut: input.source.cut,
     // The child joins the clicked node's workspace, whichever ancestor it inherits from.
-    worktree: toRuntimeWorktreeSelector(input.origin.card.worktreeId),
+    worktree: toRuntimeWorktreeSelector(input.worktreeId ?? input.origin.card.worktreeId),
     agent: input.agent,
     ...(Object.keys(options).length > 0 ? { options } : {}),
     ...(instruction ? { instruction } : {}),

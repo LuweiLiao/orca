@@ -21411,7 +21411,7 @@
       "terminalForkFrom": "从终端 {{source}} 交接",
       "needsInput": "在等你回复",
       "unseen": "已完成，还没看",
-      "mergedFrom": "合并交接自 {{source}} 和另外 {{others}} 个对话"
+      "mergedFrom": "合并交接自 {{count}} 个对话"
     },
     "title": "项目关系图",
     "project": "项目",
@@ -21554,9 +21554,6 @@
     "merge": {
       "title": "合并交接为新对话",
       "subtitle": "来自 {{count}} 个对话",
-      "continues": "主要接续",
-      "primaryHint": "它的内容排在最前，新对话放进它所在的工作区",
-      "alsoHint": "也一起交接，单独成一节",
       "handoffHint": "每个对话都以文字交接到最近一轮完成为止；放不下时先截最长的，其余给出链接。",
       "hostUnsupported": "这个对话所在主机的 Orca 版本不支持合并交接，升级后才能在这里合并交接。",
       "working": "「{{name}}」还在运行，等这一轮结束再合并交接。",
@@ -21566,11 +21563,15 @@
       "tooMany": "一次最多合并交接 {{count}} 个对话。",
       "ghost": "合并交接自 {{count}} 个对话",
       "handle": "合并交接 {{count}} 个对话",
-      "handleHint": "点击，或拖到地图空白处放置合并交接的对话"
+      "handleHint": "点击，或拖到地图空白处放置合并交接的对话",
+      "sources": "一起交接",
+      "equalHint": "每个对话各成一节，彼此平等，没有先后主次。",
+      "workspace": "新对话放进"
     },
     "childName": {
       "handoff": "交接：{{source}}",
-      "merged": "合并交接：{{source}} 和另外 {{others}} 个对话"
+      "mergedTwo": "合并交接：{{source}} 和 {{second}}",
+      "mergedMany": "合并交接：{{source}} 等 {{count}} 个对话"
     },
     "close": {
       "title": "关闭“{{title}}”？",

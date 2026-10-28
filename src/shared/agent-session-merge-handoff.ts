@@ -88,7 +88,7 @@ export function buildAgentSessionMergeHandoffPrompt(input: {
     ]
   })
   const text = [
-    `This conversation continues from ${input.sources.length} other Orca conversations, merged. Their messages below are your background context; this is a new, independent conversation. Each section is one conversation, the first being the one this continues most directly.`,
+    `This conversation continues from ${input.sources.length} other Orca conversations, merged. Their messages below are your background context; this is a new, independent conversation. Each section is one conversation; they are equal, and their order means nothing.`,
     '',
     ...sections,
     HANDOFF_UNTRUSTED_NOTE,

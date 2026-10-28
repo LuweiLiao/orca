@@ -23,8 +23,8 @@ import {
 const SIZE = { width: 400, height: 560 }
 
 type Props = {
-  /** The picked chats, in the order they were picked; the first is the default to continue. */
-  chats: readonly ProjectMapAgent[]
+  /** The picked chats, equal sources, in the order they were picked. */
+  chats: readonly [ProjectMapAgent, ...ProjectMapAgent[]]
   anchor: ProjectMapRect
   viewport: { width: number; height: number }
   avoid: ProjectMapRect[]
@@ -32,7 +32,7 @@ type Props = {
   onCreated: (child: { sessionId: string; tabId?: string }) => void
 }
 
-/** One new chat handed several chats' conversations, joining the workspace of the one it continues. */
+/** One new chat handed several chats' conversations as equals, in a workspace one of them is in. */
 export function ProjectMapMergePanel({
   chats,
   anchor,
@@ -42,18 +42,19 @@ export function ProjectMapMergePanel({
   onCreated
 }: Props): React.JSX.Element {
   const [position] = useState(() => placeProjectMapWindow(anchor, SIZE, viewport, avoid))
-  const [primaryKey, setPrimaryKey] = useState(chats[0]?.card.paneKey ?? '')
-  const primary = chats.find((chat) => chat.card.paneKey === primaryKey) ?? chats[0]!
-  const others = chats.filter((chat) => chat !== primary)
+  // The protocol names one source first; none is preferred, so it is the first picked.
+  const [first, ...others] = chats
+  const workspaces = [...new Map(chats.map((chat) => [chat.card.worktreeId, chat.card])).values()]
+  const [worktreeId, setWorktreeId] = useState(first.card.worktreeId)
   const [choice, setChoice] = useState<ProjectMapForkAgentChoice>({
-    agent: primary.chat?.agent ?? primary.card.agentType
+    agent: first.chat?.agent ?? first.card.agentType
   })
   const [instruction, setInstruction] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const target = useMemo(
-    () => structuredAgentSessionTargetForHost(primary.chat?.executionHostId ?? null),
-    [primary.chat?.executionHostId]
+    () => structuredAgentSessionTargetForHost(first.chat?.executionHostId ?? null),
+    [first.chat?.executionHostId]
   )
   const [supported, setSupported] = useState<boolean | null>(null)
   useEffect(() => {
@@ -74,8 +75,9 @@ export function ProjectMapMergePanel({
     setError(null)
     try {
       const request = projectMapForkRequest({
-        source: { agent: primary, depth: 0, cut: { kind: 'latest' } },
-        origin: primary,
+        source: { agent: first, depth: 0, cut: { kind: 'latest' } },
+        origin: first,
+        worktreeId,
         agent: choice.agent,
         ...(choice.model ? { model: choice.model } : {}),
         ...(choice.effort ? { effort: choice.effort } : {}),
@@ -151,48 +153,64 @@ export function ProjectMapMergePanel({
         </Button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-3.5 py-3 scrollbar-sleek">
-        <fieldset className="flex min-w-0 flex-col gap-1">
-          <legend className="mb-1.5 text-[11px] font-semibold text-muted-foreground">
-            {translate('projectMap.merge.continues', 'Continues most directly')}
-          </legend>
-          {chats.map((chat) => {
-            const chosen = chat === primary
-            return (
-              <label
+        <section className="flex min-w-0 flex-col gap-1">
+          <h3 className="mb-1.5 text-[11px] font-semibold text-muted-foreground">
+            {translate('projectMap.merge.sources', 'Handed off together')}
+          </h3>
+          <ul className="flex flex-col gap-1">
+            {chats.map((chat) => (
+              <li
                 key={chat.card.paneKey}
-                className={cn(
-                  'flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-1.5',
-                  chosen ? 'border-ring bg-accent/60' : 'border-transparent hover:bg-accent/40'
-                )}
+                data-project-map-merge-source={chat.card.paneKey}
+                className="flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5"
               >
-                <input
-                  type="radio"
-                  name="project-map-merge-primary"
-                  className="accent-current"
-                  checked={chosen}
-                  onChange={() => setPrimaryKey(chat.card.paneKey)}
-                />
+                <GitMerge aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[12.5px] font-medium">
                     {projectMapAgentTitle(chat.card)}
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
-                    {chosen
-                      ? translate(
-                          'projectMap.merge.primaryHint',
-                          'Its section comes first; the new chat joins its workspace'
-                        )
-                      : translate(
-                          'projectMap.merge.alsoHint',
-                          'Also handed over, in its own section'
-                        )}
+                    {chat.card.worktreeName}
                   </span>
                 </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {translate(
+              'projectMap.merge.equalHint',
+              'Each is handed over in its own section; none comes before the others.'
+            )}
+          </p>
+        </section>
+        {workspaces.length > 1 ? (
+          <fieldset className="flex min-w-0 flex-col gap-1">
+            <legend className="mb-1.5 text-[11px] font-semibold text-muted-foreground">
+              {translate('projectMap.merge.workspace', 'New chat goes into')}
+            </legend>
+            {workspaces.map((card) => (
+              <label
+                key={card.worktreeId}
+                className={cn(
+                  'flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-1.5',
+                  card.worktreeId === worktreeId
+                    ? 'border-ring bg-accent/60'
+                    : 'border-transparent hover:bg-accent/40'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="project-map-merge-workspace"
+                  className="accent-current"
+                  checked={card.worktreeId === worktreeId}
+                  onChange={() => setWorktreeId(card.worktreeId)}
+                />
+                <span className="truncate text-[12.5px] font-medium">{card.worktreeName}</span>
               </label>
-            )
-          })}
-        </fieldset>
-        <ProjectMapForkAgentPicker origin={primary} choice={choice} onChange={setChoice} />
+            ))}
+          </fieldset>
+        ) : null}
+        <ProjectMapForkAgentPicker origin={first} choice={choice} onChange={setChoice} />
         <p className="-mt-2 text-[11px] leading-relaxed text-muted-foreground">
           {translate(
             'projectMap.merge.handoffHint',

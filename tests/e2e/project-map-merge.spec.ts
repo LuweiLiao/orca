@@ -206,7 +206,9 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     await page.mouse.up()
     const mergePanel = map.locator('[data-project-map-merge-panel]')
     await expect(mergePanel).toBeVisible()
-    await expect(mergePanel.getByRole('radio')).toHaveCount(2)
+    // Both are equal sources: listed, with nothing to choose between them.
+    await expect(mergePanel.locator('[data-project-map-merge-source]')).toHaveCount(2)
+    await expect(mergePanel.getByRole('radio')).toHaveCount(0)
     await mergePanel.getByRole('textbox').fill('MERGED: compare the two')
     await screenshot('merge-panel')
     await mergePanel.getByRole('button', { name: 'Create merged handoff' }).click()
@@ -229,7 +231,7 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
       .toEqual([parent, child.childSessionId])
     const mergedNode = map.getByRole('button', { name: 'MERGED: compare the two', exact: true })
     await expect(mergedNode).toBeVisible({ timeout: 30_000 })
-    await expect(mergedNode).toContainText('Merged handoff from')
+    await expect(mergedNode).toContainText('Merged handoff from 2 chats')
     // Its first source is its parent; the other one draws a merge wire into it.
     await expect(map.locator('.project-map-wire[data-kind="merge"]')).toHaveCount(1, {
       timeout: 15_000

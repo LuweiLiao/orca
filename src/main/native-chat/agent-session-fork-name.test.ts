@@ -6,7 +6,8 @@ import {
   applyForkedChatName,
   forkedChatFallbackName,
   forkedChatNameUpdate,
-  legacyForkedChatRename
+  legacyForkedChatRename,
+  oneSourceMergeRename
 } from './agent-session-fork-name'
 
 type Names = Pick<AgentSessionRecord, 'conversationName' | 'conversationNameSource'>
@@ -62,16 +63,19 @@ describe('applyForkedChatName', () => {
 })
 
 describe('forkedChatFallbackName', () => {
-  it('names a hand-off after its source, and a merged one after its primary and the rest', () => {
-    expect(forkedChatFallbackName('Lineage data', 1)).toBe('Handoff: Lineage data')
-    expect(forkedChatFallbackName('Lineage data', 3)).toBe(
-      'Merged handoff: Lineage data and 2 more'
+  it('names a hand-off after its source, and a merge after its sources as equals', () => {
+    expect(forkedChatFallbackName(['Lineage data'])).toBe('Handoff: Lineage data')
+    expect(forkedChatFallbackName(['Lineage data', 'Wires'])).toBe(
+      'Merged handoff: Lineage data and Wires'
     )
-    expect(forkedChatFallbackName(null, 2)).toBeNull()
+    expect(forkedChatFallbackName(['Lineage data', 'Wires', 'Rows'])).toBe(
+      'Merged handoff: Lineage data and others, 3 chats'
+    )
+    expect(forkedChatFallbackName([null, null])).toBeNull()
   })
 
   it('keeps one prefix when the source was itself a hand-off', () => {
-    expect(forkedChatFallbackName('Handoff: Lineage data', 1)).toBe('Handoff: Lineage data')
+    expect(forkedChatFallbackName(['Handoff: Lineage data'])).toBe('Handoff: Lineage data')
   })
 })
 
@@ -81,7 +85,7 @@ describe('legacyForkedChatRename', () => {
     const deep = { conversationName: 'Fork of Fork of Plan', conversationNameSource: seed }
     expect(legacyForkedChatRename(deep, 1)).toBe('Handoff: Plan')
     expect(legacyForkedChatRename({ conversationName: 'Fork of Plan' }, 2)).toBe(
-      'Merged handoff: Plan and 1 more'
+      'Merged handoff: Plan and others, 2 chats'
     )
     const manual = { conversationName: 'Fork of Plan', conversationNameSource: 'manual' as const }
     expect(legacyForkedChatRename(manual, 1)).toBeNull()
@@ -104,5 +108,31 @@ describe('forkedChatNameUpdate', () => {
       expected: null,
       expectedSource: null
     })
+  })
+})
+
+describe('oneSourceMergeRename', () => {
+  it('renames a merge first named after one source, and nothing it should leave', () => {
+    const seed = 'seed' as const
+    const old = { conversationName: '合并交接：续研 和另外 1 个对话', conversationNameSource: seed }
+    expect(oneSourceMergeRename(old, ['Lineage', 'Wires'])).toBe(
+      'Merged handoff: Lineage and Wires'
+    )
+    const english = {
+      conversationName: 'Merged handoff: Lineage and 2 more',
+      conversationNameSource: seed
+    }
+    expect(oneSourceMergeRename(english, ['Lineage', 'Wires', 'Rows'])).toBe(
+      'Merged handoff: Lineage and others, 3 chats'
+    )
+    expect(
+      oneSourceMergeRename({ ...old, conversationNameSource: 'manual' }, ['A', 'B'])
+    ).toBeNull()
+    expect(
+      oneSourceMergeRename({ conversationName: 'Compare lanes', conversationNameSource: seed }, [
+        'A',
+        'B'
+      ])
+    ).toBeNull()
   })
 })
