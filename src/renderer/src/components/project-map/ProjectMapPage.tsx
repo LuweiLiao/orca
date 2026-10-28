@@ -30,6 +30,7 @@ import { projectMapAgentTitle } from './project-map-labels'
 import { projectMapChatsByPaneKey } from './project-map-lineage'
 import { projectMapAgentHasTab } from './project-map-node-actions'
 import { useProjectMapLineage } from './use-project-map-lineage'
+import { usePublishProjectMapSessionRelations } from './project-map-session-relations'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
 import './project-map.css'
@@ -92,6 +93,7 @@ export default function ProjectMapPage(): React.JSX.Element {
         : null,
     [chats, history, lineage, projectId, references, sessions, snapshot, terminalForks]
   )
+  usePublishProjectMapSessionRelations(graph, lineage, references)
   // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
   const collapsed = useMemo(

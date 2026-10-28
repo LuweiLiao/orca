@@ -218,6 +218,31 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     const viewportBox = await viewport.boundingBox()
     await viewport.click({ position: { x: (viewportBox?.width ?? 200) - 12, y: 6 } })
     await screenshot('fork-tree')
+
+    // The parent's timeline lists its turn with both forks cut after it; a marker selects the child.
+    await parentNode.click()
+    const parentWindow = map.locator('[data-project-map-chat-window]')
+    await parentWindow.locator('[data-project-map-timeline-toggle]').click()
+    const timeline = parentWindow.locator('[data-project-map-timeline]')
+    const turn = timeline.locator('[data-project-map-timeline-turn]').first()
+    await expect(turn).toContainText('Plan the project map forks')
+    await expect(turn.locator('[data-project-map-timeline-marker="fork"]')).toHaveCount(2)
+    await screenshot('timeline')
+    // Rewinding there warns that both children were forked after it; cancelled, nothing changes.
+    await turn.hover()
+    await turn.locator('[data-project-map-timeline-rewind]').click()
+    const confirm = page
+      .getByRole('alertdialog')
+      .or(page.getByRole('dialog', { name: 'Rewind to here?' }))
+    await expect(confirm.getByText(/2 chats were forked after this point/)).toBeVisible()
+    await screenshot('timeline-rewind-warning')
+    await confirm.getByRole('button', { name: 'Cancel' }).click()
+    await turn
+      .locator('[data-project-map-timeline-marker="fork"]', { hasText: 'CHILD-ONE' })
+      .click()
+    await expect(
+      map.getByRole('button', { name: 'CHILD-ONE: try ELK layered layout', exact: true })
+    ).toHaveAttribute('data-selected', 'true')
   } finally {
     await stopCapture()
   }

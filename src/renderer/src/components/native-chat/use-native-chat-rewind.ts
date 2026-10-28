@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { toast } from 'sonner'
 import type { ConfirmationDialogContextValue } from '@/components/confirmation-dialog-context'
 import { translate } from '@/i18n/i18n'
+import { nativeChatRewindDescription } from './native-chat-outside-navigation'
 import {
   savedRewindKeys,
   isAgentSessionRewindTarget,
@@ -198,10 +199,7 @@ export function useNativeChatRewind(input: RewindInput) {
     try {
       const confirmed = await confirm({
         title: translate('components.native-chat.rewind.title', 'Rewind to here?'),
-        description: translate(
-          'components.native-chat.rewind.confirmation',
-          'Discard this message and everything after it? The message returns to the composer so you can edit and resend it. File changes on disk are kept.'
-        ),
+        description: nativeChatRewindDescription(captured.sessionId, captured.state, itemId),
         confirmLabel: translate('components.native-chat.rewind.confirm', 'Rewind'),
         cancelLabel: translate('components.native-chat.rewind.cancel', 'Cancel'),
         confirmVariant: 'destructive',

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Folder,
   GitBranch,
   GitFork,
+  History,
   Layers,
   ListTree,
   Maximize2,
@@ -20,6 +21,7 @@ import { dashboardCardDisplayState } from '../../../../shared/dashboard-snapshot
 import type { ProjectMapAgent, ProjectMapWorkspace } from './project-map-graph'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
 import { ProjectMapConversation } from './ProjectMapConversation'
+import { ProjectMapTimeline } from './ProjectMapTimeline'
 import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
 
 export type ProjectMapWindowSubject =
@@ -40,9 +42,12 @@ type Props = {
   onFork?: () => void
   /** Present when this chat delegated enough to stack: fold its chats or show them on the map. */
   collapse?: { folded: boolean; onToggle: () => void }
+  /** Select another node, from a timeline marker. */
+  onSelectNode: (paneKey: string) => void
 }
 
 const DEFAULT_SIZE = { width: 480, height: 640 }
+const TIMELINE_WIDTH = 232
 
 export function ProjectMapChatWindow({
   subject,
@@ -53,8 +58,11 @@ export function ProjectMapChatWindow({
   onOpenAgent,
   onOpenWorkspace,
   onFork,
-  collapse
+  collapse,
+  onSelectNode
 }: Props): React.JSX.Element {
+  const sectionRef = useRef<HTMLElement>(null)
+  const [timelineOpen, setTimelineOpen] = useState(false)
   // Placed once per mount; the canvas keys this window by node, so opening another node re-anchors.
   const [position, setPosition] = useState(() =>
     placeProjectMapWindow(anchor, DEFAULT_SIZE, viewport, avoid)
@@ -111,6 +119,7 @@ export function ProjectMapChatWindow({
 
   return (
     <section
+      ref={sectionRef}
       role="dialog"
       aria-label={
         subject.kind === 'agent'
@@ -124,9 +133,15 @@ export function ProjectMapChatWindow({
       onPointerDown={(event) => event.stopPropagation()}
       className="project-map-window absolute z-20 flex min-h-[320px] min-w-[360px] resize flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
       style={{
-        left: position.x,
+        // Widened for the timeline, the window still keeps its right edge on screen.
+        left: timelineOpen
+          ? Math.max(
+              8,
+              Math.min(position.x, viewport.width - DEFAULT_SIZE.width - TIMELINE_WIDTH - 8)
+            )
+          : position.x,
         top: position.y,
-        width: DEFAULT_SIZE.width,
+        width: DEFAULT_SIZE.width + (timelineOpen ? TIMELINE_WIDTH : 0),
         height: Math.min(DEFAULT_SIZE.height, viewport.height - 16)
       }}
     >
@@ -139,6 +154,20 @@ export function ProjectMapChatWindow({
         ) : (
           <WorkspaceHeader workspace={subject.workspace} />
         )}
+        {tabAgent?.chat ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-pressed={timelineOpen}
+            aria-label={translate('projectMap.timeline.toggle', 'Timeline')}
+            title={translate('projectMap.timeline.toggle', 'Timeline')}
+            data-project-map-timeline-toggle=""
+            onClick={() => setTimelineOpen((open) => !open)}
+          >
+            <History className="size-3.5" />
+          </Button>
+        ) : null}
         {onFork ? (
           <Button
             type="button"
@@ -227,12 +256,24 @@ export function ProjectMapChatWindow({
         </div>
       ) : null}
       {tabAgent ? (
-        <ProjectMapConversation
-          key={tabAgent.card.paneKey}
-          card={tabAgent.card}
-          session={tabAgent.session}
-          {...(tabAgent.history && tabAgent.chat ? { closedChat: tabAgent.chat } : {})}
-        />
+        <div className="flex min-h-0 flex-1">
+          {timelineOpen && tabAgent.chat ? (
+            <ProjectMapTimeline
+              key={tabAgent.card.paneKey}
+              agent={tabAgent}
+              scope={sectionRef}
+              onSelectNode={onSelectNode}
+            />
+          ) : null}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <ProjectMapConversation
+              key={tabAgent.card.paneKey}
+              card={tabAgent.card}
+              session={tabAgent.session}
+              {...(tabAgent.history && tabAgent.chat ? { closedChat: tabAgent.chat } : {})}
+            />
+          </div>
+        </div>
       ) : subject.kind === 'workspace' ? (
         <div className="m-auto flex max-w-72 flex-col items-center gap-3 px-4 text-center text-sm text-muted-foreground">
           <MessageSquarePlus aria-hidden className="size-6" />

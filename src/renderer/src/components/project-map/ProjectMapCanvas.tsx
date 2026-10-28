@@ -382,6 +382,7 @@ export function ProjectMapCanvas({
           onClose={() => setSelectedId(null)}
           onOpenAgent={onOpenAgent}
           onOpenWorkspace={onOpenWorkspace}
+          onSelectNode={setSelectedId}
           {...(subject.kind === 'agent' &&
           projectMapAgentForkable(subject.agent) &&
           !forkUnsupportedHosts.has(subject.agent.chat?.executionHostId ?? '')

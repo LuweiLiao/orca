@@ -21627,6 +21627,27 @@
         "notFinished": "Only a finished conversation can be unread",
         "allRead": "Nothing unread"
       }
+    },
+    "timeline": {
+      "toggle": "Timeline",
+      "title": "Timeline",
+      "turnCount": "{{count}} turns",
+      "forkedFrom": "Forked from",
+      "forkedFromDetail": "handed {{count}} messages",
+      "omitted": "{{count}} earlier turns not listed",
+      "imageOnly": "Image",
+      "emptyMessage": "Message",
+      "rewind": "Rewind to here",
+      "otherReferences": "Other references sent",
+      "rewoundForks": "Forked before a rewind",
+      "referencedBy": "Referenced by",
+      "loading": "Reading the conversation…",
+      "unsupported": "This chat's host runs an Orca version without a timeline.",
+      "failed": "Could not read the conversation.",
+      "forkDetail": "{{count}} messages",
+      "live": "live",
+      "snapshot": "first {{count}} messages",
+      "rewindForks": "{{count}} chats were forked after this point: {{names}}. They keep what they were handed, but the point they were forked from goes away here."
     }
   }
 }

@@ -3447,6 +3447,7 @@
       "title_one": "{{count}} delegated chat"
     },
     "node": {
+      "closedSource": "a closed chat",
       "conversationCount_one": "{{count}} conversation",
       "forkCount_one": "{{count}} fork",
       "referenceCount_one": "Referenced {{count}} conversation",

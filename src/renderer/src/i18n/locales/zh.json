@@ -21506,6 +21506,27 @@
         "notFinished": "只有已完成的对话才能标为未读",
         "allRead": "没有未读内容"
       }
+    },
+    "timeline": {
+      "toggle": "时间线",
+      "title": "时间线",
+      "turnCount": "{{count}} 轮",
+      "forkedFrom": "分叉自",
+      "forkedFromDetail": "交接了 {{count}} 条",
+      "omitted": "更早的 {{count}} 轮未列出",
+      "imageOnly": "图片",
+      "emptyMessage": "消息",
+      "rewind": "回退到这里",
+      "otherReferences": "其他发出的引用",
+      "rewoundForks": "回退前分出的对话",
+      "referencedBy": "被这些对话引用",
+      "loading": "正在读取对话…",
+      "unsupported": "这个对话所在主机的 Orca 版本没有时间线。",
+      "failed": "读取对话失败。",
+      "forkDetail": "{{count}} 条",
+      "live": "实时",
+      "snapshot": "前 {{count}} 条",
+      "rewindForks": "这个点之后分出了 {{count}} 个对话：{{names}}。它们已拿到的内容不受影响，但这里的分叉点会消失。"
     }
   }
 }

@@ -11,6 +11,7 @@ import {
   type NativeChatRailItem
 } from './native-chat-message-rail-items'
 import type { NativeChatMessageRailState } from './use-native-chat-message-rail'
+import { useNativeChatOutsideNavigation } from './use-native-chat-outside-navigation'
 
 const WHEEL_DELTA_LINE = 1
 const WHEEL_DELTA_PAGE = 2
@@ -67,6 +68,7 @@ export const NativeChatMessageRail = memo(function NativeChatMessageRail({
   /** A message an arrow key asked to focus, whose tick may not be drawn until the next render. */
   const focusRequest = useRef<string | null>(null)
   const { ticks, items, focusId } = rail
+  useNativeChatOutsideNavigation({ scrollRef, items, onSelect })
 
   useLayoutEffect(() => {
     if (focusRequest.current !== focusId) {
