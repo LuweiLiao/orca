@@ -6,6 +6,7 @@ import {
   useBulkTabCloseConfirmation,
   type BulkTabCloseScope
 } from '../use-bulk-tab-close-confirmation'
+import { hiddenWorkerTabIds } from '../tab-bar/worker-tab-visibility'
 
 export function useTabGroupCloseScopeCommands({
   groupId,
@@ -29,8 +30,12 @@ export function useTabGroupCloseScopeCommands({
       if (!group) {
         return []
       }
+      const hiddenWorkers = hiddenWorkerTabIds(state)
+      // Why: a bulk close acts on the strip the user sees; hidden worker tabs still run agents.
       const tabs = (state.unifiedTabsByWorktree[worktreeId] ?? []).filter(
-        (tab) => tab.groupId === groupId
+        (tab) =>
+          tab.groupId === groupId &&
+          (scope === 'editors' || !(hiddenWorkers.has(tab.id) || hiddenWorkers.has(tab.entityId)))
       )
       if (scope === 'editors') {
         return tabs

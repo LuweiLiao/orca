@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 
-import { renderHook } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { useAppStore } from '@/store'
+import { makePaneKey } from '../../../../shared/stable-pane-id'
 import type { TerminalTab } from '../../../../shared/terminal-tab-types'
 import type { TabBarProps } from './tab-bar-props'
 import { useTabBarItemProjection } from './use-tab-bar-item-projection'
+import { resetRevealedWorkerTabsForTests } from './worker-tab-visibility'
 
 const NOOP = (): void => {}
 
@@ -23,11 +26,11 @@ function terminalTab(id: string, sortOrder: number): TerminalTab & { unifiedTabI
 }
 
 /** Rebuilt per call, like the store's tab list: equal content, never the same objects. */
-function buildProps(ids: string[]): TabBarProps {
+function buildProps(ids: string[], activeTabId = ids[0] ?? null): TabBarProps {
   return {
     tabs: ids.map((id, index) => terminalTab(id, index)),
     tabBarOrder: [...ids],
-    activeTabId: ids[0] ?? null,
+    activeTabId,
     activeTabType: 'terminal',
     worktreeId: 'wt-1',
     expandedPaneByTabId: {},
@@ -91,5 +94,48 @@ describe('tab strip sortable ids', () => {
     projection.rerenderWith(['term-2', 'term-1'])
 
     expect(projection.sortableIds()).toEqual(['term-2', 'term-1'])
+  })
+})
+
+describe('orchestration worker tabs', () => {
+  afterEach(() => {
+    act(() => useAppStore.setState({ runtimeAgentOrchestrationByPaneKey: {} }))
+    resetRevealedWorkerTabsForTests()
+  })
+
+  it('stay out of the strip until opened, then stay after focus moves back', () => {
+    act(() =>
+      useAppStore.setState({
+        runtimeAgentOrchestrationByPaneKey: {
+          [makePaneKey('worker', '11111111-1111-4111-8111-111111111111')]: {
+            taskId: 'task-1',
+            dispatchId: 'ctx-1'
+          }
+        }
+      })
+    )
+    const ids = ['coordinator', 'worker', 'other']
+    const { result, rerender } = renderHook(
+      (activeTabId: string) =>
+        useTabBarItemProjection({
+          props: buildProps(ids, activeTabId),
+          resolvedGroupId: 'group-1',
+          unifiedTabs: [],
+          unifiedTabByVisibleId: new Map(),
+          generatedTabTitlesEnabled: false,
+          statusByRelativePath: new Map()
+        }),
+      { initialProps: 'coordinator' }
+    )
+    const visible = () => result.current.orderedItems.map((item) => item.id)
+
+    expect(visible()).toEqual(['coordinator', 'other'])
+
+    rerender('worker')
+    expect(visible()).toEqual(ids)
+    expect(result.current.activeVisibleTabId).toBe('worker')
+
+    rerender('coordinator')
+    expect(visible()).toEqual(ids)
   })
 })
