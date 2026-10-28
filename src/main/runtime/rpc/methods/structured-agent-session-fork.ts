@@ -15,8 +15,10 @@ import {
 import { agentSessionFingerprintConflict } from '../../../../shared/agent-session-mutation-envelope'
 import type { AgentSessionMutationResult } from '../../../../shared/agent-session-wire'
 import { AGENT_SESSION_CREATE_MESSAGE_RUNTIME_CAPABILITY } from '../../../../shared/agent-session-create-capabilities'
-import type { AgentSessionRecord } from '../../../../shared/agent-session-record'
-import { applyForkedChatName } from '../../../native-chat/agent-session-fork-name'
+import {
+  applyForkedChatName,
+  forkedChatFallbackName
+} from '../../../native-chat/agent-session-fork-name'
 import { agentSessionLineageTable } from '../../../native-chat/agent-session-journal/agent-session-lineage-table'
 import { agentSessionLineageView } from '../../../native-chat/agent-session-lineage-view'
 import { agentSessionReferenceView } from '../../../native-chat/agent-session-reference-links'
@@ -222,7 +224,8 @@ async function forkStructuredAgentSession(
     dropUnlessCreated()
     return created
   }
-  await nameForkedChat(ctx, host, created.value.sessionId, source, params.instruction)
+  const name = forkedChatFallbackName(source.conversationName, sections.length)
+  await nameForkedChat(ctx, host, created.value.sessionId, name, params.instruction)
   return {
     ok: true,
     value: {
@@ -238,11 +241,11 @@ async function nameForkedChat(
   ctx: RpcContext,
   host: ReturnType<typeof requireHost>,
   sessionId: string,
-  source: AgentSessionRecord,
+  fallbackName: string | null,
   instruction: string | undefined
 ): Promise<void> {
   try {
-    const named = await applyForkedChatName(host.deps.store, sessionId, source, instruction)
+    const named = await applyForkedChatName(host.deps.store, sessionId, fallbackName, instruction)
     if (named) {
       ctx.runtime.refreshStructuredConversationTabTitle(named.location.workspaceId, sessionId)
     }

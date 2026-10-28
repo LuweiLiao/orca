@@ -21666,6 +21666,10 @@
       "ghost": "Merged handoff from {{count}} chats",
       "handle": "Merged handoff · {{count}} chats",
       "handleHint": "Click, or drag onto the map to place the merged handoff"
+    },
+    "childName": {
+      "handoff": "Handoff: {{source}}",
+      "merged": "Merged handoff: {{source}} and {{others}} more"
     }
   }
 }

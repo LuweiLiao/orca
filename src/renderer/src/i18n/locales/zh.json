@@ -21545,6 +21545,10 @@
       "ghost": "合并交接自 {{count}} 个对话",
       "handle": "合并交接 {{count}} 个对话",
       "handleHint": "点击，或拖到地图空白处放置合并交接的对话"
+    },
+    "childName": {
+      "handoff": "交接：{{source}}",
+      "merged": "合并交接：{{source}} 和另外 {{others}} 个对话"
     }
   }
 }
