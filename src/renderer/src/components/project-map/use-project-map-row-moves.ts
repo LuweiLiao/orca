@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
+import { translate } from '@/i18n/i18n'
+import { pushProjectMapUndo, pushProjectMapUndoWithToast } from './use-project-map-undo'
 import type { ProjectMapGraph } from './project-map-graph'
 import type { ProjectMapLayout } from './project-map-layout'
 import {
@@ -34,7 +36,15 @@ export function useProjectMapRowMoves(
   const move = useCallback(
     (paneKey: string, direction: ProjectMapRowDirection) => {
       const changes = projectMapRowMove(graph, layout, paneKey, direction)
-      return changes ? applyProjectMapChatRows(changes) : null
+      const before = changes ? applyProjectMapChatRows(changes) : null
+      if (before) {
+        const label =
+          direction === 'up'
+            ? translate('projectMap.menu.moveUp', 'Move up')
+            : translate('projectMap.menu.moveDown', 'Move down')
+        pushProjectMapUndo({ label, undo: () => void applyProjectMapChatRows(before) })
+      }
+      return before
     },
     [graph, layout]
   )
@@ -44,9 +54,11 @@ export function useProjectMapRowMoves(
     [graph, layout]
   )
   const tidyChanges = useMemo(() => projectMapTidyRows(graph, pins), [graph, pins])
-  const tidy = useCallback(
-    () => applyProjectMapChatRows(projectMapTidyRows(graph, projectMapChatRows())),
-    [graph]
-  )
+  const tidy = useCallback(() => {
+    const before = applyProjectMapChatRows(projectMapTidyRows(graph, projectMapChatRows()))
+    const label = translate('projectMap.menu.tidy', 'Tidy layout')
+    pushProjectMapUndoWithToast({ label, undo: () => void applyProjectMapChatRows(before) }, label)
+    return before
+  }, [graph])
   return { can, move, canTidy: tidyChanges.size > 0, tidy, restore: applyProjectMapChatRows }
 }

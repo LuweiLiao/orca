@@ -42,6 +42,7 @@ import { projectMapDropSlot } from './project-map-drop-slot'
 import { noteProjectMapChatRow } from './project-map-chat-rows'
 import { useProjectMapKeyboard } from './use-project-map-keyboard'
 import { useProjectMapRowMoves } from './use-project-map-row-moves'
+import { projectMapDeleteKey, useProjectMapNodeCommands } from './use-project-map-node-commands'
 
 type Props = {
   /** Every chat on the map, the hidden ones in stacks included. */
@@ -61,8 +62,6 @@ type Props = {
   onForked: () => void
   searchOpen: boolean
   onSearchOpenChange: (open: boolean) => void
-  /** Delete and undo keys, bound only when the page supplies them. */
-  keyboardExtras?: { onDelete?: (id: string) => void; onUndo?: () => void }
 }
 
 const EMPTY_WORKTREES: readonly Worktree[] = []
@@ -81,8 +80,7 @@ export function ProjectMapCanvas({
   onToggleCollapse,
   onForked,
   searchOpen,
-  onSearchOpenChange,
-  keyboardExtras
+  onSearchOpenChange
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -133,6 +131,7 @@ export function ProjectMapCanvas({
   }, [clearPicks])
   useProjectMapEscape(selected !== null || picks.picked.length > 0, dropSelection)
   const rowMoves = useProjectMapRowMoves(graph, layout)
+  const commands = useProjectMapNodeCommands(graph)
   const merging = picks.picked.length >= 2
   // Shift, ⌘ or Ctrl adds a chat to a merge; a plain click drops the merge and opens the chat.
   const selectNode = (id: string, adding?: boolean): void => {
@@ -211,7 +210,7 @@ export function ProjectMapCanvas({
     onRename: setRenamingId,
     onMoveRow: (paneKey, direction) => void rowMoves.move(paneKey, direction),
     onEscape: dropSelection,
-    ...keyboardExtras
+    onDelete: (id) => projectMapDeleteKey(graph, id, commands)
   })
   // The grid background pans and scales with the content.
   const viewportStyle: CssVariables = {

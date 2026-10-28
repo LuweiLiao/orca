@@ -11,6 +11,7 @@ import { hideProjectMapKeys, showProjectMapKeys } from '@/lib/project-map-hidden
 import type { ProjectMapAgent, ProjectMapGraph } from './project-map-graph'
 import { projectMapAgentTitle } from './project-map-labels'
 import {
+  projectMapAgentHasTab,
   projectMapCloseConfirmation,
   projectMapCloseUndoable,
   projectMapHideKeysOf,
@@ -106,4 +107,21 @@ export function useProjectMapNodeCommands(graph: ProjectMapGraph): ProjectMapNod
     }),
     [confirm, graph]
   )
+}
+
+/** Delete on the map: closes a chat with a tab, takes a grey one off; anything else keeps it. */
+export function projectMapDeleteKey(
+  graph: ProjectMapGraph,
+  id: string,
+  commands: ProjectMapNodeCommands
+): void {
+  const agent = graph.agents.get(id)
+  if (agent?.history) {
+    commands.removeFromMap(agent)
+  } else if (
+    agent &&
+    projectMapAgentHasTab(useAppStore.getState().unifiedTabsByWorktree, agent.card)
+  ) {
+    void commands.close(agent)
+  }
 }

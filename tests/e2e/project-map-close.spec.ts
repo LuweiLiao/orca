@@ -147,7 +147,8 @@ test('closes, reopens, hides and undoes map nodes, confirming a running chat fir
     await busyNode.click({ button: 'right' })
     await action('hide').click()
     await expect(busyNode).toHaveCount(0)
-    await toast.getByRole('button', { name: 'Undo' }).last().click()
+    // The newest toast is in front; older ones behind it are still collapsing.
+    await toast.first().getByRole('button', { name: 'Undo' }).click()
     await expect(busyNode).toBeVisible()
 
     // A running chat asks first: cancelling keeps it, confirming closes it.

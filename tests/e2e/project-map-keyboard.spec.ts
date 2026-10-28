@@ -215,6 +215,11 @@ test('walks the map with the keyboard, reorders rows and tidies them', async ({
     await screenshot('rows-swapped')
     await page.keyboard.press(openOnTop ? 'Alt+ArrowDown' : 'Alt+ArrowUp')
     await expect.poll(async () => (await yOf(open)) < (await yOf(closed))).toBe(!openOnTop)
+    // Ctrl+Z puts the rows back; the move is made again for what follows.
+    await page.keyboard.press('Control+z')
+    await expect.poll(async () => (await yOf(open)) < (await yOf(closed))).toBe(openOnTop)
+    await page.keyboard.press(openOnTop ? 'Alt+ArrowDown' : 'Alt+ArrowUp')
+    await expect.poll(async () => (await yOf(open)) < (await yOf(closed))).toBe(!openOnTop)
 
     // Shift+Enter shows the chat in its tab; coming back to the map finds the rows as left.
     await page.keyboard.press('Shift+Enter')
@@ -266,6 +271,28 @@ test('walks the map with the keyboard, reorders rows and tidies them', async ({
       position: { x: viewportBox.width - 12, y: viewportBox.height - 12 }
     })
     await expect(action('tidy')).toHaveAttribute('data-disabled', '')
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+
+    // Delete takes a grey node off the map, and closes an open chat into a grey node.
+    await viewport.click({ position: { x: 6, y: 6 } })
+    await viewport.focus()
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await goTo(closedKey)
+    await page.keyboard.press('Delete')
+    await expect(closed).toHaveCount(0)
+    await expect(history).toHaveCount(0)
+    await viewport.click({ position: { x: 6, y: 6 } })
+    await viewport.focus()
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await expect(cursor).toHaveAttribute('data-project-map-cursor', secondKey)
+    await page.keyboard.press('Delete')
+    await expect(history).toHaveCount(1, { timeout: 30_000 })
+    await screenshot('deleted')
   } finally {
     await stopCapture()
   }
