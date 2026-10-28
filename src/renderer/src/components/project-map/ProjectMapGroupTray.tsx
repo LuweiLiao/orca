@@ -10,7 +10,12 @@ import { dashboardCardDisplayState } from '../../../../shared/agent-status/prese
 import type { ProjectMapAgent } from './project-map-graph'
 import type { ProjectMapGroup } from './project-map-collapse'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
-import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
+import {
+  placeProjectMapWindow,
+  type ProjectMapAvoidRect,
+  type ProjectMapRect,
+  type ProjectMapWindowLayer
+} from './project-map-window-placement'
 
 type Filter = 'all' | 'waiting' | 'working'
 
@@ -45,6 +50,7 @@ function rowFilter(agent: ProjectMapAgent): Exclude<Filter, 'all'> | null {
 
 /** The delegated chats behind a stack, listed beside it; opening one leaves the canvas as it is. */
 export function ProjectMapGroupTray({
+  layer,
   group,
   parentTitle,
   agents,
@@ -60,7 +66,8 @@ export function ProjectMapGroupTray({
   agents: ReadonlyMap<string, ProjectMapAgent>
   anchor: ProjectMapRect
   viewport: { width: number; height: number }
-  avoid: ProjectMapRect[]
+  avoid: ProjectMapAvoidRect[]
+  layer: ProjectMapWindowLayer
   onClose: () => void
   onOpenMember: (paneKey: string) => void
   onExpand: () => void
@@ -117,12 +124,15 @@ export function ProjectMapGroupTray({
         name: parentTitle
       })}
       data-project-map-window=""
+      data-project-map-node-window=""
+      onPointerDownCapture={layer.onRaise}
       data-project-map-tray=""
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={moveFocus}
-      className="project-map-window absolute z-20 flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
+      className="project-map-window pointer-events-auto absolute flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
       style={{
+        zIndex: layer.zIndex,
         left: position.x,
         top: position.y,
         width: SIZE.width,

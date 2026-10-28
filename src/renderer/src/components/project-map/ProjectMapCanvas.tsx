@@ -25,8 +25,9 @@ import {
 import { useProjectMapForkDrag, useProjectMapHover } from './use-project-map-fork-drag'
 import type { ProjectMapCollapsedView } from './project-map-collapse'
 import { projectMapAgentTitle } from './project-map-labels'
-import { ProjectMapSelectionWindow } from './ProjectMapSelectionWindow'
-import { projectMapAgentForkable, projectMapWindowSubject } from './project-map-window-subject'
+import { ProjectMapNodeWindows } from './ProjectMapNodeWindows'
+import { useProjectMapOpenWindows } from './use-project-map-open-windows'
+import { projectMapAgentForkable } from './project-map-window-subject'
 import { ProjectMapForkPanel } from './ProjectMapForkPanel'
 import {
   projectMapDraftRect,
@@ -77,6 +78,8 @@ export function ProjectMapCanvas({
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Each clicked node keeps its own window open until its close button.
+  const windows = useProjectMapOpenWindows(viewport.element, setSelectedId)
   const [forkFor, setForkFor] = useState<string | null>(null)
   // A new child shows up on a later snapshot; select it then, by its chat's session.
   const [awaited, setAwaited] = useState<{ sessionId: string; projectId: string } | null>(null)
@@ -103,7 +106,9 @@ export function ProjectMapCanvas({
   // A chat folded into a stack is shown, and wired, through the stack.
   const shownAs = (id: string): string | null =>
     layout.nodes.has(id) ? id : (collapsed.groupOf.get(id) ?? null)
-  // A node that vanished (agent closed, project switched) takes its window with it.
+  // A window goes with its node, adjusted in render so it never outlives it by a frame.
+  windows.keepShown((id) => shownAs(id) !== null)
+  // A node that vanished (agent closed, project switched) drops out of the selection.
   const selected = selectedId && shownAs(selectedId) ? selectedId : null
   const selectedShown = selected ? shownAs(selected) : null
   // Hidden where the host or agent cannot fork natively; nothing to refuse then.
@@ -144,15 +149,13 @@ export function ProjectMapCanvas({
   const handleBox = handleFor ? layout.nodes.get(handleFor) : undefined
   const draftFrom = draft ? layout.nodes.get(draft.originId) : undefined
   const draftOrigin = draft ? graph.agents.get(draft.originId) : undefined
-  const group = selectedShown ? collapsed.groups.get(selectedShown) : undefined
-  const trayOpen = group !== undefined && selected === selectedShown
 
   // Adjusted during render, not in an effect, so the new node never draws unselected first.
   const arrived = awaitedSession
     ? [...graph.agents.values()].find((agent) => agent.chat?.sessionId === awaitedSession)
     : undefined
   if (arrived && shownAs(arrived.card.paneKey)) {
-    setSelectedId(arrived.card.paneKey)
+    windows.open(arrived.card.paneKey)
     setAwaited(null)
   }
 
@@ -199,20 +202,19 @@ export function ProjectMapCanvas({
     layout,
     viewport,
     shownAs,
-    select: setSelectedId
+    select: windows.open
   })
   const openNodeAt = (event: React.MouseEvent): void => {
     const id = projectMapNodeIdOf(event.target) ?? ''
     const [agent, workspace] = [graph.agents.get(id), graph.workspaces.get(id)]
     return agent ? onOpenAgent(agent) : workspace ? onOpenWorkspace(workspace) : undefined
   }
-  const subject = projectMapWindowSubject(graph, selected)
   const keyboard = useProjectMapKeyboard({
     graph,
     layout,
     viewport,
     selected,
-    open: setSelectedId,
+    open: windows.open,
     onOpenAgent,
     onOpenWorkspace,
     onRename: setRenamingId,
@@ -290,7 +292,7 @@ export function ProjectMapCanvas({
               linked={linked}
               activeWorktreeId={activeWorktreeId}
               worktreeById={worktreeById}
-              onSelect={setSelectedId}
+              onSelect={windows.open}
               onHover={hoverNode}
             />
             {handleFor && handleBox ? (
@@ -353,24 +355,20 @@ export function ProjectMapCanvas({
             setAwaited({ sessionId, projectId: graph.projectId })
           }}
         />
-      ) : anchor && (trayOpen || subject) ? (
-        <ProjectMapSelectionWindow
-          graph={graph}
-          collapsed={collapsed}
-          selected={selected}
-          subject={subject}
-          group={trayOpen ? group : undefined}
-          anchor={anchor}
-          viewport={viewport.size}
-          avoid={[...linked].flatMap((id) => toViewport(id) ?? [])}
-          onSelect={setSelectedId}
-          onOpenAgent={onOpenAgent}
-          onOpenWorkspace={onOpenWorkspace}
-          forkable={selectedForkable}
-          onToggleCollapse={onToggleCollapse}
-          onFork={() => setForkFor(selected)}
-        />
       ) : null}
+      <ProjectMapNodeWindows
+        graph={graph}
+        collapsed={collapsed}
+        windows={windows}
+        shownAs={shownAs}
+        toViewport={toViewport}
+        viewport={viewport.size}
+        forkFor={forkOrigin ? forkFor : null}
+        onOpenAgent={onOpenAgent}
+        onOpenWorkspace={onOpenWorkspace}
+        onToggleCollapse={onToggleCollapse}
+        onFork={setForkFor}
+      />
       <ProjectMapLegend />
     </div>
   )

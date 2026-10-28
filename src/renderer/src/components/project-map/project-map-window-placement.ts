@@ -2,6 +2,18 @@ import { PROJECT_MAP_NODE } from './project-map-layout'
 
 export type ProjectMapRect = { x: number; y: number; width: number; height: number }
 
+/**
+ * A box a new window should not cover. `window` marks another open window: covering it costs
+ * almost nothing next to a node (a click brings it forward), but its header must stay in sight.
+ */
+export type ProjectMapAvoidRect = ProjectMapRect & { window?: boolean }
+
+const WINDOW_COVER_COST = 0.01
+const CASCADE = 36
+
+/** Where an open node window sits among the others, and how it comes to the front. */
+export type ProjectMapWindowLayer = { zIndex: number; onRaise: () => void }
+
 /** A node-sized box on the content, where it shows in the viewport at the current pan and zoom. */
 export function projectMapViewportRect(
   box: { x: number; y: number; width: number },
@@ -47,7 +59,7 @@ export function placeProjectMapWindow(
   anchor: ProjectMapRect,
   size: { width: number; height: number },
   viewport: { width: number; height: number },
-  avoid: readonly ProjectMapRect[]
+  avoid: readonly ProjectMapAvoidRect[]
 ): { x: number; y: number } {
   const height = Math.min(size.height, viewport.height - EDGE * 2)
   const clampX = (x: number): number =>
@@ -70,11 +82,37 @@ export function placeProjectMapWindow(
   for (const candidate of candidates) {
     const rect = { ...candidate, width: size.width, height }
     const cost =
-      overlapArea(rect, anchor) * 4 + avoid.reduce((sum, r) => sum + overlapArea(rect, r), 0)
+      overlapArea(rect, anchor) * 4 +
+      avoid.reduce((sum, r) => sum + overlapArea(rect, r) * (r.window ? WINDOW_COVER_COST : 1), 0)
     if (cost < bestCost) {
       best = candidate
       bestCost = cost
     }
   }
-  return best
+  return cascadeOffHeaders(best, avoid, clampX, clampY)
+}
+
+/** Steps a window down and right while it would sit on another window's header. */
+function cascadeOffHeaders(
+  at: { x: number; y: number },
+  avoid: readonly ProjectMapAvoidRect[],
+  clampX: (x: number) => number,
+  clampY: (y: number) => number
+): { x: number; y: number } {
+  const windows = avoid.filter((rect) => rect.window)
+  let next = at
+  for (let step = 0; step < windows.length + 1; step++) {
+    const onHeader = windows.some(
+      (rect) => Math.abs(rect.x - next.x) < CASCADE && Math.abs(rect.y - next.y) < CASCADE
+    )
+    if (!onHeader) {
+      return next
+    }
+    const moved = { x: clampX(next.x + CASCADE), y: clampY(next.y + CASCADE) }
+    if (moved.x === next.x && moved.y === next.y) {
+      return next
+    }
+    next = moved
+  }
+  return next
 }

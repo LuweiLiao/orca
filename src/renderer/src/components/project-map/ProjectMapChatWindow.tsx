@@ -20,7 +20,12 @@ import { dashboardCardDisplayState } from '../../../../shared/agent-status/prese
 import type { ProjectMapAgent, ProjectMapWorkspace } from './project-map-graph'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
 import { ProjectMapConversation } from './ProjectMapConversation'
-import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
+import {
+  placeProjectMapWindow,
+  type ProjectMapAvoidRect,
+  type ProjectMapRect,
+  type ProjectMapWindowLayer
+} from './project-map-window-placement'
 
 export type ProjectMapWindowSubject =
   | { kind: 'agent'; agent: ProjectMapAgent }
@@ -32,7 +37,8 @@ type Props = {
   anchor: ProjectMapRect
   viewport: { width: number; height: number }
   /** Nodes the window should avoid covering, in viewport coordinates. */
-  avoid: ProjectMapRect[]
+  avoid: ProjectMapAvoidRect[]
+  layer: ProjectMapWindowLayer
   onClose: () => void
   onOpenAgent: (agent: ProjectMapAgent) => void
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
@@ -45,6 +51,7 @@ type Props = {
 const DEFAULT_SIZE = { width: 480, height: 640 }
 
 export function ProjectMapChatWindow({
+  layer,
   subject,
   anchor,
   viewport,
@@ -55,7 +62,7 @@ export function ProjectMapChatWindow({
   onFork,
   collapse
 }: Props): React.JSX.Element {
-  // Placed once per mount; the canvas keys this window by node, so opening another node re-anchors.
+  // Placed once per mount, beside its node; panning the map afterwards leaves it where it is.
   const [position, setPosition] = useState(() =>
     placeProjectMapWindow(anchor, DEFAULT_SIZE, viewport, avoid)
   )
@@ -119,10 +126,13 @@ export function ProjectMapChatWindow({
       }
       data-kind={kind}
       data-project-map-window=""
+      data-project-map-node-window=""
+      onPointerDownCapture={layer.onRaise}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
-      className="project-map-window absolute z-20 flex min-h-[320px] min-w-[360px] resize flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
+      className="project-map-window pointer-events-auto absolute flex min-h-[320px] min-w-[360px] resize flex-col overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground"
       style={{
+        zIndex: layer.zIndex,
         left: position.x,
         top: position.y,
         width: DEFAULT_SIZE.width,
