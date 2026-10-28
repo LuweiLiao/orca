@@ -21,7 +21,8 @@ import {
   ProjectMapMergeHandle
 } from './ProjectMapForkHandle'
 import { ProjectMapComparePanel } from './ProjectMapComparePanel'
-import { useProjectMapMergePicks } from './use-project-map-merge-picks'
+import { useProjectMapMultiSelect } from './use-project-map-multi-select'
+import { ProjectMapBatchBar } from './ProjectMapBatchBar'
 import { useProjectMapAwaitedChild, useProjectMapEscape } from './use-project-map-canvas-selection'
 import { ProjectMapForkWindow, type ProjectMapForkIntent } from './ProjectMapForkWindow'
 import { useProjectMapForkDrag, useProjectMapHover } from './use-project-map-fork-drag'
@@ -121,14 +122,14 @@ export function ProjectMapCanvas({
       setFork({ paneKey: originId, ...(merge ? { merge } : {}) })
     }
   })
-  const picks = useProjectMapMergePicks(graph, layout)
+  const picks = useProjectMapMultiSelect(graph, layout)
   const { clear: clearPicks } = picks
   const awaitChild = useProjectMapAwaitedChild(graph, (id) => shownAs(id) !== null, setSelectedId)
   const dropSelection = useCallback(() => {
     setSelectedId(null)
     clearPicks()
   }, [clearPicks])
-  useProjectMapEscape(selected !== null || picks.picked.length > 0, dropSelection)
+  useProjectMapEscape(selected !== null || picks.batch.length > 0, dropSelection)
   const rowMoves = useProjectMapRowMoves(graph, layout)
   const commands = useProjectMapNodeCommands(graph)
   const merging = picks.picked.length >= 2
@@ -286,7 +287,7 @@ export function ProjectMapCanvas({
               worktreeById={worktreeById}
               referencesOf={referencesOf}
               onSelect={selectNode}
-              picked={picks.picked}
+              picked={picks.batch}
               onHover={hoverNode}
               onReferenceDrop={dropReference}
             />
@@ -392,6 +393,7 @@ export function ProjectMapCanvas({
           onClose={() => setCompare(null)}
         />
       ) : null}
+      <ProjectMapBatchBar graph={graph} ids={picks.batch} onDone={picks.clear} />
       <ProjectMapLegend />
     </div>
   )

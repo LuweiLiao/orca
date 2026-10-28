@@ -14,6 +14,7 @@ import { DESKTOP_RENDERER_RUNTIME_CLIENT_CAPABILITIES } from './desktop-renderer
 import { RpcDispatcher } from '../runtime/rpc/dispatcher'
 import { DESKTOP_RPC_CALLER } from '../runtime/rpc/rpc-caller-identity'
 import { ALL_RPC_METHODS } from '../runtime/rpc/methods'
+import { desktopRendererOrchestrationContract } from './desktop-renderer-orchestration-contract'
 import { DesktopRuntimeSenderLifecycle } from './desktop-runtime-sender-lifecycle'
 import { publishMobileProjectSections } from '../runtime/mobile-project-sections-snapshot'
 import { desktopWindowId } from '../window/desktop-renderer-registry'
@@ -97,7 +98,8 @@ export function registerRuntimeHandlers(runtime: OrcaRuntimeService): void {
           id: 'desktop-ipc',
           authToken: 'desktop-ipc',
           method: args.method,
-          params: args.params
+          params: args.params,
+          ...desktopRendererOrchestrationContract(args.method)
         },
         {
           clientId: 'desktop-renderer',

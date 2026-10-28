@@ -212,3 +212,15 @@ describe('closing and hiding', () => {
     expect(projectMapHistoryIsWired(edges, 'z')).toBe(false)
   })
 })
+
+describe('projectMapAgentActions stop', () => {
+  it("lists Stop only when the node can be stopped, greyed with the host's reason", () => {
+    expect(byId(projectMapAgentActions(agent(), idle)).stop).toBeUndefined()
+    const offered = byId(projectMapAgentActions(agent(), { ...idle, stop: { block: null } }))
+    expect(offered.stop).toEqual({ id: 'stop', enabled: true })
+    const old = byId(
+      projectMapAgentActions(agent(), { ...idle, stop: { block: 'stop-host-too-old' } })
+    )
+    expect(old.stop).toMatchObject({ enabled: false, reason: 'stop-host-too-old' })
+  })
+})

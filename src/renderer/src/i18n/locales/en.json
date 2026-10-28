@@ -21643,14 +21643,18 @@
         "notFinished": "Only a finished conversation can be unread",
         "allRead": "Nothing unread",
         "rowEdge": "Nothing beside it to swap with",
-        "summaryHostTooOld": "This host is too old to summarize chats"
+        "summaryHostTooOld": "This host is too old to summarize chats",
+        "remoteWorker": "A worker on another host: stop it from its chat",
+        "stopHostTooOld": "Its host is too old to stop it from here: stop it in the chat",
+        "hostUnreachable": "Its host has not answered yet"
       },
       "close": "Close",
       "hide": "Hide",
       "hideTree": "Hide with its handoffs",
       "removeFromMap": "Remove from the map",
       "reopen": "Reopen",
-      "showHidden": "Show hidden ({{count}})"
+      "showHidden": "Show hidden ({{count}})",
+      "stop": "Stop"
     },
     "summary": {
       "title": "Chat summary",
@@ -21747,6 +21751,55 @@
       "rewound": "Rewound since the handoff; showing all {{count}} turns",
       "own": "{{count}} turns of its own",
       "own_one": "{{count}} turn of its own"
+    },
+    "stop": {
+      "title": "Stop \"{{title}}\"?",
+      "workerDescription": "This ends the worker for its assignment. It cannot be resumed.",
+      "chatDescription": "This stops the work the conversation has in progress. You can keep talking to it afterwards.",
+      "confirm": "Stop",
+      "done": "Stopped \"{{title}}\"",
+      "failed": "Could not stop \"{{title}}\": {{reason}}",
+      "error": {
+        "unreachable": "Its host cannot be reached.",
+        "unconfirmed": "The stop was not confirmed.",
+        "hostTooOld": "Its host is too old to stop it from here."
+      }
+    },
+    "batch": {
+      "label": "Actions on the selected conversations",
+      "selected": "{{count}} selected",
+      "clear": "Clear selection",
+      "markRead": "Mark as read",
+      "reference": "Reference in current chat",
+      "hide": "Hide",
+      "close": "Close",
+      "stop": "Stop",
+      "partial": "{{succeeded}} succeeded, {{failed}} failed: {{reasons}}",
+      "skippedNote": " Skipped: {{skipped}}.",
+      "nothing": "Nothing to do: {{skipped}}.",
+      "skip": {
+        "closed": "already closed",
+        "noTab": "no tab to close",
+        "read": "nothing unread",
+        "noChat": "not a structured chat",
+        "notRunning": "not running",
+        "remoteHost": "on an SSH or WSL host",
+        "remoteWorker": "a worker on another host"
+      },
+      "error": {
+        "noTab": "it has no tab"
+      },
+      "markReadDone": "Marked {{count}} as read",
+      "referenceDone": "Referenced {{count}} conversations",
+      "hideDone": "Hid {{count}} conversations from the map",
+      "hideUndoLabel": "{{count}} conversations",
+      "closeTitle": "Close {{count}} conversations?",
+      "closeDescription": "{{running}} still running (closing stops their work; reopen them from the map) and {{terminal}} terminal agents that end for good.",
+      "closeDone": "Closed {{count}} conversations",
+      "closeUndoLabel": "{{count}} conversations",
+      "stopTitle": "Stop {{count}} conversations?",
+      "stopDescription": "This stops the work in progress and ends any worker assignment. A stopped worker cannot be resumed.",
+      "stopDone": "Stopped {{count}} conversations"
     }
   }
 }

@@ -21521,14 +21521,18 @@
         "notFinished": "只有已完成的对话才能标为未读",
         "allRead": "没有未读内容",
         "rowEdge": "旁边没有可交换的对话",
-        "summaryHostTooOld": "该主机版本过旧，无法生成聊天摘要"
+        "summaryHostTooOld": "该主机版本过旧，无法生成聊天摘要",
+        "remoteWorker": "在其他主机上的委派对话：请在它的聊天里停止",
+        "stopHostTooOld": "它所在的主机版本太旧，无法从这里停止：请在聊天里停止",
+        "hostUnreachable": "它所在的主机还没有响应"
       },
       "close": "关闭",
       "hide": "隐藏",
       "hideTree": "隐藏及其交接",
       "removeFromMap": "从图上移除",
       "reopen": "重新打开",
-      "showHidden": "显示已隐藏（{{count}}）"
+      "showHidden": "显示已隐藏（{{count}}）",
+      "stop": "停止"
     },
     "summary": {
       "title": "对话摘要",
@@ -21623,6 +21627,55 @@
       "since": "交接之后 {{count}} 轮",
       "rewound": "交接之后回退过；显示全部 {{count}} 轮",
       "own": "它自己的 {{count}} 轮"
+    },
+    "stop": {
+      "title": "停止“{{title}}”？",
+      "workerDescription": "这会结束该委派对话的当前任务，之后无法恢复。",
+      "chatDescription": "这会停止对话正在进行的工作，之后仍可以继续和它对话。",
+      "confirm": "停止",
+      "done": "已停止“{{title}}”",
+      "failed": "无法停止“{{title}}”：{{reason}}",
+      "error": {
+        "unreachable": "无法连接它所在的主机。",
+        "unconfirmed": "未能确认已停止。",
+        "hostTooOld": "它所在的主机版本太旧，无法从这里停止。"
+      }
+    },
+    "batch": {
+      "label": "对所选对话的操作",
+      "selected": "已选 {{count}} 个",
+      "clear": "清除选择",
+      "markRead": "标为已读",
+      "reference": "引用到当前聊天",
+      "hide": "隐藏",
+      "close": "关闭",
+      "stop": "停止",
+      "partial": "{{succeeded}} 个成功，{{failed}} 个失败：{{reasons}}",
+      "skippedNote": " 已跳过：{{skipped}}。",
+      "nothing": "没有可执行的对话：{{skipped}}。",
+      "skip": {
+        "closed": "已关闭",
+        "noTab": "没有可关闭的标签页",
+        "read": "没有未读内容",
+        "noChat": "不是结构化聊天",
+        "notRunning": "未在运行",
+        "remoteHost": "在 SSH 或 WSL 主机上",
+        "remoteWorker": "在其他主机上的委派对话"
+      },
+      "error": {
+        "noTab": "它没有标签页"
+      },
+      "markReadDone": "已将 {{count}} 个标为已读",
+      "referenceDone": "已引用 {{count}} 个对话",
+      "hideDone": "已从图上隐藏 {{count}} 个对话",
+      "hideUndoLabel": "{{count}} 个对话",
+      "closeTitle": "关闭 {{count}} 个对话？",
+      "closeDescription": "其中 {{running}} 个仍在运行（关闭会停止它们的工作，可以从图上重新打开），{{terminal}} 个终端智能体关闭后无法恢复。",
+      "closeDone": "已关闭 {{count}} 个对话",
+      "closeUndoLabel": "{{count}} 个对话",
+      "stopTitle": "停止 {{count}} 个对话？",
+      "stopDescription": "这会停止正在进行的工作并结束委派任务，已停止的委派对话无法恢复。",
+      "stopDone": "已停止 {{count}} 个对话"
     }
   }
 }

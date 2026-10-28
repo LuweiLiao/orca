@@ -15,6 +15,7 @@ import {
   X,
   Scan,
   Search,
+  Square,
   SquareArrowOutUpRight,
   SquareTerminal
 } from 'lucide-react'
@@ -47,6 +48,8 @@ import {
   subscribeToProjectMapSummaryState
 } from './project-map-summary-state'
 import { useProjectMapNodeCommands } from './use-project-map-node-commands'
+import { useProjectMapStopCommand } from './use-project-map-stop-command'
+import { useProjectMapStopOffer } from './use-project-map-stop-offer'
 import type { ProjectMapRowMoves } from './use-project-map-row-moves'
 
 type Props = {
@@ -79,7 +82,8 @@ const AGENT_LABELS: Record<ProjectMapAgentActionId, () => string> = {
   hide: () => translate('projectMap.menu.hide', 'Hide'),
   'hide-tree': () => translate('projectMap.menu.hideTree', 'Hide with its handoffs'),
   'remove-from-map': () => translate('projectMap.menu.removeFromMap', 'Remove from the map'),
-  summary: () => translate('projectMap.menu.generateSummary', 'Generate summary')
+  summary: () => translate('projectMap.menu.generateSummary', 'Generate summary'),
+  stop: () => translate('projectMap.menu.stop', 'Stop')
 }
 
 const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
@@ -96,7 +100,8 @@ const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
   hide: EyeOff,
   'hide-tree': EyeOff,
   'remove-from-map': Trash2,
-  summary: FileText
+  summary: FileText,
+  stop: Square
 }
 
 const ROW_SHORTCUTS: Partial<Record<ProjectMapAgentActionId, string>> = {
@@ -119,7 +124,22 @@ const REASONS: Record<ProjectMapActionBlock, () => string> = {
   'all-read': () => translate('projectMap.menu.reason.allRead', 'Nothing unread'),
   'row-edge': () => translate('projectMap.menu.reason.rowEdge', 'Nothing beside it to swap with'),
   'summary-host-too-old': () =>
-    translate('projectMap.menu.reason.summaryHostTooOld', 'This host is too old to summarize chats')
+    translate(
+      'projectMap.menu.reason.summaryHostTooOld',
+      'This host is too old to summarize chats'
+    ),
+  'remote-worker': () =>
+    translate(
+      'projectMap.menu.reason.remoteWorker',
+      'A worker on another host: stop it from its chat'
+    ),
+  'stop-host-too-old': () =>
+    translate(
+      'projectMap.menu.reason.stopHostTooOld',
+      'Its host is too old to stop it from here: stop it in the chat'
+    ),
+  'host-unreachable': () =>
+    translate('projectMap.menu.reason.hostUnreachable', 'Its host has not answered yet')
 }
 
 function MenuItem({
@@ -177,6 +197,8 @@ export function ProjectMapCanvasMenu({
     : []
   const commands = useProjectMapNodeCommands(graph)
   const summaries = useSyncExternalStore(subscribeToProjectMapSummaryState, projectMapSummaryState)
+  const stopOffer = useProjectMapStopOffer(agent)
+  const stopAgent = useProjectMapStopCommand()
   const hiddenCount = graph.hiddenKeys?.length ?? 0
   const searchKeys = getShortcutPlatform() === 'darwin' ? '⌘F' : 'Ctrl+F'
 
@@ -209,6 +231,8 @@ export function ProjectMapCanvasMenu({
         return commands.hide(chat, true)
       case 'remove-from-map':
         return commands.removeFromMap(chat)
+      case 'stop':
+        return void stopAgent(chat)
     }
   }
 
@@ -237,7 +261,8 @@ export function ProjectMapCanvasMenu({
             rowMoves: {
               up: rowMoves.can(agent.card.paneKey, 'up'),
               down: rowMoves.can(agent.card.paneKey, 'down')
-            }
+            },
+            ...(stopOffer ? { stop: stopOffer } : {})
           }).map((action) => (
             <MenuItem
               key={action.id}
