@@ -29,14 +29,12 @@ export function mobileChatRelationMenuActions(args: {
   if (hostReadsChatTurns(hostCapabilities)) {
     actions.push({
       label: 'Turns',
-
       skipAutoClose: true,
       onPress: args.showTurns
     })
     if (hostAcknowledgesChatAttention(hostCapabilities)) {
       actions.push({
         label: 'Mark as read',
-
         skipAutoClose: true,
         onPress: args.markRead
       })
