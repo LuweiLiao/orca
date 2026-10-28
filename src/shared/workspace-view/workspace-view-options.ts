@@ -2,6 +2,7 @@ import type { PersistedUIState } from '../persisted-ui-state-types'
 import type {
   AgentActivityDisplayMode,
   ProjectOrderBy,
+  WorktreeAgentOrder,
   WorktreeCardProperty
 } from '../ui-chrome-types'
 
@@ -56,6 +57,12 @@ export const WORKSPACE_AGENT_ACTIVITY_LAYOUT_CHOICES = [
   { id: 'compact', label: 'Compact' },
   { id: 'full', label: 'Full list' }
 ] as const satisfies readonly WorkspaceViewChoice<AgentActivityDisplayMode>[]
+
+export const WORKSPACE_AGENT_ORDER_CHOICES = [
+  { id: 'activity', label: 'Recent activity' },
+  { id: 'newest', label: 'Newest first' },
+  { id: 'oldest', label: 'Oldest first' }
+] as const satisfies readonly WorkspaceViewChoice<WorktreeAgentOrder>[]
 
 /** "Show properties": one card property per row. */
 export const WORKSPACE_CARD_PROPERTY_CHOICES = [

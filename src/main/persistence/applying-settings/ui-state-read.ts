@@ -3,6 +3,7 @@ import type { PersistedState } from '../../../shared/persisted-state-types'
 import {
   getDefaultUIState,
   normalizeAgentActivityDisplayMode,
+  normalizeWorktreeAgentOrder,
   normalizeWorktreeCardProperties
 } from '../../../shared/constants'
 import {
@@ -52,6 +53,7 @@ export function getPersistedUI(
     ),
     worktreeCardProperties: normalizeWorktreeCardProperties(state.ui?.worktreeCardProperties),
     agentActivityDisplayMode: normalizeAgentActivityDisplayMode(state.ui?.agentActivityDisplayMode),
+    worktreeAgentOrder: normalizeWorktreeAgentOrder(state.ui?.worktreeAgentOrder),
     workspaceStatuses: normalizeWorkspaceStatuses(state.ui?.workspaceStatuses),
     workspaceBoardOpacity: clampWorkspaceBoardOpacity(state.ui?.workspaceBoardOpacity),
     workspaceBoardColumnWidth: clampWorkspaceBoardColumnWidth(state.ui?.workspaceBoardColumnWidth),

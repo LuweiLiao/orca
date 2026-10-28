@@ -6005,7 +6005,9 @@
           "5c9c7c16aa": "Add a project to create workspaces",
           "a30e34eb5c": "Close workspace board",
           "views": "Sidebar view",
-          "addProject": "Add project"
+          "addProject": "Add project",
+          "collapseAll": "Collapse all agents",
+          "expandAll": "Expand all agents"
         },
         "SidebarNav": {
           "80611a8b10": "Search",
@@ -6137,7 +6139,13 @@
           "219ebf1961": "Branch name",
           "folderPathIdentity": "Branch / folder path",
           "cli": "Orca CLI",
-          "workspaceOptions": "Workspace options"
+          "workspaceOptions": "Workspace options",
+          "agentOrder": {
+            "title": "Agents in a workspace",
+            "activity": "Recent activity",
+            "newest": "Newest first",
+            "oldest": "Oldest first"
+          }
         },
         "SshTargetRow": {
           "4677394048": "Connecting…",

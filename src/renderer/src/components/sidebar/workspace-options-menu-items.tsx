@@ -25,7 +25,11 @@ import {
 } from './sidebar-host-options'
 import { useSidebarHostScopeOptions } from './use-sidebar-host-scope-options'
 import { SidebarHostScopeMenuSection } from './SidebarHostScopeMenuSection'
-import { PROJECT_ORDER_OPTIONS, SORT_OPTIONS } from './sidebar-workspace-option-items'
+import {
+  AGENT_ORDER_OPTIONS,
+  PROJECT_ORDER_OPTIONS,
+  SORT_OPTIONS
+} from './sidebar-workspace-option-items'
 import {
   WorktreeCardDisplayMenuItem,
   WorktreeCardLayoutMenuItem,
@@ -98,6 +102,8 @@ function GroupByOptionItem(): JSX.Element {
 function SortByOptionItem({ preserveWorkspaceBoardOpen }: OptionItemProps): JSX.Element {
   const sortBy = useAppStore((s) => s.sortBy)
   const setSortBy = useAppStore((s) => s.setSortBy)
+  const worktreeAgentOrder = useAppStore((s) => s.worktreeAgentOrder)
+  const setWorktreeAgentOrder = useAppStore((s) => s.setWorktreeAgentOrder)
   const sortLabel = SORT_OPTIONS.find((opt) => opt.id === sortBy)?.label ?? 'Sort'
   return (
     <DropdownMenuSub>
@@ -146,6 +152,28 @@ function SortByOptionItem({ preserveWorkspaceBoardOpen }: OptionItemProps): JSX.
               </Tooltip>
             )
           })}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>
+          {translate(
+            'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.title',
+            'Agents in a workspace'
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={worktreeAgentOrder}
+          onValueChange={(value) => {
+            const next = AGENT_ORDER_OPTIONS.find((opt) => opt.id === value)
+            if (next) {
+              setWorktreeAgentOrder(next.id)
+            }
+          }}
+        >
+          {AGENT_ORDER_OPTIONS.map((opt) => (
+            <DropdownMenuRadioItem key={opt.id} value={opt.id} onSelect={(e) => e.preventDefault()}>
+              {opt.label}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuSubContent>
     </DropdownMenuSub>

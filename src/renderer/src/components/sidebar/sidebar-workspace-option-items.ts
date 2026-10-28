@@ -1,6 +1,7 @@
 import type { WorktreeCardProperty } from '../../../../shared/ui-chrome-types'
 import {
   WORKSPACE_AGENT_ACTIVITY_LAYOUT_CHOICES,
+  WORKSPACE_AGENT_ORDER_CHOICES,
   WORKSPACE_CARD_LAYOUT_CHOICES,
   WORKSPACE_CARD_PROPERTY_CHOICES,
   WORKSPACE_GROUP_BY_CHOICES,
@@ -118,6 +119,27 @@ export const AGENT_ACTIVITY_DISPLAY_OPTIONS = localizeChoices<
   full: () =>
     translate('auto.components.sidebar.SidebarWorkspaceOptionsMenu.2a81e07366', 'Full list')
 })
+
+export const AGENT_ORDER_OPTIONS = localizeChoices<ChoiceId<typeof WORKSPACE_AGENT_ORDER_CHOICES>>(
+  WORKSPACE_AGENT_ORDER_CHOICES,
+  {
+    activity: () =>
+      translate(
+        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.activity',
+        'Recent activity'
+      ),
+    newest: () =>
+      translate(
+        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.newest',
+        'Newest first'
+      ),
+    oldest: () =>
+      translate(
+        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.oldest',
+        'Oldest first'
+      )
+  }
+)
 
 export const PROPERTY_OPTIONS = localizeChoices<ChoiceId<typeof WORKSPACE_CARD_PROPERTY_CHOICES>>(
   WORKSPACE_CARD_PROPERTY_CHOICES,

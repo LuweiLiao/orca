@@ -6,6 +6,7 @@ import type {
   ProjectOrderBy,
   StatusBarItem,
   ThreadReadFilter,
+  WorktreeAgentOrder,
   WorktreeCardMode,
   WorktreeCardProperty,
   WorkspaceHostOrder,
@@ -91,12 +92,15 @@ export type UISlicePreferences = {
   setAgentsGroupBy: (v: ActivityGroupBy) => void
   collapsedGroups: Set<string>
   toggleCollapsedGroup: (key: string) => void
+  setGroupsCollapsed: (keys: Iterable<string>, collapsed: boolean) => void
   worktreeCardProperties: WorktreeCardProperty[]
   _worktreeCardModeDefaulted: boolean
   setWorktreeCardMode: (mode: WorktreeCardMode) => void
   setWorktreeCardProperties: (properties: readonly WorktreeCardProperty[]) => void
   agentActivityDisplayMode: AgentActivityDisplayMode
   setAgentActivityDisplayMode: (mode: AgentActivityDisplayMode) => void
+  worktreeAgentOrder: WorktreeAgentOrder
+  setWorktreeAgentOrder: (order: WorktreeAgentOrder) => void
   workspaceStatuses: WorkspaceStatusDefinition[]
   setWorkspaceStatuses: (statuses: WorkspaceStatusDefinition[]) => void
   workspaceBoardOpacity: number

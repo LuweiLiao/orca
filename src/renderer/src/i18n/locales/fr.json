@@ -5852,7 +5852,9 @@
           "addProject": "Ajouter un projet",
           "projects": "Projets",
           "spaces": "Espaces",
-          "views": "Vue de la barre latérale"
+          "views": "Vue de la barre latérale",
+          "collapseAll": "Réduire tous les agents",
+          "expandAll": "Développer tous les agents"
         },
         "SidebarNav": {
           "80611a8b10": "Recherche",
@@ -5984,7 +5986,13 @@
           "219ebf1961": "Nom de branche",
           "folderPathIdentity": "Branche / chemin de dossier",
           "cli": "Orca CLI",
-          "workspaceOptions": "Options de l'espace de travail"
+          "workspaceOptions": "Options de l'espace de travail",
+          "agentOrder": {
+            "title": "Agents de l'espace de travail",
+            "activity": "Activité récente",
+            "newest": "Plus récents d'abord",
+            "oldest": "Plus anciens d'abord"
+          }
         },
         "SshTargetRow": {
           "4677394048": "Connexion…",

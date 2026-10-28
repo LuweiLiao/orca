@@ -5689,7 +5689,9 @@
           "a30e34eb5c": "Cerrar tablero del espacio de trabajo",
           "spaces": "Espacios",
           "views": "Vista de la barra lateral",
-          "addProject": "Agregar proyecto"
+          "addProject": "Agregar proyecto",
+          "collapseAll": "Contraer todos los agentes",
+          "expandAll": "Expandir todos los agentes"
         },
         "SidebarNav": {
           "80611a8b10": "Buscar",
@@ -5813,7 +5815,13 @@
           "219ebf1961": "Nombre de rama",
           "folderPathIdentity": "Rama / ruta de carpeta",
           "cli": "Orca CLI",
-          "workspaceOptions": "Opciones de espacio de trabajo"
+          "workspaceOptions": "Opciones de espacio de trabajo",
+          "agentOrder": {
+            "title": "Agentes del espacio de trabajo",
+            "activity": "Actividad reciente",
+            "newest": "Más recientes primero",
+            "oldest": "Más antiguos primero"
+          }
         },
         "SshTargetRow": {
           "4677394048": "Conectando…",

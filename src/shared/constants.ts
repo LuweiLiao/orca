@@ -2,7 +2,7 @@ import type { GlobalSettings } from './global-settings-types'
 import type { RepoHookSettings } from './orca-yaml-hook-types'
 import type { PersistedState } from './persisted-state-types'
 import type { PersistedUIState } from './persisted-ui-state-types'
-import type { AgentActivityDisplayMode } from './ui-chrome-types'
+import type { AgentActivityDisplayMode, WorktreeAgentOrder } from './ui-chrome-types'
 import type { WorkspaceSessionState } from './workspace-session-state-types'
 import { EMPTY_CODEX_RESET_CREDIT_ATTEMPT_LEDGER } from './codex-reset-credit-attempt-ledger'
 import { DEFAULT_STATUS_BAR_ITEMS } from './status-bar-defaults'
@@ -43,6 +43,14 @@ export const DEFAULT_TERMINAL_INACTIVE_PANE_OPACITY = 0.9
 
 export function normalizeAgentActivityDisplayMode(value: unknown): AgentActivityDisplayMode {
   return value === 'full' || value === 'compact' ? value : DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE
+}
+
+export const DEFAULT_WORKTREE_AGENT_ORDER: WorktreeAgentOrder = 'activity'
+
+export function normalizeWorktreeAgentOrder(value: unknown): WorktreeAgentOrder {
+  return value === 'activity' || value === 'newest' || value === 'oldest'
+    ? value
+    : DEFAULT_WORKTREE_AGENT_ORDER
 }
 
 export const ORCA_BROWSER_PARTITION = 'persist:orca-browser'
@@ -233,6 +241,7 @@ export function getDefaultUIState(): PersistedUIState {
     worktreeCardProperties: [...DEFAULT_WORKTREE_CARD_PROPERTIES],
     _worktreeCardModeDefaulted: true,
     agentActivityDisplayMode: DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE,
+    worktreeAgentOrder: DEFAULT_WORKTREE_AGENT_ORDER,
     workspaceStatuses: cloneDefaultWorkspaceStatuses(),
     workspaceBoardOpacity: 1,
     workspaceBoardColumnWidth: 308,

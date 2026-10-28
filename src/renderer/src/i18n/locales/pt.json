@@ -10627,7 +10627,13 @@
           "folderPathIdentity": "Branch / caminho da pasta",
           "cli": "CLI do Orca",
           "workspaceOptions": "Opções do espaço de trabalho",
-          "host": "Host"
+          "host": "Host",
+          "agentOrder": {
+            "title": "Agentes no espaço de trabalho",
+            "activity": "Atividade recente",
+            "newest": "Mais recentes primeiro",
+            "oldest": "Mais antigos primeiro"
+          }
         },
         "WorktreeList": {
           "7a8b9c0d1e": "Atualização necessária",
@@ -11474,7 +11480,9 @@
           "5c9c7c16aa": "Adicione um projeto para criar espaços de trabalho",
           "a30e34eb5c": "Fechar o quadro do espaço de trabalho",
           "views": "Visualização da barra lateral",
-          "addProject": "Adicionar projeto"
+          "addProject": "Adicionar projeto",
+          "collapseAll": "Recolher todos os agentes",
+          "expandAll": "Expandir todos os agentes"
         },
         "NewExternalWorktreesInboxLine": {
           "9f2d4c8b17": "Ocultar worktrees externas permanentemente para {{value0}}",

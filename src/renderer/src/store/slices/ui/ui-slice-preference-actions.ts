@@ -5,9 +5,11 @@ import {
   DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE,
   DEFAULT_SHOW_SLEEPING_WORKSPACES,
   DEFAULT_STATUS_BAR_ITEMS,
+  DEFAULT_WORKTREE_AGENT_ORDER,
   DEFAULT_WORKTREE_CARD_PROPERTIES,
   getWorktreeCardModeUpdates,
   normalizeAgentActivityDisplayMode,
+  normalizeWorktreeAgentOrder,
   normalizeWorktreeCardProperties
 } from '../../../../../shared/constants'
 import {
@@ -174,6 +176,25 @@ export function createUiPreferenceActions(set: UISliceSet, get: UISliceGet): Par
         window.api.ui.set({ collapsedGroups: [...next] }).catch(console.error)
         return { collapsedGroups: next }
       }),
+    setGroupsCollapsed: (keys, collapsed) =>
+      set((s) => {
+        const next = new Set(s.collapsedGroups)
+        for (const key of keys) {
+          if (collapsed) {
+            next.add(key)
+          } else {
+            next.delete(key)
+          }
+        }
+        if (
+          next.size === s.collapsedGroups.size &&
+          [...next].every((key) => s.collapsedGroups.has(key))
+        ) {
+          return {}
+        }
+        window.api.ui.set({ collapsedGroups: [...next] }).catch(console.error)
+        return { collapsedGroups: next }
+      }),
 
     worktreeCardProperties: [...DEFAULT_WORKTREE_CARD_PROPERTIES],
     _worktreeCardModeDefaulted: true,
@@ -205,6 +226,12 @@ export function createUiPreferenceActions(set: UISliceSet, get: UISliceGet): Par
       const normalized = normalizeAgentActivityDisplayMode(mode)
       window.api.ui.set({ agentActivityDisplayMode: normalized }).catch(console.error)
       set({ agentActivityDisplayMode: normalized })
+    },
+    worktreeAgentOrder: DEFAULT_WORKTREE_AGENT_ORDER,
+    setWorktreeAgentOrder: (order) => {
+      const normalized = normalizeWorktreeAgentOrder(order)
+      window.api.ui.set({ worktreeAgentOrder: normalized }).catch(console.error)
+      set({ worktreeAgentOrder: normalized })
     },
 
     workspaceStatuses: cloneDefaultWorkspaceStatuses(),

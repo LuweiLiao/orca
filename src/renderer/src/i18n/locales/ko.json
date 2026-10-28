@@ -5655,7 +5655,9 @@
           "a30e34eb5c": "워크스페이스 보드 닫기",
           "spaces": "스페이스",
           "views": "사이드바 보기",
-          "addProject": "프로젝트 추가"
+          "addProject": "프로젝트 추가",
+          "collapseAll": "모든 에이전트 접기",
+          "expandAll": "모든 에이전트 펼치기"
         },
         "SidebarNav": {
           "80611a8b10": "검색",
@@ -5779,7 +5781,13 @@
           "automation": "자동화",
           "folderPathIdentity": "브랜치 / 폴더 경로",
           "cli": "Orca CLI",
-          "workspaceOptions": "워크스페이스 옵션"
+          "workspaceOptions": "워크스페이스 옵션",
+          "agentOrder": {
+            "title": "워크스페이스의 에이전트",
+            "activity": "최근 활동",
+            "newest": "최신순",
+            "oldest": "오래된순"
+          }
         },
         "SshTargetRow": {
           "4677394048": "연결 중…",

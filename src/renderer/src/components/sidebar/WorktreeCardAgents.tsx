@@ -25,6 +25,7 @@ import {
 } from './worktree-card-compact-agents'
 import { buildAgentRowLineageTree } from '@/components/dashboard/agent-row-lineage-model'
 import { DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE } from '../../../../shared/constants'
+import { orderWorktreeAgentRows } from './worktree-agent-row-order'
 import { revealElementInScrollContainer } from './worktree-sidebar-reveal'
 import { useWorktreeAgentExpansionState } from './worktree-card-agents-expansion-state'
 import { translate } from '@/i18n/i18n'
@@ -217,14 +218,15 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
 
   // Why: one 30s tick per non-empty inline list; zero-agent cards never mount this (see WorktreeCardAgents), so idle worktrees pay no timer cost.
   const now = useNow(30_000)
+  const worktreeAgentOrder = useAppStore((s) => s.worktreeAgentOrder)
   const { rootRows: rootAgents, childrenByParentPaneKey } = useMemo(
-    () => buildAgentRowLineageTree(agents),
-    [agents]
+    () => buildAgentRowLineageTree(orderWorktreeAgentRows(agents, worktreeAgentOrder)),
+    [agents, worktreeAgentOrder]
   )
   const hasLineage = childrenByParentPaneKey.size > 0
   // Why: keep disclosure state out of local useState so a WorktreeCard remount (virtualizer recycle / sibling toggle) doesn't reset it.
   const {
-    collapsedLineageParents,
+    isLineageParentCollapsed,
     compactRootListExpanded,
     toggleLineageParent: toggleLineageParentState,
     toggleCompactRootList
@@ -271,7 +273,7 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
     const childAgents = childrenByParentPaneKey.get(agent.paneKey) ?? []
     const hasChildAgents = childAgents.length > 0
     // Why: spawned child agents are actionable work, so show them as soon as the parent appears (disclosure still folds noise).
-    const expanded = !collapsedLineageParents.has(agent.paneKey)
+    const expanded = !isLineageParentCollapsed(agent.paneKey)
     const sendTarget = isAgentSendTargetModeActive
       ? (sendTargetsByPaneKey.get(agent.paneKey) ?? {
           status: 'disabled' as const,
@@ -332,7 +334,7 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
     }
     const childAgents = childrenByParentPaneKey.get(agent.paneKey) ?? []
     const hasChildAgents = childAgents.length > 0
-    const expanded = !collapsedLineageParents.has(agent.paneKey)
+    const expanded = !isLineageParentCollapsed(agent.paneKey)
     const sendTarget = isAgentSendTargetModeActive
       ? (sendTargetsByPaneKey.get(agent.paneKey) ?? {
           status: 'disabled' as const,

@@ -5661,7 +5661,9 @@
           "a30e34eb5c": "关闭工作区板",
           "spaces": "空间",
           "views": "侧边栏视图",
-          "addProject": "添加项目"
+          "addProject": "添加项目",
+          "collapseAll": "全部折叠智能体",
+          "expandAll": "全部展开智能体"
         },
         "SidebarNav": {
           "80611a8b10": "搜索",
@@ -5785,7 +5787,13 @@
           "automation": "自动化",
           "folderPathIdentity": "分支 / 文件夹路径",
           "cli": "Orca CLI",
-          "workspaceOptions": "工作区选项"
+          "workspaceOptions": "工作区选项",
+          "agentOrder": {
+            "title": "工作区内的智能体",
+            "activity": "最近活动",
+            "newest": "最新的在前",
+            "oldest": "最早的在前"
+          }
         },
         "SshTargetRow": {
           "4677394048": "正在连接…",

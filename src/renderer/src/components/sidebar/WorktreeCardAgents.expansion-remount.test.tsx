@@ -8,6 +8,7 @@ import {
   getWorktreeAgentExpansionCountForTests,
   MAX_PERSISTED_WORKTREE_AGENT_EXPANSIONS,
   seedWorktreeAgentExpansionStateForTests,
+  setAllWorktreeAgentListsCollapsed,
   useWorktreeAgentExpansionState
 } from './worktree-card-agents-expansion-state'
 
@@ -165,21 +166,61 @@ describe('worktree-card-agents-expansion-state module cache', () => {
     clearWorktreeAgentExpansionStateForTests()
   })
 
-  it('persists a collapsed lineage parent across a hook remount and toggles independently', async () => {
-    function Probe({ worktreeId }: { worktreeId: string }) {
-      const { collapsedLineageParents, toggleLineageParent } =
-        useWorktreeAgentExpansionState(worktreeId)
-      return (
-        <button
-          type="button"
-          data-collapsed={collapsedLineageParents.has('pane-x') ? 'true' : 'false'}
-          onClick={() => toggleLineageParent('pane-x')}
-        >
-          probe
-        </button>
-      )
-    }
+  function Probe({ worktreeId, paneKey = 'pane-x' }: { worktreeId: string; paneKey?: string }) {
+    const { isLineageParentCollapsed, toggleLineageParent } =
+      useWorktreeAgentExpansionState(worktreeId)
+    return (
+      <button
+        type="button"
+        data-pane={paneKey}
+        data-collapsed={isLineageParentCollapsed(paneKey) ? 'true' : 'false'}
+        onClick={() => toggleLineageParent(paneKey)}
+      >
+        probe
+      </button>
+    )
+  }
 
+  it('collapse all reaches mounted and later-mounted cards, then yields to a manual toggle', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    await act(async () => {
+      root.render(<Probe worktreeId="wt-mounted" />)
+    })
+    const read = (paneKey = 'pane-x') =>
+      host.querySelector(`button[data-pane="${paneKey}"]`)!.getAttribute('data-collapsed')
+
+    await act(async () => setAllWorktreeAgentListsCollapsed(true))
+    expect(read()).toBe('true')
+
+    await act(async () => {
+      root.render(
+        <>
+          <Probe worktreeId="wt-mounted" />
+          <Probe worktreeId="wt-later" paneKey="pane-y" />
+          <Probe worktreeId="wt-later" paneKey="pane-z" />
+        </>
+      )
+    })
+    expect(read('pane-y')).toBe('true')
+
+    await act(async () => {
+      host
+        .querySelector('button[data-pane="pane-y"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(read('pane-y')).toBe('false')
+    expect(read('pane-z')).toBe('true')
+
+    await act(async () => setAllWorktreeAgentListsCollapsed(false))
+    expect(read('pane-z')).toBe('false')
+
+    await act(async () => root.unmount())
+    host.remove()
+  })
+
+  it('persists a collapsed lineage parent across a hook remount and toggles independently', async () => {
     const host = document.createElement('div')
     document.body.append(host)
     let root = createRoot(host)

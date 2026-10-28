@@ -7,6 +7,7 @@ import { formatOptionalPrimaryShortcutLabel } from '@/hooks/useShortcutLabel'
 import { translate } from '@/i18n/i18n'
 import { openWorkspaceCreationComposerWithTourHandoff } from '../contextual-tours/workspace-creation-tour-handoff'
 import SidebarWorkspaceOptionsMenu from './SidebarWorkspaceOptionsMenu'
+import { SidebarCollapseAllButton } from './sidebar-collapse-all-button'
 
 function AddProjectButton({
   preserveWorkspaceBoardOpen
@@ -90,6 +91,7 @@ export function SidebarHeaderActions({
     <div className="flex shrink-0 items-center gap-1" data-sidebar-header-actions="">
       {/* Why only options swap: the activity view portals its own options button into this slot
           (SidebarHeader), and keeping Add project means no header button shifts between views. */}
+      {agentsViewActive ? null : <SidebarCollapseAllButton preserveWorkspaceBoardOpen />}
       {agentsViewActive ? null : (
         <SidebarWorkspaceOptionsMenu
           preserveWorkspaceBoardOpen

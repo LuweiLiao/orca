@@ -23,6 +23,8 @@ vi.mock('@/store', () => ({
   useAppStore: (selector: (state: unknown) => unknown) =>
     selector({
       agentActivityDisplayMode: 'compact',
+      // Rows tie on every timestamp; keep their given order so labels map by index.
+      worktreeAgentOrder: 'oldest',
       acknowledgedAgentsByPaneKey: acknowledgements,
       agentStatusByPaneKey: liveTurns,
       retainedAgentsByPaneKey: {},

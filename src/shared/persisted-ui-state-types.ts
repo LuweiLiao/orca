@@ -23,6 +23,7 @@ import type {
   VisibleWorkspaceHostIds,
   WorkspaceHostOrder,
   WorkspaceHostScope,
+  WorktreeAgentOrder,
   WorktreeCardProperty
 } from './ui-chrome-types'
 import type { WorkspaceStatusDefinition } from './worktree/types'
@@ -124,6 +125,7 @@ export type PersistedUIState = {
   /** One-shot migration flag for deriving card properties from the two worktree card modes. */
   _worktreeCardModeDefaulted?: boolean
   agentActivityDisplayMode?: AgentActivityDisplayMode
+  worktreeAgentOrder?: WorktreeAgentOrder
   workspaceStatuses?: WorkspaceStatusDefinition[]
   workspaceBoardOpacity?: number
   workspaceBoardColumnWidth?: number
