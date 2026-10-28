@@ -3,6 +3,8 @@ import { AI_VAULT_AGENTS } from './ai-vault-types'
 import { parseExecutionHostId } from './execution-host'
 
 export const CONVERSATION_REFERENCE_CAPABILITY = 'conversation.references.v1' as const
+// Why: create params are strict, so an older host refuses a `range` outright; send one only here.
+export const CONVERSATION_REFERENCE_RANGE_CAPABILITY = 'conversation.references.range.v1' as const
 export const CONVERSATION_REFERENCE_DRAG_TYPE = 'application/x-orca-conversation-reference'
 export const CONVERSATION_REFERENCE_NODE = 'nativeChatConversationReference'
 export const CONVERSATION_REFERENCE_SCHEME = 'orca-conversation:'
@@ -26,6 +28,18 @@ export const ConversationSourceSchema = z.discriminatedUnion('kind', [
     .strict()
 ])
 
+/** Whole turns of a structured chat: from one user message's turn through another's, as read
+ *  in `epoch`. */
+export const ConversationReferenceRangeSchema = z
+  .object({
+    fromItemId: z.string().min(1).max(512),
+    toItemId: z.string().min(1).max(512),
+    epoch: z.string().min(1).max(512)
+  })
+  .strict()
+
+export type ConversationReferenceRange = z.infer<typeof ConversationReferenceRangeSchema>
+
 export const ConversationReferenceCreateParams = z
   .object({
     source: ConversationSourceSchema,
@@ -34,7 +48,8 @@ export const ConversationReferenceCreateParams = z
       .string()
       .max(4096)
       .refine((value) => parseExecutionHostId(value) !== null, 'Invalid conversation host')
-      .optional()
+      .optional(),
+    range: ConversationReferenceRangeSchema.optional()
   })
   .strict()
 
@@ -88,14 +103,29 @@ export type ConversationReference = z.infer<typeof ConversationReferenceSchema>
 export type ConversationReferenceMessage = z.infer<typeof ConversationReferenceMessageSchema>
 export type ConversationReferencePage = z.infer<typeof ConversationReferencePageSchema>
 
-/** `at` is display-only: the message count a snapshot reference stops at. Older parsers skip it. */
+/**
+ * `at` and `from` are display-only: where a snapshot reference stops, and for a range where it
+ * starts. Older parsers skip both.
+ */
 export function conversationReferenceUri(
   id: string,
   executionHostId = 'local',
-  at?: number
+  at?: number,
+  from?: number
 ): string {
   const base = `orca-conversation://reference/${id}?host=${encodeURIComponent(executionHostId)}`
-  return at === undefined ? base : `${base}&at=${at}`
+  const stop = at === undefined ? base : `${base}&at=${at}`
+  return from === undefined || from === 0 ? stop : `${stop}&from=${from}`
+}
+
+/** Where a range reference starts (zero-based message), or null for one read from the start. */
+export function conversationReferenceRangeStart(uri: string): number | null {
+  try {
+    const from = new URL(uri).searchParams.get('from')
+    return from !== null && /^\d{1,9}$/.test(from) ? Number(from) : null
+  } catch {
+    return null
+  }
 }
 
 /** How many messages a snapshot reference covers, or null for one that reads its source live. */

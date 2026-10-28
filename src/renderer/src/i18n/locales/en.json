@@ -21665,7 +21665,13 @@
       "live": "live",
       "snapshot": "first {{count}} messages",
       "rewindForks": "{{count}} chats were handed off after this point: {{names}}. They keep what they were handed, but the point they were handed off from goes away here.",
-      "forkHere": "New child chat from here"
+      "forkHere": "New child chat from here",
+      "pickTurn": "Pick for a reference",
+      "rangeOne": "Turn {{first}}",
+      "rangeMany": "Turns {{first}}–{{last}}",
+      "rangeClear": "Clear the picked turns",
+      "rangeReference": "Reference in chat",
+      "rangeCopy": "Copy reference"
     },
     "merge": {
       "title": "Merged handoff into a new chat",

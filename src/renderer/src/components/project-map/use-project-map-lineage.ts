@@ -9,6 +9,7 @@ import {
   type AgentSessionLineageSession
 } from '../../../../shared/agent-session-fork'
 import { callStructuredAgentSession } from '@/runtime/structured-agent-session-client'
+import { CONVERSATION_REFERENCE_RANGE_CAPABILITY } from '../../../../shared/conversation-reference'
 import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import { runtimeEnvironmentSupportsCapability } from '@/runtime/runtime-rpc-client'
 import {
@@ -46,6 +47,13 @@ async function hostSupports(target: RuntimeClientTarget, capability: string): Pr
 /** Whether this chat's host forks at a picked message and merges several chats into one. */
 export function hostSupportsAgentSessionForkMerge(target: RuntimeClientTarget): Promise<boolean> {
   return hostSupports(target, AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY)
+}
+
+/** Whether this chat's host makes a reference to a range of its turns. */
+export function hostSupportsConversationReferenceRange(
+  target: RuntimeClientTarget
+): Promise<boolean> {
+  return hostSupports(target, CONVERSATION_REFERENCE_RANGE_CAPABILITY)
 }
 
 /** Whether this chat's host records forks; an older host answers neither fork nor lineage. */

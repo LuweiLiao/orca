@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { GitBranchPlus, GitFork, Link2, Undo2 } from 'lucide-react'
+import { GitBranchPlus, GitFork, Link2, TextQuote, Undo2 } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { structuredAgentSessionTargetForHost } from '@/runtime/structured-agent-session-owner'
 import { requestNativeChatNavigation } from '@/components/native-chat/native-chat-outside-navigation'
+import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import type { ProjectMapAgent } from './project-map-graph'
 import {
   projectMapTimeline,
@@ -16,7 +17,17 @@ import {
   useProjectMapSessionRelations
 } from './project-map-session-relations'
 import type { ProjectMapForkAt } from './project-map-fork-sources'
-import { hostSupportsAgentSessionForkMerge } from './use-project-map-lineage'
+import {
+  hostSupportsAgentSessionForkMerge,
+  hostSupportsConversationReferenceRange
+} from './use-project-map-lineage'
+import { projectMapConversationReference } from './project-map-reference'
+import {
+  pickProjectMapTimelineTurn,
+  projectMapTimelineRangeBounds,
+  type ProjectMapTimelineRange
+} from './project-map-timeline-range'
+import { ProjectMapTimelineRangeBar } from './ProjectMapTimelineRangeBar'
 import { useProjectMapOutline } from './use-project-map-outline'
 
 type Props = {
@@ -43,22 +54,13 @@ export function ProjectMapTimeline({
   // Re-read when the chat moves on, so a finished turn and a new fork show up.
   const read = useProjectMapOutline(chat, `${agent.card.stateChangedAt}:${agent.card.dotState}`)
   const relations = useProjectMapSessionRelations()
-  // An older host refuses a cut at a message, so the action shows only where the host takes one.
-  const [forksAtMessage, setForksAtMessage] = useState(false)
-  useEffect(() => {
-    if (!target || !onForkAt) {
-      return
-    }
-    let cancelled = false
-    void hostSupportsAgentSessionForkMerge(target).then((supported) => {
-      if (!cancelled) {
-        setForksAtMessage(supported)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [onForkAt, target])
+  // An older host refuses a cut at a message or a range, so each shows only where the host takes it.
+  const forksAtMessage = useHostSupports(
+    onForkAt ? target : null,
+    hostSupportsAgentSessionForkMerge
+  )
+  const rangesSupported = useHostSupports(target, hostSupportsConversationReferenceRange)
+  const [picked, setPicked] = useState<ProjectMapTimelineRange | null>(null)
   const timeline = useMemo(
     () =>
       chat && read.state === 'ready'
@@ -75,6 +77,10 @@ export function ProjectMapTimeline({
   if (!chat) {
     return null
   }
+  const source = rangesSupported ? projectMapConversationReference(agent) : null
+  const order = timeline?.turns.map((turn) => turn.itemId) ?? []
+  const bounds = picked ? projectMapTimelineRangeBounds(picked, order) : null
+  const firstTurn = 1 + (timeline?.omittedTurns ?? 0)
   const navigate = (messageId: string, rewind?: true): void => {
     if (scope.current) {
       requestNativeChatNavigation({
@@ -132,12 +138,13 @@ export function ProjectMapTimeline({
           <li
             key={turn.itemId}
             data-project-map-timeline-turn={turn.itemId}
-            className="group relative flex flex-col gap-1 rounded-md px-1.5 py-1.5 hover:bg-accent/50"
+            data-picked={(bounds && index >= bounds[0] && index <= bounds[1]) || undefined}
+            className="group relative flex flex-col gap-1 rounded-md px-1.5 py-1.5 hover:bg-accent/50 data-[picked=true]:bg-accent"
           >
             <button
               type="button"
               onClick={() => navigate(turn.itemId)}
-              className="flex min-w-0 gap-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              className="flex min-w-0 gap-1.5 rounded-sm text-left group-focus-within:pr-16 group-hover:pr-16 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <span className="w-5 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
                 {index + 1 + timeline.omittedTurns}
@@ -172,6 +179,15 @@ export function ProjectMapTimeline({
                   }
                 >
                   <GitBranchPlus aria-hidden className="size-3" />
+                </TurnAction>
+              ) : null}
+              {source ? (
+                <TurnAction
+                  label={translate('projectMap.timeline.pickTurn', 'Pick for a reference')}
+                  marker="reference"
+                  onClick={() => setPicked(pickProjectMapTimelineTurn(picked, turn.itemId, order))}
+                >
+                  <TextQuote aria-hidden className="size-3" />
                 </TurnAction>
               ) : null}
               {agent.history ? null : (
@@ -227,6 +243,15 @@ export function ProjectMapTimeline({
           </li>
         ) : null}
       </ol>
+      {source && picked && bounds && read.state === 'ready' ? (
+        <ProjectMapTimelineRangeBar
+          source={source}
+          range={{ ...picked, epoch: read.outline.cursor.epoch }}
+          first={firstTurn + bounds[0]}
+          last={firstTurn + bounds[1]}
+          onClear={() => setPicked(null)}
+        />
+      ) : null}
     </aside>
   )
 }
@@ -238,7 +263,7 @@ function TurnAction({
   children
 }: {
   label: string
-  marker: 'fork' | 'rewind'
+  marker: 'fork' | 'rewind' | 'reference'
   onClick: () => void
   children: React.ReactNode
 }): React.JSX.Element {
@@ -350,4 +375,25 @@ function MarkerChip({
       <span className="shrink-0 text-muted-foreground">· {detail}</span>
     </button>
   )
+}
+
+function useHostSupports(
+  target: RuntimeClientTarget | null,
+  check: (target: RuntimeClientTarget) => Promise<boolean>
+): boolean {
+  const [supported, setSupported] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    if (target) {
+      void check(target).then((answer) => {
+        if (!cancelled) {
+          setSupported(answer)
+        }
+      })
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [check, target])
+  return supported
 }

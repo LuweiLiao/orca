@@ -11,6 +11,7 @@ import type {
 import { parseConversationReferenceUri } from '../../shared/conversation-reference'
 import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/structured-agent-session-registry'
 import { collectConversationReferencePage } from './conversation-reference-page'
+import { conversationReferenceRangeCut } from './conversation-reference-range'
 import {
   saveConversationReference,
   loadConversationReference,
@@ -63,11 +64,19 @@ export async function createLocalConversationReference(
     if (!host || !record || record.location.workspaceId !== source.workspaceId) {
       throw new Error('The source chat is unavailable.')
     }
-    return saveConversationReference(
-      request,
-      record.provider,
-      (await conversationReferenceCut(host, record.sessionId)) ?? undefined
-    )
+    const cut = request.range
+      ? conversationReferenceRangeCut(
+          await host.journalSnapshot(record.sessionId),
+          (snapshot) => [...journalConversationMessages(snapshot)],
+          request.range,
+          (await host.history({ sessionId: record.sessionId, direction: 'tail', limit: 1 })).page
+            .working
+        )
+      : await conversationReferenceCut(host, record.sessionId)
+    return saveConversationReference(request, record.provider, cut ?? undefined)
+  }
+  if (request.range) {
+    throw new Error('Only an Orca chat can be referenced by a range of turns.')
   }
   const session = await resolveTranscript(source, list)
   return saveConversationReference(
@@ -130,8 +139,11 @@ export async function retargetLocalConversationReference(
   if (!host || !record || record.location.workspaceId !== stored.source.workspaceId) {
     throw new Error('The source chat is unavailable.')
   }
-  const cut =
+  const now =
     request.follow === 'snapshot' ? await conversationReferenceCut(host, record.sessionId) : null
+  // A range keeps where it starts; only its end moves up to now.
+  const from = (await loadConversationReferenceCut(identity.id))?.fromMessage
+  const cut = now && from ? { ...now, fromMessage: from } : now
   // The same host name the old reference carried, so it routes the way the old one did.
   return saveConversationReference(
     { source: stored.source, title: stored.title, executionHostId: identity.hostId },
@@ -237,7 +249,14 @@ export async function readLocalConversationReference(
       cut && kept
         ? `cut:${cut.journalEpoch}:${cut.journalSequence}`
         : `${snapshot.cursor.epoch}:${snapshot.cursor.sequence}`
-    const page = collectConversationReferencePage(identity.id, version, request)
+    // A range starts where it was cut unless the reader asks for a later message.
+    const from = kept
+      ? Math.max(cut?.fromMessage ?? 0, request.fromMessage ?? 0)
+      : request.fromMessage
+    const page = collectConversationReferencePage(identity.id, version, {
+      ...request,
+      ...(from === undefined ? {} : { fromMessage: from })
+    })
     feedJournal(kept ? { ...snapshot, items: kept } : snapshot, page.push)
     const finished = page.finish()
     return {

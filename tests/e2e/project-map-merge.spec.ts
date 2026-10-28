@@ -45,7 +45,8 @@ const lineageResult = z.object({
 
 test('forks from a picked turn on the timeline, then merges two picked chats into one child', async ({
   orcaPage: page,
-  claudeStub
+  claudeStub,
+  electronApp
 }, testInfo) => {
   test.skip(!SUPPORTED, 'the Claude stub wrapper is POSIX-only')
   test.setTimeout(240_000)
@@ -98,6 +99,40 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     await parentWindow.locator('[data-project-map-timeline-toggle]').click()
     const turns = parentWindow.locator('[data-project-map-timeline-turn]')
     await expect(turns).toHaveCount(2)
+
+    // Picking the second turn alone makes a reference that reads that turn and nothing before it.
+    await electronApp.evaluate(({ ipcMain }) => {
+      const copied: string[] = []
+      Reflect.set(globalThis, '__copiedReferences', copied)
+      ipcMain.removeHandler('clipboard:writeTerminalText')
+      ipcMain.handle('clipboard:writeTerminalText', (_event, text: string) => {
+        copied.push(text)
+      })
+    })
+    await turns.nth(1).hover()
+    await turns.nth(1).locator('[data-project-map-timeline-action="reference"]').click()
+    await expect(turns.nth(1)).toHaveAttribute('data-picked', 'true')
+    await expect(turns.first()).not.toHaveAttribute('data-picked', 'true')
+    const rangeBar = parentWindow.locator('[data-project-map-timeline-range]')
+    await expect(rangeBar).toContainText('Turn 2')
+    await screenshot('timeline-range')
+    await rangeBar.locator('[data-project-map-timeline-range-action="copy"]').click()
+    await expect(rangeBar).toHaveCount(0)
+    const copiedReference = (): Promise<string> =>
+      electronApp.evaluate(() => {
+        const copied: unknown = Reflect.get(globalThis, '__copiedReferences')
+        return Array.isArray(copied) ? String(copied[0] ?? '') : ''
+      })
+    await expect.poll(copiedReference).toContain('· Turn 2](orca-conversation://reference/')
+    const token = await copiedReference()
+    const uri = /\((orca-conversation:\/\/reference\/[^)]+)\)/.exec(token)![1]!
+    expect(uri).toContain('&from=2')
+    const read = await page.evaluate(
+      (reference) => window.api.aiVault.readConversationReference({ reference }),
+      uri
+    )
+    expect(read?.messages.map((message) => message.text).join('\n')).toContain('SECOND-TURN')
+    expect(read?.messages.map((message) => message.text).join('\n')).not.toContain('FIRST-TURN')
     await turns.first().hover()
     await turns.first().locator('[data-project-map-timeline-action="fork"]').click()
     const panel = map.locator('[data-project-map-fork-panel]')

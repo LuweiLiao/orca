@@ -7,7 +7,10 @@ import type {
   AgentJournalSnapshot
 } from '../../shared/agent-session-journal-types'
 import { setAppEnvironment } from '../../shared/app-environment'
-import { conversationReferenceSnapshotCount } from '../../shared/conversation-reference'
+import {
+  conversationReferenceRangeStart,
+  conversationReferenceSnapshotCount
+} from '../../shared/conversation-reference'
 import { setStructuredAgentSessionHost } from '../native-chat/agent-session-wire/structured-agent-session-registry'
 import {
   createLocalConversationReference,
@@ -128,5 +131,55 @@ describe('snapshot conversation references', () => {
       texts: ['start over'],
       warnings: [expect.stringContaining('rewound past')]
     })
+  })
+})
+
+describe('range conversation references', () => {
+  const turns = () =>
+    at('e1', [
+      said('a1', 'user', 'plan the map', 1),
+      said('a2', 'assistant', 'lanes', 2),
+      said('a3', 'user', 'add forks', 3),
+      said('a4', 'assistant', 'blue wires', 4),
+      said('a5', 'user', 'add merges', 5),
+      said('a6', 'assistant', 'two sources', 6)
+    ])
+  const ranged = (fromItemId: string, toItemId: string, epoch = 'e1') =>
+    createLocalConversationReference(
+      {
+        source: { kind: 'structured', sessionId: 'claude_source', workspaceId: 'repo::/main' },
+        title: 'Plan',
+        range: { fromItemId, toItemId, epoch }
+      },
+      async () => ({ sessions: [], issues: [], scannedAt: '' })
+    )
+
+  it('reads only the turns it was cut to, and keeps its start when it follows the source', async () => {
+    snapshot = turns()
+    const reference = await ranged('a3', 'a3')
+    expect(conversationReferenceRangeStart(reference.uri)).toBe(2)
+    expect(conversationReferenceSnapshotCount(reference.uri)).toBe(4)
+    expect((await texts(reference.uri)).texts).toEqual(['add forks', 'blue wires'])
+    const followed = await retargetLocalConversationReference({
+      reference: reference.uri,
+      follow: 'snapshot'
+    })
+    expect(conversationReferenceRangeStart(followed!.uri)).toBe(2)
+    expect((await texts(followed!.uri)).texts).toEqual([
+      'add forks',
+      'blue wires',
+      'add merges',
+      'two sources'
+    ])
+  })
+
+  it('refuses a range that ends in a running turn, runs backwards, or was read before a rewind', async () => {
+    snapshot = turns()
+    working = true
+    await expect(ranged('a3', 'a5')).rejects.toThrow('still running')
+    expect((await texts((await ranged('a1', 'a3')).uri)).texts).toHaveLength(4)
+    working = false
+    await expect(ranged('a5', 'a1')).rejects.toThrow('ends before it starts')
+    await expect(ranged('a1', 'a3', 'e0')).rejects.toThrow('changed since')
   })
 })

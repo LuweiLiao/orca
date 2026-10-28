@@ -21543,7 +21543,13 @@
       "live": "实时",
       "snapshot": "前 {{count}} 条",
       "rewindForks": "这个点之后交接出了 {{count}} 个对话：{{names}}。它们已拿到的内容不受影响，但这里的交接点会消失。",
-      "forkHere": "从这里新建子对话"
+      "forkHere": "从这里新建子对话",
+      "pickTurn": "选入引用",
+      "rangeOne": "第 {{first}} 轮",
+      "rangeMany": "第 {{first}}–{{last}} 轮",
+      "rangeClear": "清除选中的轮次",
+      "rangeReference": "引用到聊天",
+      "rangeCopy": "复制引用"
     },
     "merge": {
       "title": "合并交接为新对话",

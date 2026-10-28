@@ -29,7 +29,9 @@ const StoredConversationReferenceCut = z.object({
   journalItemId: z.string().min(1).max(512),
   journalEpoch: z.string().min(1).max(512),
   journalSequence: z.number().int().nonnegative(),
-  messageCount: z.number().int().nonnegative()
+  messageCount: z.number().int().nonnegative(),
+  /** A range: the first message it reads. Not strict, so an older Orca reads from the start. */
+  fromMessage: z.number().int().nonnegative().optional()
 })
 
 export type ConversationReferenceCut = z.infer<typeof StoredConversationReferenceCut>
@@ -63,7 +65,7 @@ export async function saveConversationReference(
     { flag: 'wx', mode: 0o600 }
   )
   return {
-    uri: conversationReferenceUri(id, source.executionHostId, cut?.messageCount),
+    uri: conversationReferenceUri(id, source.executionHostId, cut?.messageCount, cut?.fromMessage),
     title: source.title,
     agent
   }
