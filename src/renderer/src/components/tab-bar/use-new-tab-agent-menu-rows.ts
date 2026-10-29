@@ -9,6 +9,10 @@ import { lastVerifiedRuntimeStatus } from '../../../../shared/runtime-host-statu
 import { runtimeHostContactForEntry } from '../../../../shared/runtime-host-contact'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
 import { isNativeChatEnabled } from '../../../../shared/structured-native-chat-launch-route'
+import {
+  structuredLaunchProviderFor,
+  withClaudeLauncherChats
+} from '../../../../shared/claude-cli-launch-agents'
 import { useAppStore } from '@/store'
 import {
   buildAgentLaunchRouteInput,
@@ -183,17 +187,19 @@ export function useAgentMenuObservation(
     readHostStructuredAgents(facts.executionHostId, state.runtimeStatusByEnvironmentId)?.map(
       ({ agent }) => agent
     )
-  const chatAgents = [
-    ...new Set([
-      'claude',
-      'codex',
-      ...(localCatalog ?? []),
-      ...(hostCatalog ?? []),
-      ...Object.keys(settings?.nativeChatProviders ?? {})
-        .filter(isTuiAgent)
-        .filter((agent) => settings?.nativeChatProviders?.[agent] === true)
-    ])
-  ].filter(isTuiAgent)
+  const chatAgents = withClaudeLauncherChats(
+    [
+      ...new Set([
+        'claude',
+        'codex',
+        ...(localCatalog ?? []),
+        ...(hostCatalog ?? []),
+        ...Object.keys(settings?.nativeChatProviders ?? {})
+          .filter(isTuiAgent)
+          .filter((agent) => settings?.nativeChatProviders?.[agent] === true)
+      ])
+    ].filter(isTuiAgent)
+  )
   const inventoryFailed =
     detection.detectedIds === null && (detection.detectionFailed || detection.needsServerUpdate)
   const localAcquiring =
@@ -238,8 +244,10 @@ export function useAgentMenuObservation(
     if (!roster || !['yes', 'not-yet-known', 'not-on-host'].includes(preliminary)) {
       return preliminary
     }
+    // A launcher's chat is the Claude chat it runs, which is what the host lists.
+    const listed = structuredLaunchProviderFor(agent).agent
     const verdict =
-      availability?.state === 'received' ? availability.byAgent.get(agent)?.state : undefined
+      availability?.state === 'received' ? availability.byAgent.get(listed)?.state : undefined
     // An agent the host could not check keeps this client's facts; the click's admission decides.
     return !verdict || verdict === 'refused' ? 'not-on-host' : preliminary
   }
