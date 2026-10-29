@@ -57,6 +57,8 @@ export function createPdfViewerSession({
   findController: InstanceType<typeof PDFFindController>
   /** Jumps to a page; a pending position restore then leaves the reader there. */
   goToPage: (pageNumber: number) => void
+  /** Jumps to an outline destination, the same way. */
+  goToDestination: (dest: string | unknown[]) => void
   dispose: () => void
 } {
   let cancelled = false
@@ -230,5 +232,9 @@ export function createPdfViewerSession({
     markUserMoved()
     viewer.currentPageNumber = pageNumber
   }
-  return { viewer, eventBus, findController, goToPage, dispose }
+  const goToDestination = (dest: string | unknown[]): void => {
+    markUserMoved()
+    void linkService.goToDestination(dest).catch(() => {})
+  }
+  return { viewer, eventBus, findController, goToPage, goToDestination, dispose }
 }

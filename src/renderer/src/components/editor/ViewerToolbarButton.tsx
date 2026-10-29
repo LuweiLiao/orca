@@ -10,6 +10,7 @@ export function ViewerToolbarButton({
   disabled = false,
   disabledReason,
   shortcut,
+  pressed,
   onClick,
   children
 }: {
@@ -18,6 +19,8 @@ export function ViewerToolbarButton({
   /** Shown instead of the label while disabled, so the user learns why. */
   disabledReason?: string
   shortcut?: ShortcutKeyComboDetails
+  /** Present on a toggle: whether it is on. */
+  pressed?: boolean
   onClick: () => void
   children: ReactNode
 }): React.JSX.Element {
@@ -28,6 +31,7 @@ export function ViewerToolbarButton({
       variant="ghost"
       size="icon-xs"
       aria-label={label}
+      aria-pressed={pressed}
       disabled={disabled}
       onClick={onClick}
     >

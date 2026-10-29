@@ -16208,7 +16208,16 @@
           "findInPdf": "在 PDF 中查找",
           "pageNumber": "页码",
           "pageCount": "共 {{count}} 页",
-          "staleVersion": "最新版本加载失败，正在显示上一次成功加载的版本。"
+          "staleVersion": "最新版本加载失败，正在显示上一次成功加载的版本。",
+          "noOutline": "这个 PDF 没有大纲。",
+          "collapseSection": "收起",
+          "expandSection": "展开",
+          "goToPage": "第 {{page}} 页",
+          "sidebar": "PDF 导航",
+          "outlineTab": "大纲",
+          "pagesTab": "页面",
+          "hideSidebar": "隐藏大纲和页面",
+          "showSidebar": "显示大纲和页面"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "新智能体",

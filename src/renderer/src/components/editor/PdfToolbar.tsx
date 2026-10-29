@@ -1,5 +1,5 @@
 import { type JSX, useState } from 'react'
-import { ChevronDown, Search, ZoomIn, ZoomOut } from 'lucide-react'
+import { ChevronDown, PanelLeft, Search, ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,6 +14,8 @@ import type { PdfScalePreference } from './pdf-scale-preference'
 import { ViewerToolbarButton } from './ViewerToolbarButton'
 
 type Props = {
+  sidebarOpen: boolean
+  onToggleSidebar: () => void
   filename: string
   scale: number
   scaleBounds: { min: number; max: number }
@@ -26,6 +28,8 @@ type Props = {
 
 /** The PDF viewer's footer: zoom, the page it is on and a box to jump to another, and find. */
 export function PdfToolbar({
+  sidebarOpen,
+  onToggleSidebar,
   filename,
   scale,
   scaleBounds,
@@ -54,6 +58,17 @@ export function PdfToolbar({
   ]
   return (
     <div className="flex items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
+      <ViewerToolbarButton
+        label={
+          sidebarOpen
+            ? translate('auto.components.editor.PdfViewer.hideSidebar', 'Hide outline and pages')
+            : translate('auto.components.editor.PdfViewer.showSidebar', 'Show outline and pages')
+        }
+        pressed={sidebarOpen}
+        onClick={onToggleSidebar}
+      >
+        <PanelLeft />
+      </ViewerToolbarButton>
       <div className="flex items-center gap-0.5">
         <ViewerToolbarButton
           label={translate('auto.components.editor.PdfViewer.fa5d096b00', 'Zoom out')}

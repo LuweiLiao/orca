@@ -33,7 +33,14 @@ vi.mock('./pdf-viewer-session', () => ({
   createPdfViewerSession: () => {
     const viewer = { currentScale: 1, currentScaleValue: 'page-width' }
     viewers.push(viewer)
-    return { viewer, eventBus: null, findController: null, goToPage: () => {}, dispose: () => {} }
+    return {
+      viewer,
+      eventBus: null,
+      findController: null,
+      goToPage: () => {},
+      goToDestination: () => {},
+      dispose: () => {}
+    }
   }
 }))
 

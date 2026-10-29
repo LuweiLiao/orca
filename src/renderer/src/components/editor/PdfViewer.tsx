@@ -23,6 +23,12 @@ import { createPdfViewerSession } from './pdf-viewer-session'
 import { pdfViewPositionStore } from './pdf-view-position-storage'
 import { PdfToolbar } from './PdfToolbar'
 import {
+  PdfSidebar,
+  readPdfSidebarPreference,
+  writePdfSidebarPreference,
+  type PdfSidebarPreference
+} from './PdfSidebar'
+import {
   applyPdfScalePreference,
   stepPdfScalePreference,
   type PdfScalePreference
@@ -72,7 +78,21 @@ function PdfDocumentViewer({
   const [findOpen, setFindOpen] = useState(false)
   const [scale, setScale] = useState(1)
   const [page, setPage] = useState<{ number: number; count: number } | null>(null)
-  const goToPageRef = useRef<((pageNumber: number) => void) | null>(null)
+  const [shown, setShown] = useState<{
+    doc: pdfjsLib.PDFDocumentProxy
+    goToPage: (pageNumber: number) => void
+    goToDestination: (dest: string | unknown[]) => void
+  } | null>(null)
+  const [sidebar, setSidebar] = useState<PdfSidebarPreference>(() =>
+    readPdfSidebarPreference(preferenceKey)
+  )
+  const updateSidebar = useCallback(
+    (next: PdfSidebarPreference) => {
+      setSidebar(next)
+      writePdfSidebarPreference(preferenceKey, next)
+    },
+    [preferenceKey]
+  )
   const keybindings = useAppStore((state) => state.keybindings)
   const isCommandOwner = useContext(EditorCommandOwnerContext)
   const eventBusRef = useRef<InstanceType<typeof EventBus> | null>(null)
@@ -125,7 +145,7 @@ function PdfDocumentViewer({
         eventBusRef.current = session.eventBus
         findControllerRef.current = session.findController
         pdfViewerRef.current = session.viewer
-        goToPageRef.current = session.goToPage
+        setShown({ doc, goToPage: session.goToPage, goToDestination: session.goToDestination })
         return () => {
           try {
             session.dispose()
@@ -133,7 +153,7 @@ function PdfDocumentViewer({
             eventBusRef.current = null
             findControllerRef.current = null
             pdfViewerRef.current = null
-            goToPageRef.current = null
+            setShown(null)
             setFindOpen(false)
           }
         }
@@ -198,57 +218,72 @@ function PdfDocumentViewer({
   const openFind = useCallback(() => setFindOpen(true), [])
   usePdfViewerFindShortcut({ rootRef, ownsCommands: isCommandOwner, keybindings, openFind })
 
-  const goToPage = useCallback((pageNumber: number) => goToPageRef.current?.(pageNumber), [])
+  const goToPage = useCallback((pageNumber: number) => shown?.goToPage(pageNumber), [shown])
 
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
-      <div className="relative flex flex-1 flex-col overflow-hidden">
-        <PdfFind isOpen={findOpen} onClose={closeFindBar} eventBusRef={eventBusRef} />
-        {/* Why: PDFViewer requires its container to be position:absolute.
+      <div className="flex min-h-0 flex-1">
+        {sidebar.open && shown ? (
+          <PdfSidebar
+            key={preferenceKey ?? filePath}
+            doc={shown.doc}
+            currentPage={page?.number ?? 1}
+            tab={sidebar.tab}
+            onTabChange={(tab) => updateSidebar({ ...sidebar, tab })}
+            onGoToPage={shown.goToPage}
+            onGoToDestination={shown.goToDestination}
+          />
+        ) : null}
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          <PdfFind isOpen={findOpen} onClose={closeFindBar} eventBusRef={eventBusRef} />
+          {/* Why: PDFViewer requires its container to be position:absolute.
             The outer div uses all:revert to prevent Tailwind Preflight from
             cascading into pdf.js DOM (text layer misalignment). The inner div
             carries positioning and background since all:revert nullifies classes. */}
-        <div style={{ all: 'revert' }}>
-          <div
-            ref={containerRef}
-            style={{
-              position: 'absolute',
-              inset: '0',
-              overflow: 'auto',
-              background: 'var(--muted)'
-            }}
-            className="scrollbar-editor"
-          >
-            <div ref={viewerDivRef} className="pdfViewer" />
+          <div style={{ all: 'revert' }}>
+            <div
+              ref={containerRef}
+              style={{
+                position: 'absolute',
+                inset: '0',
+                overflow: 'auto',
+                background: 'var(--muted)'
+              }}
+              className="scrollbar-editor"
+            >
+              <div ref={viewerDivRef} className="pdfViewer" />
+            </div>
           </div>
+          {pdfError && !pdfError.stale ? (
+            <div
+              role="alert"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background p-8 text-sm text-muted-foreground"
+            >
+              <ImageIcon size={40} />
+              <div>{pdfError.message}</div>
+              <div className="max-w-md break-all text-center text-xs">{filename}</div>
+            </div>
+          ) : null}
+          {pdfError?.stale ? (
+            <div
+              role="status"
+              data-pdf-stale-notice=""
+              className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-1.5 text-xs text-muted-foreground"
+            >
+              <CircleAlert className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate">
+                {translate(
+                  'auto.components.editor.PdfViewer.staleVersion',
+                  'The latest version could not be loaded; showing the last one that did.'
+                )}
+              </span>
+            </div>
+          ) : null}
         </div>
-        {pdfError && !pdfError.stale ? (
-          <div
-            role="alert"
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background p-8 text-sm text-muted-foreground"
-          >
-            <ImageIcon size={40} />
-            <div>{pdfError.message}</div>
-            <div className="max-w-md break-all text-center text-xs">{filename}</div>
-          </div>
-        ) : null}
-        {pdfError?.stale ? (
-          <div
-            role="status"
-            data-pdf-stale-notice=""
-            className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-1.5 text-xs text-muted-foreground"
-          >
-            <CircleAlert className="size-3.5 shrink-0" />
-            <span className="min-w-0 truncate">
-              {translate(
-                'auto.components.editor.PdfViewer.staleVersion',
-                'The latest version could not be loaded; showing the last one that did.'
-              )}
-            </span>
-          </div>
-        ) : null}
       </div>
       <PdfToolbar
+        sidebarOpen={sidebar.open}
+        onToggleSidebar={() => updateSidebar({ ...sidebar, open: !sidebar.open })}
         filename={filename}
         scale={scale}
         scaleBounds={SCALE_BOUNDS}

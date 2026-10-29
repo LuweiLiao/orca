@@ -16568,7 +16568,16 @@
           "findInPdf": "Find in PDF",
           "pageNumber": "Page number",
           "pageCount": "of {{count}}",
-          "staleVersion": "The latest version could not be loaded; showing the last one that did."
+          "staleVersion": "The latest version could not be loaded; showing the last one that did.",
+          "noOutline": "This PDF has no outline.",
+          "collapseSection": "Collapse",
+          "expandSection": "Expand",
+          "goToPage": "Page {{page}}",
+          "sidebar": "PDF navigation",
+          "outlineTab": "Outline",
+          "pagesTab": "Pages",
+          "hideSidebar": "Hide outline and pages",
+          "showSidebar": "Show outline and pages"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "New agent",
