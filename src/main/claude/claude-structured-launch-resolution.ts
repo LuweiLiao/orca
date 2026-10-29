@@ -29,6 +29,7 @@ import {
 } from './claude-structured-launch-home'
 import type { StructuredAgentLaunchPartResolver } from '../runtime/structured-agent-launch-composition'
 import { claudeSessionIdForOrcaSession } from './claude-structured-session-id'
+import { claudeLauncherFromOptions } from '../../shared/claude-cli-launch-agents'
 import {
   pendingAgentSessionRewindFork,
   type AgentSessionRewindFork
@@ -176,8 +177,10 @@ export function claudeStructuredLaunchPart(
           )
     const continuesChain = head?.nativeId === providerSessionId
     const cwd = await basis.launchDirectory()
+    const launcher = claudeLauncherFromOptions(record.options)
     const envDeps: ClaudeEnvDeps & Pick<ClaudeStructuredLaunchPartDeps, 'resolveAuthPolicy'> = {
       ...(deps.resolveCommand ? { resolveCommand: deps.resolveCommand } : {}),
+      ...(launcher ? { launcher } : {}),
       resolveEnv: () => basis.launchEnv(),
       resolveInheritedEnv: basis.baseEnvironment,
       refreshEnvironmentAfterMiss: basis.refreshAfterMissingProgram,
@@ -187,8 +190,11 @@ export function claudeStructuredLaunchPart(
     const sources = await resolveClaudeChildEnvSources(envDeps)
     // Overlap the version probe with remaining launch preparation.
     const probeLaunch = { command: sources.command, cwd, env: claudeProbeEnv(sources) }
+    // Why: a launcher answers `--version` itself, and asking for Claude's through it starts a
+    // profile whose lock a killed probe leaves behind, so its chat passes no version-gated flag.
+    const cliFlags = launcher ? undefined : deps.cliFlags
     const launchFlags = resolveClaudeLaunchFlags(
-      { ...(deps.cliFlags ? { cliFlags: deps.cliFlags } : {}), prepareVisuals: basis.visuals },
+      { ...(cliFlags ? { cliFlags } : {}), prepareVisuals: basis.visuals },
       record.sessionId,
       probeLaunch
     )

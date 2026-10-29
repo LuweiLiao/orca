@@ -1,6 +1,7 @@
 import { withCliRuntimeOnPath } from '../../shared/node-cli-command-resolution'
 import { applyClaudeEnvPatch } from '../claude-accounts/environment'
-import { resolveClaudeCommand } from '../codex-cli/command'
+import { resolveClaudeCommand, resolveCliCommand } from '../codex-cli/command'
+import type { ClaudeLauncherAgent } from '../../shared/claude-cli-launch-agents'
 import { resolveAgainAfterRefreshOnMissingProgram } from '../native-chat/structured-agent-command-resolution'
 import { withoutInheritedClaudeConfigDir } from './claude-config-dir-pin'
 
@@ -14,8 +15,17 @@ function cloneDefinedEnv(env: NodeJS.ProcessEnv | Record<string, string>): Recor
   return next
 }
 
+export type ClaudeCommandLookup = {
+  pathEnv?: string | null
+  homePath?: string
+  /** A launcher such as ccb that runs Claude for this chat; absent for native Claude. */
+  launcher?: ClaudeLauncherAgent
+}
+
 export type ClaudeEnvDeps = {
-  resolveCommand?: (options?: { pathEnv?: string | null; homePath?: string }) => string
+  resolveCommand?: (options?: ClaudeCommandLookup) => string
+  /** The chat's launcher, read from its saved options. */
+  launcher?: ClaudeLauncherAgent
   /** Refresh once after command lookup misses; absent disables retry. */
   refreshEnvironmentAfterMiss?: (askedAt: number) => Promise<void>
   /** Cwd used to resolve relative PATH entries; defaults to Orca's cwd. */
@@ -51,10 +61,15 @@ async function readClaudeChildEnvSources(deps: ClaudeEnvDeps): Promise<ClaudeChi
     ? await deps.resolveInheritedEnv()
     : cloneDefinedEnv(process.env)
   const effectiveEnv = { ...inheritedEnv, ...overlay }
-  const command = (deps.resolveCommand ?? resolveClaudeCommand)({
+  const lookup = {
     pathEnv: effectiveEnv.PATH ?? effectiveEnv.Path ?? null,
     homePath: effectiveEnv.HOME ?? effectiveEnv.USERPROFILE
-  })
+  }
+  const command = deps.resolveCommand
+    ? deps.resolveCommand(deps.launcher ? { ...lookup, launcher: deps.launcher } : lookup)
+    : deps.launcher
+      ? resolveCliCommand(deps.launcher, lookup)
+      : resolveClaudeCommand(lookup)
   return { command, overlay: overlay ? cloneDefinedEnv(overlay) : undefined, inheritedEnv }
 }
 

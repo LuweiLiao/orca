@@ -9,6 +9,10 @@
  */
 
 import { isAgentSessionHandleProvider } from './agent-session-provider-handle'
+import {
+  CLAUDE_LAUNCHER_RUNTIME_CAPABILITY,
+  isClaudeLauncherAgent
+} from './claude-cli-launch-agents'
 import { parseExecutionHostId } from './execution-host'
 import type { GlobalSettings } from './global-settings-types'
 import type { NativeChatProviderSettings } from './native-chat/native-chat-providers'
@@ -97,7 +101,9 @@ export function resolveStructuredNativeChatSupport(
   if (input.reusesTerminal === true) {
     return { supported: false, blocker: 'reused-terminal' }
   }
-  const builtInAgent = isAgentSessionHandleProvider(input.agent)
+  // A launcher (ccb) opens a Claude chat, which only a host that starts launchers can run.
+  const launcher = isClaudeLauncherAgent(input.agent)
+  const builtInAgent = launcher || isAgentSessionHandleProvider(input.agent)
   if (!builtInAgent && !input.hostStructuredAgents?.includes(input.agent)) {
     return { supported: false, blocker: 'agent-without-structured-session' }
   }
@@ -113,6 +119,7 @@ export function resolveStructuredNativeChatSupport(
   }
   if (
     !input.hostCapabilities.includes(STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY) ||
+    (launcher && !input.hostCapabilities.includes(CLAUDE_LAUNCHER_RUNTIME_CAPABILITY)) ||
     // A host that does not advertise its registered agents accepts only Claude and Codex.
     (!builtInAgent &&
       !input.hostCapabilities.includes(

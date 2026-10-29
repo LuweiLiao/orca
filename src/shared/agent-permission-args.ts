@@ -1,4 +1,5 @@
 import { agentRequiredValueOptions } from './agent-session-option-agent-args'
+import { runsClaudeCodeCli } from './claude-cli-launch-agents'
 import { agentPermissionArgs, agentPermissionChoices } from './tui-agent-permission-choice'
 import { tokenizeStartupCommand, type AgentStartupShell } from './tui-agent-startup-shell'
 import type { TuiAgent } from './tui-agent'
@@ -24,6 +25,7 @@ const CLAUDE_PERMISSION_OPTIONS = [
 const EXTRA_CARRIERS: Partial<Record<TuiAgent, readonly string[]>> = {
   claude: CLAUDE_PERMISSION_OPTIONS,
   'claude-agent-teams': CLAUDE_PERMISSION_OPTIONS,
+  ccb: CLAUDE_PERMISSION_OPTIONS,
   codex: ['-a', '--ask-for-approval', '-s', '--sandbox', '--yolo', '--not-so-yolo', '--full-auto'],
   grok: ['--permission-mode', '--always-approve', '--yolo', '--dangerously-skip-permissions'],
   gemini: ['--approval-mode', '-y']
@@ -112,7 +114,7 @@ function analyzeAgentPermissionWords(
   tokens: readonly string[],
   inventory = permissionOptionInventory(agent)
 ) {
-  const claude = agent === 'claude' || agent === 'claude-agent-teams'
+  const claude = runsClaudeCodeCli(agent)
   const required = agentRequiredValueOptions(agent)
   const roles: string[] = []
   const optionIndices = new Set<number>()
@@ -144,7 +146,7 @@ function analyzeAgentPermissionWords(
     const knownValue =
       inventory.values.has(name) ||
       required.includes(name) ||
-      (['claude', 'claude-agent-teams', 'grok', 'codex'].includes(agent) &&
+      ((runsClaudeCodeCli(agent) || agent === 'grok' || agent === 'codex') &&
         MODEL_VALUES.includes(name))
     const known =
       knownValue ||

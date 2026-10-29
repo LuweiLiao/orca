@@ -51,11 +51,10 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
     pasteNeedsTypedRequest: true,
     preflightTrust: 'claude'
   },
-  codebuddy: {
-    detectCmd: 'codebuddy',
-    detectCmdAliases: ['cbc'],
-    promptInjectionMode: 'argv'
-  },
+  // Why: ccb forwards Claude's argv to the official binary; `--` keeps prompts off ccb subcommands.
+  // prettier-ignore
+  ccb: { detectCmd: 'ccb', expectedProcess: 'claude', promptInjectionMode: 'argv', argvPromptSeparator: '--', pasteNeedsTypedRequest: true, draftPromptFlag: '--prefill', preflightTrust: 'claude' },
+  codebuddy: { detectCmd: 'codebuddy', detectCmdAliases: ['cbc'], promptInjectionMode: 'argv' },
   openclaude: {
     detectCmd: 'openclaude',
     promptInjectionMode: 'argv',

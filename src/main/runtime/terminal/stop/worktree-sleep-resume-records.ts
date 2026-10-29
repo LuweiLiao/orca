@@ -9,6 +9,7 @@ import type { AgentStatusIpcPayload } from '../../../../shared/agent-status-ipc-
 import type { AgentProcessVerdict } from '../../../../shared/agent-process-presence'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
 import { isLocalHookConnectionId } from '../../../../shared/wsl-hook-relay-contract'
+import { isClaudeLauncherAgent } from '../../../../shared/claude-cli-launch-agents'
 import type { WorkspaceSessionState } from '../../../../shared/workspace-session-state-types'
 
 /** Per slept PTY: the resume records captured, and the panes the hook store proves moved on. */
@@ -89,7 +90,10 @@ export async function captureWorktreeSleepResumeRecords(args: {
         restoreOnTabOpenOnly: true,
         // Why: the SSH host boundary keeps the id off another machine; a WSL relay tag is local transport.
         connectionId: isLocalHookConnectionId(row.connectionId) ? null : row.connectionId,
-        ...(launch?.config && launch.agent === agent ? { launchConfig: launch.config } : {})
+        ...(launch?.config &&
+        (launch.agent === agent || (agent === 'claude' && isClaudeLauncherAgent(launch.agent)))
+          ? { launchConfig: launch.config }
+          : {})
       })
     }
     capture.set(ptyId, { retiredPaneKeys, records })

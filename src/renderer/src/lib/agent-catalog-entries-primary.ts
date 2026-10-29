@@ -31,6 +31,13 @@ export function primaryAgentCatalogEntries(): AgentCatalogEntry[] {
       homepageUrl: 'https://openclaude.gitlawb.com/'
     },
     {
+      id: 'ccb',
+      label: translate('auto.lib.agent.catalog.ccbLabel', 'ccb'),
+      cmd: 'ccb',
+      searchAliases: ['claude-code-bridge'],
+      homepageUrl: 'https://www.npmjs.com/package/@rimuruchan/ccb'
+    },
+    {
       id: 'codex',
       label: translate('auto.lib.agent.catalog.760bc6883d', 'Codex'),
       cmd: 'codex',
