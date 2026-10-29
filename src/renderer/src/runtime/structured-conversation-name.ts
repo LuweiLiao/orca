@@ -11,6 +11,10 @@ import {
   structuredAgentSessionTargetForHost
 } from './structured-agent-session-owner'
 import { getStructuredAgentSessionStatusFeed } from './structured-agent-session-status-feed'
+import {
+  isClaudeLauncherAgent,
+  type ClaudeLauncherAgent
+} from '../../../shared/claude-cli-launch-agents'
 
 const noSubscription = (): (() => void) => () => {}
 
@@ -64,6 +68,17 @@ function useStructuredSessionSummaryField<T>(
     watched?.subscribe ?? noSubscription,
     () => read(sessionId ? watched?.getSnapshot().get(sessionId) : undefined),
     () => null
+  )
+}
+
+/** The launcher (ccb) running an open tab's Claude chat, from its host; null for native Claude. */
+export function useStructuredChatTabLauncher(
+  tab: Pick<Tab, 'entityId' | 'worktreeId' | 'executionHostId'> | undefined
+): ClaudeLauncherAgent | null {
+  const owner = useAppStore((state) => (tab ? structuredAgentSessionOwnerForTab(state, tab) : null))
+  return useStructuredSessionSummaryField(owner, tab?.entityId, (summary) =>
+    // Unchecked wire data from a paired host: only a launcher this build knows.
+    isClaudeLauncherAgent(summary?.launcher) ? summary.launcher : null
   )
 }
 
