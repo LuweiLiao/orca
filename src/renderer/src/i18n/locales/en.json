@@ -1427,6 +1427,10 @@
             }
           }
         }
+      },
+      "languageServer": {
+        "crashed": "{{server}} keeps stopping.",
+        "missing": "{{server}} is not installed, so code navigation is off for these files."
       }
     },
     "hooks": {

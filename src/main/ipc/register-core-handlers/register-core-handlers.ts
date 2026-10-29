@@ -7,6 +7,7 @@ import type { Store } from '../../persistence/loading-store/store'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
 import type { StatsCollector } from '../../stats/collector'
 import { registerFilesystemHandlers } from '../filesystem'
+import { registerLanguageServerHandlers } from '../../language-server/language-server-ipc'
 import type { CommitMessageAgentEnvironmentResolvers } from '../../text-generation/commit-message-agent-environment'
 import { registerFilesystemWatcherHandlers } from '../filesystem-watcher-handlers'
 import { registerUsageProviderHandlers } from '../usage-provider-handlers'
@@ -254,6 +255,7 @@ export function registerCoreHandlers(
     registerFilesystemHandlers(store)
   }
   registerFilesystemWatcherHandlers()
+  registerLanguageServerHandlers(store)
   registerRuntimeHandlers(runtime)
   registerRuntimeEnvironmentHandlers(store)
   registerWslHostHandlers({

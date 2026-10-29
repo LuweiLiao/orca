@@ -26,6 +26,8 @@ import { useDocumentDarkTheme } from '@/hooks/use-document-dark-theme'
 import { snapshotMonacoViewState } from './monaco-view-state-persistence'
 import { MonacoMarkdownAnnotationOverlay } from './MonacoMarkdownAnnotationOverlay'
 import { useEditorModelRekeyCarry } from './editor-model-rekey-carry'
+import { useLanguageServerDocument } from './language-server/use-language-server-document'
+import { ensureLanguageServerProviders } from './language-server/language-server-provider-registration'
 
 type MonacoEditorProps = {
   fileId: string
@@ -195,6 +197,16 @@ export default function MonacoEditor({
     markdownDocuments,
     conflictDecorationsEnabled
   })
+
+  ensureLanguageServerProviders()
+  useLanguageServerDocument(
+    mountedEditor,
+    fileId,
+    modelUri,
+    language,
+    // Why: a mirror, a live log tail and an inline excerpt are read surfaces, not documents.
+    !passiveMirror && !liveTail && !autoHeight
+  )
 
   const handleMount = useMonacoEditorMount({
     fileId,

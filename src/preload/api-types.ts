@@ -10,6 +10,7 @@ import type {
 import type { HooksApi } from './api/agent-hook-api'
 import type { SkillsApi } from './api/agent-skill-api'
 import type { AgentAwakeApi, AgentStatusApi } from './api/agent-status-api'
+import type { LanguageServerApi } from './api/language-server-bridge'
 import type {
   ClaudeUsageApi,
   CodexUsageApi,
@@ -105,6 +106,8 @@ export type PreloadApi = {
   telemetryAcknowledgeBanner: TelemetryApi['telemetryAcknowledgeBanner']
   settings: SettingsApi
   agentAwake: AgentAwakeApi
+  /** Desktop only; the web client answers its calls with a no-op fallback. */
+  languageServer: LanguageServerApi
   localhostWorktreeLabels: LocalhostWorktreeLabelsApi
   keybindings: KeybindingsApi
   codexAccounts: CodexAccountsApi
