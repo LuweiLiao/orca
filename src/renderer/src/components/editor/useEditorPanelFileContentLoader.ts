@@ -28,6 +28,8 @@ import { isFloatingWorkspaceId } from '../../../../shared/floating-workspace-wor
 import { chatScratchFileAddress } from '@/runtime/runtime-chat-scratch-file-address'
 import { stampCleanTabDiskBaseline } from './editor-clean-tab-disk-baseline'
 import { applyEditorFileLoadFailure } from './editor-deleted-file-reload'
+import type { RuntimeFileReadArgs } from '@/runtime/runtime-file-client-types'
+import { isPdfPath, pdfSettleProbe, waitForPdfToSettle } from './pdf-rebuild-settle'
 
 const inFlightFileReads = new Map<string, InFlightContentRead<FileContent>>()
 
@@ -190,6 +192,30 @@ export function useEditorPanelFileContentLoader({
         const allowPagedPreview =
           !restoredOpenFile?.isDirty &&
           (!/\.(csv|tsv)$/i.test(filePath) || useAppStore.getState().editorDrafts[id] === undefined)
+        const readArgs: RuntimeFileReadArgs = {
+          target: readTarget,
+          filePath,
+          relativePath: readRelativePath,
+          worktreeId: readWorktreeId,
+          connectionId: readConnectionId,
+          expectedExternalSshTargetId: restoredOpenFile?.externalSshTargetId,
+          includeLocalLogMetadata: isLiveTailLogTab,
+          access,
+          terminalArtifactGrantId: restoredOpenFile?.terminalArtifactGrantId,
+          pageOversizedBinary: true
+        }
+        // Why: a granted file has no stat route, so it reloads at once as before.
+        if (
+          options?.externalEventGeneration !== undefined &&
+          isPdfPath(filePath) &&
+          !readArgs.terminalArtifactGrantId
+        ) {
+          const superseded = (): boolean => fileReadGenerationRef.current[id] !== generation
+          await waitForPdfToSettle(pdfSettleProbe(readArgs, superseded))
+          if (superseded()) {
+            return
+          }
+        }
         // Keep file authorization and editable drafts isolated between concurrent reads.
         const key = `${inFlightReadKey(readScope, filePath)}::${access?.kind ?? ''}${allowPagedPreview ? '' : '::editable'}`
         const registeredRead = inFlightFileReads.get(key)
@@ -204,21 +230,7 @@ export function useEditorPanelFileContentLoader({
         }
         let pending = inFlightFileReads.get(key)
         if (!pending) {
-          const promise = readEditorCsvFileContent(
-            {
-              target: readTarget,
-              filePath,
-              relativePath: readRelativePath,
-              worktreeId: readWorktreeId,
-              connectionId: readConnectionId,
-              expectedExternalSshTargetId: restoredOpenFile?.externalSshTargetId,
-              includeLocalLogMetadata: isLiveTailLogTab,
-              access,
-              terminalArtifactGrantId: restoredOpenFile?.terminalArtifactGrantId,
-              pageOversizedBinary: true
-            },
-            allowPagedPreview
-          )
+          const promise = readEditorCsvFileContent(readArgs, allowPagedPreview)
           pending = { externalEventGeneration: options?.externalEventGeneration, promise }
           inFlightFileReads.set(key, pending)
           queueMicrotask(() => {
