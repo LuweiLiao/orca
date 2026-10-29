@@ -1,5 +1,6 @@
 import type { CanUseTool, OnUserDialog, PermissionResult } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudePromptRegistry } from './claude-structured-prompt-replies'
+import type { ClaudeStructuredSdkOptions } from './claude-structured-launch-resolution'
 import type { ClaudeStructuredSessionEvent } from './claude-structured-session-state'
 import {
   claudePermissionPresentation,
@@ -10,6 +11,24 @@ export type ClaudePermissionCallbackDeps = {
   sessionId: string
   prompts: ClaudePromptRegistry
   emit: (event: ClaudeStructuredSessionEvent) => void
+}
+
+// Why: these need the user's answer, not permission, so full access still shows them.
+const USER_ANSWERED_TOOLS: ReadonlySet<string> = new Set(['AskUserQuestion', 'ExitPlanMode'])
+
+/** --dangerously-skip-permissions still asks on Claude's safety checks (e.g. variable-path rm). */
+export function claudeFullAccessCanUseTool(
+  canUseTool: CanUseTool,
+  options: Pick<ClaudeStructuredSdkOptions, 'extraArgs'>
+): CanUseTool {
+  if (!Object.hasOwn(options.extraArgs ?? {}, 'dangerously-skip-permissions')) {
+    return canUseTool
+  }
+  return (toolName, input, request) =>
+    // A matched ask rule is the user's own request for a human prompt.
+    request.matchedAskRule || USER_ANSWERED_TOOLS.has(toolName)
+      ? canUseTool(toolName, input, request)
+      : Promise.resolve({ behavior: 'allow', updatedInput: input, toolUseID: request.toolUseID })
 }
 
 function denySafeResult(toolUseId: string | undefined): PermissionResult {
