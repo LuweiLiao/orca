@@ -4,6 +4,8 @@ import type { TuiAgent } from '../../shared/tui-agent'
 
 /** Inject creation so orchestration can add subscriptions without duplicating launch sequencing. */
 export type AgentLaunchSurfaceFactory = {
+  /** Creates a launcher's (ccb's) chat as the Claude chat it runs; absent keeps it in a terminal. */
+  launcherChats?: true
   createStructuredSession(args: {
     worktreeId: string
     agent: StructuredAgentId

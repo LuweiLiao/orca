@@ -13,6 +13,7 @@ import {
 import type { StructuredAgentSessionAdapter } from './structured-agent-session-adapter'
 import { pickAgentSessionOption } from '../../runtime/agent-session-record-options'
 import { isAgentSessionRefusalError } from '../../../shared/agent-session-wire-refusals'
+import { withoutCreateOnlyOptions } from '../../../shared/claude-cli-launch-agents'
 
 function acceptsOptionPick(
   agents: Pick<StructuredAgentRegistry, 'definition'>,
@@ -30,8 +31,10 @@ function acceptsOptionPick(
 export function structuredAgentSessionOptionOverridesRefusal(
   agents: Pick<StructuredAgentRegistry, 'definition'>,
   provider: string,
-  options: Readonly<Record<string, string>>
+  requested: Readonly<Record<string, string>>
 ) {
+  // A create may name its launcher; a later pick of one is still refused by acceptsOptionPick.
+  const options = withoutCreateOnlyOptions(provider, requested)
   const key = Object.keys(options).find(
     (key) => !acceptsOptionPick(agents, provider, key, options[key] ?? '')
   )

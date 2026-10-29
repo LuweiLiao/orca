@@ -53,6 +53,25 @@ export function structuredLaunchProviderFor<T extends string>(
     : { agent }
 }
 
+type Options = Readonly<Record<string, string>>
+
+/** A create's options over the saved selection: the user's picks as `applyPicks` merges them, then
+ *  the launcher, so a create naming only its launcher keeps the saved selection. */
+export function mergeCreateOptions(
+  provider: string,
+  options: Options | undefined,
+  saved: Options | undefined,
+  applyPicks: (picks: Options) => Options
+): Options | undefined {
+  if (!options) {
+    return saved
+  }
+  const picks = withoutCreateOnlyOptions(provider, options)
+  const chosen = Object.keys(picks).length > 0 ? applyPicks(picks) : saved
+  const launcher = picks === options ? undefined : claudeLauncherOptionsOf(options)
+  return launcher ? { ...chosen, ...launcher } : chosen
+}
+
 /** Only the launcher entry of a chat's options, for a retry that rebuilds its create. */
 export function claudeLauncherOptionsOf(
   options: Readonly<Record<string, string>> | null | undefined
