@@ -1,10 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { editor } from 'monaco-editor'
 import { useAppStore } from '@/store'
 import type { AppState } from '@/store/types'
+import { onLanguageServerStatusChange } from '@/lib/language-server/language-server-registry'
 import { attachLanguageServerDocument } from './language-server-documents'
 import { languageServerProjectRoot } from './language-server-project-root'
-import { languageServerRouteFor, type LanguageServerRoute } from './language-server-routing'
+import {
+  LANGUAGE_SERVER_OWNED_LANGUAGES,
+  languageServerRouteFor,
+  type LanguageServerRoute
+} from './language-server-routing'
 
 function routeOf(
   state: AppState,
@@ -16,20 +21,24 @@ function routeOf(
   return file ? languageServerRouteFor(state, file, language) : null
 }
 
-/** Keeps `fileId`'s model open in its language server while this editor shows it. */
+/**
+ * Keeps `fileId`'s model open in its language server while this editor shows it. Returns the
+ * Monaco language id the editor should use: a server-owned id once that server is ready.
+ */
 export function useLanguageServerDocument(
   mountedEditor: editor.IStandaloneCodeEditor | null,
   fileId: string,
   modelUri: string,
   language: string,
   enabled: boolean
-): void {
+): string {
   // Why three selectors: a fresh route object on every store change would re-run the effect.
   const serverId = useAppStore((state) => routeOf(state, fileId, language, enabled)?.serverId)
   const lspLanguageId = useAppStore(
     (state) => routeOf(state, fileId, language, enabled)?.lspLanguageId
   )
   const rootPath = useAppStore((state) => routeOf(state, fileId, language, enabled)?.rootPath)
+  const [ready, setReady] = useState(false)
   useEffect(() => {
     const model = mountedEditor?.getModel()
     if (!serverId || !lspLanguageId || !rootPath || !model) {
@@ -40,21 +49,32 @@ export function useLanguageServerDocument(
       return
     }
     let cancelled = false
-    let release: (() => void) | null = null
+    let attached: ReturnType<typeof attachLanguageServerDocument> = null
+    let unsubscribe: (() => void) | null = null
     void languageServerProjectRoot(serverId, rootPath, model.uri.fsPath).then((projectRoot) => {
-      if (!cancelled && !model.isDisposed()) {
-        release = attachLanguageServerDocument({
-          model,
-          fileId,
-          serverId,
-          languageId: lspLanguageId,
-          rootPath: projectRoot
-        })
+      if (cancelled || model.isDisposed()) {
+        return
+      }
+      attached = attachLanguageServerDocument({
+        model,
+        fileId,
+        serverId,
+        languageId: lspLanguageId,
+        rootPath: projectRoot
+      })
+      const entry = attached?.entry
+      if (entry) {
+        const sync = (): void => setReady(entry.client !== null)
+        unsubscribe = onLanguageServerStatusChange(sync)
+        sync()
       }
     })
     return () => {
       cancelled = true
-      release?.()
+      unsubscribe?.()
+      attached?.release()
+      setReady(false)
     }
   }, [mountedEditor, fileId, modelUri, serverId, lspLanguageId, rootPath])
+  return (ready && LANGUAGE_SERVER_OWNED_LANGUAGES[language]) || language
 }

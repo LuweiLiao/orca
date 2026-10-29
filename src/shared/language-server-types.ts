@@ -19,7 +19,7 @@ export type LanguageServerStartArgs = {
 }
 
 export type LanguageServerStartResult =
-  | { ok: true; sessionId: string }
+  | { ok: true; sessionId: string; initializationOptions?: Record<string, unknown> }
   /** `missing`: the server program is not installed (or not on the login PATH). */
   | { ok: false; reason: 'missing' | 'unauthorized' | 'failed'; message: string }
 

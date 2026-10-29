@@ -109,7 +109,7 @@ export async function startLanguageServer(
       stderrTail: session.stderrTail
     })
   })
-  return { ok: true, sessionId }
+  return { ok: true, sessionId, initializationOptions: launch.initializationOptions }
 }
 
 function send(

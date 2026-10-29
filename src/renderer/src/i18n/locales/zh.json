@@ -1187,7 +1187,8 @@
       },
       "languageServer": {
         "crashed": "{{server}} 反复退出。",
-        "missing": "没有安装 {{server}}，这些文件暂时不能跳转和补全。"
+        "missing": "没有安装 {{server}}，这些文件暂时不能跳转和补全。",
+        "failed": "{{server}} 启动失败。"
       }
     },
     "hooks": {

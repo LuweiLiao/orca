@@ -116,7 +116,8 @@ export async function startLanguageServerClient(args: {
         rootUri: args.rootUri,
         rootPath: args.rootPath,
         workspaceFolders: [{ uri: args.rootUri, name }],
-        capabilities: CLIENT_CAPABILITIES
+        capabilities: CLIENT_CAPABILITIES,
+        initializationOptions: started.initializationOptions
       }
     )
     connection.notify('initialized', {})

@@ -193,6 +193,25 @@ const OTHER_SERVERS = [
     },
     line: 'message: int = greet',
     definition: /py-demo\/helpers\.py$/
+  },
+  {
+    name: 'typescript-language-server',
+    program: 'typescript-language-server',
+    language: 'typescript',
+    dir: 'ts-demo',
+    file: 'main.ts',
+    files: {
+      'tsconfig.json':
+        '{ "compilerOptions": { "strict": true, "module": "esnext", "target": "es2022" } }\n',
+      'helpers.ts':
+        '/** Says hello. */\nexport function greet(name: string): string {\n  return `hi ${name}`\n}\n',
+      'main.ts':
+        "import { greet } from './helpers'\n\nconst message: number = greet('x')\nconsole.log(message)\n"
+    },
+    line: 'const message: number = greet',
+    definition: /ts-demo\/helpers\.ts$/,
+    // Why: Monaco's own TS service must step aside, or every hover and completion shows twice.
+    ownedLanguage: 'orca-lsp-typescript'
   }
 ] as const
 
@@ -216,7 +235,14 @@ for (const server of OTHER_SERVERS) {
       server.language
     )
     const editor = orcaPage.locator('.monaco-editor').filter({ hasText: server.line }).first()
-    // A str/String assigned to an int is a type error both servers report.
+    if ('ownedLanguage' in server) {
+      await expect(
+        orcaPage.locator(`[data-mode-id="${server.ownedLanguage}"]`).first()
+      ).toBeAttached({
+        timeout: 60_000
+      })
+    }
+    // A string assigned to a number is a type error every server reports.
     await expect(editor.locator('.squiggly-error').first()).toBeVisible({ timeout: 90_000 })
     await orcaPage.screenshot({
       path: testInfo.outputPath(`${server.name}-diagnostics.png`),
@@ -224,9 +250,19 @@ for (const server of OTHER_SERVERS) {
     })
     await editor.locator('.view-line').filter({ hasText: server.line }).click()
     await orcaPage.keyboard.press('End')
-    // Back over `("x");` onto `greet`.
-    for (let step = 0; step < 8; step += 1) {
+    // Back over `("x");` / `('x')` onto `greet`.
+    const back = server.language === 'typescript' ? 7 : 8
+    for (let step = 0; step < back; step += 1) {
       await orcaPage.keyboard.press('ArrowLeft')
+    }
+    if ('ownedLanguage' in server) {
+      // One answer per hover: the built-in service must not add its own copy of the signature.
+      await orcaPage.keyboard.press('Control+k')
+      await orcaPage.keyboard.press('Control+i')
+      const hover = orcaPage.locator('.monaco-hover:not(.hidden)').first()
+      await expect(hover).toContainText('Says hello', { timeout: 15_000 })
+      await expect(hover.locator('.hover-row').filter({ hasText: 'greet(name' })).toHaveCount(1)
+      await orcaPage.keyboard.press('Escape')
     }
     await orcaPage.keyboard.press('F12')
     await expect

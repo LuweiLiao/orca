@@ -33,8 +33,21 @@ const restarts = new Map<LanguageServerEntry, number>()
 const sessionOf = new Map<LanguageServerEntry, string>()
 const receivers = new Map<string, (message: unknown) => void>()
 const missingUntil = new Map<LanguageServerId, number>()
+const statusListeners = new Set<() => void>()
 let lifecycle: Lifecycle | null = null
 let bridgeInstalled = false
+
+/** Fires when any server becomes ready or goes away; read `entry.client` for the state. */
+export function onLanguageServerStatusChange(listener: () => void): () => void {
+  statusListeners.add(listener)
+  return () => statusListeners.delete(listener)
+}
+
+function notifyStatus(): void {
+  for (const listener of statusListeners) {
+    listener()
+  }
+}
 
 export function setLanguageServerLifecycle(next: Lifecycle): void {
   lifecycle = next
@@ -59,6 +72,7 @@ function handleExit(entry: LanguageServerEntry, stderrTail: string): void {
   sessionOf.delete(entry)
   entry.client = null
   lifecycle?.lost(entry)
+  notifyStatus()
   if (entries.get(keyOf(entry.serverId, entry.rootPath)) !== entry || entry.documents === 0) {
     return
   }
@@ -97,11 +111,14 @@ async function start(entry: LanguageServerEntry): Promise<LanguageServerClient |
     sessionOf.delete(entry)
     if (result.reason === 'missing') {
       noteMissing(entry.serverId, result.message)
+    } else if (result.reason === 'failed') {
+      noteFailed(entry.serverId, result.message)
     }
     // Why drop it: the next document asks again, after the missing-server backoff.
     if (entries.get(keyOf(entry.serverId, entry.rootPath)) === entry) {
       entries.delete(keyOf(entry.serverId, entry.rootPath))
     }
+    notifyStatus()
     return null
   }
   if (entries.get(keyOf(entry.serverId, entry.rootPath)) !== entry) {
@@ -110,7 +127,24 @@ async function start(entry: LanguageServerEntry): Promise<LanguageServerClient |
   }
   entry.client = result.client
   lifecycle?.ready(entry, result.client)
+  notifyStatus()
   return result.client
+}
+
+const failedNoticeShown = new Set<LanguageServerId>()
+
+// Why once: every file of that language would fail the same way and repeat the notice.
+function noteFailed(serverId: LanguageServerId, message: string): void {
+  missingUntil.set(serverId, Date.now() + MISSING_RETRY_MS)
+  if (!failedNoticeShown.has(serverId)) {
+    failedNoticeShown.add(serverId)
+    toast.error(
+      translate('auto.lib.languageServer.failed', '{{server}} could not start.', {
+        server: serverId
+      }),
+      { description: message.slice(0, 300) }
+    )
+  }
 }
 
 function noteMissing(serverId: LanguageServerId, message: string): void {
@@ -178,6 +212,7 @@ export function releaseLanguageServer(entry: LanguageServerEntry): void {
       restarts.delete(entry)
       entry.client?.stop()
       entry.client = null
+      notifyStatus()
     }, IDLE_STOP_MS)
   )
 }

@@ -4,7 +4,12 @@ import type { LanguageServerId } from '../../shared/language-server-types'
 import { isDescendantOrEqual } from '../ipc/filesystem-path-containment'
 import { resolveCommandOnLocalPath } from '../ipc/command-path-resolver'
 
-export type LanguageServerLaunch = { command: string; args: string[] }
+export type LanguageServerLaunch = {
+  command: string
+  args: string[]
+  /** Sent in the LSP `initialize` request by the renderer. */
+  initializationOptions?: Record<string, unknown>
+}
 
 // Why a cap: one database names one or two compilers; dozens means something odd.
 const MAX_QUERY_DRIVERS = 8
@@ -39,8 +44,19 @@ export async function languageServerLaunch(
       return { command: 'pyright-langserver', args: ['--stdio'] }
     case 'rust-analyzer':
       return { command: 'rust-analyzer', args: [] }
-    case 'typescript':
-      return { command: 'typescript-language-server', args: ['--stdio'] }
+    case 'typescript': {
+      // Why: the server ships no TypeScript; without one in the workspace it needs a tsserver path.
+      const tsserver = (await isFile(
+        path.join(rootPath, 'node_modules', 'typescript', 'lib', 'tsserver.js')
+      ))
+        ? null
+        : await installedTsserver()
+      return {
+        command: 'typescript-language-server',
+        args: ['--stdio'],
+        ...(tsserver ? { initializationOptions: { tsserver: { path: tsserver } } } : {})
+      }
+    }
   }
 }
 
@@ -135,6 +151,15 @@ export async function compilerDrivers(databaseFile: string, rootPath: string): P
     }
   }
   return drivers
+}
+
+/** The tsserver of the `tsc` on the login PATH (a global or version-manager install). */
+async function installedTsserver(): Promise<string | null> {
+  const tsc = await resolveCommandOnLocalPath('tsc')
+  const real = tsc ? await realpath(tsc).catch(() => null) : null
+  // <typescript>/bin/tsc -> <typescript>/lib/tsserver.js
+  const candidate = real ? path.join(path.dirname(path.dirname(real)), 'lib', 'tsserver.js') : null
+  return candidate && (await isFile(candidate)) ? candidate : null
 }
 
 async function isFile(filePath: string): Promise<boolean> {

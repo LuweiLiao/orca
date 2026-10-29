@@ -32,8 +32,8 @@ import { readyDocumentClient } from './language-server-documents'
 import { openLanguageServerTarget, preloadLocationModels } from './language-server-file-targets'
 import { LANGUAGE_SERVER_MONACO_LANGUAGES } from './language-server-routing'
 
-// Union of what clangd, pyright and rust-analyzer ask for; a server ignores the rest.
-const COMPLETION_TRIGGERS = ['.', ':', '>', '<', '"', '/', '*', '(', '[', '@', '#', "'"]
+// Union of what the servers ask for; a server ignores the rest.
+const COMPLETION_TRIGGERS = ['.', ':', '>', '<', '"', '/', '*', '(', '[', '@', '#', "'", '`']
 const SIGNATURE_TRIGGERS = ['(', ',', '<']
 
 function signalOf(token: CancellationToken): AbortSignal {

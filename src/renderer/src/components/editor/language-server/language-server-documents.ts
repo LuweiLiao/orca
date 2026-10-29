@@ -145,8 +145,8 @@ setLanguageServerLifecycle({
 })
 
 /**
- * Tells `serverId` (started for `rootPath`) that `model` is open; the returned function releases
- * this editor's hold. Several editors of one model share one open document.
+ * Tells `serverId` (started for `rootPath`) that `model` is open; `release` drops this editor's
+ * hold. Several editors of one model share one open document. Null while the server is missing.
  */
 export function attachLanguageServerDocument(args: {
   model: editor.ITextModel
@@ -154,7 +154,7 @@ export function attachLanguageServerDocument(args: {
   serverId: LanguageServerId
   languageId: string
   rootPath: string
-}): () => void {
+}): { entry: LanguageServerEntry; release: () => void } | null {
   const uri = args.model.uri.toString()
   let document = documents.get(uri)
   if (!document) {
@@ -164,7 +164,7 @@ export function attachLanguageServerDocument(args: {
       Uri.file(args.rootPath).toString()
     )
     if (!entry) {
-      return () => undefined
+      return null
     }
     const created: LanguageServerDocument = {
       uri,
@@ -190,14 +190,17 @@ export function attachLanguageServerDocument(args: {
   held.refs += 1
   held.fileIds.add(args.fileId)
   let released = false
-  return () => {
-    if (released) {
-      return
-    }
-    released = true
-    held.refs -= 1
-    if (held.refs <= 0 && documents.get(uri) === held) {
-      close(held)
+  return {
+    entry: held.entry,
+    release: () => {
+      if (released) {
+        return
+      }
+      released = true
+      held.refs -= 1
+      if (held.refs <= 0 && documents.get(uri) === held) {
+        close(held)
+      }
     }
   }
 }
