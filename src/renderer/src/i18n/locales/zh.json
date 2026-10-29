@@ -2288,6 +2288,9 @@
         "backgroundFailed": "新虚拟机工作区的环境检查失败，请在侧边栏中打开它以继续",
         "openedDegraded": "正在环境检查未通过的虚拟机上创建工作区",
         "unreachable": "环境检查未能完成：{{error}}"
+      },
+      "languageServer": {
+        "failed": "{{server}} 启动失败。"
       }
     },
     "hooks": {

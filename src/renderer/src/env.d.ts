@@ -18,6 +18,14 @@ declare module 'monaco-editor/esm/vs/basic-languages/markdown/markdown.js' {
   export const language: languages.IMonarchLanguage
 }
 
+declare module 'monaco-editor/esm/vs/basic-languages/typescript/typescript.js' {
+  export const conf: languages.LanguageConfiguration
+  export const language: languages.IMonarchLanguage
+}
+declare module 'monaco-editor/esm/vs/basic-languages/javascript/javascript.js' {
+  export const conf: languages.LanguageConfiguration
+  export const language: languages.IMonarchLanguage
+}
 declare module 'monaco-editor/esm/vs/basic-languages/cpp/cpp.js' {
   export const conf: languages.LanguageConfiguration
   export const language: languages.IMonarchLanguage

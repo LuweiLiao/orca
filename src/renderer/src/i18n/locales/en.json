@@ -3049,6 +3049,9 @@
         "mergeRequest": "Merge request",
         "linkedIssue": "Linked issue",
         "listeningPort": "Listening port"
+      },
+      "languageServer": {
+        "failed": "{{server}} could not start."
       }
     },
     "hooks": {

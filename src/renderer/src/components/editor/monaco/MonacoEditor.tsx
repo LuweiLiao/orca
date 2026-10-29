@@ -38,6 +38,8 @@ import {
 import { useMonacoTheme } from '@/lib/editor/appearance/use-monaco-theme'
 import { useEditorModelRekeyCarry } from '../model-lifetime/identity/editor-model-rekey-carry'
 import { useNewModelLineEnding } from '../model-lifetime/buffer-text/editor-new-model-line-ending'
+import { useLanguageServerDocument } from '../language-server/use-language-server-document'
+import { ensureLanguageServerProviders } from '../language-server/language-server-provider-registration'
 
 type MonacoEditorProps = {
   fileId: string
@@ -96,10 +98,6 @@ export default function MonacoEditor({
   const language = usePluginSyntaxLanguage(filePath, coreLanguage)
   const languageRef = useRef(language)
   languageRef.current = language
-  useEffect(
-    () => applyModelLanguage([mountedEditor?.getModel()], language),
-    [mountedEditor, language]
-  )
   const unregisterFileSearchSelectionRef = useRef<(() => void) | null>(null)
   const { setupCopy, toastNode } = useContextualCopySetup()
   // Cancel pending throttled writes before snapshotting final scroll on unmount.
@@ -131,6 +129,19 @@ export default function MonacoEditor({
     [filePath, modelOwnerKey]
   )
   useEditorModelRekeyCarry(fileId, modelUri)
+  ensureLanguageServerProviders()
+  const editorLanguage = useLanguageServerDocument(
+    mountedEditor,
+    fileId,
+    modelUri,
+    language,
+    // Why: a mirror, a live log tail and an inline excerpt are read surfaces, not documents.
+    !passiveMirror && !liveTail && !autoHeight
+  )
+  useEffect(
+    () => applyModelLanguage([mountedEditor?.getModel()], editorLanguage),
+    [mountedEditor, editorLanguage]
+  )
   useNewModelLineEnding(mountedEditor, modelUri, fileId, language)
   const estimatedAutoHeight = useMemo(() => {
     if (!autoHeight) {
@@ -303,7 +314,7 @@ export default function MonacoEditor({
       <Editor
         key={modelUri}
         height={renderedEditorHeight === null ? '100%' : `${renderedEditorHeight}px`}
-        language={language}
+        language={editorLanguage}
         // Use defaultValue because Orca owns later content sync; controlled values would duplicate setValue.
         defaultValue={content}
         theme={monacoTheme}

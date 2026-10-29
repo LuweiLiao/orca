@@ -99,6 +99,7 @@ import { mobileApi } from './api/mobile/mobile-bridge'
 import { agentStatusApi } from './api/agent-status/agent-status-bridge'
 import { speechApi } from './api/speech/speech-bridge'
 import { agentSudoApi } from './api/agent-sudo-bridge'
+import { languageServerApi } from './api/language-server-bridge'
 
 installBrowserFindListener()
 
@@ -214,7 +215,8 @@ const api = {
   mobile: mobileApi,
   agentStatus: agentStatusApi,
   speech: speechApi,
-  agentSudo: agentSudoApi
+  agentSudo: agentSudoApi,
+  languageServer: languageServerApi
 } satisfies PreloadApi
 
 if (process.contextIsolated) {
