@@ -67,4 +67,17 @@ describe('pdf outline', () => {
     expect(currentPdfOutlineRow(rows, pageOf, 10)).toBe('1.1')
     expect(currentPdfOutlineRow(rows, new Map(), 10)).toBeNull()
   })
+
+  it('keeps a picked section among several that start on the same page', () => {
+    const rows = flattenPdfOutline(outline)
+    const pageOf = new Map([
+      ['1', 4],
+      ['1.0', 4],
+      ['1.0.0', 4],
+      ['2', 12]
+    ])
+    expect(currentPdfOutlineRow(rows, pageOf, 4)).toBe('1.0.0')
+    expect(currentPdfOutlineRow(rows, pageOf, 4, '1')).toBe('1')
+    expect(currentPdfOutlineRow(rows, pageOf, 13, '1')).toBe('2')
+  })
 })

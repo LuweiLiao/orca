@@ -1,4 +1,4 @@
-import { type JSX, useEffect, useMemo, useState } from 'react'
+import { type JSX, useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import type * as pdfjsLib from 'pdfjs-dist'
 import { translate } from '@/i18n/i18n'
@@ -113,14 +113,19 @@ export function PdfOutlineTree({
   currentPage: number
   onNavigate: (dest: string | unknown[]) => void
 }): JSX.Element {
-  const current = currentPdfOutlineRow(rows, pageOf, currentPage)
+  const [picked, setPicked] = useState<string | null>(null)
+  const current = currentPdfOutlineRow(rows, pageOf, currentPage, picked)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
-  // Why: the section the reader scrolls into unfolds, so its mark is never hidden in a fold.
-  const shownExpanded = useMemo(
-    () => (current ? new Set([...expanded, ...pdfOutlineAncestors(current)]) : expanded),
-    [current, expanded]
-  )
-  const visible = visiblePdfOutlineRows(rows, shownExpanded)
+  const [unfoldedFor, setUnfoldedFor] = useState<string | null>(null)
+  // Why: the section the reader moves into unfolds once, so its mark is not hidden in a fold,
+  // yet the reader can still fold it away afterwards.
+  if (current !== unfoldedFor) {
+    setUnfoldedFor(current)
+    if (current) {
+      setExpanded((prev) => new Set([...prev, ...pdfOutlineAncestors(current)]))
+    }
+  }
+  const visible = visiblePdfOutlineRows(rows, expanded)
   if (rows.length === 0) {
     return (
       <p className="px-3 py-4 text-xs text-muted-foreground">
@@ -129,8 +134,8 @@ export function PdfOutlineTree({
     )
   }
   const toggle = (id: string): void =>
-    setExpanded(() => {
-      const next = new Set(shownExpanded)
+    setExpanded((prev) => {
+      const next = new Set(prev)
       if (next.has(id)) {
         next.delete(id)
       } else {
@@ -141,7 +146,7 @@ export function PdfOutlineTree({
   return (
     <ul role="tree" className="py-1 text-[13px]" data-pdf-outline="">
       {visible.map((row) => {
-        const open = shownExpanded.has(row.id)
+        const open = expanded.has(row.id)
         const page = pageOf.get(row.id)
         return (
           <li
@@ -178,7 +183,12 @@ export function PdfOutlineTree({
               type="button"
               disabled={row.dest === null}
               title={row.title}
-              onClick={() => row.dest !== null && onNavigate(row.dest)}
+              onClick={() => {
+                if (row.dest !== null) {
+                  setPicked(row.id)
+                  onNavigate(row.dest)
+                }
+              }}
               className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left disabled:text-muted-foreground"
             >
               <span className="min-w-0 flex-1 truncate">{row.title}</span>

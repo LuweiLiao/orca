@@ -67,13 +67,18 @@ export function pdfOutlineAncestors(rowId: string): string[] {
 
 /**
  * The section the reader is in: the last bookmark, in document order, that starts on or before
- * the current page. Bookmarks whose page is unknown are skipped.
+ * the current page. Bookmarks whose page is unknown are skipped. A bookmark the reader picked wins
+ * while they stay on its page, since several sections can start on one page.
  */
 export function currentPdfOutlineRow(
   rows: readonly PdfOutlineRow[],
   pageOf: ReadonlyMap<string, number>,
-  currentPage: number
+  currentPage: number,
+  picked: string | null = null
 ): string | null {
+  if (picked !== null && pageOf.get(picked) === currentPage) {
+    return picked
+  }
   let current: string | null = null
   let best = 0
   for (const row of rows) {

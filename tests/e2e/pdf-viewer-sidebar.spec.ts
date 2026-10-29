@@ -109,10 +109,13 @@ test('PDF sidebar navigates by outline and page thumbnails, and remembers itself
   await expect(item('Results')).toHaveAttribute('aria-current', 'location')
   await item('Method').getByRole('button', { name: 'Expand' }).click()
   await expect(item('Setup')).toBeVisible()
+  // Model and Results share page 3: the one picked keeps the mark, and its fold still folds.
   await item('Model').getByRole('button', { name: 'Model' }).click()
   await expect(pageInput).toHaveValue('3')
+  await expect(item('Model')).toHaveAttribute('aria-current', 'location')
   await item('Method').getByRole('button', { name: 'Collapse' }).click()
   await expect(outline.getByRole('treeitem')).toHaveCount(3)
+  await expect(item('Method')).toHaveAttribute('aria-expanded', 'false')
 
   // Page thumbnails mark the current page and jump on click.
   await sidebar.getByRole('tab', { name: 'Pages' }).click()
