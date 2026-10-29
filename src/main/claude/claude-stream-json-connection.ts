@@ -19,6 +19,7 @@ import {
   createClaudeUserMessageQueue
 } from './claude-agent-sdk-user-message-queue'
 import type { ClaudeStructuredSdkOptions } from './claude-structured-launch-resolution'
+import { claudeFullAccessCanUseTool } from './claude-structured-inbound-control'
 import { providerStderrForDisplay } from '../provider-process/provider-spawn-failure-report'
 import { withMissingProviderExecutable } from '../provider-process/provider-executable-missing'
 
@@ -132,7 +133,9 @@ export async function openClaudeStreamJsonConnection(
       ),
       pathToClaudeCodeExecutable: launch.pathToClaudeCodeExecutable,
       spawnClaudeCodeProcess: spawner.spawn,
-      ...(handlers.canUseTool ? { canUseTool: handlers.canUseTool } : {}),
+      ...(handlers.canUseTool
+        ? { canUseTool: claudeFullAccessCanUseTool(handlers.canUseTool, launch.options) }
+        : {}),
       ...(handlers.onUserDialog ? { onUserDialog: handlers.onUserDialog } : {})
     }
   })

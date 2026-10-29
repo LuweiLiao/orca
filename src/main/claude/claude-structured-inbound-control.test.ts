@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CanUseTool } from '@anthropic-ai/claude-agent-sdk'
 import { ClaudePromptRegistry } from './claude-structured-prompt-replies'
-import { buildClaudePermissionCallbacks } from './claude-structured-inbound-control'
+import {
+  buildClaudePermissionCallbacks,
+  claudeFullAccessCanUseTool
+} from './claude-structured-inbound-control'
 
 type CanUseToolOptions = Parameters<CanUseTool>[2]
 
@@ -114,6 +117,50 @@ describe('Claude permission callbacks', () => {
     expect(prompt?.subject?.kind).toBe('plan')
     prompt?.settle({ behavior: 'deny', message: 'done', toolUseID: 'tool-plan' })
     await expect(answered).resolves.toMatchObject({ behavior: 'deny' })
+  })
+
+  it('approves full-access safety checks but still prompts for ask rules and user answers', async () => {
+    const control = callbacksFor()
+    const canUseTool = claudeFullAccessCanUseTool(control.canUseTool, {
+      extraArgs: { 'dangerously-skip-permissions': null }
+    })
+    const signal = new AbortController().signal
+    const input = { command: 'rm $D/$n/plot_spin.py' }
+
+    expect(claudeFullAccessCanUseTool(control.canUseTool, { extraArgs: {} })).toBe(
+      control.canUseTool
+    )
+    await expect(
+      canUseTool(
+        'Bash',
+        input,
+        permissionOptions('perm-safety', 'tool-safety', signal, [], {
+          decisionReason: 'Dangerous rm operation on possibly-empty variable path: $D/$n'
+        })
+      )
+    ).resolves.toEqual({ behavior: 'allow', updatedInput: input, toolUseID: 'tool-safety' })
+    expect(control.emit).not.toHaveBeenCalled()
+
+    void canUseTool(
+      'Bash',
+      input,
+      permissionOptions('perm-rule', 'tool-rule', signal, [], {
+        matchedAskRule: { source: 'user', toolName: 'Bash', ruleContent: 'rm:*' }
+      })
+    )
+    void canUseTool(
+      'AskUserQuestion',
+      { questions: [{ question: 'Which?', options: [] }] },
+      permissionOptions('perm-question', 'tool-question', signal)
+    )
+    void canUseTool(
+      'ExitPlanMode',
+      { plan: '# Plan' },
+      permissionOptions('perm-plan-full', 'tool-plan-full', signal)
+    )
+    expect(control.prompts.find('perm-rule')).not.toBeNull()
+    expect(control.prompts.find('perm-question')).not.toBeNull()
+    expect(control.prompts.find('perm-plan-full')).not.toBeNull()
   })
 
   it('denies a malformed permission request without registering a prompt', async () => {
