@@ -25,6 +25,17 @@ export type LanguageServerDocument = {
 
 const documents = new Map<string, LanguageServerDocument>()
 
+// Why: GCC-only flags in a cross-compile database (-mno-thumb-interwork) are unknown to clang,
+// which reports each as an error at line 1 while parsing the code normally.
+const BUILD_FLAG_DIAGNOSTIC_CODES = new Set([
+  'drv_unknown_argument',
+  'drv_unknown_argument_with_suggestion'
+])
+
+function isBuildFlagNoise(diagnostic: LspDiagnostic): boolean {
+  return diagnostic.source === 'clang' && BUILD_FLAG_DIAGNOSTIC_CODES.has(String(diagnostic.code))
+}
+
 export function markerOwner(serverId: LanguageServerId): string {
   return `orca-lsp:${serverId}`
 }
@@ -126,7 +137,7 @@ setLanguageServerLifecycle({
         monacoEditor.setModelMarkers(
           model,
           markerOwner(entry.serverId),
-          diagnostics.map(toMonacoMarker)
+          diagnostics.filter((diagnostic) => !isBuildFlagNoise(diagnostic)).map(toMonacoMarker)
         )
       }
     })
