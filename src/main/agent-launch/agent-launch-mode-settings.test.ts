@@ -52,4 +52,19 @@ describe('host launch preference ownership', () => {
     })
     expect(mode.mode).toBe(stamp ? 'structured' : 'terminal')
   })
+
+  it.each([true, false])(
+    'opens ccb as a chat only where its surfaces can (%s)',
+    (launcherChats) => {
+      const runtime = {
+        requireStore: () => ({ getSettings: () => ({ experimentalNativeChat: true }) })
+      }
+      const mode = decideAgentLaunchMode({
+        placement: { agent: 'ccb' },
+        settings: readAgentLaunchModeSettings(runtime),
+        launcherChats
+      })
+      expect(mode.mode).toBe(launcherChats ? 'structured' : 'terminal')
+    }
+  )
 })

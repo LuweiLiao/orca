@@ -16,6 +16,7 @@ import { terminalImageViewerSupported } from '../../terminal-image-viewer-env'
 
 import { randomUUID } from 'node:crypto'
 import { narrowStructuredLaunchSeedOptions } from '../../../../shared/native-chat-session-option-defaults'
+import { structuredLaunchProviderFor } from '../../../../shared/claude-cli-launch-agents'
 import { createStructuredAgentSessionOperationId } from '../../../../shared/structured-agent-session-mutation'
 import { structuredAgentSessionTabId } from '../../../../shared/structured-agent-session-projection'
 import {
@@ -61,16 +62,20 @@ export function agentLaunchSurfaceFactory(
   const movesHostWindow = agentLaunchMovesHostWindow(context)
   const { early: earlyTab, presentation } = view
   return {
+    launcherChats: true,
     createStructuredSession: async ({
       worktreeId,
-      agent,
+      agent: requestedAgent,
       options,
       sessionId: requested,
       tabId,
       withoutPrompt
     }) => {
+      // A launcher (ccb) is created as the Claude chat it runs, carrying its launcher option.
+      const { agent, launcherOptions } = structuredLaunchProviderFor(requestedAgent)
       const sessionId = requested ?? createStructuredAgentSessionId(agent, randomUUID)
-      const seeded = narrowStructuredLaunchSeedOptions(options)
+      const narrowed = narrowStructuredLaunchSeedOptions(options)
+      const seeded = launcherOptions ? { ...narrowed, ...launcherOptions } : narrowed
       // A client that creates chats without starting them starts this one on its first message.
       const atRest =
         withoutPrompt === true &&

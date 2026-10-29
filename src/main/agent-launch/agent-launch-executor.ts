@@ -78,6 +78,7 @@ export async function executeAgentLaunch(
         : readAgentLaunchModeSettings(runtime, intent.nativeChatDefault),
       ...(execution.terminalOnly ? { terminalOnly: true } : {}),
       ...(intent.surface ? { surface: intent.surface } : {}),
+      launcherChats: execution.surfaces?.launcherChats === true,
       vocabulary
     })
   // Intent preparation may have outlived the request.
