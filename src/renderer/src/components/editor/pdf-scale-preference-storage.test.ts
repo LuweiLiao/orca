@@ -43,9 +43,11 @@ describe('PDF scale preference storage', () => {
 
     writePdfScalePreference('/repo/report.pdf', 2)
     writePdfScalePreference('/repo/other.pdf', 'page-width')
+    writePdfScalePreference('/repo/slides.pdf', 'page-fit')
 
     expect(readPdfScalePreference('/repo/report.pdf')).toBe(2)
     expect(readPdfScalePreference('/repo/other.pdf')).toBe('page-width')
+    expect(readPdfScalePreference('/repo/slides.pdf')).toBe('page-fit')
   })
 
   it('ignores malformed stored values', () => {

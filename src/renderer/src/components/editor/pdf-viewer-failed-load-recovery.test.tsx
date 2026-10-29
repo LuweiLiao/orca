@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
-import { StrictMode } from 'react'
+import { act, cleanup, fireEvent, render as renderView, waitFor } from '@testing-library/react'
+import { StrictMode, type ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import PdfViewer from './PdfViewer'
 import { pdfViewPositionCache } from '@/lib/scroll-cache'
+import { TooltipProvider } from '@/components/ui/tooltip'
+
+const render = (ui: ReactElement) => renderView(ui, { wrapper: TooltipProvider })
 
 const getDocument = vi.hoisted(() => vi.fn())
 const shownDocuments = vi.hoisted((): unknown[] => [])
@@ -86,13 +89,17 @@ vi.mock('pdfjs-dist/web/pdf_viewer.mjs', () => {
 vi.mock('pdfjs-dist/web/pdf_viewer.css', () => ({}))
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '' }))
 vi.mock('@/i18n/i18n', () => ({ translate: (_key: string, fallback: string) => fallback }))
-vi.mock('@/hooks/useShortcutLabel', () => ({ useShortcutLabel: () => '' }))
+vi.mock('@/hooks/useShortcutLabel', () => ({
+  useShortcutLabel: () => '',
+  useShortcutKeyDetails: () => ({ keys: [], doubleTap: false })
+}))
 vi.mock('@/store', () => ({
   useAppStore: (selector: (state: { keybindings: Record<string, never> }) => unknown) =>
     selector({ keybindings: {} })
 }))
 
 const ERROR_TEXT = 'Failed to load PDF preview'
+const STALE_TEXT = 'The latest version could not be loaded; showing the last one that did.'
 
 type PdfDocumentFixture = { name: string } | { index: number }
 
@@ -157,7 +164,7 @@ describe('PdfViewer when the file is rewritten', () => {
     expect(shownDocuments.at(-1)).toBe(finished)
   })
 
-  it('clears the previous version and reports a broken rewrite, then recovers', async () => {
+  it('keeps the previous version under a notice when a rewrite is broken, then recovers', async () => {
     const previous = { name: 'previous build' }
     const next = { name: 'next build' }
     getDocument
@@ -168,12 +175,13 @@ describe('PdfViewer when the file is rewritten', () => {
     await waitFor(() => expect(shownDocuments.at(-1)).toBe(previous))
 
     view.rerender(<PdfViewer content={btoa('%PDF v2 half-written')} filePath="out/main.pdf" />)
-    await waitFor(() => expect(view.queryByText(ERROR_TEXT)).toBeTruthy())
-    expect(shownDocuments.at(-1)).toBeNull()
+    await waitFor(() => expect(view.queryByText(STALE_TEXT)).toBeTruthy())
+    expect(shownDocuments.at(-1)).toBe(previous)
+    expect(view.queryByText(ERROR_TEXT)).toBeNull()
 
     view.rerender(<PdfViewer content={btoa('%PDF v2 finished')} filePath="out/main.pdf" />)
     await waitFor(() => expect(shownDocuments.at(-1)).toBe(next))
-    expect(view.queryByText(ERROR_TEXT)).toBeNull()
+    expect(view.queryByText(STALE_TEXT)).toBeNull()
   })
 
   it('does not keep another file on screen when the newly opened one fails', async () => {
@@ -210,7 +218,7 @@ describe('PdfViewer when the file is rewritten', () => {
     { content: '', error: ERROR_TEXT, label: 'empty' },
     { content: '%%%', error: 'Failed to decode PDF content', label: 'invalid base64' }
   ])(
-    'clears its previous document when rewritten with $label content',
+    'keeps its previous document under a notice when rewritten with $label content',
     async ({ content, error }) => {
       const previous = { name: 'previous build' }
       const task = loadingTask(previous)
@@ -220,10 +228,13 @@ describe('PdfViewer when the file is rewritten', () => {
 
       view.rerender(<PdfViewer content={content} filePath="out/main.pdf" />)
 
-      expect(shownDocuments.at(-1)).toBeNull()
-      expect(view.queryByText(error)).toBeTruthy()
-      expect(task.destroy).toHaveBeenCalledTimes(1)
+      expect(shownDocuments.at(-1)).toBe(previous)
+      expect(view.queryByText(STALE_TEXT)).toBeTruthy()
+      expect(view.queryByText(error)).toBeNull()
+      expect(task.destroy).not.toHaveBeenCalled()
       expect(getDocument).toHaveBeenCalledTimes(1)
+      view.unmount()
+      expect(task.destroy).toHaveBeenCalledTimes(1)
     }
   )
 
@@ -412,7 +423,7 @@ describe('PdfViewer when the file is rewritten', () => {
     }
   )
 
-  it('detaches before loading a replacement and restores the prior scroll and zoom', async () => {
+  it('keeps the reader on the previous version while the next parses, then restores scroll and zoom', async () => {
     const previous = { name: 'previous' }
     const previousTask = loadingTask(previous)
     let shownOnDestroy: unknown
@@ -421,13 +432,7 @@ describe('PdfViewer when the file is rewritten', () => {
       return Promise.resolve()
     })
     const nextTask = pendingTask()
-    let parsedAfterDestroy = false
-    getDocument
-      .mockImplementationOnce(() => previousTask)
-      .mockImplementationOnce(() => {
-        parsedAfterDestroy = previousTask.destroy.mock.calls.length === 1
-        return nextTask
-      })
+    getDocument.mockImplementationOnce(() => previousTask).mockImplementationOnce(() => nextTask)
     const view = render(
       <PdfViewer
         content={btoa('%PDF previous')}
@@ -437,19 +442,19 @@ describe('PdfViewer when the file is rewritten', () => {
     )
     await waitFor(() => expect(shownDocuments.at(-1)).toBe(previous))
     eventBuses.at(-1)?.dispatch('pagesinit', { scale: 1 })
-    fireEvent.click(view.getByTitle('Zoom in'))
+    fireEvent.click(view.getByRole('button', { name: 'Zoom in' }))
     const position = { pageNumber: 7, top: 420, left: 12 }
     eventBuses.at(-1)?.dispatch('updateviewarea', { scale: 1.25, location: position })
     view.rerender(
       <PdfViewer content={btoa('%PDF next')} filePath="out/main.pdf" scrollCacheKey="main:pdf" />
     )
-    expect(shownDocuments.at(-1)).toBeNull()
-    expect(previousTask.destroy).toHaveBeenCalledTimes(1)
-    expect(parsedAfterDestroy).toBe(true)
-    expect(viewerSignals.at(-1)?.aborted).toBe(true)
-    expect(shownOnDestroy).toBeNull()
+    expect(shownDocuments.at(-1)).toBe(previous)
+    expect(previousTask.destroy).not.toHaveBeenCalled()
+    expect(viewerSignals.at(-1)?.aborted).toBe(false)
     const next = { name: 'next' }
     await finishTask(nextTask, next)
+    // The previous version detached, flushing its position, before the next one was shown.
+    expect(shownOnDestroy).toBeNull()
     eventBuses.at(-1)?.dispatch('pagesinit', { scale: 1.25 })
 
     expect(viewers.at(-1)?.currentScale).toBe(1.25)
@@ -472,9 +477,12 @@ describe('PdfViewer when the file is rewritten', () => {
       tasks.push(task)
       return task
     })
-    const view = render(
+    // Why the provider inside: StrictMode must be the root for React to replay effects.
+    const view = renderView(
       <StrictMode>
-        <PdfViewer content={btoa('%PDF document')} filePath="out/main.pdf" />
+        <TooltipProvider>
+          <PdfViewer content={btoa('%PDF document')} filePath="out/main.pdf" />
+        </TooltipProvider>
       </StrictMode>
     )
     expect(tasks).toHaveLength(2)
@@ -536,22 +544,25 @@ describe('PdfViewer when the file is rewritten', () => {
         view.rerender(<PdfViewer content={btoa(`%PDF rewrite ${index}`)} filePath="out/main.pdf" />)
         await Promise.resolve()
       })
-      const live = index % 2 === 0 ? 0 : 1
-      expect(activeTasks).toBe(live)
-      expect(viewerSignals.filter((signal) => !signal.aborted)).toHaveLength(live)
+      // A failed rewrite keeps the version on screen, so one viewer is always live.
+      const failed = index % 2 === 0
+      expect(activeTasks).toBe(1)
+      expect(viewerSignals.filter((signal) => !signal.aborted)).toHaveLength(1)
       peakLocalization = Math.max(
         peakLocalization,
         localizationResources.filter((resource) => resource.active).length
       )
-      expect(eventBuses.filter((bus) => bus.listenerCount() > 0)).toHaveLength(live)
-      if (live) {
-        expect(view.queryByText(ERROR_TEXT)).toBeNull()
+      expect(eventBuses.filter((bus) => bus.listenerCount() > 0)).toHaveLength(1)
+      expect(view.queryByText(ERROR_TEXT)).toBeNull()
+      if (failed) {
+        expect(view.queryByText(STALE_TEXT)).toBeTruthy()
       } else {
-        expect(view.queryByText(ERROR_TEXT)).toBeTruthy()
+        expect(view.queryByText(STALE_TEXT)).toBeNull()
       }
     }
 
-    expect(peakTasks).toBe(1)
+    // The version on screen and the one parsing behind it.
+    expect(peakTasks).toBe(2)
     expect(peakLocalization).toBe(1)
     expect(getDocument).toHaveBeenCalledTimes(51)
     expect(viewers).toHaveLength(26)

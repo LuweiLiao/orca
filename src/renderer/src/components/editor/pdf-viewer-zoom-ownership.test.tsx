@@ -5,6 +5,7 @@ import PdfViewer from './PdfViewer'
 import { EditorCommandOwnerContext } from './editor-command-owner-context'
 import { requestViewerZoom } from './viewer-zoom-request'
 import { readPdfScalePreference } from './pdf-scale-preference-storage'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 type PdfDocumentFixture = { name: string }
 
@@ -14,7 +15,10 @@ vi.mock('pdfjs-dist', () => ({ GlobalWorkerOptions: {} }))
 vi.mock('pdfjs-dist/web/pdf_viewer.css', () => ({}))
 vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?url', () => ({ default: '' }))
 vi.mock('@/i18n/i18n', () => ({ translate: (_key: string, fallback: string) => fallback }))
-vi.mock('@/hooks/useShortcutLabel', () => ({ useShortcutLabel: () => '' }))
+vi.mock('@/hooks/useShortcutLabel', () => ({
+  useShortcutLabel: () => '',
+  useShortcutKeyDetails: () => ({ keys: [], doubleTap: false })
+}))
 vi.mock('@/store', () => ({
   useAppStore: (selector: (state: { keybindings: Record<string, never> }) => unknown) =>
     selector({ keybindings: {} })
@@ -29,7 +33,7 @@ vi.mock('./pdf-viewer-session', () => ({
   createPdfViewerSession: () => {
     const viewer = { currentScale: 1, currentScaleValue: 'page-width' }
     viewers.push(viewer)
-    return { viewer, eventBus: null, findController: null, dispose: () => {} }
+    return { viewer, eventBus: null, findController: null, goToPage: () => {}, dispose: () => {} }
   }
 }))
 
@@ -41,9 +45,11 @@ afterEach(() => {
 
 function renderPdf(isCommandOwner: boolean): void {
   render(
-    <EditorCommandOwnerContext value={isCommandOwner}>
-      <PdfViewer content={btoa('%PDF')} filePath="/repo/report.pdf" preferenceKey="report" />
-    </EditorCommandOwnerContext>
+    <TooltipProvider>
+      <EditorCommandOwnerContext value={isCommandOwner}>
+        <PdfViewer content={btoa('%PDF')} filePath="/repo/report.pdf" preferenceKey="report" />
+      </EditorCommandOwnerContext>
+    </TooltipProvider>
   )
 }
 

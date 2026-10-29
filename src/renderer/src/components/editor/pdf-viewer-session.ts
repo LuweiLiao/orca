@@ -10,7 +10,7 @@ import {
   zoomPdfViewerWithWheel,
   type PdfScalePreference
 } from './pdf-scale-preference'
-import { pdfViewPositionCache, setWithLRU } from '@/lib/scroll-cache'
+import type { PdfViewPositionStore } from './pdf-view-position-storage'
 import {
   buildPdfScrollDestination,
   clampPdfViewPosition,
@@ -34,24 +34,29 @@ export function createPdfViewerSession({
   container,
   viewerDiv,
   doc,
-  scrollCacheKey,
+  positions,
   scalePreference,
   scaleBounds,
   onScaleChanging,
+  onPageChanging,
   onWheelZoom
 }: {
   container: HTMLDivElement
   viewerDiv: HTMLDivElement
   doc: pdfjsLib.PDFDocumentProxy
-  scrollCacheKey: string | null
+  positions: PdfViewPositionStore | null
   scalePreference: PdfScalePreference
   scaleBounds: { min: number; max: number }
   onScaleChanging: (scale: number) => void
+  /** The page the reader is on, and how many there are. */
+  onPageChanging: (page: { number: number; count: number }) => void
   onWheelZoom: (scale: number) => void
 }): {
   viewer: InstanceType<typeof PdfJsViewer>
   eventBus: InstanceType<typeof EventBus>
   findController: InstanceType<typeof PDFFindController>
+  /** Jumps to a page; a pending position restore then leaves the reader there. */
+  goToPage: (pageNumber: number) => void
   dispose: () => void
 } {
   let cancelled = false
@@ -82,6 +87,12 @@ export function createPdfViewerSession({
     }
   }
   eventBus.on('scalechanging', handleScaleChanging)
+  const handlePageChanging = (evt: { pageNumber: number }): void => {
+    if (!cancelled) {
+      onPageChanging({ number: evt.pageNumber, count: viewer.pagesCount })
+    }
+  }
+  eventBus.on('pagechanging', handlePageChanging)
 
   // Why: Chromium reports trackpad pinch as ctrl-wheel; unclaimed, it only scrolls the PDF.
   container.addEventListener(
@@ -95,11 +106,11 @@ export function createPdfViewerSession({
     { passive: false, signal: abortController.signal }
   )
 
-  // Why: each displayed document owns its scroll recorder and cache key.
-  const recorder = scrollCacheKey
+  // Why: each displayed document owns its scroll recorder and position store.
+  const recorder = positions
     ? createPdfViewPositionRecorder({
-        key: scrollCacheKey,
-        write: (key, position) => setWithLRU(pdfViewPositionCache, key, position)
+        key: 'pdf',
+        write: (_key, position) => positions.write(position)
       })
     : null
 
@@ -117,7 +128,8 @@ export function createPdfViewerSession({
   }
 
   const handlePagesInit = (): void => {
-    const cached = scrollCacheKey ? pdfViewPositionCache.get(scrollCacheKey) : undefined
+    onPageChanging({ number: viewer.currentPageNumber, count: viewer.pagesCount })
+    const cached = positions?.read()
     const clamped = cached ? clampPdfViewPosition(cached, viewer.pagesCount) : null
     if (!clamped) {
       recorder?.arm()
@@ -193,6 +205,7 @@ export function createPdfViewerSession({
     eventBus.off('updateviewarea', handleUpdateViewArea)
     eventBus.off('find', markUserMoved)
     eventBus.off('scalechanging', handleScaleChanging)
+    eventBus.off('pagechanging', handlePageChanging)
     // Why: detach cancels renders and clears the find controller before worker destruction.
     try {
       // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: pdf.js accepts null to detach a document, but its declaration omits null.
@@ -213,5 +226,9 @@ export function createPdfViewerSession({
     dispose()
     throw error
   }
-  return { viewer, eventBus, findController, dispose }
+  const goToPage = (pageNumber: number): void => {
+    markUserMoved()
+    viewer.currentPageNumber = pageNumber
+  }
+  return { viewer, eventBus, findController, goToPage, dispose }
 }

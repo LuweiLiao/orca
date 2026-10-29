@@ -16175,8 +16175,6 @@
           "db56fcd6d2": "{{value0}} de {{value1}}"
         },
         "PdfViewer": {
-          "3e98d500d2": "Vista previa de PDF",
-          "069ff59932": "Buscar en PDF ({{value0}})",
           "2b6eb1ccd6": "Acercar",
           "c0119616d6": "Ajustar al ancho",
           "fa5d096b00": "Alejar"

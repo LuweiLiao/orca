@@ -1,6 +1,7 @@
 import { getPinchZoomFactor, shouldHandleImageZoomWheel } from './image-viewer-zoom'
 
-export type PdfScalePreference = 'page-width' | number
+/** A fit mode pdf.js recomputes on every resize, or an absolute scale (1 is actual size). */
+export type PdfScalePreference = 'page-width' | 'page-fit' | number
 
 export function clampPdfScale(scale: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, scale))
@@ -16,7 +17,7 @@ export function applyPdfScalePreference(
     viewer.currentScale = clampPdfScale(preference, bounds.min, bounds.max)
     return
   }
-  viewer.currentScaleValue = 'page-width'
+  viewer.currentScaleValue = preference
 }
 
 /** Zoom in/out while recording the resulting absolute scale preference. */

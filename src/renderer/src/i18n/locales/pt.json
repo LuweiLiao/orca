@@ -12481,8 +12481,6 @@
           "keepHint": "Mantém sua versão. Ao salvar novamente, você substituirá a versão no disco."
         },
         "PdfViewer": {
-          "3e98d500d2": "Pré-visualização de PDF",
-          "069ff59932": "Buscar no PDF ({{value0}})",
           "2b6eb1ccd6": "Aumentar zoom",
           "c0119616d6": "Ajustar à largura",
           "fa5d096b00": "Diminuir zoom"

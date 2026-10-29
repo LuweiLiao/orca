@@ -5,6 +5,7 @@ import { expect, test } from './helpers/orca-app'
 import { createPdfFindFixture } from './helpers/pdf-find-fixture'
 
 const ERROR_TEXT = 'Failed to load PDF preview'
+const STALE_TEXT = 'The latest version could not be loaded; showing the last one that did.'
 
 async function settleAndCapture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   // Past the editor's 75ms external-reload debounce and the pdf.js parse.
@@ -12,7 +13,7 @@ async function settleAndCapture(page: Page, testInfo: TestInfo, name: string): P
   await page.screenshot({ path: testInfo.outputPath(`${name}.png`) })
 }
 
-test('PDF preview recovers after repeated failed refreshes without showing old pages', async ({
+test('PDF preview keeps the last good build through failed refreshes, then shows the next', async ({
   orcaPage,
   electronApp,
   seededRepoPath,
@@ -23,6 +24,7 @@ test('PDF preview recovers after repeated failed refreshes without showing old p
   const halfWritten = finished.subarray(0, Math.floor(finished.length / 2))
   const pages = orcaPage.locator('.pdfViewer .page')
   const error = orcaPage.getByText(ERROR_TEXT)
+  const stale = orcaPage.locator('[data-pdf-stale-notice]')
   writeFileSync(filePath, halfWritten)
   registerPostElectronShutdownCleanup(async () => rmSync(filePath, { force: true }))
   await orcaPage.evaluate((filePath) => {
@@ -46,22 +48,60 @@ test('PDF preview recovers after repeated failed refreshes without showing old p
   await expect(error).toBeHidden()
   await expect(pages).toHaveCount(3)
 
-  // A failed refresh must not leave pages from the previous contents visible.
-  const firstPage = pages.first().locator('.textLayer')
+  // The page box jumps; a failed refresh keeps the reader on that page of the last good build.
+  const pageInput = orcaPage.locator('[data-pdf-page-input]')
+  await expect(pageInput).toHaveValue('1')
+  await expect(orcaPage.getByText('of 3', { exact: true })).toBeVisible()
+  await pageInput.fill('3')
+  await pageInput.press('Enter')
+  await expect(pageInput).toHaveValue('3')
   writeFileSync(filePath, halfWritten)
-  await expect(error).toBeVisible()
-  await expect(pages).toHaveCount(0)
+  await expect(stale).toContainText(STALE_TEXT)
+  await expect(error).toBeHidden()
+  await expect(pages).toHaveCount(3)
+  // pdf.js renders text only for pages near the viewport, so read the page the reader is on.
+  const thirdPage = pages.nth(2).locator('.textLayer')
+  await expect(thirdPage).toContainText('PDF search fixture - page 3')
+  await expect(pageInput).toHaveValue('3')
   await settleAndCapture(orcaPage, testInfo, '2-failed-refresh')
 
   writeFileSync(filePath, '')
-  await expect(error).toBeVisible()
-  await expect(pages).toHaveCount(0)
+  await expect(stale).toBeVisible()
+  await expect(pages).toHaveCount(3)
 
   // A distinct finished build, so the swap to the new document is observable.
   writeFileSync(filePath, createPdfFindFixture({ title: 'Next build' }))
-  await expect(firstPage).toContainText('Next build - page 1')
+  await expect(thirdPage).toContainText('Next build - page 3')
+  await expect(stale).toHaveCount(0)
   await expect(error).toBeHidden()
+  // The swap keeps the reader on the page they jumped to.
+  await expect(pageInput).toHaveValue('3')
   await orcaPage.screenshot({ path: testInfo.outputPath('3-next-build.png') })
+
+  // Closed and opened again, the file comes back on that page.
+  await orcaPage.evaluate((filePath) => {
+    const state = window.__store?.getState()
+    const file = state?.openFiles.find((candidate) => candidate.filePath === filePath)
+    if (!state || !file) {
+      throw new Error('Missing open PDF')
+    }
+    state.closeFile(file.id)
+  }, filePath)
+  await expect(orcaPage.locator('.pdfViewer')).toHaveCount(0)
+  await orcaPage.evaluate((filePath) => {
+    const state = window.__store?.getState()
+    if (!state?.activeWorktreeId) {
+      throw new Error('Missing fixture worktree')
+    }
+    state.openFile({
+      filePath,
+      relativePath: 'rebuilt.pdf',
+      worktreeId: state.activeWorktreeId,
+      language: 'plaintext',
+      mode: 'edit'
+    })
+  }, filePath)
+  await expect(pageInput).toHaveValue('3')
   const windows = await electronApp.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows().map((window) => ({
       visible: window.isVisible(),

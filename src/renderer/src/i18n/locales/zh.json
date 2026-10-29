@@ -16199,11 +16199,16 @@
           "db56fcd6d2": "{{value1}} 的 {{value0}}"
         },
         "PdfViewer": {
-          "3e98d500d2": "PDF预览",
-          "069ff59932": "在 PDF 中查找 ({{value0}})",
           "2b6eb1ccd6": "放大",
           "c0119616d6": "适合宽度",
-          "fa5d096b00": "缩小"
+          "fa5d096b00": "缩小",
+          "fitPage": "适合页面",
+          "actualSize": "实际大小",
+          "zoomLevel": "缩放比例",
+          "findInPdf": "在 PDF 中查找",
+          "pageNumber": "页码",
+          "pageCount": "共 {{count}} 页",
+          "staleVersion": "最新版本加载失败，正在显示上一次成功加载的版本。"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "新智能体",

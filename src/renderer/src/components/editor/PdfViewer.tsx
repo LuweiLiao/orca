@@ -1,6 +1,6 @@
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: PDF loading drives pdf.js document/viewer instances and decode errors through an external worker lifecycle. */
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Image as ImageIcon, RotateCcw, Search, ZoomIn, ZoomOut } from 'lucide-react'
+import { CircleAlert, Image as ImageIcon } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type {
   EventBus,
@@ -9,14 +9,19 @@ import type {
 } from 'pdfjs-dist/web/pdf_viewer.mjs'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import PdfFind from './PdfFind'
-import { useShortcutLabel } from '@/hooks/useShortcutLabel'
 import { useAppStore } from '@/store'
 import { usePdfViewerFindShortcut } from './use-pdf-viewer-find-shortcut'
 
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { translate } from '@/i18n/i18n'
-import { createPdfDocumentLoader, type PdfDocumentLoader } from './pdf-document-loader'
+import {
+  createPdfDocumentLoader,
+  type PdfDocumentLoader,
+  type PdfLoadError
+} from './pdf-document-loader'
 import { createPdfViewerSession } from './pdf-viewer-session'
+import { pdfViewPositionStore } from './pdf-view-position-storage'
+import { PdfToolbar } from './PdfToolbar'
 import {
   applyPdfScalePreference,
   stepPdfScalePreference,
@@ -63,11 +68,12 @@ function PdfDocumentViewer({
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerDivRef = useRef<HTMLDivElement>(null)
   const loaderRef = useRef<PdfDocumentLoader | null>(null)
-  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState<PdfLoadError | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [scale, setScale] = useState(1)
+  const [page, setPage] = useState<{ number: number; count: number } | null>(null)
+  const goToPageRef = useRef<((pageNumber: number) => void) | null>(null)
   const keybindings = useAppStore((state) => state.keybindings)
-  const findShortcutLabel = useShortcutLabel('editor.find')
   const isCommandOwner = useContext(EditorCommandOwnerContext)
   const eventBusRef = useRef<InstanceType<typeof EventBus> | null>(null)
   const findControllerRef = useRef<InstanceType<typeof PDFFindController> | null>(null)
@@ -109,15 +115,17 @@ function PdfDocumentViewer({
           container,
           viewerDiv,
           doc,
-          scrollCacheKey,
+          positions: pdfViewPositionStore(scrollCacheKey, preferenceKey),
           scalePreference: scalePreferenceRef.current,
           scaleBounds: SCALE_BOUNDS,
           onScaleChanging: setScale,
+          onPageChanging: setPage,
           onWheelZoom: recordScalePreference
         })
         eventBusRef.current = session.eventBus
         findControllerRef.current = session.findController
         pdfViewerRef.current = session.viewer
+        goToPageRef.current = session.goToPage
         return () => {
           try {
             session.dispose()
@@ -125,6 +133,7 @@ function PdfDocumentViewer({
             eventBusRef.current = null
             findControllerRef.current = null
             pdfViewerRef.current = null
+            goToPageRef.current = null
             setFindOpen(false)
           }
         }
@@ -163,17 +172,18 @@ function PdfDocumentViewer({
     [recordScalePreference]
   )
 
-  const zoomIn = useCallback(() => stepZoom('in'), [stepZoom])
-  const zoomOut = useCallback(() => stepZoom('out'), [stepZoom])
-
-  const zoomReset = useCallback(() => {
-    const viewer = pdfViewerRef.current
-    if (!viewer) {
-      return
-    }
-    applyPdfScalePreference(viewer, 'page-width', SCALE_BOUNDS)
-    recordScalePreference('page-width')
-  }, [recordScalePreference])
+  const applyScalePreference = useCallback(
+    (preference: PdfScalePreference) => {
+      const viewer = pdfViewerRef.current
+      if (!viewer) {
+        return
+      }
+      applyPdfScalePreference(viewer, preference, SCALE_BOUNDS)
+      recordScalePreference(preference)
+    },
+    [recordScalePreference]
+  )
+  const zoomReset = useCallback(() => applyScalePreference('page-width'), [applyScalePreference])
 
   useEffect(() => {
     if (!isCommandOwner) {
@@ -188,7 +198,7 @@ function PdfDocumentViewer({
   const openFind = useCallback(() => setFindOpen(true), [])
   usePdfViewerFindShortcut({ rootRef, ownsCommands: isCommandOwner, keybindings, openFind })
 
-  const zoomPercent = Math.round(scale * 100)
+  const goToPage = useCallback((pageNumber: number) => goToPageRef.current?.(pageNumber), [])
 
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
@@ -205,71 +215,49 @@ function PdfDocumentViewer({
               position: 'absolute',
               inset: '0',
               overflow: 'auto',
-              background: 'var(--pdf-viewer-bg, #e4e4e7)'
+              background: 'var(--muted)'
             }}
-            className="scrollbar-editor dark:[--pdf-viewer-bg:#18181b]"
+            className="scrollbar-editor"
           >
             <div ref={viewerDivRef} className="pdfViewer" />
           </div>
         </div>
-        {pdfError ? (
+        {pdfError && !pdfError.stale ? (
           <div
             role="alert"
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background p-8 text-sm text-muted-foreground"
           >
             <ImageIcon size={40} />
-            <div>{pdfError}</div>
+            <div>{pdfError.message}</div>
             <div className="max-w-md break-all text-center text-xs">{filename}</div>
           </div>
         ) : null}
+        {pdfError?.stale ? (
+          <div
+            role="status"
+            data-pdf-stale-notice=""
+            className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-1.5 text-xs text-muted-foreground"
+          >
+            <CircleAlert className="size-3.5 shrink-0" />
+            <span className="min-w-0 truncate">
+              {translate(
+                'auto.components.editor.PdfViewer.staleVersion',
+                'The latest version could not be loaded; showing the last one that did.'
+              )}
+            </span>
+          </div>
+        ) : null}
       </div>
-      <div className="flex items-center gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
-            onClick={zoomOut}
-            disabled={scale <= MIN_SCALE}
-            title={translate('auto.components.editor.PdfViewer.fa5d096b00', 'Zoom out')}
-          >
-            <ZoomOut size={14} />
-          </button>
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-accent hover:text-foreground"
-            onClick={zoomReset}
-            title={translate('auto.components.editor.PdfViewer.c0119616d6', 'Fit to width')}
-          >
-            <RotateCcw size={14} />
-          </button>
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
-            onClick={zoomIn}
-            disabled={scale >= MAX_SCALE}
-            title={translate('auto.components.editor.PdfViewer.2b6eb1ccd6', 'Zoom in')}
-          >
-            <ZoomIn size={14} />
-          </button>
-          <span className="ml-1 tabular-nums">{zoomPercent}%</span>
-        </div>
-        <button
-          type="button"
-          className="rounded p-1 hover:bg-accent hover:text-foreground"
-          onClick={() => setFindOpen(true)}
-          title={translate(
-            'auto.components.editor.PdfViewer.069ff59932',
-            'Find in PDF ({{value0}})',
-            { value0: findShortcutLabel }
-          )}
-        >
-          <Search size={14} />
-        </button>
-        <span className="min-w-0 truncate" title={filename}>
-          {filename}
-        </span>
-        <span>{translate('auto.components.editor.PdfViewer.3e98d500d2', 'PDF preview')}</span>
-      </div>
+      <PdfToolbar
+        filename={filename}
+        scale={scale}
+        scaleBounds={SCALE_BOUNDS}
+        page={page}
+        onZoom={stepZoom}
+        onScalePreference={applyScalePreference}
+        onGoToPage={goToPage}
+        onFind={openFind}
+      />
     </div>
   )
 }
