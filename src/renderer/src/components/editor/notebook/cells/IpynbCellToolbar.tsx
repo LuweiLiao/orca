@@ -1,5 +1,5 @@
 // @protected-copy
-import type { ReactNode } from 'react'
+import { ViewerToolbarButton as IpynbToolbarButton } from '../../viewer-viewport/ViewerToolbarButton'
 import {
   ArrowDownToLine,
   ArrowUpToLine,
@@ -22,9 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { ShortcutKeyCombo } from '@/components/ui/ShortcutKeyCombo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import type { ShortcutKeyComboDetails } from '@/lib/keyboard/useShortcutLabel'
 import { translate } from '@/i18n/i18n'
 import { useTranslate, type Translate } from '@/i18n/use-translate'
 import { cn } from '@/lib/class-names'
@@ -40,58 +38,7 @@ function cellKindLabel(kind: IpynbCellKind, t: Translate = translate): string {
       : t('auto.components.editor.IpynbViewer.3e4cbf15ea', 'Raw')
 }
 
-export function IpynbToolbarButton({
-  label,
-  disabled = false,
-  disabledReason,
-  shortcut,
-  onClick,
-  children
-}: {
-  label: string
-  disabled?: boolean
-  /** Shown instead of the label while disabled, so the user learns why. */
-  disabledReason?: string
-  shortcut?: ShortcutKeyComboDetails
-  onClick: () => void
-  children: ReactNode
-}): React.JSX.Element {
-  const reason = disabled ? disabledReason : undefined
-  const button = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {children}
-    </Button>
-  )
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {/* Why the span: a disabled button gets no pointer or focus events, so its tooltip never opens. */}
-        {reason ? (
-          <span tabIndex={0} aria-label={reason} className="inline-flex">
-            {button}
-          </span>
-        ) : (
-          button
-        )}
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={4}>
-        <span className="flex items-center gap-2">
-          <span>{reason ?? label}</span>
-          {shortcut && shortcut.keys.length > 0 ? (
-            <ShortcutKeyCombo keys={shortcut.keys} doubleTap={shortcut.doubleTap} />
-          ) : null}
-        </span>
-      </TooltipContent>
-    </Tooltip>
-  )
-}
+export { IpynbToolbarButton }
 
 export type IpynbRunState = 'idle' | 'queued' | 'running'
 

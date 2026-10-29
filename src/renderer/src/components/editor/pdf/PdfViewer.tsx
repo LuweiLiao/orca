@@ -1,5 +1,5 @@
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Image as ImageIcon, RotateCcw, Search, ZoomIn, ZoomOut } from 'lucide-react'
+import { CircleAlert, Image as ImageIcon } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type {
   EventBus,
@@ -8,13 +8,29 @@ import type {
 } from 'pdfjs-dist/web/pdf_viewer.mjs'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import PdfFind from './PdfFind'
-import { useShortcutLabel } from '@/lib/keyboard/useShortcutLabel'
 import { useAppStore } from '@/store/index'
 import { usePdfViewerFindShortcut } from './use-pdf-viewer-find-shortcut'
 
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { useTranslate } from '@/i18n/use-translate'
-import { createPdfDocumentLoader, type PdfDocumentLoader } from './pdf-document-loader'
+import {
+  createPdfDocumentLoader,
+  type PdfDocumentLoader,
+  type PdfLoadError
+} from './pdf-document-loader'
+import { PdfToolbar } from './PdfToolbar'
+import {
+  PdfSidebar,
+  readPdfSidebarPreference,
+  writePdfSidebarPreference,
+  type PdfSidebarPreference
+} from './PdfSidebar'
+import type { SynctexRect } from './pdf-synctex-parser'
+import {
+  openPdfSynctexSource,
+  PDF_SYNCTEX_REVEAL_EVENT,
+  takePendingPdfSynctexReveal
+} from './pdf-synctex-navigation'
 import { createPdfViewerSession } from './pdf-viewer-session'
 import { usePdfFormEditing } from './use-pdf-form-editing'
 import {
@@ -47,6 +63,8 @@ type PdfViewerProps = {
   scrollCacheKey?: string | null
   /** The writable tab whose form fields this viewer fills in; without it forms are read-only. */
   editFileId?: string | null
+  // Only an editor tab's own viewer navigates SyncTeX; diff and conflict panes pass nothing.
+  synctexFileId?: string
 }
 
 export default function PdfViewer(props: PdfViewerProps): JSX.Element {
@@ -66,7 +84,8 @@ function PdfDocumentViewer({
   filePath,
   preferenceKey = null,
   scrollCacheKey = null,
-  editFileId = null
+  editFileId = null,
+  synctexFileId
 }: PdfViewerProps): JSX.Element {
   const t = useTranslate()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -78,11 +97,28 @@ function PdfDocumentViewer({
     load: loadFormDocument,
     reset: resetFormEditing
   } = usePdfFormEditing(editFileId, rootRef, loaderRef)
-  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState<PdfLoadError | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [scale, setScale] = useState(1)
+  const [page, setPage] = useState<{ number: number; count: number } | null>(null)
+  const [shown, setShown] = useState<{
+    doc: pdfjsLib.PDFDocumentProxy
+    goToPage: (pageNumber: number) => void
+    goToDestination: (dest: string | unknown[]) => void
+    revealRect: (rect: SynctexRect) => void
+    pointAt: (event: MouseEvent) => { page: number; x: number; y: number } | null
+  } | null>(null)
+  const [sidebar, setSidebar] = useState<PdfSidebarPreference>(() =>
+    readPdfSidebarPreference(preferenceKey)
+  )
+  const updateSidebar = useCallback(
+    (next: PdfSidebarPreference) => {
+      setSidebar(next)
+      writePdfSidebarPreference(preferenceKey, next)
+    },
+    [preferenceKey]
+  )
   const keybindings = useAppStore((state) => state.keybindings)
-  const findShortcutLabel = useShortcutLabel('editor.find')
   const isCommandOwner = useContext(EditorCommandOwnerContext)
   const eventBusRef = useRef<InstanceType<typeof EventBus> | null>(null)
   const findControllerRef = useRef<InstanceType<typeof PDFFindController> | null>(null)
@@ -128,11 +164,19 @@ function PdfDocumentViewer({
           getScalePreference: () => scalePreferenceRef.current,
           scaleBounds: SCALE_BOUNDS,
           onScaleChanging: setScale,
+          onPageChanging: setPage,
           onWheelZoom: recordScalePreference
         })
         eventBusRef.current = session.eventBus
         findControllerRef.current = session.findController
         pdfViewerRef.current = session.viewer
+        setShown({
+          doc,
+          goToPage: session.goToPage,
+          goToDestination: session.goToDestination,
+          revealRect: session.revealRect,
+          pointAt: session.pointAt
+        })
         return () => {
           try {
             session.dispose()
@@ -140,6 +184,7 @@ function PdfDocumentViewer({
             eventBusRef.current = null
             findControllerRef.current = null
             pdfViewerRef.current = null
+            setShown(null)
             setFindOpen(false)
           }
           return formDraft?.detach()
@@ -187,17 +232,18 @@ function PdfDocumentViewer({
     [recordScalePreference]
   )
 
-  const zoomIn = useCallback(() => stepZoom('in'), [stepZoom])
-  const zoomOut = useCallback(() => stepZoom('out'), [stepZoom])
-
-  const zoomReset = useCallback(() => {
-    const viewer = pdfViewerRef.current
-    if (!viewer) {
-      return
-    }
-    applyPdfScalePreference(viewer, 'page-width', SCALE_BOUNDS)
-    recordScalePreference('page-width')
-  }, [recordScalePreference])
+  const applyScalePreference = useCallback(
+    (preference: PdfScalePreference) => {
+      const viewer = pdfViewerRef.current
+      if (!viewer) {
+        return
+      }
+      applyPdfScalePreference(viewer, preference, SCALE_BOUNDS)
+      recordScalePreference(preference)
+    },
+    [recordScalePreference]
+  )
+  const zoomReset = useCallback(() => applyScalePreference('page-width'), [applyScalePreference])
 
   useEffect(() => {
     if (!isCommandOwner) {
@@ -212,83 +258,121 @@ function PdfDocumentViewer({
   const openFind = useCallback(() => setFindOpen(true), [])
   usePdfViewerFindShortcut({ rootRef, ownsCommands: isCommandOwner, keybindings, openFind })
 
-  const zoomPercent = Math.round(scale * 100)
+  const goToPage = useCallback((pageNumber: number) => shown?.goToPage(pageNumber), [shown])
+
+  useEffect(() => {
+    if (!shown || !synctexFileId) {
+      return
+    }
+    const reveal = (): void => {
+      const rect = takePendingPdfSynctexReveal(synctexFileId)
+      if (rect) {
+        shown.revealRect(rect)
+      }
+    }
+    reveal()
+    const onRequest = (event: Event): void => {
+      if (event instanceof CustomEvent && event.detail?.fileId === synctexFileId) {
+        reveal()
+      }
+    }
+    window.addEventListener(PDF_SYNCTEX_REVEAL_EVENT, onRequest)
+    return () => window.removeEventListener(PDF_SYNCTEX_REVEAL_EVENT, onRequest)
+  }, [shown, synctexFileId])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !shown || !synctexFileId) {
+      return
+    }
+    const isMac = navigator.userAgent.includes('Mac')
+    // Why capture: a Ctrl/Cmd-click on a link annotation must jump to source, not follow it.
+    const onClick = (event: MouseEvent): void => {
+      if (!(isMac ? event.metaKey : event.ctrlKey) || event.button !== 0) {
+        return
+      }
+      const point = shown.pointAt(event)
+      if (!point) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      void openPdfSynctexSource(synctexFileId, point)
+    }
+    container.addEventListener('click', onClick, { capture: true })
+    return () => container.removeEventListener('click', onClick, { capture: true })
+  }, [shown, synctexFileId])
 
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
-      <div className="relative flex flex-1 flex-col overflow-hidden">
-        <PdfFind isOpen={findOpen} onClose={closeFindBar} eventBusRef={eventBusRef} />
-        {/* PDFViewer needs absolute positioning; isolate pdf.js DOM from Preflight with all:revert, then apply layout on the inner container. */}
-        <div style={{ all: 'revert' }}>
-          <div
-            ref={containerRef}
-            style={{
-              position: 'absolute',
-              inset: '0',
-              overflow: 'auto',
-              background: 'var(--pdf-viewer-bg, #e4e4e7)'
-            }}
-            className="scrollbar-editor dark:[--pdf-viewer-bg:#18181b]"
-          >
-            <div ref={viewerDivRef} className="pdfViewer" />
-          </div>
-        </div>
-        {pdfError ? (
-          <div
-            role="alert"
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background p-8 text-sm text-muted-foreground"
-          >
-            <ImageIcon size={40} />
-            <div>{pdfError}</div>
-            <div className="max-w-md break-all text-center text-xs">{filename}</div>
-          </div>
+      <div className="flex min-h-0 flex-1">
+        {sidebar.open && shown ? (
+          <PdfSidebar
+            key={preferenceKey ?? filePath}
+            doc={shown.doc}
+            currentPage={page?.number ?? 1}
+            tab={sidebar.tab}
+            onTabChange={(tab) => updateSidebar({ ...sidebar, tab })}
+            onGoToPage={shown.goToPage}
+            onGoToDestination={shown.goToDestination}
+          />
         ) : null}
-      </div>
-      <div className="flex items-center gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
-            onClick={zoomOut}
-            disabled={scale <= MIN_SCALE}
-            title={t('auto.components.editor.PdfViewer.fa5d096b00', 'Zoom out')}
-          >
-            <ZoomOut size={14} />
-          </button>
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-accent hover:text-foreground"
-            onClick={zoomReset}
-            title={t('auto.components.editor.PdfViewer.c0119616d6', 'Fit to width')}
-          >
-            <RotateCcw size={14} />
-          </button>
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-50"
-            onClick={zoomIn}
-            disabled={scale >= MAX_SCALE}
-            title={t('auto.components.editor.PdfViewer.2b6eb1ccd6', 'Zoom in')}
-          >
-            <ZoomIn size={14} />
-          </button>
-          <span className="ml-1 tabular-nums">{zoomPercent}%</span>
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          <PdfFind isOpen={findOpen} onClose={closeFindBar} eventBusRef={eventBusRef} />
+          {/* PDFViewer needs absolute positioning; isolate pdf.js DOM from Preflight with all:revert, then apply layout on the inner container. */}
+          <div style={{ all: 'revert' }}>
+            <div
+              ref={containerRef}
+              style={{
+                position: 'absolute',
+                inset: '0',
+                overflow: 'auto',
+                background: 'var(--pdf-viewer-bg, #e4e4e7)'
+              }}
+              className="scrollbar-editor dark:[--pdf-viewer-bg:#18181b]"
+            >
+              <div ref={viewerDivRef} className="pdfViewer" />
+            </div>
+          </div>
+          {pdfError && !pdfError.stale ? (
+            <div
+              role="alert"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background p-8 text-sm text-muted-foreground"
+            >
+              <ImageIcon size={40} />
+              <div>{pdfError.message}</div>
+              <div className="max-w-md break-all text-center text-xs">{filename}</div>
+            </div>
+          ) : null}
+          {pdfError?.stale ? (
+            <div
+              role="status"
+              data-pdf-stale-notice=""
+              className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-1.5 text-xs text-muted-foreground"
+            >
+              <CircleAlert className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate">
+                {t(
+                  'auto.components.editor.PdfViewer.staleVersion',
+                  'The latest version could not be loaded; showing the last one that did.'
+                )}
+              </span>
+            </div>
+          ) : null}
         </div>
-        <button
-          type="button"
-          className="rounded p-1 hover:bg-accent hover:text-foreground"
-          onClick={() => setFindOpen(true)}
-          title={t('auto.components.editor.PdfViewer.069ff59932', 'Find in PDF ({{value0}})', {
-            value0: findShortcutLabel
-          })}
-        >
-          <Search size={14} />
-        </button>
-        <span className="min-w-0 truncate" title={filename}>
-          {filename}
-        </span>
-        <span>{t('auto.components.editor.PdfViewer.3e98d500d2', 'PDF preview')}</span>
       </div>
+      <PdfToolbar
+        sidebarOpen={sidebar.open}
+        onToggleSidebar={() => updateSidebar({ ...sidebar, open: !sidebar.open })}
+        filename={filename}
+        scale={scale}
+        scaleBounds={SCALE_BOUNDS}
+        page={page}
+        onZoom={stepZoom}
+        onScalePreference={applyScalePreference}
+        onGoToPage={goToPage}
+        onFind={openFind}
+      />
     </div>
   )
 }

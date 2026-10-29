@@ -16,13 +16,20 @@ export type PdfDocumentLoader = {
   dispose: () => void
 }
 
+/**
+ * What the viewer shows for a load that failed: with nothing on screen it replaces the view; with
+ * an earlier version still on screen it is a notice above that version (`stale`), so a LaTeX
+ * build caught half-written never blanks what the reader had.
+ */
+export type PdfLoadError = { message: string; stale: boolean }
+
 export function createPdfDocumentLoader({
   display,
   onError
 }: {
   /** Its detach may return a promise; the document stays alive until it settles. */
   display: (doc: pdfjsLib.PDFDocumentProxy) => () => Promise<void> | void
-  onError: (message: string | null) => void
+  onError: (error: PdfLoadError | null) => void
 }): PdfDocumentLoader {
   const tasks = new Set<PdfLoadingTask>()
   let pending: PdfLoadingTask | null = null
@@ -37,8 +44,11 @@ export function createPdfDocumentLoader({
         .catch(() => {})
     }
   }
+  const report = (message: string): void => {
+    onError({ message, stale: displayed !== null })
+  }
   const fail = (error: unknown): void => {
-    onError(
+    report(
       error instanceof Error && error.name === 'PasswordException'
         ? translate(
             'auto.components.editor.PdfViewer.passwordProtected',
@@ -46,6 +56,20 @@ export function createPdfDocumentLoader({
           )
         : pdfLoadFailedMessage()
     )
+  }
+
+  const detachDisplayed = (): void => {
+    const previous = displayed
+    displayed = null
+    let detached: Promise<void> | void = undefined
+    try {
+      // Why: flush the reader's position before the replacement restores it.
+      detached = previous?.detach()
+    } finally {
+      if (previous) {
+        destroy(previous.task, detached)
+      }
+    }
   }
 
   return {
@@ -57,18 +81,7 @@ export function createPdfDocumentLoader({
         destroy(pending)
         pending = null
       }
-      const previous = displayed
-      displayed = null
-      let detached: Promise<void> | void = undefined
-      try {
-        // Why: flush the reader's position before the replacement restores it.
-        detached = previous?.detach()
-      } finally {
-        if (previous) {
-          destroy(previous.task, detached)
-        }
-      }
-      onError(null)
+      // Why: the version on screen stays until a replacement parses, so the reader keeps reading.
       // Bound to the task once it exists: a failed range tears down that load, not just its message.
       let failRange: (error: unknown) => void = fail
       const documentSource =
@@ -86,7 +99,7 @@ export function createPdfDocumentLoader({
               { data: source.bytes.slice() }
             : decodePdfBase64(source.base64)
       if (typeof documentSource === 'string') {
-        onError(documentSource)
+        report(documentSource)
         return
       }
       let task: PdfLoadingTask
@@ -123,6 +136,7 @@ export function createPdfDocumentLoader({
             return
           }
           pending = null
+          detachDisplayed()
           try {
             displayed = { task, detach: display(doc) }
             onError(null)

@@ -19,8 +19,14 @@ import {
   clampPdfViewPosition,
   createPdfViewPositionRecorder
 } from './pdf-view-position'
+import type { SynctexRect } from './pdf-synctex-parser'
+import { flashPdfRect, pdfPageGeometry, pdfPointAt } from './pdf-page-geometry'
 
 const PAGE_WIDTH_REFIT_SETTLE_MS = 150
+// Why ~1s: a tab switch can take several frames before its pane has a height.
+const REVEAL_LAYOUT_ATTEMPTS = 60
+// Why: keep a line of context above the revealed line instead of pinning it to the edge.
+const REVEAL_MARGIN_PT = 36
 
 // Push buttons stay live: they are links, and a reset only changes this view's copy.
 const FORM_FIELD_SELECTOR =
@@ -48,6 +54,7 @@ export function createPdfViewerSession({
   getScalePreference,
   scaleBounds,
   onScaleChanging,
+  onPageChanging,
   onWheelZoom
 }: {
   container: HTMLDivElement
@@ -58,11 +65,21 @@ export function createPdfViewerSession({
   getScalePreference: () => PdfScalePreference
   scaleBounds: { min: number; max: number }
   onScaleChanging: (scale: number) => void
+  /** The page the reader is on, and how many there are. */
+  onPageChanging: (page: { number: number; count: number }) => void
   onWheelZoom: (scale: PdfScalePreference) => void
 }): {
   viewer: InstanceType<typeof PdfJsViewer>
   eventBus: InstanceType<typeof EventBus>
   findController: InstanceType<typeof PDFFindController>
+  /** Jumps to a page; a pending position restore then leaves the reader there. */
+  goToPage: (pageNumber: number) => void
+  /** Jumps to an outline destination, the same way. */
+  goToDestination: (dest: string | unknown[]) => void
+  /** Scrolls a SyncTeX rect into view and flashes it, once pages are laid out. */
+  revealRect: (rect: SynctexRect) => void
+  /** The page and SyncTeX coordinates (PDF points from the top-left) under a pointer. */
+  pointAt: (event: MouseEvent) => { page: number; x: number; y: number } | null
   dispose: () => void
 } {
   let cancelled = false
@@ -93,6 +110,12 @@ export function createPdfViewerSession({
     }
   }
   eventBus.on('scalechanging', handleScaleChanging)
+  const handlePageChanging = (evt: { pageNumber: number }): void => {
+    if (!cancelled) {
+      onPageChanging({ number: evt.pageNumber, count: viewer.pagesCount })
+    }
+  }
+  eventBus.on('pagechanging', handlePageChanging)
 
   // Why: Chromium reports trackpad pinch as ctrl-wheel; unclaimed, it only scrolls the PDF.
   container.addEventListener(
@@ -132,6 +155,7 @@ export function createPdfViewerSession({
   }
 
   const handlePagesInit = (): void => {
+    onPageChanging({ number: viewer.currentPageNumber, count: viewer.pagesCount })
     // Why: pdf.js drops a preset scale set before its page views exist, leaving the PDF at 100%.
     applyPdfScalePreference(viewer, getScalePreference(), scaleBounds)
     const cached = scrollCacheKey ? pdfViewPositionCache.get(scrollCacheKey) : undefined
@@ -250,6 +274,7 @@ export function createPdfViewerSession({
     eventBus.off('updateviewarea', handleUpdateViewArea)
     eventBus.off('find', markUserMoved)
     eventBus.off('scalechanging', handleScaleChanging)
+    eventBus.off('pagechanging', handlePageChanging)
     // Why: detach cancels renders and clears the find controller before worker destruction.
     try {
       // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: pdf.js accepts null to detach a document, but its declaration omits null.
@@ -270,5 +295,54 @@ export function createPdfViewerSession({
     dispose()
     throw error
   }
-  return { viewer, eventBus, findController, dispose }
+  const goToPage = (pageNumber: number): void => {
+    markUserMoved()
+    viewer.currentPageNumber = pageNumber
+  }
+  const goToDestination = (dest: string | unknown[]): void => {
+    markUserMoved()
+    void linkService.goToDestination(dest).catch(() => {})
+  }
+  const revealRect = (rect: SynctexRect): void => {
+    let attempts = 0
+    const run = (): void => {
+      if (cancelled) {
+        return
+      }
+      const page = pdfPageGeometry(viewer, rect.page)
+      // Why: a just-activated tab lays out a frame later; pdf.js needs real sizes to scroll.
+      if (!page || container.clientHeight === 0) {
+        if (++attempts < REVEAL_LAYOUT_ATTEMPTS) {
+          requestAnimationFrame(run)
+        }
+        return
+      }
+      markUserMoved()
+      const [, pdfTop] = page.toPdf(0, 0)
+      const top = pdfTop - rect.top + REVEAL_MARGIN_PT
+      viewer.scrollPageIntoView({
+        pageNumber: rect.page,
+        destArray: [null, { name: 'XYZ' }, null, top, null],
+        allowNegativeOffset: true
+      })
+      flashPdfRect(viewer, eventBus, rect)
+    }
+    if (viewer.pagesCount > 0) {
+      run()
+    } else {
+      eventBus.on('pagesinit', run, { once: true })
+    }
+  }
+  const pointAt = (event: MouseEvent): { page: number; x: number; y: number } | null =>
+    pdfPointAt(viewer, container, event)
+  return {
+    viewer,
+    eventBus,
+    findController,
+    goToPage,
+    goToDestination,
+    revealRect,
+    pointAt,
+    dispose
+  }
 }

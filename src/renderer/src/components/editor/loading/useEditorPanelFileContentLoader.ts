@@ -9,6 +9,7 @@ import {
 import { useAppStore } from '@/store/index'
 import { getRuntimeFileReadScope } from '@/runtime/files/runtime-file-routing'
 import { readEditorCsvFileContent } from '../csv/preview/csv-file-content'
+import { settleExternalPdfReload } from '../pdf/pdf-rebuild-settle'
 import type { RuntimeClientTarget } from '../../../../../shared/remote-runtime/host-catalog/runtime-client-target'
 import { requireRuntimeTargetForFileOwner } from '@/lib/files/access/file-owner-runtime-target'
 import type { RuntimeWorkspaceFileRoute } from '@/lib/files/access/runtime-workspace-file-route'
@@ -223,6 +224,9 @@ export function useEditorPanelFileContentLoader({
           expectedEnvironmentPairingRevision: readGrantPairing,
           pageOversizedBinary: true,
           ...(options?.wakeWslDistro ? { wakeWslDistro: true } : {})
+        }
+        if (!(await settleExternalPdfReload(readArgs, filePath, options, requestCurrent))) {
+          return
         }
         const readPathKey = `${readScope ?? ''}::${filePath}`
         const key = `${readPathKey}::${JSON.stringify(acquisition?.provenance)}::${access?.kind ?? ''}${allowPagedPreview ? '' : '::editable'}${options?.wakeWslDistro ? '::wake' : ''}`

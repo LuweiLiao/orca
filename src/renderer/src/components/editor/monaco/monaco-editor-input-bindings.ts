@@ -1,8 +1,9 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import type { editor } from 'monaco-editor'
+import { KeyCode, KeyMod, type editor } from 'monaco-editor'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store/index'
 import { translate } from '@/i18n/i18n'
+import { revealSourceLineInPdf } from '../pdf/pdf-synctex-navigation'
 import { getMonacoCodebaseSearchQuery } from './monaco-codebase-search'
 import { formatSelectionReference } from '../contextual-copy/selection-copy'
 import { openAddToChatMenuAt } from '../../native-chat/selection-quotes/add-to-chat-point-menu'
@@ -26,6 +27,7 @@ type MonacoEditorInputBindingsParams = {
   worktreeId: string | undefined
   editorContainerRef: MutableRefObject<HTMLDivElement | null>
   propsRef: MonacoEditorPropsRef
+  fileIdRef: MutableRefObject<string>
   readOnlyRef: MutableRefObject<boolean>
   commentPopoverRef: MutableRefObject<MarkdownCommentPopoverState | null>
   shouldShowMarkdownAnnotationsRef: MutableRefObject<boolean>
@@ -44,6 +46,7 @@ export function installMonacoEditorInputBindings(params: MonacoEditorInputBindin
     worktreeId,
     editorContainerRef,
     propsRef,
+    fileIdRef,
     readOnlyRef,
     commentPopoverRef,
     shouldShowMarkdownAnnotationsRef,
@@ -159,6 +162,25 @@ export function installMonacoEditorInputBindings(params: MonacoEditorInputBindin
       }
     })
   }
+  // Why a context key: the action is only offered in LaTeX sources, where SyncTeX can resolve it.
+  const isLatexSource = editorInstance.createContextKey(
+    'orcaLatexSource',
+    propsRef.current.relativePath.toLowerCase().endsWith('.tex')
+  )
+  const showInPdfAction = editorInstance.addAction({
+    id: 'orca.synctex.showInPdf',
+    label: translate('auto.components.editor.MonacoEditor.showInPdf', 'Show in PDF'),
+    precondition: 'orcaLatexSource',
+    keybindings: [KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyJ],
+    contextMenuGroupId: 'navigation',
+    contextMenuOrder: 3,
+    run: () => {
+      const line = editorInstance.getPosition()?.lineNumber
+      if (line) {
+        void revealSourceLineInPdf(fileIdRef.current, line)
+      }
+    }
+  })
   pasteCaptureNode.addEventListener('paste', onLargeTextPaste, { capture: true })
 
   return {
@@ -169,6 +191,8 @@ export function installMonacoEditorInputBindings(params: MonacoEditorInputBindin
       pasteCaptureNode.removeEventListener('paste', onLargeTextPaste, { capture: true })
       searchInFilesAction.dispose()
       addToChatAction.dispose()
+      showInPdfAction.dispose()
+      isLatexSource.reset()
     }
   }
 }

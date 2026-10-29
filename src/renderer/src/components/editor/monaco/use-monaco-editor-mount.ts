@@ -169,6 +169,7 @@ export function useMonacoEditorMount(params: MonacoEditorMountParams): OnMount {
         worktreeId,
         editorContainerRef,
         propsRef,
+        fileIdRef,
         readOnlyRef,
         commentPopoverRef,
         shouldShowMarkdownAnnotationsRef,
