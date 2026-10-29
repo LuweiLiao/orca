@@ -90,7 +90,10 @@ export function openLanguageServerTarget(
   if (preview && previewModels.delete(preview) && !preview.isDisposed()) {
     preview.dispose()
   }
-  const relativePath = relativePathInsideRoot(sourceDocument.entry.rootPath, filePath)
+  // Why the workspace, not the server root: a crate's server starts in its own directory.
+  const workspaceRoot =
+    state.getKnownWorktreeById(sourceFile.worktreeId)?.path ?? sourceDocument.entry.rootPath
+  const relativePath = relativePathInsideRoot(workspaceRoot, filePath)
   const groupId = state.unifiedTabsByWorktree[sourceFile.worktreeId]?.find(
     (tab) => tab.entityId === sourceFile.id && tab.contentType === 'editor'
   )?.groupId

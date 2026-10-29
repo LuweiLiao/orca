@@ -3,6 +3,7 @@ import type { editor } from 'monaco-editor'
 import { useAppStore } from '@/store'
 import type { AppState } from '@/store/types'
 import { attachLanguageServerDocument } from './language-server-documents'
+import { languageServerProjectRoot } from './language-server-project-root'
 import { languageServerRouteFor, type LanguageServerRoute } from './language-server-routing'
 
 function routeOf(
@@ -38,12 +39,22 @@ export function useLanguageServerDocument(
     if (model.uri.toString() !== modelUri || model.uri.scheme !== 'file') {
       return
     }
-    return attachLanguageServerDocument({
-      model,
-      fileId,
-      serverId,
-      languageId: lspLanguageId,
-      rootPath
+    let cancelled = false
+    let release: (() => void) | null = null
+    void languageServerProjectRoot(serverId, rootPath, model.uri.fsPath).then((projectRoot) => {
+      if (!cancelled && !model.isDisposed()) {
+        release = attachLanguageServerDocument({
+          model,
+          fileId,
+          serverId,
+          languageId: lspLanguageId,
+          rootPath: projectRoot
+        })
+      }
     })
+    return () => {
+      cancelled = true
+      release?.()
+    }
   }, [mountedEditor, fileId, modelUri, serverId, lspLanguageId, rootPath])
 }
