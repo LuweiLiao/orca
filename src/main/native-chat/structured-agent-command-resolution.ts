@@ -15,6 +15,7 @@ import {
 } from './agent-session-wire/structured-agent-session-adapter'
 import { guestNativePathEnv } from '../ipc/wsl-guest-windows-drive-path'
 import type { AgentReplyRuleSettings } from '../../shared/agent-reply-rule-settings'
+import type { ClaudeLauncherAgent } from '../../shared/claude-cli-launch-agents'
 
 /** The settings a structured launch reads: command overrides and the agent reply rules. */
 export type StructuredAgentCommandSettings = Partial<
@@ -46,11 +47,13 @@ function spawnableOn(platform: NodeJS.Platform, command: string): boolean {
 
 /** Read live settings on every lookup; invalid explicit commands must refuse instead of launching stock CLI. */
 export function resolveStructuredAgentCommand(
-  agent: TuiAgent,
+  requestedAgent: TuiAgent,
   settings: CommandSettings,
-  options: CommandOptions = {},
+  { launcher, ...options }: CommandOptions & { launcher?: ClaudeLauncherAgent } = {},
   stock: { command?: string; resolve?: typeof resolveCliCommand } = {}
 ): string {
+  // A Claude chat run by a launcher (ccb) resolves the launcher's own command and override.
+  const agent = requestedAgent === 'claude' && launcher ? launcher : requestedAgent
   if (!hasExplicitTuiLaunchCommand(settings, agent)) {
     // WSL PATH may contain drive-mounted Windows shims after native entries.
     const pathEnv = guestNativePathEnv(options.pathEnv)

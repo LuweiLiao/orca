@@ -11,6 +11,7 @@ import type {
 import { structuredAgentSessionProviderSessionMetadata } from './structured-agent-session-history-result'
 import { agentSessionPinnedLaunchDirectory } from '../../runtime/agent-session-record-launch-directory'
 import { isAgentChatPermissionMode } from '../../../shared/agent-chat-permission-mode'
+import { claudeLauncherFromOptions } from '../../../shared/claude-cli-launch-agents'
 import type { StructuredAgentSessionStatusFeedDeps } from './structured-agent-session-status-feed-deps'
 import { structuredStatusSummariesEqual } from './structured-agent-session-status-summary-equality'
 
@@ -44,6 +45,7 @@ export function structuredAgentSessionStatusSummary({
   // Acknowledged record options remain authoritative across model switches.
   const model = normalizeOptionalField(record?.options?.model, AGENT_MODEL_MAX_LENGTH)
   const permissionMode = record?.permissionMode
+  const launcher = claudeLauncherFromOptions(record?.options)
   const launchDirectory = record ? agentSessionPinnedLaunchDirectory(record) : undefined
   return {
     sessionId,
@@ -63,6 +65,7 @@ export function structuredAgentSessionStatusSummary({
       : {}),
     ...(model ? { model } : {}),
     ...(isAgentChatPermissionMode(permissionMode) ? { permissionMode } : {}),
+    ...(launcher ? { launcher } : {}),
     ...childWork,
     ...(providerSession ? { providerSession } : {}),
     ...(launchDirectory ? { launchDirectory } : {}),

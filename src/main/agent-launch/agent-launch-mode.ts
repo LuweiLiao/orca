@@ -15,6 +15,7 @@ import {
   type StructuredNativeChatBlocker
 } from '../../shared/structured-native-chat-launch-route'
 import type { TuiAgent } from '../../shared/tui-agent'
+import { isClaudeLauncherAgent } from '../../shared/claude-cli-launch-agents'
 import type { WorkspaceLaunchKind } from '../../shared/workspace-launch-kind'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { AgentLaunchSurface } from '../../shared/agent-launch-surface'
@@ -124,6 +125,11 @@ export function decideAgentLaunchMode(args: {
   // Federated launches create terminals; this host cannot establish the remote’s chat support.
   if (placement.on) {
     return blocked('remote_execution_host')
+  }
+  // Why: these launches create the chat under their own agent name; only the renderer maps a
+  // launcher to its Claude chat, so a launcher keeps its terminal here.
+  if (isClaudeLauncherAgent(agent)) {
+    return blocked(BLOCKER_REASON['agent-without-structured-session'])
   }
   const cwdRelation = launchCwdRelation(placement)
   const support = resolveStructuredNativeChatSupport({

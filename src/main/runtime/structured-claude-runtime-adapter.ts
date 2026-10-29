@@ -18,6 +18,7 @@ import type { ClaudeCommandCatalogProbe } from '../claude/claude-command-catalog
 import { openClaudeStreamJsonConnection } from '../claude/claude-stream-json-connection'
 import type { ClaudeCliFlagSupport } from '../claude/claude-cli-flag-support'
 import { prewarmClaudeCliFlags } from '../claude/claude-cli-flag-prewarm'
+import type { ClaudeCommandLookup } from '../claude/claude-structured-child-env'
 
 export type StructuredClaudeRuntimeAdapterDeps = {
   store: AgentSessionRecordStore
@@ -25,7 +26,7 @@ export type StructuredClaudeRuntimeAdapterDeps = {
   /** The registration's composed launch: the shared launch path with Claude's part. */
   resolveLaunch: ClaudeStructuredSessionAdapterDeps['resolveLaunch']
   /** The binary and env the startup version prewarm asks, as a launch would. */
-  resolveClaudeCommand?: typeof resolveClaudeCommand
+  resolveClaudeCommand?: (options?: ClaudeCommandLookup) => string
   resolveClaudeLaunchEnv?: () => Promise<Record<string, string>> | Record<string, string>
   /** The env a Claude child inherits before auth stripping; absent inherits Orca's own. */
   resolveClaudeInheritedEnv?: () => Promise<Record<string, string>>

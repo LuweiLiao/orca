@@ -46,6 +46,7 @@ const EXPECTED_LANES: Record<TuiAgent, LaunchedAgentReadinessLane> = {
   devin: 'tui-idle',
   claude: 'tui-idle',
   'claude-agent-teams': 'tui-idle',
+  ccb: 'tui-idle',
   openclaude: 'tui-idle',
   gemini: 'tui-idle',
   antigravity: 'tui-idle',

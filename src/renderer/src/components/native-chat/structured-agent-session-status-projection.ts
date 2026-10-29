@@ -135,7 +135,8 @@ export function projectStatus(
     // Derived from `mainAgent`, so the equality below needs no second check of it.
     interrupted: mainAgentTurnInterrupted(mainAgent),
     prompt: summary.latestPrompt,
-    agentType: tab.agentSessionAgent,
+    // A Claude chat run by a launcher (ccb) shows as that launcher; its tab keeps the provider.
+    agentType: summary.launcher ?? tab.agentSessionAgent,
     // The host projects these from the journal so the row reads like a hook-reported one:
     // the turn's running or latest tool while it is live, the agent's last words once it settles.
     ...(summary.model ? { model: summary.model } : {}),
