@@ -35,7 +35,7 @@ import {
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../shared/layout-owner-switch'
 import { structuredAgentSessionClosedBeforeCreate } from './structured-agent-session-close-before-create'
 import { structuredLaunchSeedOnSavedListing } from '../../session-tabs/structured-launch-seed-listing'
-import { withoutCreateOnlyOptions } from '../../../../shared/claude-cli-launch-agents'
+import { mergeCreateOptions } from '../../../../shared/claude-cli-launch-agents'
 import type { ChatTabPlacement } from '../../agent-session/agent-session-tab-layout'
 
 export type PreparedStructuredAgentSessionCreate = {
@@ -132,7 +132,7 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
     const refusal = structuredAgentSessionOptionOverridesRefusal(
       host.deps.agents,
       args.agent,
-      withoutCreateOnlyOptions(args.agent, args.options)
+      args.options
     )
     if (refusal) {
       throw new AgentSessionRefusalError(refusal)
@@ -146,11 +146,11 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
   } = resolved
   // The ledger covers explicit overrides, never defaults that settings can change on replay.
   // Explicit picks replace the saved selection; the permission default is the chat's own.
-  const picked = args.options
-    ? atRest
-      ? { ...resolved.options, ...args.options }
-      : { ...seededPermissionMode(resolved.options), ...args.options }
-    : resolved.options
+  const picked = mergeCreateOptions(args.agent, args.options, resolved.options, (picks) =>
+    atRest
+      ? { ...resolved.options, ...picks }
+      : { ...seededPermissionMode(resolved.options), ...picks }
+  )
   // The folder the new-chat picker read its list for, resolved once: the seed and the host's
   // admission read the same list.
   let folder: Promise<string | null> | undefined

@@ -15,7 +15,10 @@ import {
   type StructuredNativeChatBlocker
 } from '../../shared/structured-native-chat-launch-route'
 import type { TuiAgent } from '../../shared/tui-agent'
-import { isClaudeLauncherAgent } from '../../shared/claude-cli-launch-agents'
+import {
+  isClaudeLauncherAgent,
+  structuredLaunchProviderFor
+} from '../../shared/claude-cli-launch-agents'
 import type { WorkspaceLaunchKind } from '../../shared/workspace-launch-kind'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { AgentLaunchSurface } from '../../shared/agent-launch-surface'
@@ -96,6 +99,8 @@ export function decideAgentLaunchMode(args: {
   terminalOnly?: boolean
   surface?: AgentLaunchSurface
   vocabulary?: AgentLaunchModeVocabulary
+  /** The surfaces can create a launcher's chat as its Claude chat. */
+  launcherChats?: boolean
 }): AgentLaunchModeReceipt {
   const { placement, settings, surface } = args
   const vocabulary = args.vocabulary ?? DEFAULT_LAUNCH_VOCABULARY
@@ -126,9 +131,8 @@ export function decideAgentLaunchMode(args: {
   if (placement.on) {
     return blocked('remote_execution_host')
   }
-  // Why: these launches create the chat under their own agent name; only the renderer maps a
-  // launcher to its Claude chat, so a launcher keeps its terminal here.
-  if (isClaudeLauncherAgent(agent)) {
+  // Why: other surfaces create the chat under the launcher's own name, which no host registers.
+  if (isClaudeLauncherAgent(agent) && !args.launcherChats) {
     return blocked(BLOCKER_REASON['agent-without-structured-session'])
   }
   const cwdRelation = launchCwdRelation(placement)
@@ -202,11 +206,12 @@ async function readStructuredCreateSupport(
   worktreeId: string,
   agent: TuiAgent | undefined
 ): Promise<{ supported: boolean; reason?: 'agent' | 'remote' | 'wsl' } | null> {
-  if (!agent || !REGISTERED_STRUCTURED_AGENTS.includes(agent)) {
+  const provider = agent && structuredLaunchProviderFor(agent).agent
+  if (!provider || !REGISTERED_STRUCTURED_AGENTS.includes(provider)) {
     return { supported: false, reason: 'agent' }
   }
   try {
-    return await runtime.getStructuredAgentSessionCreateSupport(`id:${worktreeId}`, agent)
+    return await runtime.getStructuredAgentSessionCreateSupport(`id:${worktreeId}`, provider)
   } catch {
     return null
   }

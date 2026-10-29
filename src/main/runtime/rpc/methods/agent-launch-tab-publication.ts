@@ -175,7 +175,8 @@ export async function publishAgentLaunchTabEarly(
       ...(params.cwd ? { cwd: params.cwd } : {})
     },
     settings,
-    ...(params.surface ? { surface: params.surface } : {})
+    ...(params.surface ? { surface: params.surface } : {}),
+    launcherChats: true
   })
   // A chat's tab is the session's; it appears when the session is created.
   if (preflight.mode !== 'terminal') {
