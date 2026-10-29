@@ -3,7 +3,6 @@ import { ClaudeIcon, DroidIcon, OpenAIIcon } from '@/components/status-bar/icons
 import type { TuiAgent } from '../../../shared/tui-agent'
 import type { TerminalAgent } from '../../../shared/terminal-agent'
 import { formatAgentTypeLabel } from '../../../shared/agent-type-label'
-import { runsClaudeCodeCli } from '../../../shared/claude-cli-launch-agents'
 import {
   AgentLetterIcon,
   AiderIcon,
@@ -54,7 +53,7 @@ export function AgentIcon({
   if (!agent) {
     return <AgentLetterIcon letter="?" size={size} />
   }
-  if (runsClaudeCodeCli(agent)) {
+  if (agent === 'claude' || agent === 'claude-agent-teams') {
     return <ClaudeIcon size={size} />
   }
   if (agent === 'codex') {

@@ -13,9 +13,11 @@ import { getTabDragLabel, resolveTerminalItemTab, type TabBarItem } from './tab-
 import type { TabBarItemActions } from './use-tab-bar-item-actions'
 import {
   useStructuredChatTabConversationName,
+  useStructuredChatTabLauncher,
   useStructuredChatTabNamingFailure
 } from '@/runtime/structured-conversation-name'
 import { agentTypeToIconAgent } from '@/lib/agent-status'
+import { defaultAgentChatLabel } from '../../../../shared/agent-session-chat-label'
 
 // Why only values and `actions`: anything a tab draws must be a compared prop, or a skipped render shows it stale.
 type TabBarItemRowProps = {
@@ -69,6 +71,9 @@ function TabBarItemRow({
   const namingFailure = useStructuredChatTabNamingFailure(
     item.type === 'agent-session' ? item.data : undefined
   )
+  const launcher = useStructuredChatTabLauncher(
+    item.type === 'agent-session' ? item.data : undefined
+  )
   const dragData: TabDragItemData = {
     kind: 'tab',
     worktreeId,
@@ -119,18 +124,24 @@ function TabBarItemRow({
   }
   if (item.type === 'agent-session') {
     const nativeChat = { sessionId: item.data.entityId, agent: item.data.agentSessionAgent }
+    // A Claude chat run by a launcher (ccb) shows as that launcher, not as Claude.
+    const shownAgent = launcher ?? nativeChat.agent
+    const unnamedLabel =
+      launcher && item.data.label === defaultAgentChatLabel(nativeChat.agent)
+        ? defaultAgentChatLabel(launcher)
+        : item.data.label
     return (
       <SortableTab
         {...sortableTabProps}
         tab={{
           id: item.id,
           worktreeId,
-          title: conversationName ?? item.data.label,
+          title: conversationName ?? unnamedLabel,
           customTitle: item.data.customLabel,
           color: item.data.color
         }}
         // Why: a chat records its provider, so its title or turn state must never re-identify it.
-        agent={agentTypeToIconAgent(nativeChat.agent)}
+        agent={agentTypeToIconAgent(shownAgent)}
         isExpanded={false}
         onActivate={actions.activateAgentSession}
         onToggleExpand={() => {}}
