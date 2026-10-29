@@ -6,36 +6,43 @@ import type { AppState } from '../../store/types'
 import { useAppStore } from '../../store'
 import { selectFolderWorkspaces } from '@/store/workspace-record-selectors'
 
+export type WslHostVisibleWork = {
+  environmentIds: string[]
+  /** The active workspace's host: the only one that may boot a stopped distro. */
+  focusedEnvironmentIds: string[]
+}
+
 /**
  * The WSL hosts an open project or terminal needs: the active workspace's host and the host of
  * every workspace with a terminal tab, each resolved from the workspace's own owner.
  */
-export function selectWslHostsWithVisibleWork(state: AppState): string[] {
+export function selectWslHostsWithVisibleWork(state: AppState): WslHostVisibleWork {
   const wslEnvironmentIds = new Set(
     state.runtimeEnvironments
       .filter(isWslHostRuntimeEnvironment)
       .map((environment) => environment.id)
   )
   if (wslEnvironmentIds.size === 0) {
-    return []
+    return { environmentIds: [], focusedEnvironmentIds: [] }
   }
-  const workspaceIds = new Set<string>()
-  if (state.activeWorktreeId) {
-    workspaceIds.add(state.activeWorktreeId)
-  }
-  for (const [workspaceId, tabs] of Object.entries(state.tabsByWorktree)) {
-    if (tabs.length > 0) {
-      workspaceIds.add(workspaceId)
-    }
+  const wslHostOf = (workspaceId: string): string | null => {
+    const host = parseExecutionHostId(workspaceOwnerHostId(state, workspaceId))
+    return host?.kind === 'runtime' && wslEnvironmentIds.has(host.environmentId)
+      ? host.environmentId
+      : null
   }
   const visible = new Set<string>()
-  for (const workspaceId of workspaceIds) {
-    const host = parseExecutionHostId(workspaceOwnerHostId(state, workspaceId))
-    if (host?.kind === 'runtime' && wslEnvironmentIds.has(host.environmentId)) {
-      visible.add(host.environmentId)
+  for (const [workspaceId, tabs] of Object.entries(state.tabsByWorktree)) {
+    const host = tabs.length > 0 ? wslHostOf(workspaceId) : null
+    if (host) {
+      visible.add(host)
     }
   }
-  return [...visible].sort()
+  const focused = state.activeWorktreeId ? wslHostOf(state.activeWorktreeId) : null
+  if (focused) {
+    visible.add(focused)
+  }
+  return { environmentIds: [...visible].sort(), focusedEnvironmentIds: focused ? [focused] : [] }
 }
 
 /** Mirrors WSL host status into the store and tells main which hosts the user has open. */
@@ -66,7 +73,7 @@ export function registerWslHostIpcBridge(unsubs: (() => void)[]): void {
     })
     .catch((error) => console.error('Failed to read WSL host statuses:', error))
 
-  let reported = ''
+  let reported = JSON.stringify({ environmentIds: [], focusedEnvironmentIds: [] })
   let inputs: readonly unknown[] = []
   const report = (state: AppState): void => {
     if (state.settings?.experimentalWslHosts !== true) {
@@ -85,13 +92,13 @@ export function registerWslHostIpcBridge(unsubs: (() => void)[]): void {
       return
     }
     inputs = next
-    const environmentIds = selectWslHostsWithVisibleWork(state)
-    const key = environmentIds.join('\n')
+    const work = selectWslHostsWithVisibleWork(state)
+    const key = JSON.stringify(work)
     if (key === reported) {
       return
     }
     reported = key
-    void api.setVisibleWork({ environmentIds }).catch((error) => {
+    void api.setVisibleWork(work).catch((error) => {
       console.error('Failed to report open WSL host work:', error)
     })
   }

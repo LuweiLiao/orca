@@ -43,6 +43,7 @@ export function createWslHostConnector(options: {
   userDataPath: string
   onChange: NonNullable<WslOrcadConnectionDependencies['onChange']>
   hasUserVisibleWork: (distro: string) => boolean
+  mayBootDistro: (distro: string) => boolean
   /** False once a distro's host is gone: nothing may be spawned for it again. */
   isKnownDistro: (distro: string) => boolean
   runtime: WslHostRuntimeAccess
@@ -80,7 +81,8 @@ export function createWslHostConnector(options: {
   const liveness = createWslOrcadLivenessSupervisor({
     manager,
     holder,
-    hasUserVisibleWork: options.hasUserVisibleWork
+    hasUserVisibleWork: options.hasUserVisibleWork,
+    mayBootDistro: options.mayBootDistro
   })
   supervisor = liveness
   const coldProbes = new Map<
@@ -149,6 +151,8 @@ export function createWslHostConnector(options: {
     isReachable: async (distro, environmentId) =>
       options.runtime.isReady?.(environmentId) ||
       (await coldReachability(distro, environmentId)) === 'available',
+    isDistroRunning: async (distro) =>
+      confirmsRunning(await readConfirmedRunningWslDistros(), wslDistroHolderKey(distro)),
     disconnect: (distro) => liveness.stop(distro),
     stopServer: async (distro, environmentId) => {
       const reachability = await coldReachability(distro, environmentId)

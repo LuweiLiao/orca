@@ -16,7 +16,7 @@ const CENSUS: OrcadTerminalCensus = {
   daemonProtocolVersion: 3
 }
 
-function harness(options: { visible?: boolean } = {}) {
+function harness(options: { visible?: boolean; focused?: boolean } = {}) {
   let clock = 0
   const timers: { at: number; task: () => void; cancelled: boolean }[] = []
   let pid = 100
@@ -25,12 +25,14 @@ function harness(options: { visible?: boolean } = {}) {
   const watches: { exit: (code: number | null) => void; closed: boolean }[] = []
   const state: {
     visible: boolean
+    focused: boolean
     running: WslRunningDistrosRead
     identity: WslGuestIdentity | null
     watchSignal: WslOrcadWatch['signal']
     ensureFails: number
   } = {
     visible: options.visible ?? true,
+    focused: options.focused ?? options.visible ?? true,
     running: { status: 'confirmed', distros: ['Ubuntu'] },
     identity: { distroInstance: 'boot:1', orcad: 'orcad:100' },
     watchSignal: 'ready',
@@ -98,6 +100,7 @@ function harness(options: { visible?: boolean } = {}) {
     },
     collectCensus,
     hasUserVisibleWork: () => state.visible,
+    mayBootDistro: () => state.focused,
     deferUntilRunning: (_distro, _key, task) => deferred.push(task),
     ensureHolder,
     subscribePower: (listener) => {
@@ -209,6 +212,19 @@ describe('WslOrcadLivenessSupervisor', () => {
     await h.advance(5_000)
     expect(h.ensure).toHaveBeenCalledTimes(2)
     expect(h.statuses.at(-1)).toEqual({ state: 'ready', census: CENSUS })
+  })
+
+  it('never boots a stopped distro whose only work is a background terminal tab', async () => {
+    const h = harness({ visible: true, focused: false })
+    await h.supervisor.connect('Ubuntu')
+    h.state.running = { status: 'confirmed', distros: [] }
+    h.lastWatch().exit(1)
+    await h.advance(60_000)
+    expect(h.statuses).toEqual([
+      { state: 'distro-stopped', terminals: 'exited', recovering: false }
+    ])
+    expect(h.ensure).toHaveBeenCalledTimes(1)
+    expect(h.deferred).toHaveLength(1)
   })
 
   it('relaunches a crashed orcad and runs the census before reporting ready', async () => {

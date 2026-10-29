@@ -50,6 +50,7 @@ function makeConnector(distros: WslHostDistroCandidate[]) {
     get: vi.fn((distro: string) => active.get(distro.toLowerCase()) ?? null),
     forgetPairingFailures: vi.fn((_environmentId: string) => {}),
     isReachable: vi.fn(async (distro: string) => active.has(distro.toLowerCase())),
+    isDistroRunning: vi.fn(async (_distro: string) => true),
     disconnect: vi.fn(async (distro: string) => {
       active.delete(distro.toLowerCase())
     }),
@@ -292,6 +293,33 @@ describe('WslHostService', () => {
     expect(connector.connect).toHaveBeenCalledTimes(2)
     await service.connect('wsl:ubuntu')
     expect(connector.connect).toHaveBeenCalledTimes(3)
+  })
+
+  it('never boots a stopped distro for a background terminal tab; focusing its workspace does', async () => {
+    const connector = makeConnector([UBUNTU])
+    const service = makeService(connector)
+    await service.add({ distro: 'Ubuntu' })
+    await connector.disconnect('Ubuntu')
+    connector.connect.mockClear()
+    connector.isDistroRunning.mockResolvedValue(false)
+
+    // Launch restores a terminal tab on the host while another workspace is active.
+    service.setVisibleWork(['wsl:ubuntu'], [])
+    await expect(service.ensureForRuntimeCall('wsl:ubuntu')).rejects.toThrow('isn’t connected')
+    expect(service.hasUserVisibleWork('Ubuntu')).toBe(true)
+    expect(service.mayBootDistro('Ubuntu')).toBe(false)
+    expect(connector.connect).not.toHaveBeenCalled()
+
+    // Started outside Orca: the background tab reconnects into it.
+    connector.isDistroRunning.mockResolvedValue(true)
+    await service.ensureForRuntimeCall('wsl:ubuntu')
+    expect(connector.connect).toHaveBeenCalledTimes(1)
+
+    await connector.disconnect('Ubuntu')
+    connector.isDistroRunning.mockResolvedValue(false)
+    service.setVisibleWork(['wsl:ubuntu'], ['wsl:ubuntu'])
+    expect(service.mayBootDistro('Ubuntu')).toBe(true)
+    await vi.waitFor(() => expect(connector.connect).toHaveBeenCalledTimes(2))
   })
 
   it('refuses a connect while the experiment is off, but still removes the host', async () => {

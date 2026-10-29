@@ -20,8 +20,14 @@ export type WslHostsPreloadApi = {
   connect: (args: { environmentId: string; intent?: WslHostConnectIntent }) => Promise<void>
   getStatuses: () => Promise<WslHostStatus[]>
   onStatusChanged: (callback: (status: WslHostStatus) => void) => () => void
-  /** The WSL hosts an open project or terminal needs; only these may boot a stopped distro. */
-  setVisibleWork: (args: { environmentIds: string[] }) => Promise<void>
+  /**
+   * The WSL hosts an open project or terminal needs. Only the focused ones (the active
+   * workspace's host) may boot a stopped distro; the rest reconnect only while it runs.
+   */
+  setVisibleWork: (args: {
+    environmentIds: string[]
+    focusedEnvironmentIds?: string[]
+  }) => Promise<void>
 }
 
 const wslHostsApi: WslHostsPreloadApi = {

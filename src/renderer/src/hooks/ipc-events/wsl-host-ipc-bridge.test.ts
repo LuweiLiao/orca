@@ -45,15 +45,21 @@ function storeWith(state: Parameters<typeof seedStore>[1]) {
 
 describe('selectWslHostsWithVisibleWork', () => {
   it('is empty when no project or terminal on a WSL host is open', () => {
-    expect(selectWslHostsWithVisibleWork(storeWith({}).getState())).toEqual([])
+    expect(selectWslHostsWithVisibleWork(storeWith({}).getState())).toEqual({
+      environmentIds: [],
+      focusedEnvironmentIds: []
+    })
   })
 
-  it('names the WSL host of the active workspace, routed by the workspace’s own repo', () => {
+  it('focuses the WSL host of the active workspace, routed by the workspace’s own repo', () => {
     const store = storeWith({ activeWorktreeId: 'wsl-repo::/home/me/app' })
-    expect(selectWslHostsWithVisibleWork(store.getState())).toEqual([WSL_ENV])
+    expect(selectWslHostsWithVisibleWork(store.getState())).toEqual({
+      environmentIds: [WSL_ENV],
+      focusedEnvironmentIds: [WSL_ENV]
+    })
   })
 
-  it('names the WSL host of a background workspace that has a terminal tab', () => {
+  it('names, without focusing, the WSL host of a background workspace with a terminal tab', () => {
     const worktreeId = 'wsl-repo::/home/me/app'
     const store = storeWith({
       activeWorktreeId: `${TEST_REPO.id}::/repo1`,
@@ -70,6 +76,9 @@ describe('selectWslHostsWithVisibleWork', () => {
       ],
       tabsByWorktree: { [worktreeId]: [makeTab({ id: 'tab-1', worktreeId })] }
     })
-    expect(selectWslHostsWithVisibleWork(store.getState())).toEqual([WSL_ENV])
+    expect(selectWslHostsWithVisibleWork(store.getState())).toEqual({
+      environmentIds: [WSL_ENV],
+      focusedEnvironmentIds: []
+    })
   })
 })

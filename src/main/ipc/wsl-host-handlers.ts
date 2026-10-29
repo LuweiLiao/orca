@@ -137,6 +137,7 @@ function createService(args: WslHostHandlerArgs): WslHostService | null {
           userDataPath: args.getUserDataPath(),
           onChange,
           hasUserVisibleWork: (distro) => created.hasUserVisibleWork(distro),
+          mayBootDistro: (distro) => created.mayBootDistro(distro),
           isKnownDistro,
           runtime
         })
@@ -205,7 +206,13 @@ export function registerWslHostHandlers(args: WslHostHandlerArgs): void {
     serverFiles: wsl.hasServerFiles()
   }))
   ipcMain.handle('wslHosts:getStatuses', () => wsl.getStatuses())
-  ipcMain.handle('wslHosts:setVisibleWork', (_event, request: { environmentIds: string[] }) => {
-    wsl.setVisibleWork(Array.isArray(request.environmentIds) ? request.environmentIds : [])
-  })
+  ipcMain.handle(
+    'wslHosts:setVisibleWork',
+    (_event, request: { environmentIds: string[]; focusedEnvironmentIds?: string[] }) => {
+      const ids = (value: unknown): string[] =>
+        Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []
+      // Why no default to all: a missing focus list must not let background work boot a distro.
+      wsl.setVisibleWork(ids(request.environmentIds), ids(request.focusedEnvironmentIds))
+    }
+  )
 }

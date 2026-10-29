@@ -1,7 +1,7 @@
 /**
  * The relaunch half of WSL orcad liveness: C4's deploy-and-launch on a bounded ladder, then the
- * terminal census before anything is marked. A background recovery (nothing user-visible needs
- * the distro) relaunches only into a distro confirmed running, so it can never boot one.
+ * terminal census before anything is marked. A background recovery (the user is not looking at
+ * work on the distro) relaunches only into a distro confirmed running, so it can never boot one.
  */
 import type { OrcadTerminalCensus } from '../../shared/orcad-terminal-census'
 import type { WslRunningDistrosRead } from '../wsl-background-distro-gate'
@@ -25,7 +25,8 @@ export type WslOrcadRecoveryContext = {
   collectCensus: (connection: WslOrcadConnection) => Promise<OrcadTerminalCensus>
   /** Records the new orcad's identity and holds a fresh watch. */
   arm: (connection: WslOrcadConnection) => Promise<void>
-  hasUserVisibleWork: () => boolean
+  /** The user is looking at work on this distro: recovery may boot it. */
+  mayBootDistro: () => boolean
   readRunning: () => Promise<WslRunningDistrosRead>
 }
 
@@ -56,7 +57,7 @@ export async function recoverWslOrcad(
     if (!context.current()) {
       return null
     }
-    if (!context.hasUserVisibleWork()) {
+    if (!context.mayBootDistro()) {
       const gate = backgroundRecoveryGate(await context.readRunning(), context.distro)
       if (gate || !context.current()) {
         return gate

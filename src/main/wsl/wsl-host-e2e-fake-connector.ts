@@ -51,12 +51,13 @@ export function createFakeWslHostConnector(
   const port = offer ? Number(new URL(offer.endpoint).port) : 0
   const active = new Map<string, WslOrcadConnection>()
   const key = (distro: string): string => distro.toLowerCase()
+  const readDistros = (): z.infer<typeof FakeDistrosSchema> =>
+    config.distrosFile
+      ? FakeDistrosSchema.parse(JSON.parse(readFileSync(config.distrosFile, 'utf8')))
+      : config.distros
   return {
     listDistros: async () =>
-      (config.distrosFile
-        ? FakeDistrosSchema.parse(JSON.parse(readFileSync(config.distrosFile, 'utf8')))
-        : config.distros
-      ).map((distro, index) => ({
+      readDistros().map((distro, index) => ({
         ...distro,
         id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
       })),
@@ -89,6 +90,11 @@ export function createFakeWslHostConnector(
     },
     get: (distro) => active.get(key(distro)) ?? null,
     isReachable: async (distro) => active.has(key(distro)),
+    isDistroRunning: async (distro) =>
+      active.has(key(distro)) ||
+      readDistros().some(
+        (candidate) => key(candidate.name) === key(distro) && candidate.state === 'running'
+      ),
     disconnect: async (distro) => {
       if (active.delete(key(distro))) {
         onChange(distro, null, { state: 'closed' })

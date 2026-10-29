@@ -37,6 +37,7 @@ export function createWslOrcadLivenessSupervisor(options: {
   manager: WslOrcadConnectionManager
   holder: WslDistroHolder
   hasUserVisibleWork: (distro: string) => boolean
+  mayBootDistro: (distro: string) => boolean
 }): WslOrcadLivenessSupervisor {
   return new WslOrcadLivenessSupervisor({
     manager: options.manager,
@@ -49,6 +50,7 @@ export function createWslOrcadLivenessSupervisor(options: {
       ),
     collectCensus: collectWslOrcadCensus,
     hasUserVisibleWork: options.hasUserVisibleWork,
+    mayBootDistro: options.mayBootDistro,
     deferUntilRunning: deferUntilWslDistroRunning,
     ensureHolder: (distro) => options.holder.ensureHeld(distro),
     subscribePower: subscribeSystemPowerLifecycle

@@ -32,6 +32,7 @@ it('uses owned readiness without discovery and coalesces cold cleanup without wa
     userDataPath: '/unused',
     onChange: vi.fn(),
     hasUserVisibleWork: () => false,
+    mayBootDistro: () => false,
     isKnownDistro: () => true,
     runtime: { isReady: mocks.ready, call: vi.fn(), census: vi.fn() }
   })

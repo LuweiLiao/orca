@@ -1,7 +1,8 @@
 /**
  * WSL distros as hosts (WSL-via-orcad C7): add and remove them, persist what each connection
  * reports, and connect only for the user. A stopped distro boots on an explicit add or connect,
- * or while a project or terminal the user has open needs it; never for background work.
+ * or while the project the user is looking at needs it; never for background work such as a
+ * terminal tab restored in another workspace at launch.
  */
 import { errorMessage } from '../../shared/error-message'
 import { removeWslHostEnvironment } from '../../shared/runtime-environment-wsl-host-store'
@@ -41,6 +42,8 @@ export type WslHostConnector = {
   get(distro: string): WslOrcadConnection | null
   /** Checks the paired server without starting a stopped or unconfirmed distro. */
   isReachable(distro: string, environmentId: string): Promise<boolean>
+  /** A fresh running list confirms the distro runs; never boots it. */
+  isDistroRunning(distro: string): Promise<boolean>
   disconnect(distro: string): Promise<void>
   /** Ends the host's terminals, orcad and its terminal daemon; never boots a stopped distro. */
   stopServer(distro: string, environmentId: string): Promise<WslHostServerStop>
@@ -67,6 +70,8 @@ export class WslHostService {
   private readonly statuses = new Map<string, WslHostStatus>()
   private readonly adding = new Map<string, Promise<WslHostAddResult>>()
   private visible = new Set<string>()
+  // The visible hosts the user is looking at; only these may boot a stopped distro.
+  private focused = new Set<string>()
   private readonly removing = new Set<string>()
   // Bumped on disable so an Add that started before it cannot finish as a ready host.
   private disableGeneration = 0
@@ -175,6 +180,7 @@ export class WslHostService {
       }
       removeWslHostEnvironment(this.deps.userDataPath(), environmentId)
       this.visible.delete(environmentId)
+      this.focused.delete(environmentId)
     } finally {
       // Why: a failed removal (e.g. EBUSY on Windows) must leave the host usable and removable.
       this.removing.delete(environmentId)
@@ -195,7 +201,7 @@ export class WslHostService {
       return
     }
     if (enabled) {
-      this.setVisibleWork([...this.visible], new Set())
+      this.connectNewWork(new Set(), new Set())
       return
     }
     this.disableGeneration += 1
@@ -226,6 +232,7 @@ export class WslHostService {
   /**
    * Before a call to a WSL host: a live connection serves it; otherwise connect only for open
    * work, and say why not instead of letting the call fail as an unreachable network server.
+   * Background work (a restored terminal tab) reconnects only into a distro already running.
    */
   async ensureForRuntimeCall(environmentId: string): Promise<void> {
     const record = this.recordForEnvironment(environmentId)
@@ -237,7 +244,10 @@ export class WslHostService {
     if (refusal || this.removing.has(environmentId)) {
       throw new Error(refusal?.message ?? WSL_HOST_REMOVING_MESSAGE)
     }
-    if (!this.visible.has(environmentId)) {
+    if (
+      !this.visible.has(environmentId) ||
+      (!this.focused.has(environmentId) && !(await connector.isDistroRunning(record.distro)))
+    ) {
       throw new Error(wslHostNotConnectedMessage(record.distro))
     }
     await connector.connect(record.distro)
@@ -248,26 +258,51 @@ export class WslHostService {
     return this.adding.has(wslDistroHolderKey(distro)) || this.recordForDistro(distro) !== null
   }
 
-  setVisibleWork(environmentIds: readonly string[], previous = this.visible): void {
+  /** `focusedIds` (default: all) are the visible hosts the user is looking at right now. */
+  setVisibleWork(
+    environmentIds: readonly string[],
+    focusedIds: readonly string[] = environmentIds
+  ): void {
+    const previousVisible = this.visible
+    const previousFocused = this.focused
     this.visible = new Set(environmentIds.filter((id) => !this.removing.has(id)))
+    this.focused = new Set(focusedIds.filter((id) => this.visible.has(id)))
+    this.connectNewWork(previousVisible, previousFocused)
+  }
+
+  private connectNewWork(previousVisible: Set<string>, previousFocused: Set<string>): void {
     if (!this.connector || !this.canRun()) {
       return
     }
     for (const environmentId of this.visible) {
-      const record = !previous.has(environmentId) && this.recordForEnvironment(environmentId)
+      const isNew =
+        !previousVisible.has(environmentId) ||
+        (this.focused.has(environmentId) && !previousFocused.has(environmentId))
+      const record = isNew && this.recordForEnvironment(environmentId)
       if (record) {
         this.ensureForRuntimeCall(environmentId).catch((error: unknown) => {
-          console.warn(`[wsl-hosts] Could not connect to ${record.distro}:`, error)
+          // A stopped distro behind background work stays down by design; not worth a warning.
+          if (this.focused.has(environmentId)) {
+            console.warn(`[wsl-hosts] Could not connect to ${record.distro}:`, error)
+          }
         })
       }
     }
   }
 
   hasUserVisibleWork(distro: string): boolean {
-    const record = this.recordForDistro(distro)
     // Why the gate: liveness relaunches only for visible work, and none may run while off.
-    const id = record?.environmentId
-    return id ? this.canRun() && this.visible.has(id) && !this.removing.has(id) : false
+    return this.workIn(this.visible, distro)
+  }
+
+  /** Whether liveness may boot this stopped distro: only for the host the user is looking at. */
+  mayBootDistro(distro: string): boolean {
+    return this.workIn(this.focused, distro)
+  }
+
+  private workIn(environmentIds: Set<string>, distro: string): boolean {
+    const id = this.recordForDistro(distro)?.environmentId
+    return id ? this.canRun() && environmentIds.has(id) && !this.removing.has(id) : false
   }
 
   /** Startup: keep the holders a previous run left, without booting anything. */

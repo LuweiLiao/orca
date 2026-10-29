@@ -637,7 +637,8 @@ describe.runIf(RUN && process.platform === 'win32')('WSL orcad on real WSL2 dist
       supervisor = createWslOrcadLivenessSupervisor({
         manager,
         holder,
-        hasUserVisibleWork: () => visibleWork
+        hasUserVisibleWork: () => visibleWork,
+        mayBootDistro: () => visibleWork
       })
       const pids: LaunchState['orcadPids'] = {}
       for (const { name, systemd } of DISTROS) {
