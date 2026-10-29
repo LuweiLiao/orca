@@ -16179,7 +16179,9 @@
         "MonacoEditor": {
           "68cb83f4a7": "在选定的文本上添加注释",
           "fd68ae03b3": "在文件中搜索",
-          "largePasteTooLarge": "粘贴内容过大。"
+          "largePasteTooLarge": "粘贴内容过大。",
+          "showInPdf": "在 PDF 中显示",
+          "synctexNoPdf": "没找到由这个文件编译、带 SyncTeX 数据的 PDF。请先打开 PDF，或编译时加上 -synctex=1。"
         },
         "MonacoGutterContextMenu": {
           "7b57b1b468": "复制远程 URL",
@@ -16217,7 +16219,9 @@
           "outlineTab": "大纲",
           "pagesTab": "页面",
           "hideSidebar": "隐藏大纲和页面",
-          "showSidebar": "显示大纲和页面"
+          "showSidebar": "显示大纲和页面",
+          "synctexMissing": "这个 PDF 没有 SyncTeX 数据。编译时加上 -synctex=1。",
+          "synctexOutsideWorkspace": "源文件不在这个工作区里：{{path}}"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "新智能体",

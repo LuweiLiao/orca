@@ -16539,7 +16539,9 @@
         "MonacoEditor": {
           "68cb83f4a7": "Add note on selected text",
           "fd68ae03b3": "Search in Files",
-          "largePasteTooLarge": "Paste is too large."
+          "largePasteTooLarge": "Paste is too large.",
+          "showInPdf": "Show in PDF",
+          "synctexNoPdf": "No PDF with SyncTeX data was built from this file. Open the PDF, or build it with -synctex=1."
         },
         "MonacoGutterContextMenu": {
           "7b57b1b468": "Copy Remote URL",
@@ -16577,7 +16579,9 @@
           "outlineTab": "Outline",
           "pagesTab": "Pages",
           "hideSidebar": "Hide outline and pages",
-          "showSidebar": "Show outline and pages"
+          "showSidebar": "Show outline and pages",
+          "synctexMissing": "No SyncTeX data for this PDF. Build it with -synctex=1.",
+          "synctexOutsideWorkspace": "The source is outside this workspace: {{path}}"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "New agent",

@@ -1,3 +1,5 @@
+import { gzipSync } from 'node:zlib'
+
 /** A bookmark in the fixture's outline: it opens a page, and may hold bookmarks of its own. */
 export type PdfFixtureBookmark = { title: string; page: number; children?: PdfFixtureBookmark[] }
 
@@ -81,4 +83,47 @@ function appendOutline(objects: string[], outline: readonly PdfFixtureBookmark[]
   const top = place(outline, rootId)
   objects[rootId - 1] =
     `<< /Type /Outlines /First ${top[0]} 0 R /Last ${top.at(-1)} 0 R /Count ${top.length} >>`
+}
+
+/** A source line the SyncTeX fixture places on a page, at one of the fixture's text lines. */
+export type PdfSynctexFixtureLine = { page: number; textLine: number; sourceLine: number }
+
+/**
+ * A gzipped SyncTeX index for `createPdfFindFixture`'s layout (text at x=60pt, baselines from
+ * y=700pt every 40pt on a 612x792 page), mapping its text lines to lines of `texPath`.
+ */
+export function createPdfSynctexFixture(
+  texPath: string,
+  lines: readonly PdfSynctexFixtureLine[]
+): Buffer {
+  const sp = (bp: number): number => Math.round(bp * 65781.76)
+  const content: string[] = []
+  for (const page of [...new Set(lines.map((line) => line.page))].sort((a, b) => a - b)) {
+    content.push(`{${page}`, `[1,1:${sp(60)},${sp(752)}:${sp(492)},${sp(752)},0`)
+    for (const line of lines.filter((candidate) => candidate.page === page)) {
+      const baseline = sp(792 - (700 - line.textLine * 40))
+      const tagged = `1,${line.sourceLine}`
+      content.push(
+        `(${tagged}:${sp(60)},${baseline}:${sp(400)},${sp(16)},${sp(5)}`,
+        `x${tagged}:${sp(60)},${baseline}`,
+        `x${tagged}:${sp(200)},${baseline}`,
+        ')'
+      )
+    }
+    content.push(']', `}${page}`)
+  }
+  const text = [
+    'SyncTeX Version:1',
+    `Input:1:${texPath}`,
+    'Output:pdf',
+    'Magnification:1000',
+    'Unit:1',
+    'X Offset:0',
+    'Y Offset:0',
+    'Content:',
+    ...content,
+    'Postamble:',
+    ''
+  ].join('\n')
+  return gzipSync(text)
 }

@@ -36,6 +36,12 @@ import {
 import { readPdfScalePreference, writePdfScalePreference } from './pdf-scale-preference-storage'
 import { EditorCommandOwnerContext } from './editor-command-owner-context'
 import { listenForViewerZoomRequests } from './viewer-zoom-request'
+import type { SynctexRect } from './pdf-synctex-parser'
+import {
+  openPdfSynctexSource,
+  PDF_SYNCTEX_REVEAL_EVENT,
+  takePendingPdfSynctexReveal
+} from './pdf-synctex-navigation'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -53,6 +59,8 @@ type PdfViewerProps = {
   // Why: absent means "no scroll memory" — the diff and conflict-review callers
   // mount several viewers on one path, so a shared key would cross-write.
   scrollCacheKey?: string | null
+  // Why: only an editor tab's own viewer navigates SyncTeX; diff and conflict panes pass nothing.
+  synctexFileId?: string
 }
 
 export default function PdfViewer(props: PdfViewerProps): JSX.Element {
@@ -68,7 +76,8 @@ function PdfDocumentViewer({
   content,
   filePath,
   preferenceKey = null,
-  scrollCacheKey = null
+  scrollCacheKey = null,
+  synctexFileId
 }: PdfViewerProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -82,6 +91,8 @@ function PdfDocumentViewer({
     doc: pdfjsLib.PDFDocumentProxy
     goToPage: (pageNumber: number) => void
     goToDestination: (dest: string | unknown[]) => void
+    revealRect: (rect: SynctexRect) => void
+    pointAt: (event: MouseEvent) => { page: number; x: number; y: number } | null
   } | null>(null)
   const [sidebar, setSidebar] = useState<PdfSidebarPreference>(() =>
     readPdfSidebarPreference(preferenceKey)
@@ -145,7 +156,13 @@ function PdfDocumentViewer({
         eventBusRef.current = session.eventBus
         findControllerRef.current = session.findController
         pdfViewerRef.current = session.viewer
-        setShown({ doc, goToPage: session.goToPage, goToDestination: session.goToDestination })
+        setShown({
+          doc,
+          goToPage: session.goToPage,
+          goToDestination: session.goToDestination,
+          revealRect: session.revealRect,
+          pointAt: session.pointAt
+        })
         return () => {
           try {
             session.dispose()
@@ -219,6 +236,49 @@ function PdfDocumentViewer({
   usePdfViewerFindShortcut({ rootRef, ownsCommands: isCommandOwner, keybindings, openFind })
 
   const goToPage = useCallback((pageNumber: number) => shown?.goToPage(pageNumber), [shown])
+
+  useEffect(() => {
+    if (!shown || !synctexFileId) {
+      return
+    }
+    const reveal = (): void => {
+      const rect = takePendingPdfSynctexReveal(synctexFileId)
+      if (rect) {
+        shown.revealRect(rect)
+      }
+    }
+    reveal()
+    const onRequest = (event: Event): void => {
+      if (event instanceof CustomEvent && event.detail?.fileId === synctexFileId) {
+        reveal()
+      }
+    }
+    window.addEventListener(PDF_SYNCTEX_REVEAL_EVENT, onRequest)
+    return () => window.removeEventListener(PDF_SYNCTEX_REVEAL_EVENT, onRequest)
+  }, [shown, synctexFileId])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || !shown || !synctexFileId) {
+      return
+    }
+    const isMac = navigator.userAgent.includes('Mac')
+    // Why capture: a Ctrl/Cmd-click on a link annotation must jump to source, not follow it.
+    const onClick = (event: MouseEvent): void => {
+      if (!(isMac ? event.metaKey : event.ctrlKey) || event.button !== 0) {
+        return
+      }
+      const point = shown.pointAt(event)
+      if (!point) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      void openPdfSynctexSource(synctexFileId, point)
+    }
+    container.addEventListener('click', onClick, { capture: true })
+    return () => container.removeEventListener('click', onClick, { capture: true })
+  }, [shown, synctexFileId])
 
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
