@@ -6,6 +6,7 @@ export type NativeChatTranscriptAgent = 'claude' | 'codex' | 'grok' | 'omp' | 'o
 export const NATIVE_CHAT_SUPPORTED_AGENT_LIST: readonly TuiAgent[] = [
   'claude',
   'openclaude',
+  'ccb',
   'codex',
   'grok',
   'omp',
@@ -45,9 +46,9 @@ export function nativeChatAskRequiresTerminal(agent: string | null | undefined):
 export function resolveNativeChatTranscriptAgent(
   agent: string | null | undefined
 ): NativeChatTranscriptAgent | null {
-  // Why: OpenClaude writes the Claude transcript format and layout even though
-  // Orca preserves its distinct agent identity for launch and UI behavior.
-  if (agent === 'claude' || agent === 'openclaude') {
+  // Why: OpenClaude writes the Claude transcript format and layout, and ccb runs Claude itself,
+  // even though Orca preserves their distinct agent identity for launch and UI behavior.
+  if (agent === 'claude' || agent === 'openclaude' || agent === 'ccb') {
     return 'claude'
   }
   if (agent === 'opencode' || agent === 'opencode2' || agent === 'zcode') {

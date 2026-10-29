@@ -8,6 +8,10 @@ import {
   type StructuredAgentSessionResumeSource
 } from '../../../shared/structured-agent-session-create'
 import { structuredLaunchSeedOptions } from '../../../shared/native-chat-session-option-defaults'
+import {
+  claudeLauncherOptionsOf,
+  structuredLaunchProviderFor
+} from '../../../shared/claude-cli-launch-agents'
 import { toRuntimeWorktreeSelector } from '@/runtime/runtime-worktree-selector'
 import { useAppStore } from '@/store'
 import {
@@ -96,7 +100,8 @@ export function createStructuredAgentSessionLaunchIntent(
     worktreeId,
     executionHostId ?? resolveStructuredAgentSessionOwner(useAppStore.getState(), worktreeId)
   )
-  const sessionId = createStructuredAgentSessionId(agent, createBrowserUuid)
+  const provider = structuredLaunchProviderFor(agent)
+  const sessionId = createStructuredAgentSessionId(provider.agent, createBrowserUuid)
   if (activate) {
     recordWebSessionFocusIntent(
       structuredAgentSessionFocusOwner(owner.target),
@@ -109,10 +114,11 @@ export function createStructuredAgentSessionLaunchIntent(
   return buildStructuredAgentSessionLaunchIntent(
     worktreeId,
     owner,
-    agent,
+    provider.agent,
     sessionId,
     resumeFrom,
-    hostSeedOptions
+    hostSeedOptions,
+    provider.launcherOptions
   )
 }
 
@@ -122,7 +128,8 @@ function buildStructuredAgentSessionLaunchIntent(
   agent: TuiAgent,
   sessionId: string,
   resumeFrom: StructuredAgentSessionResumeSource | undefined,
-  hostSeedOptions: LaunchSeed
+  hostSeedOptions: LaunchSeed,
+  launcherOptions: Readonly<Record<string, string>> | undefined
 ): StructuredAgentSessionLaunchIntent {
   const state = useAppStore.getState()
   return {
@@ -136,6 +143,7 @@ function buildStructuredAgentSessionLaunchIntent(
       worktree: toRuntimeWorktreeSelector(worktreeId),
       agent,
       ...(resumeFrom ? { resumeFrom } : {}),
+      ...(launcherOptions ? { options: launcherOptions } : {}),
       randomUuid: createBrowserUuid
     }),
     ...launchSeedOptions(state, owner, agent, hostSeedOptions)
@@ -152,7 +160,8 @@ export function retryStructuredAgentSessionLaunchIntent(
     intent.agent,
     intent.sessionId,
     intent.params.resumeFrom,
-    intent.seedOptions
+    intent.seedOptions,
+    claudeLauncherOptionsOf(intent.params.options)
   )
 }
 

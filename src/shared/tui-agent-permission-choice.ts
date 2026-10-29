@@ -39,13 +39,15 @@ export function isAgentPermissionChoice(value: unknown): value is AgentPermissio
 const ASK_TUI_AGENT_ARGS: Partial<Record<TuiAgent, string>> = {
   claude: '--permission-mode default',
   'claude-agent-teams': '--permission-mode default',
+  ccb: '--permission-mode default',
   grok: '--permission-mode default',
   codex: '-a on-request -s workspace-write -c approvals_reviewer=user'
 }
 
 const ACCEPT_EDITS_TUI_AGENT_ARGS: Partial<Record<TuiAgent, string>> = {
   claude: '--permission-mode acceptEdits',
-  'claude-agent-teams': '--permission-mode acceptEdits'
+  'claude-agent-teams': '--permission-mode acceptEdits',
+  ccb: '--permission-mode acceptEdits'
 }
 
 const ARGS_BY_CHOICE: Record<AgentChatPermissionMode, Partial<Record<TuiAgent, string>>> = {

@@ -9,6 +9,7 @@ import {
 } from './synthetic-agent-title'
 import { isLegacyPiCompatibleTitle } from './pi-compatible-synthetic-title'
 import { getWrapperTitleSegments } from './terminal-title-wrapper-segments'
+import { isClaudeLauncherAgent } from './claude-cli-launch-agents'
 
 /** The π brand a Pi/OMP title leads with; the owner's label replaces it in place. */
 const LEGACY_PI_BRAND = 'π'
@@ -124,6 +125,10 @@ export function resolveCompatibleAgentTypeForOwner(
   if (!incomingAgentType) {
     return undefined
   }
+  // Why: a launcher such as ccb runs the official binary, so its hooks and process say `claude`.
+  if (incomingAgentType === 'claude' && isClaudeLauncherAgent(ownerAgentType)) {
+    return ownerAgentType
+  }
   const incomingProfile = getSyntheticAgentTitleProfile(incomingAgentType)
   const ownerProfile = getSyntheticAgentTitleProfile(ownerAgentType)
   if (
@@ -228,6 +233,12 @@ export function shareCompatibleTitleIdentityGroup(
     return false
   }
   if (left === right) {
+    return true
+  }
+  if (
+    (left === 'claude' && isClaudeLauncherAgent(right)) ||
+    (right === 'claude' && isClaudeLauncherAgent(left))
+  ) {
     return true
   }
   const leftGroup = getSyntheticAgentTitleProfile(left)?.titleIdentityGroup

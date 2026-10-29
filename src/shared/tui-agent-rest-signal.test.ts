@@ -17,6 +17,7 @@ const EXPECTED_REST_SIGNALS: Record<TuiAgent, TuiAgentRestSignal> = {
   zcode: 'synthetic-title',
   claude: 'title',
   'claude-agent-teams': 'title',
+  ccb: 'title',
   openclaude: 'title',
   opencode: 'title',
   opencode2: 'title',

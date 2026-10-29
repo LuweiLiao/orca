@@ -13,6 +13,7 @@ import {
   resolveStructuredNativeChatSupport,
   type StructuredNativeChatSupportInput
 } from './structured-native-chat-launch-route'
+import { CLAUDE_LAUNCHER_RUNTIME_CAPABILITY } from './claude-cli-launch-agents'
 
 const ON = { experimentalNativeChat: true }
 
@@ -135,5 +136,20 @@ describe('agents beyond Claude and Codex', () => {
   it('leave Claude and Codex offered by hosts that predate the capability', () => {
     expect(support({ agent: 'claude' })).toEqual({ supported: true })
     expect(support({ agent: 'codex' })).toEqual({ supported: true })
+  })
+})
+
+describe('a Claude launcher', () => {
+  it('opens a chat only on a host that starts launchers', () => {
+    expect(
+      support({
+        agent: 'ccb',
+        hostCapabilities: [
+          STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY,
+          CLAUDE_LAUNCHER_RUNTIME_CAPABILITY
+        ]
+      })
+    ).toEqual({ supported: true })
+    expect(support({ agent: 'ccb' })).toEqual({ supported: false, blocker: 'runtime-capability' })
   })
 })

@@ -259,6 +259,13 @@ describe('Pi-compatible title detection', () => {
     expect(resolveCompatibleAgentTypeForOwner('codex', 'omp')).toBe('codex')
   })
 
+  it('keeps a ccb launch owner when its Claude runtime reports Claude', () => {
+    expect(resolveCompatibleAgentTypeForOwner('claude', 'ccb')).toBe('ccb')
+    expect(resolveCompatibleAgentTypeForOwner('codex', 'ccb')).toBe('codex')
+    expect(resolveCompatibleAgentTypeForOwner('claude', 'claude')).toBe('claude')
+    expect(resolveCompatibleAgentTypeForOwner('claude', null)).toBe('claude')
+  })
+
   it.each(['~/omp/working', 'omp-harness ready', '~/pi/working', 'pi-scratch ready'])(
     'does not classify path or hyphen false positive %s',
     (title) => {

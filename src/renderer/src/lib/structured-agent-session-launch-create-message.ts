@@ -18,6 +18,7 @@ import {
 } from './structured-agent-session-launch-options'
 import { structuredAgentSessionDrawnValues } from '../../../shared/structured-agent-session-option-snapshot'
 import { encodeStructuredAgentSessionOptionValue } from '../../../shared/structured-agent-session-option-codec'
+import { claudeLauncherOptionsOf } from '../../../shared/claude-cli-launch-agents'
 
 /** Freeze what create carries once; an ambiguous reply always replays the same payload. */
 export function prepareStructuredLaunchCreateMessage(state: StructuredLaunchState): void {
@@ -32,7 +33,9 @@ export function prepareStructuredLaunchCreateMessage(state: StructuredLaunchStat
     return
   }
   const firstMessage = prepareStructuredLaunchPromptForCreate(intent.sessionId, intent.target)
-  const options = structuredLaunchCreateOptions(state)
+  const launcher = claudeLauncherOptionsOf(intent.params.options)
+  const picked = structuredLaunchCreateOptions(state)
+  const options = launcher ? { ...picked, ...launcher } : picked
   const params = {
     ...intent.params,
     ...(firstMessage ? { firstMessage } : {}),

@@ -11,6 +11,7 @@ import type {
 } from './agent-status-contract'
 import { getLeafIdFromPaneKey, getTabIdFromPaneKey } from './agent-status-pane-key-tab-binding'
 import { launchConfigsEqual } from '../../../../shared/agent-resume-record-equivalence'
+import { isClaudeLauncherAgent } from '../../../../shared/claude-cli-launch-agents'
 
 export function normalizeLaunchConfigRegistrationMetadata(
   paneKey: string,
@@ -62,7 +63,12 @@ export function registryEntryMatchesStatus(args: {
     return false
   }
   const identity = entry.identity
-  if (identity.agentType !== undefined && identity.agentType !== args.agentType) {
+  if (
+    identity.agentType !== undefined &&
+    identity.agentType !== args.agentType &&
+    // A launcher pane reports Claude; its recipe still holds the launcher, so resume keeps it.
+    !(args.agentType === 'claude' && isClaudeLauncherAgent(identity.agentType))
+  ) {
     return false
   }
   if (identity.tabId !== undefined && identity.tabId !== args.tabId) {
