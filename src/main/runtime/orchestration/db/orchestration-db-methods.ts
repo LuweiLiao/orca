@@ -28,6 +28,7 @@ import type { LegacyRecoveryCohortMethods } from './legacy/legacy-recovery-cohor
 import type { LegacyReplyOperationMethods } from './legacy/legacy-reply-operation'
 import type { LegacyWorkerCompletionMethods } from './legacy/legacy-worker-completion'
 import type { DirectMailboxRoutingMethods } from './messages/direct-mailbox-routing'
+import type { PointedUnreadMessageMethods } from './messages/pointed-unread-messages'
 import type { ForeignDirectMailboxRoutingMethods } from './messages/foreign-direct-mailbox-routing'
 import type { MailboxPointerEnterStateMethods } from './messages/mailbox-pointer-enter-state'
 import type { MessageInboxMethods } from './messages/message-inbox'
@@ -96,6 +97,7 @@ export type OrchestrationDbMethods = AttemptObservationStoreMethods &
   MessageInboxMethods &
   MailboxPointerEnterStateMethods &
   DirectMailboxRoutingMethods &
+  PointedUnreadMessageMethods &
   ForeignDirectMailboxRoutingMethods &
   QuestionThreadsMethods &
   TaskStoreMethods &
