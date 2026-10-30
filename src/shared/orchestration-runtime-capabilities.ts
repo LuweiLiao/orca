@@ -24,6 +24,10 @@ export const AGENT_DELEGATION_TERMINAL_AUTHORIZE_RUNTIME_CAPABILITY =
 /** Announces `projectFlow` client events; a viewer of a host without it infers flights itself. */
 export { PROJECT_FLOW_RUNTIME_CAPABILITY } from './project-flow-event'
 import { PROJECT_FLOW_RUNTIME_CAPABILITY } from './project-flow-event'
+import { PROJECT_FLOW_HISTORY_RUNTIME_CAPABILITY } from './project-flow-history'
+
+/** Serves `projectFlow.history`: the host's recorded flights and worker stage changes. */
+export { PROJECT_FLOW_HISTORY_RUNTIME_CAPABILITY } from './project-flow-history'
 
 export const ORCHESTRATION_RUNTIME_CAPABILITIES = [
   ORCHESTRATION_FEDERATION_RUNTIME_CAPABILITY,
@@ -36,5 +40,6 @@ export const ORCHESTRATION_RUNTIME_CAPABILITIES = [
   ORCHESTRATION_FEDERATION_RELEASE_ARCHIVE_RUNTIME_CAPABILITY,
   ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY,
   AGENT_DELEGATION_TERMINAL_AUTHORIZE_RUNTIME_CAPABILITY,
-  PROJECT_FLOW_RUNTIME_CAPABILITY
+  PROJECT_FLOW_RUNTIME_CAPABILITY,
+  PROJECT_FLOW_HISTORY_RUNTIME_CAPABILITY
 ] as const

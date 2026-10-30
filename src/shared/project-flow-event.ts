@@ -31,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function parseEndpoint(value: unknown): ProjectFlowEndpoint | null {
+export function parseProjectFlowEndpoint(value: unknown): ProjectFlowEndpoint | null {
   if (!isRecord(value)) {
     return null
   }
@@ -77,8 +77,8 @@ export function parseProjectFlowEvent(value: unknown): ProjectFlowEvent | null {
   }
   const { id, flow, outcome } = value
   const kind = PROJECT_FLOW_KINDS.find((candidate) => candidate === flow)
-  const from = parseEndpoint(value.from)
-  const to = parseEndpoint(value.to)
+  const from = parseProjectFlowEndpoint(value.from)
+  const to = parseProjectFlowEndpoint(value.to)
   if (typeof id !== 'string' || id.length === 0 || !kind || !from || !to) {
     return null
   }

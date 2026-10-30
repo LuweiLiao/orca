@@ -21,4 +21,5 @@ export const CURRENT_CONTRACT_VERSION = ORCHESTRATION_CONTRACT_VERSION
 // v42: structured-session Orca session id columns.
 // v43: stored `session:<id>` addresses respelled `orca_session_id:<id>`.
 // v44: user authorizations for agent creation.
-export const SCHEMA_VERSION = 44
+// v45: the append-only project flow log.
+export const SCHEMA_VERSION = 45

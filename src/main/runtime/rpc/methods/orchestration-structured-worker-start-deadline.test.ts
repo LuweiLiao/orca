@@ -70,6 +70,7 @@ it('leaves the preamble only what the setup gate did not use of the caller’s t
     getStructuredAgentSessionCreateSupport: async () => ({ supported: true }),
     getOrchestrationDispatchAuthority: () => ({ paneKey: 'pane', processIncarnation: 'inc' }),
     getTerminalProcessIncarnation: () => 'inc',
+    notifyProjectFlow: () => {},
     // Setup takes 250 s of the 300 s timeout.
     waitForSetupTerminalCompletion: async () => {
       vi.setSystemTime(Date.now() + 250_000)

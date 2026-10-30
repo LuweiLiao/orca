@@ -32,7 +32,8 @@ function settle(delivered: 'accepted' | undefined) {
   const args = {
     runtime: {
       getNestedWorkerMaxDepth: () => 3,
-      getTerminalOrchestrationCliCommand: () => 'orca'
+      getTerminalOrchestrationCliCommand: () => 'orca',
+      notifyProjectFlow: () => {}
     },
     db,
     run: { id: 'run_1' },

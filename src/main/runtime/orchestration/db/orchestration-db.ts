@@ -13,6 +13,7 @@ import { createTables } from './schema/create-tables'
 import { migrate } from './schema/migrate'
 import { backfillStructuredWorkerOrcaSessionIds } from './schema/structured-worker-orca-session-backfill'
 import { reconcileSettledWorkerDispatches } from './worker-dispatch/worker-dispatch-settlement'
+import { pruneProjectFlowLogIfDue } from './project-flow/project-flow-log-store'
 
 class OrchestrationDbCore {
   db: Database.Database
@@ -29,6 +30,8 @@ class OrchestrationDbCore {
   pendingMailHandBacks: MailHandBack[] = []
   /** The runtime's wake for mail a settlement handed to a Run, called once the transaction ends. */
   mailHandBackListener: ((handBack: MailHandBack) => void) | undefined
+  /** When the flow log was last pruned; the log prunes itself when this is over an hour old. */
+  projectFlowPrunedAt: number | undefined
 
   constructor(dbPath: (string & {}) | ':memory:') {
     this.db = new Database(dbPath)
@@ -44,6 +47,8 @@ class OrchestrationDbCore {
     createCoordinatorMailRoutingTrigger.call(this as unknown as OrchestrationDb)
     rememberCurrentRunCoordinatorHandles.call(this as unknown as OrchestrationDb)
     hardenOrchestrationDatabaseFiles(dbPath)
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the core is only ever constructed as the OrchestrationDb it is typed as, like the calls above.
+    pruneProjectFlowLogIfDue.call(this as unknown as OrchestrationDb)
   }
 
   close(): void {

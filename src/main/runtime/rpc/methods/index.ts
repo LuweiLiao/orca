@@ -43,6 +43,7 @@ import { MANAGED_SERVER_METHODS } from './managed-server'
 import { SPEECH_METHODS } from './speech'
 import { CLIENT_UI_METHODS } from './client-ui'
 import { CLIENT_EVENT_METHODS } from './client-events'
+import { PROJECT_FLOW_HISTORY_METHODS } from './project-flow-history'
 import { WORKSPACE_PORT_METHODS } from './workspace-ports'
 import { PLUGIN_METHODS } from './plugins'
 import { SKILL_METHODS } from './skills'
@@ -143,6 +144,7 @@ export const ALL_RPC_METHODS = [
   ...MOBILE_WEB_BUNDLE_METHODS,
   ...RUNTIME_CLIENT_CAPABILITY_METHODS,
   ...CLIENT_EVENT_METHODS,
+  ...PROJECT_FLOW_HISTORY_METHODS,
   ...CLIENT_UI_METHODS,
   ...EMULATOR_METHODS,
   ...PAIRING_METHODS,

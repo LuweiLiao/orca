@@ -44,6 +44,17 @@ export function recordWorkerStage(
         updated_at: new Date().toISOString()
       }
     })
+    if (params.stage !== current.stage || (params.state ?? current.state) !== current.state) {
+      const dispatch = this.getDispatchContextById(params.dispatchId)
+      // Why: a failed history write is swallowed inside, so it cannot undo the stage change.
+      this.appendProjectFlowLog({
+        kind: 'state',
+        stage: params.stage,
+        workerState: params.state ?? current.state,
+        dispatchId: params.dispatchId,
+        ...(dispatch ? { runId: dispatch.run_id, taskId: dispatch.task_id } : {})
+      })
+    }
     this.db.exec('RELEASE worker_stage_transition')
   } catch (error) {
     this.db.exec('ROLLBACK TO worker_stage_transition')
