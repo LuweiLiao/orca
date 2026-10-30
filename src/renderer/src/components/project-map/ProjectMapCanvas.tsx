@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
 import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
 import type { ProjectMapAgent, ProjectMapGraph, ProjectMapWorkspace } from './project-map-graph'
@@ -65,6 +65,11 @@ type Props = {
   onForked: () => void
   searchOpen: boolean
   onSearchOpenChange: (open: boolean) => void
+  /** Selected when the canvas mounts, so a view switch keeps the selection. */
+  initialSelectedId?: string | null
+  onSelectionChange?: (id: string | null) => void
+  /** Centers and selects a node once, as the growth tree's jump asks. */
+  locateRequest?: { id: string; nonce: number } | null
 }
 
 const EMPTY_WORKTREES: readonly Worktree[] = []
@@ -84,10 +89,13 @@ export function ProjectMapCanvas({
   onToggleCollapse,
   onForked,
   searchOpen,
-  onSearchOpenChange
+  onSearchOpenChange,
+  initialSelectedId = null,
+  onSelectionChange,
+  locateRequest
 }: Props): React.JSX.Element {
   const { view } = viewport
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId)
   const windows = useProjectMapOpenWindows(viewport.element, setSelectedId)
   const { open: openWindow } = windows
   // The chat a new child is being made from: one chat, a turn on its timeline, or a merge.
@@ -209,6 +217,21 @@ export function ProjectMapCanvas({
     shownAs,
     select: windows.open
   })
+  const handledLocate = useRef(0)
+  const viewportWidth = viewport.size.width
+  useEffect(() => {
+    if (locateRequest && locateRequest.nonce !== handledLocate.current && viewportWidth > 0) {
+      handledLocate.current = locateRequest.nonce
+      locate(locateRequest.id)
+    }
+  }, [locate, locateRequest, viewportWidth])
+  const reported = useRef(selected)
+  useEffect(() => {
+    if (reported.current !== selected) {
+      reported.current = selected
+      onSelectionChange?.(selected)
+    }
+  }, [onSelectionChange, selected])
   const openNodeAt = (event: React.MouseEvent): void => {
     const id = projectMapNodeIdOf(event.target) ?? ''
     const [agent, workspace] = [graph.agents.get(id), graph.workspaces.get(id)]

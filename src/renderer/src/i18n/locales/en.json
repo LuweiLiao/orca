@@ -21855,5 +21855,79 @@
       "summaryUnavailable": "This host is too old to compact a hand-off.",
       "compacting": "Compacting the chat…"
     }
+  },
+  "growthTree": {
+    "dock": {
+      "label": "Selection details",
+      "close": "Close details",
+      "status": "Status",
+      "closed": "Closed",
+      "time": "Time",
+      "now": "now",
+      "approx": "start estimated",
+      "workspace": "Workspace",
+      "kind": "Kind",
+      "chats": "Conversations",
+      "project": "Project",
+      "relations": "Relations",
+      "hidden": "Hidden in the blueprint.",
+      "locate": "Locate in blueprint",
+      "openChat": "Open conversation",
+      "openWorkspace": "Open workspace"
+    },
+    "folderWorkspace": "Folder workspace",
+    "worktree": "Worktree",
+    "groupCollapsed": "{{chats}} chats, {{working}} working",
+    "emptyLanes": "Empty workspaces: {{count}}",
+    "jump": {
+      "hidden": "This conversation is hidden in the blueprint.",
+      "missing": "This conversation is not on the blueprint.",
+      "unhide": "Show it",
+      "dismiss": "Dismiss"
+    },
+    "mode": {
+      "label": "Time scale",
+      "compressed": "Compressed time",
+      "sequence": "Event order"
+    },
+    "filter": {
+      "label": "Filter",
+      "status": "Status",
+      "kinds": "Lines drawn",
+      "window": "Time window",
+      "active": "Filtered: {{count}}"
+    },
+    "showAll": "Show all",
+    "empty": "Conversations appear here once a project has run an agent.",
+    "pin": {
+      "from": "From project {{project}}",
+      "to": "To project {{project}}",
+      "unresolved": "Source not loaded"
+    },
+    "view": {
+      "label": "Map view",
+      "blueprint": "Blueprint",
+      "growth": "Growth tree"
+    },
+    "allProjects": "All projects",
+    "bucket": {
+      "working": "Working",
+      "attention": "Needs attention",
+      "done": "Done",
+      "idle": "Idle"
+    },
+    "kind": {
+      "derive": "Derived",
+      "delegate": "Delegated",
+      "handoff": "Handed off",
+      "merge": "Merged"
+    },
+    "window": {
+      "all": "All time",
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days"
+    },
+    "foldedDays": "Idle gap folded here: {{days}} days"
   }
 }

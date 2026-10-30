@@ -1,0 +1,78 @@
+.growth-tree-group {
+  border-top: 1px solid var(--pm-lane-border);
+}
+.growth-tree-lane {
+  background: var(--pm-lane);
+  border-block: 1px solid var(--pm-lane-border);
+}
+.growth-tree-lane[data-selected] {
+  border-color: color-mix(in srgb, var(--pm-kind-workspace) 60%, transparent);
+}
+.growth-tree-now {
+  width: 0;
+  border-left: 1px dashed color-mix(in srgb, var(--foreground) 25%, transparent);
+}
+.growth-tree-fold {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--foreground) 5%, transparent) 5px 6px
+  );
+}
+.growth-tree-join {
+  fill: var(--background);
+  stroke: var(--pm-wire-fork);
+  stroke-width: 2;
+}
+
+.growth-tree-bar {
+  --pm-kind: var(--pm-kind-agent);
+  background: color-mix(in srgb, var(--pm-kind) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--pm-kind) 45%, var(--border));
+  color: var(--foreground);
+  cursor: default;
+}
+.growth-tree-bar[data-history] {
+  --pm-kind: var(--pm-kind-history);
+  border-style: dashed;
+}
+.growth-tree-bar[data-approx] {
+  border-left-style: dotted;
+}
+.growth-tree-bar[data-running] {
+  border-right-width: 2px;
+}
+.growth-tree-bar[data-linked] {
+  border-color: var(--pm-kind);
+}
+.growth-tree-bar[data-selected] {
+  outline: 2px solid var(--pm-kind);
+  outline-offset: 1px;
+}
+.growth-tree-bar[data-dimmed],
+.growth-tree-pin:disabled {
+  opacity: 0.5;
+}
+[data-growth-world][data-focusing] .growth-tree-bar[data-dimmed] {
+  opacity: 0.28;
+}
+.growth-tree-bar:focus-visible,
+.growth-tree-pin:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.growth-tree-pin[data-kind='unresolved'] {
+  border-style: dashed;
+  background: transparent;
+}
+
+[data-growth-world] .project-map-wire[data-dimmed] {
+  stroke-opacity: 0.28;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .growth-tree-bar,
+  .growth-tree-pin {
+    transition: none;
+  }
+}

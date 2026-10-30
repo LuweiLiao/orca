@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { subscribeToTerminalForkOrigins, terminalForkOrigins } from '@/lib/terminal-fork-origins'
 import {
   projectMapClosedChats,
   subscribeToProjectMapClosedChats
 } from '@/lib/project-map-closed-by-map'
 import { projectMapHiddenKeys, subscribeToProjectMapHidden } from '@/lib/project-map-hidden'
-import { Minus, Network, Plus, Scan, Search } from 'lucide-react'
+import { GitBranch, Minus, Network, Plus, Scan, Search } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { translate } from '@/i18n/i18n'
 import { useLiveDashboardSnapshot } from '@/components/dashboard/useLiveDashboardSnapshot'
 import { revealDashboardAgent } from '@/components/dashboard/reveal-dashboard-agent'
@@ -40,10 +41,14 @@ import { ProjectMapCanvas } from './ProjectMapCanvas'
 import { createFlowSignalBus } from './project-flow-signal'
 import { useProjectFlowDispatchSignals } from './use-project-flow-dispatch-signals'
 import { ProjectMapSummaryHost } from './ProjectMapSummaryHost'
+import { GrowthTreePanel } from './GrowthTreePanel'
+import { GrowthTreeJumpNotice } from './GrowthTreeJumpNotice'
+import { useGrowthTreeJump } from './use-growth-tree-jump'
 import { useProjectMapSummaryIndex } from './use-project-map-summary-index'
 import './project-map.css'
 
 const LINEAGE_REREAD_MS = 5000
+const ALL_PROJECTS = '__all__'
 
 export default function ProjectMapPage(): React.JSX.Element {
   const snapshot = useLiveDashboardSnapshot()
@@ -85,6 +90,9 @@ export default function ProjectMapPage(): React.JSX.Element {
   } = useProjectMapLineage(chats, `${lineageRevision}:${lastStateChange}`)
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
+  const [mapView, setMapView] = useState<'blueprint' | 'growth'>('blueprint')
+  const growing = mapView === 'growth'
+  const [sharedSelectedId, setSharedSelectedId] = useState<string | null>(null)
   const projectId =
     projects.find((project) => project.id === chosenProjectId)?.id ??
     projects.find((project) => project.id === activeRepoId)?.id ??
@@ -92,33 +100,36 @@ export default function ProjectMapPage(): React.JSX.Element {
     projects[0]?.id ??
     null
   const project = projects.find((candidate) => candidate.id === projectId) ?? null
-  const graph = useMemo(
-    () =>
-      projectId
-        ? buildProjectMapGraph(snapshot, projectId, sessions, {
-            chatsByPaneKey: chats,
-            lineage,
-            history,
-            references,
-            terminalForks,
-            closedByMap,
-            hidden,
-            titleOf: projectMapAgentTitle
-          })
-        : null,
-    [
-      chats,
+  const forks = useMemo(
+    () => ({
+      chatsByPaneKey: chats,
+      lineage,
+      history,
+      references,
+      terminalForks,
       closedByMap,
       hidden,
-      history,
-      lineage,
-      projectId,
-      references,
-      sessions,
-      snapshot,
-      terminalForks
-    ]
+      titleOf: projectMapAgentTitle
+    }),
+    [chats, closedByMap, hidden, history, lineage, references, terminalForks]
   )
+  const graph = useMemo(
+    () => (projectId ? buildProjectMapGraph(snapshot, projectId, sessions, forks) : null),
+    [forks, projectId, sessions, snapshot]
+  )
+  const growthScope =
+    chosenProjectId !== null && projects.some((candidate) => candidate.id === chosenProjectId)
+      ? chosenProjectId
+      : null
+  const openBlueprintProject = useCallback((id: string) => {
+    setChosenProjectId(id)
+    setMapView('blueprint')
+  }, [])
+  const hasProject = useCallback(
+    (id: string) => projects.some((candidate) => candidate.id === id),
+    [projects]
+  )
+  const growthJump = useGrowthTreeJump({ graph, hasProject, openProject: openBlueprintProject })
   usePublishProjectMapSessionRelations(graph, lineage, references)
   useProjectMapSummaryIndex(graph)
   // Parents the person opened onto the canvas; the rest keep their delegated chats stacked.
@@ -152,12 +163,16 @@ export default function ProjectMapPage(): React.JSX.Element {
   const { fit } = viewport
   const viewportReady = viewport.size.width > 0
   // Fit once per project; later status refreshes keep the user's pan and zoom.
+  const fittedProject = useRef<string | null>(null)
   useEffect(() => {
-    if (viewportReady && projectId) {
-      fit()
+    if (viewportReady && projectId && !growing && fittedProject.current !== projectId) {
+      fittedProject.current = projectId
+      if (!growthJump.pending && !growthJump.locate) {
+        fit()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, viewportReady])
+  }, [growing, projectId, viewportReady])
 
   const openAgent = useCallback((agent: ProjectMapAgent) => {
     // A closed chat, or a worker that never had a tab, has none to reveal; the host republishes
@@ -187,6 +202,7 @@ export default function ProjectMapPage(): React.JSX.Element {
     const onKeyDown = (event: KeyboardEvent): void => {
       const target = event.target
       if (
+        growing ||
         !(event.metaKey || event.ctrlKey) ||
         event.altKey ||
         event.shiftKey ||
@@ -203,7 +219,7 @@ export default function ProjectMapPage(): React.JSX.Element {
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [growing])
 
   return (
     <main className="project-map relative flex h-full min-h-0 flex-1 flex-col bg-background text-foreground">
@@ -215,8 +231,33 @@ export default function ProjectMapPage(): React.JSX.Element {
         <h1 className="truncate text-base leading-8 font-semibold">
           {translate('projectMap.title', 'Project Map')}
         </h1>
+        <ToggleGroup
+          type="single"
+          value={mapView}
+          onValueChange={(value) => {
+            if (value === 'blueprint' || value === 'growth') {
+              growthJump.clearLocate()
+              setMapView(value)
+            }
+          }}
+          variant="segmented"
+          size="xs"
+          aria-label={translate('growthTree.view.label', 'Map view')}
+        >
+          <ToggleGroupItem value="blueprint">
+            <Network />
+            {translate('growthTree.view.blueprint', 'Blueprint')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="growth">
+            <GitBranch />
+            {translate('growthTree.view.growth', 'Growth tree')}
+          </ToggleGroupItem>
+        </ToggleGroup>
         {projects.length > 0 ? (
-          <Select value={projectId ?? undefined} onValueChange={setChosenProjectId}>
+          <Select
+            value={growing ? (growthScope ?? ALL_PROJECTS) : (projectId ?? undefined)}
+            onValueChange={(value) => setChosenProjectId(value === ALL_PROJECTS ? null : value)}
+          >
             <SelectTrigger
               size="sm"
               className="min-w-36"
@@ -225,6 +266,11 @@ export default function ProjectMapPage(): React.JSX.Element {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              {growing ? (
+                <SelectItem value={ALL_PROJECTS}>
+                  {translate('growthTree.allProjects', 'All projects')}
+                </SelectItem>
+              ) : null}
               {projects.map((candidate) => (
                 <SelectItem key={candidate.id} value={candidate.id}>
                   {candidate.name}
@@ -233,7 +279,7 @@ export default function ProjectMapPage(): React.JSX.Element {
             </SelectContent>
           </Select>
         ) : null}
-        {project ? (
+        {project && !growing ? (
           <span className="truncate text-xs text-muted-foreground tabular-nums">
             {translate('projectMap.stats', '{{workspaces}} workspaces · {{agents}} conversations', {
               workspaces: project.workspaceCount,
@@ -242,7 +288,7 @@ export default function ProjectMapPage(): React.JSX.Element {
           </span>
         ) : null}
         <span className="flex-1" />
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5" hidden={growing}>
           <Button
             type="button"
             variant="ghost"
@@ -285,7 +331,28 @@ export default function ProjectMapPage(): React.JSX.Element {
           </Button>
         </div>
       </header>
-      {graph && collapsed && layout ? (
+      {growthJump.notice ? (
+        <GrowthTreeJumpNotice
+          notice={growthJump.notice}
+          onUnhide={growthJump.unhide}
+          onDismiss={growthJump.dismissNotice}
+        />
+      ) : null}
+      <GrowthTreePanel
+        active={growing}
+        snapshot={snapshot}
+        projects={projects}
+        sessions={sessions}
+        forks={forks}
+        scopeProjectId={growthScope}
+        selectedId={sharedSelectedId}
+        onSelect={setSharedSelectedId}
+        onJump={growthJump.jump}
+        onOpenAgent={openAgent}
+        onOpenWorkspace={openWorkspace}
+        onRevealProject={() => setChosenProjectId(null)}
+      />
+      {growing ? null : graph && collapsed && layout ? (
         <ProjectMapCanvas
           graph={graph}
           collapsed={collapsed}
@@ -300,6 +367,9 @@ export default function ProjectMapPage(): React.JSX.Element {
           onForked={() => setLineageRevision((revision) => revision + 1)}
           searchOpen={searchOpen}
           onSearchOpenChange={setSearchOpen}
+          initialSelectedId={sharedSelectedId}
+          onSelectionChange={setSharedSelectedId}
+          locateRequest={growthJump.locate}
         />
       ) : (
         <div
