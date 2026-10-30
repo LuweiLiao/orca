@@ -1,8 +1,7 @@
 import { useEffect } from 'react'
-import { growthBarInView, growthNearestBar } from './growth-tree-keyboard-nav'
+import { growthNearestRow } from './growth-tree-keyboard-nav'
 import type { GrowthLayout } from './growth-tree-layout'
 import type { ProjectMapArrow } from './project-map-keyboard-nav'
-import type { ProjectMapView } from './use-project-map-viewport'
 
 const ARROWS: Record<string, ProjectMapArrow | undefined> = {
   ArrowLeft: 'left',
@@ -13,19 +12,14 @@ const ARROWS: Record<string, ProjectMapArrow | undefined> = {
 
 type Keys = {
   active: boolean
-  /** The summary tier draws no chats, so there is nothing for the arrows to walk. */
-  summary: boolean
   layout: GrowthLayout
-  view: ProjectMapView
-  size: { width: number; height: number }
   selected: string | null
   cursor: string | null
   onCursor: (id: string | null) => void
   onSelect: (id: string | null) => void
   onJump: (id: string) => void
-  onFit: () => void
-  onZoom: (factor: number) => void
-  onCenter: (box: { x: number; y: number; width: number; height: number }) => void
+  /** Scrolls a row the keys moved to into view. */
+  onReveal: (id: string) => void
 }
 
 function typingIn(target: EventTarget | null): boolean {
@@ -41,15 +35,13 @@ function typingIn(target: EventTarget | null): boolean {
 function onTree(target: EventTarget | null): boolean {
   return (
     target === document.body ||
-    (target instanceof Element &&
-      target.closest('[data-growth-world], [data-growth-labels], [data-growth-viewport]') !== null)
+    (target instanceof Element && target.closest('[data-growth-viewport]') !== null)
   )
 }
 
-/** Esc, fit and zoom keys, plus arrows to walk the chats and Enter to select, then to jump. */
+/** Esc, plus arrows to walk the rows and Enter to select, then to jump. */
 export function useGrowthTreeKeys(keys: Keys): void {
-  const { active, summary, layout, view, size, selected, cursor } = keys
-  const { onCursor, onSelect, onJump, onFit, onZoom, onCenter } = keys
+  const { active, layout, selected, cursor, onCursor, onSelect, onJump, onReveal } = keys
   useEffect(() => {
     if (!active) {
       return
@@ -68,17 +60,14 @@ export function useGrowthTreeKeys(keys: Keys): void {
       if (event.key === 'Escape' && (selected || cursor)) {
         onCursor(null)
         onSelect(null)
-      } else if (arrow && !summary && onTree(event.target)) {
+      } else if (arrow && onTree(event.target)) {
         event.preventDefault()
-        const next = growthNearestBar(layout, cursor ?? selected, arrow)
-        const bar = next ? layout.bars.get(next) : undefined
-        if (bar) {
-          onCursor(bar.id)
-          if (!growthBarInView(bar, view, size)) {
-            onCenter(bar)
-          }
+        const next = growthNearestRow(layout, cursor ?? selected, arrow)
+        if (next) {
+          onCursor(next)
+          onReveal(next)
         }
-      } else if (event.key === 'Enter' && !summary && onTree(event.target)) {
+      } else if (event.key === 'Enter' && onTree(event.target)) {
         const target = cursor ?? selected
         if (target) {
           event.preventDefault()
@@ -88,29 +77,9 @@ export function useGrowthTreeKeys(keys: Keys): void {
             onSelect(target)
           }
         }
-      } else if (event.key.toLowerCase() === 'f' && !event.shiftKey) {
-        onFit()
-      } else if (event.key === '+' || event.key === '=') {
-        onZoom(1.2)
-      } else if (event.key === '-') {
-        onZoom(1 / 1.2)
       }
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [
-    active,
-    summary,
-    layout,
-    view,
-    size,
-    selected,
-    cursor,
-    onCursor,
-    onSelect,
-    onJump,
-    onFit,
-    onZoom,
-    onCenter
-  ])
+  }, [active, layout, selected, cursor, onCursor, onSelect, onJump, onReveal])
 }

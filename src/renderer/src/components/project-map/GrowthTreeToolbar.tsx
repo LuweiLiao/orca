@@ -1,4 +1,4 @@
-import { Filter, History, Minus, Plus, Scan } from 'lucide-react'
+import { Filter, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -18,13 +18,7 @@ import {
   type GrowthTimeWindow,
   type GrowthTreeFilter
 } from './growth-tree-focus'
-import {
-  growthBucketLabel,
-  growthKindLabel,
-  growthModeLabel,
-  growthWindowLabel
-} from './growth-tree-labels'
-import { GROWTH_TIME_MODES, type GrowthTimeMode } from './growth-tree-scale'
+import { growthBucketLabel, growthKindLabel, growthWindowLabel } from './growth-tree-labels'
 import { GROWTH_TREE_LINE_KINDS, type GrowthTreeLineKind } from './growth-tree-types'
 
 const BUCKETS: readonly DashboardBucket[] = ['working', 'attention', 'done', 'idle']
@@ -33,12 +27,6 @@ const WINDOWS: readonly GrowthTimeWindow[] = ['all', 'today', '7d', '30d']
 type Props = {
   filter: GrowthTreeFilter
   onFilter: (filter: GrowthTreeFilter) => void
-  mode: GrowthTimeMode
-  onMode: (mode: GrowthTimeMode) => void
-  zoom: number
-  onZoom: (factor: number) => void
-  onFit: () => void
-  onShowAll: () => void
   replay: boolean
   onReplay: () => void
 }
@@ -73,35 +61,12 @@ function Check({
 export function GrowthTreeToolbar({
   filter,
   onFilter,
-  mode,
-  onMode,
-  zoom,
-  onZoom,
-  onFit,
-  onShowAll,
   replay,
   onReplay
 }: Props): React.JSX.Element {
   const active = growthFilterActiveCount(filter)
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-      <Select
-        value={mode}
-        onValueChange={(value) =>
-          onMode(GROWTH_TIME_MODES.find((candidate) => candidate === value) ?? 'compressed')
-        }
-      >
-        <SelectTrigger size="sm" aria-label={translate('growthTree.mode.label', 'Time scale')}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {GROWTH_TIME_MODES.map((candidate) => (
-            <SelectItem key={candidate} value={candidate}>
-              {growthModeLabel(candidate)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
       <Popover>
         <PopoverTrigger asChild>
           <Button
@@ -126,7 +91,12 @@ export function GrowthTreeToolbar({
                   id={`growth-bucket-${bucket}`}
                   label={growthBucketLabel(bucket)}
                   checked={filter.buckets.has(bucket)}
-                  onChange={() => onFilter({ ...filter, buckets: toggled(filter.buckets, bucket) })}
+                  onChange={() =>
+                    onFilter({
+                      ...filter,
+                      buckets: toggled(filter.buckets, bucket)
+                    })
+                  }
                 />
               ))}
             </fieldset>
@@ -141,7 +111,10 @@ export function GrowthTreeToolbar({
                   label={growthKindLabel(kind)}
                   checked={!filter.hiddenKinds.has(kind)}
                   onChange={() =>
-                    onFilter({ ...filter, hiddenKinds: toggled(filter.hiddenKinds, kind) })
+                    onFilter({
+                      ...filter,
+                      hiddenKinds: toggled(filter.hiddenKinds, kind)
+                    })
                   }
                 />
               ))}
@@ -149,7 +122,10 @@ export function GrowthTreeToolbar({
             <Select
               value={filter.window}
               onValueChange={(value) =>
-                onFilter({ ...filter, window: WINDOWS.find((window) => window === value) ?? 'all' })
+                onFilter({
+                  ...filter,
+                  window: WINDOWS.find((window) => window === value) ?? 'all'
+                })
               }
             >
               <SelectTrigger
@@ -177,7 +153,9 @@ export function GrowthTreeToolbar({
           data-growth-filter-clear=""
           onClick={() => onFilter(GROWTH_EMPTY_FILTER)}
         >
-          {translate('growthTree.filter.active', 'Filtered: {{count}}', { count: active })}
+          {translate('growthTree.filter.active', 'Filtered: {{count}}', {
+            count: active
+          })}
         </Button>
       ) : null}
       <Button
@@ -191,42 +169,6 @@ export function GrowthTreeToolbar({
         <History className="size-3.5" />
         {translate('growthTree.replay.toggle', 'Replay')}
       </Button>
-      <span className="flex-1" />
-      <Button type="button" variant="ghost" size="sm" onClick={onShowAll}>
-        {translate('growthTree.showAll', 'Show all')}
-      </Button>
-      <div className="flex items-center gap-0.5">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={translate('projectMap.zoomOut', 'Zoom out')}
-          onClick={() => onZoom(1 / 1.2)}
-        >
-          <Minus className="size-3.5" />
-        </Button>
-        <span className="w-11 text-center text-xs text-muted-foreground tabular-nums">
-          {Math.round(zoom * 100)}%
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={translate('projectMap.zoomIn', 'Zoom in')}
-          onClick={() => onZoom(1.2)}
-        >
-          <Plus className="size-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={translate('projectMap.fit', 'Fit to view')}
-          onClick={onFit}
-        >
-          <Scan className="size-3.5" />
-        </Button>
-      </div>
     </div>
   )
 }
