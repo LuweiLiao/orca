@@ -50,6 +50,8 @@ export type GrowthLayoutPin = {
 export type GrowthTreePathIndex = {
   nodes: ReadonlyMap<string, GrowthBox>
   edges: ReadonlyMap<string, string>
+  /** The drawn wires with their two ends, so a signal can find the one joining its nodes. */
+  wires: readonly GrowthLayoutWire[]
 }
 
 export type GrowthLayout = {
