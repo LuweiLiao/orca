@@ -20,7 +20,7 @@ type AsyncMergeResponse = {
 
 type AsyncMergeResult =
   | { kind: 'pending'; uuid: string }
-  | { kind: 'success' }
+  | { kind: 'success'; queued: boolean }
   | { kind: 'failure'; message: string }
 
 export type GitHubPRStackMergeAction = 'direct_merge' | 'merge_queue'
@@ -43,7 +43,7 @@ function errorResponseBody(error: unknown): AsyncMergeResponse | null {
 
 function classifyResult(response: AsyncMergeResponse): AsyncMergeResult {
   if (response.status === 'merged' || response.status === 'enqueued') {
-    return { kind: 'success' }
+    return { kind: 'success', queued: response.status === 'enqueued' }
   }
   if (response.status === 'pending' && typeof response.details?.uuid === 'string') {
     return { kind: 'pending', uuid: response.details.uuid }
@@ -78,7 +78,7 @@ export async function mergeGitHubPRStack(args: {
   mergeAction: GitHubPRStackMergeAction
   headSha?: string
   ghOptions: GitHubRepoExecOptions
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<{ ok: true; queued?: true } | { ok: false; error: string }> {
   const endpoint = `repos/${args.repository.owner}/${args.repository.repo}/pulls/${args.prNumber}/merge-async`
   const command = ['api', '-X', 'PUT', endpoint, '-f', `merge_action=${args.mergeAction}`]
   if (args.mergeAction === 'direct_merge') {
@@ -107,7 +107,8 @@ export async function mergeGitHubPRStack(args: {
   }
   let result = classifyResult(submitted)
   if (result.kind === 'success') {
-    return { ok: true }
+    // Why: an enqueued stack has not merged yet; callers must not report it as merged.
+    return result.queued ? { ok: true, queued: true } : { ok: true }
   }
   if (result.kind === 'failure') {
     return { ok: false, error: result.message }
@@ -135,7 +136,7 @@ export async function mergeGitHubPRStack(args: {
     }
     result = classifyResult(response)
     if (result.kind === 'success') {
-      return { ok: true }
+      return result.queued ? { ok: true, queued: true } : { ok: true }
     }
     if (result.kind === 'failure') {
       return { ok: false, error: result.message }

@@ -76,7 +76,7 @@ export function registerGitHubPRMutationHandlers(
         ...getGitHubLocalGitOptionArgs(store, repo)
       )
       broadcastSuccessfulPRMutation(result.ok, repo.path, repo.id, args.prNumber, event.sender.id)
-      if (result.ok) {
+      if (result.ok && !result.queued) {
         onMerged?.(repo.id, args.prNumber)
       }
       return result

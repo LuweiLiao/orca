@@ -148,8 +148,8 @@ export class RuntimeGitHubReviewMutationCommands {
       prRepo ?? null,
       ...this.deps.getLocalGitArgs(repo)
     )
-    // Why: only a merge GitHub confirmed; a failure or a queued auto-merge never reaches here.
-    if (result.ok) {
+    // Why: only a merge GitHub confirmed; an enqueued stack has not merged yet.
+    if (result.ok && !result.queued) {
       this.deps.onMerged(repo.id, prNumber)
     }
     return result

@@ -277,7 +277,7 @@ describe('mergeGitHubPRStack', () => {
         mergeAction: 'merge_queue',
         ghOptions: { cwd: '/repo' }
       })
-    ).resolves.toEqual({ ok: true })
+    ).resolves.toEqual({ ok: true, queued: true })
 
     const command = ghExecFileAsyncMock.mock.calls[0]?.[0]
     expect(command).toContain('merge_action=merge_queue')
