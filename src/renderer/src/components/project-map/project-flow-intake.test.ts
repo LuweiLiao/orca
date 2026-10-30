@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { ProjectFlowEvent } from '../../../../shared/project-flow-event'
 import {
   structuredAgentSessionPaneKey,
@@ -119,6 +119,46 @@ describe('createProjectFlowIntake', () => {
     expect(flown.map((signal) => signal.id)).toEqual(['d1:completed'])
     intake.retry()
     expect(flown).toHaveLength(1)
+  })
+
+  it('asks this machine to refresh when its own event names an end it has not heard of', () => {
+    const refresh = vi.fn()
+    const flown: FlowSignal[] = []
+    const bus = createFlowSignalBus()
+    bus.subscribe((signal) => flown.push(signal))
+    let known = false
+    const intake = createProjectFlowIntake(
+      bus,
+      () => (known ? lookup : { ...lookup, paneOfDispatch: () => null }),
+      () => 0,
+      refresh
+    )
+    intake.accept(report('succeeded'), 'local')
+    expect(refresh).toHaveBeenCalledTimes(1)
+    known = true
+    intake.retry()
+    expect(flown.map((signal) => signal.id)).toEqual(['d1:completed'])
+  })
+
+  it('does not ask for a refresh for another host, or for an event it can already place', () => {
+    const refresh = vi.fn()
+    const bus = createFlowSignalBus()
+    const unknown = createProjectFlowIntake(
+      bus,
+      () => ({ ...lookup, paneOfDispatch: () => null }),
+      () => 0,
+      refresh
+    )
+    unknown.accept(report('succeeded'), 'remote')
+    unknown.accept(report('succeeded'))
+    const known = createProjectFlowIntake(
+      bus,
+      () => lookup,
+      () => 0,
+      refresh
+    )
+    known.accept(report('succeeded'), 'local')
+    expect(refresh).not.toHaveBeenCalled()
   })
 
   it('drops an event whose end never became known', () => {

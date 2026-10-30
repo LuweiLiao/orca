@@ -62,19 +62,23 @@ export function resolveProjectFlowEvent(
 }
 
 export type ProjectFlowIntake = {
-  accept: (event: ProjectFlowEvent) => void
+  /** `local` is this machine's own host, whose view of the world this window can refresh. */
+  accept: (event: ProjectFlowEvent, source?: 'local' | 'remote') => void
   /** Tries the events held for an end that was not known yet; call when what is known changed. */
   retry: () => void
 }
 
 /**
  * A host can name a worker before this window has heard of it, so an event whose end is unknown
- * is held for a moment and dropped after that, never flown to a guess.
+ * is held for a moment and dropped after that, never flown to a guess. This machine's own host
+ * is asked to say what it knows now: a chat given a second task has no other reason to tell this
+ * window until its turn starts, which can be long after the task was handed over.
  */
 export function createProjectFlowIntake(
   bus: FlowSignalBus,
   lookup: () => FlowLookup,
-  now: () => number = Date.now
+  now: () => number = Date.now,
+  requestRefresh: () => void = () => {}
 ): ProjectFlowIntake {
   let held: { event: ProjectFlowEvent; expiresAt: number }[] = []
   const settle = (event: ProjectFlowEvent): boolean => {
@@ -85,9 +89,12 @@ export function createProjectFlowIntake(
     return signal !== null
   }
   return {
-    accept: (event) => {
+    accept: (event, source = 'remote') => {
       if (!settle(event)) {
         held = [...held, { event, expiresAt: now() + HOLD_MS }].slice(-MAX_HELD)
+        if (source === 'local') {
+          requestRefresh()
+        }
       }
     },
     retry: () => {
