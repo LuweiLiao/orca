@@ -7,10 +7,16 @@ import type { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapAgentNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
 import { ProjectMapChatWindow, type ProjectMapWindowSubject } from './ProjectMapChatWindow'
 import type { ProjectMapRect } from './project-map-window-placement'
+import { ProjectFlowOverlay } from './ProjectFlowOverlay'
+import type { FlowSignal, FlowSignalBus } from './project-flow-signal'
+import type { FlowRoute } from './project-flow-particles'
+import { resolveFlowRoute } from './project-flow-wire-route'
 
 type Props = {
   graph: ProjectMapGraph
   layout: ProjectMapLayout
+  /** Real delegations and reports, flown once along the wire between their two chats. */
+  flowBus: FlowSignalBus
   viewport: ReturnType<typeof useProjectMapViewport>
   activeWorktreeId: string | null
   onOpenAgent: (agent: ProjectMapAgent) => void
@@ -39,6 +45,7 @@ function windowSubject(graph: ProjectMapGraph, id: string | null): ProjectMapWin
 export function ProjectMapCanvas({
   graph,
   layout,
+  flowBus,
   viewport,
   activeWorktreeId,
   onOpenAgent,
@@ -46,6 +53,10 @@ export function ProjectMapCanvas({
 }: Props): React.JSX.Element {
   const { view } = viewport
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const resolveFlow = (signal: FlowSignal): FlowRoute | null =>
+    layout.nodes.has(signal.from) && layout.nodes.has(signal.to)
+      ? resolveFlowRoute(layout.wires, signal.from, signal.to)
+      : null
   const worktrees = useAppStore((s) => s.worktreesByRepo[graph.projectId] ?? EMPTY_WORKTREES)
   const branchById = useMemo(
     () =>
@@ -172,6 +183,7 @@ export function ProjectMapCanvas({
             />
           ))}
         </svg>
+        <ProjectFlowOverlay bus={flowBus} resolve={resolveFlow} />
         {[...layout.nodes.values()].map((box) => {
           const workspace = graph.workspaces.get(box.id)
           const agent = graph.agents.get(box.id)
