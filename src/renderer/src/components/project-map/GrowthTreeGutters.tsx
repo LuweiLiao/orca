@@ -3,7 +3,7 @@ import { translate } from '@/i18n/i18n'
 import type { ProjectMapView } from './use-project-map-viewport'
 import { growthClock, growthDay, growthFoldedSpan } from './growth-tree-labels'
 import type { GrowthTick } from './growth-tree-ticks'
-import type { GrowthLayout } from './growth-tree-layout'
+import { GROWTH_LAYOUT, type GrowthLayout } from './growth-tree-layout'
 import type { GrowthTree } from './growth-tree-types'
 
 export const GROWTH_LABEL_WIDTH = 168
@@ -45,7 +45,9 @@ export function GrowthTreeLabels({
     >
       {layout.groups.map((group) => {
         const project = tree.projects.find((candidate) => candidate.id === group.projectId)!
-        const header = 32
+        const header = GROWTH_LAYOUT.groupHeader
+        const headerPx = header * view.zoom
+        const emptyTier = labelTier(GROWTH_LAYOUT.emptyRow * view.zoom)
         return (
           <div key={group.projectId}>
             {visible(group.y, header) ? (
@@ -54,8 +56,12 @@ export function GrowthTreeLabels({
                 data-growth-group={group.projectId}
                 aria-expanded={!group.collapsed}
                 onClick={() => onToggleGroup(group.projectId)}
-                className="absolute inset-x-0 flex items-center gap-1 overflow-hidden px-2 text-left text-[13px] font-medium hover:bg-accent/50"
-                style={place(group.y, header)}
+                className="absolute inset-x-0 flex items-center gap-1 overflow-hidden px-2 text-left font-medium hover:bg-accent/50"
+                style={{
+                  ...place(group.y, header),
+                  fontSize: Math.min(13, Math.max(9, headerPx - 3)),
+                  lineHeight: `${Math.max(10, Math.floor(headerPx))}px`
+                }}
               >
                 {group.collapsed ? (
                   <ChevronRight className="size-3.5 shrink-0" />
@@ -77,14 +83,17 @@ export function GrowthTreeLabels({
                 </span>
               </button>
             ) : null}
-            {group.emptyY !== null && visible(group.emptyY, 24) ? (
+            {group.emptyY !== null && visible(group.emptyY, GROWTH_LAYOUT.emptyRow) ? (
               <div
-                className="absolute inset-x-0 flex items-center px-3 text-2xs text-muted-foreground"
-                style={place(group.emptyY, 24)}
+                data-growth-empty-lanes={group.projectId}
+                className="absolute inset-x-0 flex items-center overflow-hidden px-3 text-2xs whitespace-nowrap text-muted-foreground"
+                style={place(group.emptyY, GROWTH_LAYOUT.emptyRow)}
               >
-                {translate('growthTree.emptyLanes', 'Empty workspaces: {{count}}', {
-                  count: group.emptyLaneIds.length
-                })}
+                {emptyTier.kind === 'none'
+                  ? null
+                  : translate('growthTree.emptyLanes', 'Empty workspaces: {{count}}', {
+                      count: group.emptyLaneIds.length
+                    })}
               </div>
             ) : null}
           </div>
@@ -96,6 +105,15 @@ export function GrowthTreeLabels({
           return null
         }
         const Icon = lane.kind === 'folder' ? Folder : GitBranch
+        const tier = labelTier(box.height * view.zoom)
+        const subtitle = [
+          lane.kind === 'folder'
+            ? translate('growthTree.folderWorkspace', 'Folder workspace')
+            : null,
+          lane.hostLabel
+        ]
+          .filter(Boolean)
+          .join(' · ')
         return (
           <button
             key={box.id}
@@ -104,20 +122,27 @@ export function GrowthTreeLabels({
             aria-pressed={selectedId === box.id}
             onClick={() => onSelectLane(box.id)}
             onDoubleClick={() => onJumpLane(box.id)}
-            className="absolute inset-x-0 flex flex-col justify-center overflow-hidden px-3 text-left hover:bg-accent/50 data-[selected]:bg-accent"
+            aria-label={lane.name}
+            title={lane.name}
+            className="absolute inset-x-0 flex flex-col justify-start overflow-hidden px-3 text-left hover:bg-accent/50 data-[selected]:bg-accent"
             data-selected={selectedId === box.id || undefined}
+            data-label-tier={tier.kind}
             style={place(box.y, box.height)}
           >
-            <span className="flex items-center gap-1.5 text-[13px]">
-              <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 truncate">{lane.name}</span>
-            </span>
-            <span className="truncate pl-5 text-2xs text-muted-foreground">
-              {lane.kind === 'folder'
-                ? translate('growthTree.folderWorkspace', 'Folder workspace')
-                : null}
-              {lane.hostLabel ? ` ${lane.hostLabel}` : null}
-            </span>
+            {tier.kind === 'none' ? null : (
+              <>
+                <span
+                  className="flex items-center gap-1.5 whitespace-nowrap"
+                  style={{ fontSize: tier.font, lineHeight: `${tier.line}px` }}
+                >
+                  <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 truncate">{lane.name}</span>
+                </span>
+                {tier.kind === 'two' && subtitle ? (
+                  <span className="truncate pl-5 text-2xs text-muted-foreground">{subtitle}</span>
+                ) : null}
+              </>
+            )}
           </button>
         )
       })}
@@ -125,7 +150,23 @@ export function GrowthTreeLabels({
   )
 }
 
-const MIN_LABEL_GAP_PX = 44
+const MIN_LABEL_GAP_PX = 72
+const TWO_LINE_MIN_PX = 34
+const ONE_LINE_MIN_PX = 13
+
+type LabelTier = { kind: 'two' | 'one' | 'none'; font: number; line: number }
+
+/** What a lane label can show in the height its lane has on screen, so text never spills over. */
+function labelTier(rowPx: number): LabelTier {
+  if (rowPx >= TWO_LINE_MIN_PX) {
+    return { kind: 'two', font: 13, line: 18 }
+  }
+  if (rowPx >= ONE_LINE_MIN_PX) {
+    const line = Math.floor(rowPx - 1)
+    return { kind: 'one', font: Math.min(13, Math.max(9, line - 3)), line }
+  }
+  return { kind: 'none', font: 0, line: 0 }
+}
 
 /** Drops a mark that would sit on top of the one before it once the tree is zoomed out. */
 function spacedOnScreen(zoom: number): (tick: GrowthTick, index: number) => boolean {
