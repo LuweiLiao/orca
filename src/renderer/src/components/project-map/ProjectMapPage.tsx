@@ -23,7 +23,7 @@ import {
 import { layoutProjectMap } from './project-map-layout'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
-import { createFlowSignalBus } from './project-flow-signal'
+import { appFlowSignalBus } from './project-flow-app'
 import { useProjectFlowDispatchSignals } from './use-project-flow-dispatch-signals'
 import './project-map.css'
 
@@ -32,8 +32,7 @@ export default function ProjectMapPage(): React.JSX.Element {
   const activeRepoId = useAppStore((s) => s.activeRepoId)
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const orchestration = useAppStore((s) => s.runtimeAgentOrchestrationByPaneKey)
-  const [flowBus] = useState(createFlowSignalBus)
-  useProjectFlowDispatchSignals(orchestration, flowBus)
+  useProjectFlowDispatchSignals(orchestration, appFlowSignalBus)
   const sessions = useMemo(() => projectMapChatSessions(orchestration), [orchestration])
   const projects = useMemo(() => listProjectMapProjects(snapshot), [snapshot])
   const [chosenProjectId, setChosenProjectId] = useState<string | null>(null)
@@ -154,7 +153,7 @@ export default function ProjectMapPage(): React.JSX.Element {
         <ProjectMapCanvas
           graph={graph}
           layout={layout}
-          flowBus={flowBus}
+          flowBus={appFlowSignalBus}
           viewport={viewport}
           activeWorktreeId={activeWorktreeId}
           onOpenAgent={openAgent}

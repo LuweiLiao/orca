@@ -2,6 +2,7 @@ import type { RuntimeWorktreeLifecycleEvent } from '../lifecycle/worktree-lifecy
 import type { AutomationsChangedPayload } from '../../../../shared/remote-runtime/session-graph/runtime-client-events'
 import type { WorkspaceCleanupRunFinishedEvent } from '../../../../shared/workspace-cleanup/workspace-cleanup-run'
 import { scheduleCurrentWorktreeBaseDirectoryWatcherSync } from '../../../ipc/worktrees/creation/worktree-base-directory-watcher'
+import type { ProjectFlowEvent } from '../../../../shared/project-flow-event'
 import { wakeFolderRepoGitUpgradeWatch } from '../../../ipc/worktrees/listing/folder-repo-git-upgrade-wake'
 import { runWorktreeChangeInvalidators } from '../../../ipc/worktrees/listing/worktree-change-invalidators'
 import type { WorktreeSortOrderUpdate } from '../../../../shared/worktree/metadata/sort-order-update'
@@ -69,6 +70,10 @@ export abstract class RuntimeWorkspaceChangeEvents extends NativeChatLaunchDraft
     this.notifier?.automationsChanged?.(payload)
     this.emitClientEvent({ type: 'automationsChanged', ...payload })
     this.botChangeNotices.changed({ kinds: ['automations'] })
+  }
+
+  notifyProjectFlow(event: ProjectFlowEvent): void {
+    this.emitClientEvent(event)
   }
 
   /** The cleanup runner finished a run on this host; clients may toast. */

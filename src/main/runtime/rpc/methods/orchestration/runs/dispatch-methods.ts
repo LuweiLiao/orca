@@ -23,6 +23,8 @@ import {
 } from '../chat-assignee-admission'
 import { sendChatTask } from '../chat-task-delivery'
 import { dispatchTaskSource } from '../../../../orchestration/coordinator/dispatch/dispatch-task-source'
+import { delegateFlowEvent } from '../../../../orchestration/project-flow-events'
+import { publishProjectFlow } from '../../../../orchestration/project-flow-publisher'
 
 export const ORCHESTRATION_DISPATCH_METHODS = [
   defineOrchestrationMethod({
@@ -193,6 +195,8 @@ export const ORCHESTRATION_DISPATCH_METHODS = [
           throw err
         }
       }
+
+      publishProjectFlow(runtime, delegateFlowEvent(ctx.id))
 
       // Opt into returning the preamble to avoid hundreds of unnecessary response bytes.
       if (params.returnPreamble) {

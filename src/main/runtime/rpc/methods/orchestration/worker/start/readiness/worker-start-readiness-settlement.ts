@@ -7,6 +7,8 @@ import type { OrchestrationDb } from '../../../../../../orchestration/db/orchest
 import type { RunRow, TaskRow } from '../../../../../../orchestration/db/orchestration-records'
 import type { AgentLaunchModeReceipt as WorkerStartModeReceipt } from '../../../../../../../../shared/agent-launch/contracts/agent-launch-intent'
 import { deliverWorkerDispatchPreamble } from './deliver-worker-dispatch-preamble'
+import { delegateFlowEvent } from '../../../../../../orchestration/project-flow-events'
+import { publishProjectFlow } from '../../../../../../orchestration/project-flow-publisher'
 import { reportedWorkerOutcome } from '../worker-start-receipt'
 import { chatAssigneeSessionId } from '../../../../../../orchestration/workers/lifecycle/chat-assignee'
 import type { OrchestrationWorkerLaunchReceipt } from '../launch/worker-launch-preferences'
@@ -158,6 +160,10 @@ export async function deliverAndSettleWorkerStartReadiness(args: {
   const worker = alreadySettled
     ? currentWorker
     : db.markWorkerDispatchReady(args.dispatchId, effects)
+  // Why: a report that already settled the dispatch has flown; the delegation would trail it.
+  if (!alreadySettled) {
+    publishProjectFlow(runtime, delegateFlowEvent(args.dispatchId))
+  }
   const reportedOutcome = reportedWorkerOutcome(worker)
   return {
     runId: run.id,

@@ -15,6 +15,7 @@ import type { WorkspaceMetadataSet } from '../../worktree/metadata/workspace-met
 import type { SidebarInputsChangedEvent } from '../../sidebar-list/feed/sidebar-inputs-feed-contract'
 import type { BrowserClientHostRequestEvent } from '../../browser/client-hosting/browser-client-host-request-protocol'
 import type { WorkspaceCleanupRunFinishedEvent } from '../../workspace-cleanup/workspace-cleanup-run'
+import type { ProjectFlowEvent } from '../../project-flow-event'
 
 export type RuntimeClientEvent =
   | {
@@ -69,6 +70,8 @@ export type RuntimeClientEvent =
     }
   // Why: browser profiles live on the host; old clients drop the unknown type and refetch on their old triggers.
   | { type: 'browserProfilesChanged' }
+  // Why: only a host that announces PROJECT_FLOW_RUNTIME_CAPABILITY sends it; older ones drop it.
+  | ProjectFlowEvent
   /** A bot, its automations or its Activity's work changed; readers re-read. Old clients drop it, and
    *  ignore the scope: which bots (all when absent) and which kinds of change (any when absent); an
    *  `items` notice also carries every bot's Needs you count. */

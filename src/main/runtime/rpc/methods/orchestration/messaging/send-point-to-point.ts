@@ -16,6 +16,7 @@ import { isEarlierTaskOfDispatch } from '../../../../orchestration/db/dispatch-c
 import type { SendParams } from './send-params'
 import { legacyWorkerDeliveryContract } from '../routing'
 import { exposeMessage } from './mailbox-message-receipt'
+import { publishMessageFlow, type FlowSender } from './project-flow-publish'
 import { WORKER_DONE_RECORDED_NEXT } from '../receipt-next'
 import { recordReceiptForPostCommitNudge } from './mutation-replay-nudge'
 import type { SendRecipientWarning } from './recipient-routing'
@@ -37,6 +38,7 @@ export function sendPointToPointMessage(args: {
   dispatchId: string | undefined
   messageRunId: string | undefined
   senderPaneKey: string | undefined
+  flowSender: FlowSender
   legacyCoordinatorRunId: string | undefined
   resolveProcessIncarnation: () => string | undefined
   revalidateLegacyCoordinator: (() => string) | undefined
@@ -53,6 +55,7 @@ export function sendPointToPointMessage(args: {
     dispatchId,
     messageRunId,
     senderPaneKey,
+    flowSender,
     legacyCoordinatorRunId,
     resolveProcessIncarnation,
     revalidateLegacyCoordinator,
@@ -182,14 +185,16 @@ export function sendPointToPointMessage(args: {
             }
           : { message: exposeMessage(msg) }
       )
-      return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () =>
+      return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () => {
         runtime.notifyMessageArrived(msg.to_handle, msg.type)
-      )
+        publishMessageFlow({ runtime, db, message: msg, sender: flowSender, reconciled })
+      })
     }
     const receipt = withReportWarnings({ message: exposeMessage(msg) })
-    return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () =>
+    return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () => {
       runtime.notifyMessageArrived(msg.to_handle, msg.type)
-    )
+      publishMessageFlow({ runtime, db, message: msg, sender: flowSender })
+    })
   }
   // Wake the Run only after worker_done mail, settlement and replay receipt commit atomically.
   if (messageType === 'worker_done') {

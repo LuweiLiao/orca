@@ -19,6 +19,7 @@ import {
 import { legacyWorkerDeliveryContract } from '../routing'
 import { exposeMessages } from './mailbox-message-receipt'
 import { recordReceiptBeforeNudge } from './mutation-replay-nudge'
+import { publishMessageFlow } from './project-flow-publish'
 
 import type { SendParams } from './send-params'
 import type { OrchestrationPartyIdentity as OrchestrationCallerIdentity } from '../../../../../../shared/orchestration/mailbox/orchestration-party-identity'
@@ -302,6 +303,7 @@ export async function sendGroupMessage(args: {
   return recordReceiptBeforeNudge(recordMutationReceipt, receipt, () => {
     for (const message of messages) {
       runtime.notifyMessageArrived(message.to_handle, message.type)
+      publishMessageFlow({ runtime, db, message, sender })
     }
   })
 }

@@ -14,6 +14,8 @@ import { registerFilesystemHandlers } from '../filesystem/filesystem'
 import type { CommitMessageAgentEnvironmentResolvers } from '../../text-generation/execution/commit-message-agent-environment'
 import { registerFilesystemWatcherHandlers } from '../filesystem/watchers/filesystem-watcher-handlers'
 import { registerGitHubHandlers } from '../source-control/github'
+import { mergeFlowEvent } from '../../runtime/orchestration/project-flow-events'
+import { publishProjectFlow } from '../../runtime/orchestration/project-flow-publisher'
 import { registerGitLabHandlers } from '../source-control/gitlab'
 import { registerHostedReviewHandlers } from '../source-control/hosted-review'
 import { registerLinearHandlers } from '../linear/register-handlers'
@@ -157,7 +159,9 @@ export async function registerCoreHandlers(
     registerGrokAccountHandlers()
     registerCursorAccountHandlers()
     registerRateLimitHandlers(rateLimits, codexAccounts)
-    registerGitHubHandlers(store, stats, runtime)
+    registerGitHubHandlers(store, stats, runtime, (repoId, prNumber) =>
+      publishProjectFlow(runtime, mergeFlowEvent(repoId, prNumber))
+    )
     registerGitLabHandlers(store)
     registerHostedReviewHandlers(store, stats)
     registerLinearHandlers()

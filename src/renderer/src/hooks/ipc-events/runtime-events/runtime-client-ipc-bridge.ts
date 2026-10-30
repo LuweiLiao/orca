@@ -39,6 +39,7 @@ import {
   type OwnedWorktreeEvent
 } from '../../../store/host-catalog/endpoint-catalog-adoption'
 import { createRuntimeClientEventsSync } from './runtime-client-events-sync'
+import * as projectFlow from '@/components/project-map/project-flow-app'
 import { createRuntimeProjectCatalogRefreshScheduler } from '../workspace-catalog/runtime-project-catalog-refresh'
 import {
   buildRuntimeClientEventEnvironmentKey,
@@ -111,6 +112,9 @@ export function registerRuntimeClientIpcBridge(
     }
     if (event.type === 'nativeChatLaunchDraftResolved') {
       applyNativeChatLaunchDraftResolved(useAppStore.getState(), event)
+      return
+    }
+    if (projectFlow.acceptClientEvent(event)) {
       return
     }
     // A paired desktop keeps its own Workspace options; it reads only the host's columns, for the host's cards.
@@ -208,6 +212,8 @@ export function registerRuntimeClientIpcBridge(
         console.error('Failed to activate runtime-created worktree:', error)
       })
   }
+
+  projectFlow.register(unsubs)
 
   setRuntimeEnvironmentCatalogRefresher(async () => {
     useAppStore.getState().setRuntimeEnvironments(await window.api.runtimeEnvironments.list())

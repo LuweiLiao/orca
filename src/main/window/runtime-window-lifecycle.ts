@@ -252,6 +252,9 @@ export function registerRuntimeWindowLifecycle(
         send('linear:linkedIssueUpdated', event)
       } else if (ORCA_SIDEBAR_INPUTS_IS_MAIN && event.type === 'sidebarInputsChanged') {
         send('runtime:sidebarInputsChanged', event)
+      } else if (event.type === 'projectFlow') {
+        // This host's own flights reach its window by IPC; other hosts arrive over client events.
+        send('runtime:projectFlow', event)
       }
     },
     { consumesTerminalSideEffects: false }

@@ -55,7 +55,9 @@ export function ProjectMapCanvas({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const resolveFlow = (signal: FlowSignal): FlowRoute | null =>
     layout.nodes.has(signal.from) && layout.nodes.has(signal.to)
-      ? resolveFlowRoute(layout.wires, signal.from, signal.to)
+      ? resolveFlowRoute(layout.wires, signal.from, signal.to, {
+          handoff: signal.tone === 'handoff'
+        })
       : null
   const worktrees = useAppStore((s) => s.worktreesByRepo[graph.projectId] ?? EMPTY_WORKTREES)
   const branchById = useMemo(

@@ -21,6 +21,7 @@ import {
   storeBackedBranchSwitchSources
 } from '../integrations/git/runtime-branch-switch-host'
 import { OrcaRuntimeWithFileCommands } from './runtime-file-command-state'
+import { mergeFlowEvent } from '../orchestration/project-flow-events'
 import { readCreateSourceSetupHooks } from '../../workspace-hooks/create-source-setup-hooks'
 import { getWorktreeCreatePrefetchGitOptions } from '../../workspaces/execution-host/project-runtime-git-options'
 
@@ -146,7 +147,8 @@ export abstract class OrcaRuntimeWithRepositoryCommands extends OrcaRuntimeWithF
 
   protected readonly gitHubReviewMutations = new RuntimeGitHubReviewMutationCommands({
     resolveRepo: (selector) => this.resolveRepoSelector(selector),
-    getLocalGitArgs: (repo) => this.getLocalGitExecutionOptionArgs(repo)
+    getLocalGitArgs: (repo) => this.getLocalGitExecutionOptionArgs(repo),
+    onMerged: (repoId, prNumber) => this.emitClientEvent(mergeFlowEvent(repoId, prNumber))
   })
 
   protected readonly gitHubIssueComments = new RuntimeGitHubIssueCommentCommands({

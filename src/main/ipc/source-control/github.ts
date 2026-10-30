@@ -13,13 +13,14 @@ import { registerGitHubWorkItemHandlers } from './github-work-item-handlers'
 export function registerGitHubHandlers(
   store: Store,
   stats: StatsCollector,
-  runtime: Pick<OrcaRuntimeService, 'notifyPullRequestChangedForRemoteClients'>
+  runtime: Pick<OrcaRuntimeService, 'notifyPullRequestChangedForRemoteClients'>,
+  onMerged?: (repoId: string, prNumber: number) => void
 ): void {
   registerGitHubPRRefreshHandlers(store, stats, runtime)
   registerGitHubWorkItemHandlers(store)
   registerGitHubPRReadHandlers(store)
   registerGitHubPRReviewHandlers(store)
-  registerGitHubPRMutationHandlers(store)
+  registerGitHubPRMutationHandlers(store, onMerged)
   registerGitHubIssueMutationHandlers(store)
   registerGitHubAccountHandlers(store)
   registerGitHubProjectViewHandlers()

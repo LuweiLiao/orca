@@ -43,6 +43,8 @@ export function createWebRuntimeApi(): NonNullable<Partial<PreloadApi>['runtime'
     onClientHostedBrowserRowsChanged: () => noopUnsubscribe,
     // A web client builds its own view and never reads the host's sidebar feed.
     onSidebarInputsChanged: () => noopUnsubscribe,
+    // A web client has no local host; every host it sees arrives over client events.
+    onProjectFlow: () => noopUnsubscribe,
     // A web client hears its host's worker notices on the runtime client-event stream.
     onOrchestrationSessionWorkersChanged: () => noopUnsubscribe
   }
