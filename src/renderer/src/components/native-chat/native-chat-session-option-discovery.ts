@@ -1,4 +1,5 @@
 import type { AgentType } from '../../../../shared/agent-status-types'
+import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import {
   createClaudeCatalogOptions,
   getAgentSessionOptionCatalog,
@@ -19,6 +20,7 @@ import {
 import { discoverRuntimeCommitMessageModels } from '@/runtime/runtime-git-generation-client'
 import { getRuntimeGitScope, type RuntimeGitContext } from '@/runtime/runtime-git-client-context'
 import { callStructuredAgentSession } from '@/runtime/structured-agent-session-client'
+import { structuredAgentSessionHostKey } from '@/runtime/structured-agent-session-host-capability'
 import type {
   AgentSessionModelCatalogResult,
   AgentSessionModelOption
@@ -29,6 +31,40 @@ import { findKnownWorktreeById } from '@/store/slices/worktrees/listing/detected
 export type NativeChatModelDiscoveryContext = {
   hostKey: string
   runtime: RuntimeGitContext
+}
+
+export function discoveryContextForTransport(
+  target: RuntimeClientTarget,
+  worktreeId: string | null,
+  connectionId: string | null | undefined,
+  context: NativeChatModelDiscoveryContext | null
+): NativeChatModelDiscoveryContext | undefined {
+  if (
+    context?.runtime.worktreeId === worktreeId &&
+    structuredAgentSessionHostKey(context.runtime.target) === structuredAgentSessionHostKey(target)
+  ) {
+    return context
+  }
+  if (connectionId === undefined || (!worktreeId && target.kind !== 'local')) {
+    return undefined
+  }
+  const state = useAppStore.getState()
+  const worktreePath = worktreeId ? (findKnownWorktreeById(state, worktreeId)?.path ?? '') : ''
+  return {
+    hostKey: resolveNativeChatModelDiscoveryHostKey(
+      state,
+      worktreeId,
+      worktreePath,
+      getRuntimeGitScope(target, connectionId)
+    ),
+    runtime: {
+      target,
+      prefs: state.settings,
+      worktreeId,
+      worktreePath,
+      ...(connectionId ? { connectionId } : {})
+    }
+  }
 }
 
 export function resolveNativeChatModelDiscoveryHostKey(
@@ -150,7 +186,7 @@ export async function discoverNativeChatCatalogModels(
     result.models.length === 0 ||
     // Why: a spec's static fallback list must never pass as a probe result for an
     // agent whose published list replaces rather than extends the seed.
-    ((agent === 'claude' || catalog?.discoveredModelsAreAuthoritative) &&
+    ((agent === 'claude' || agent === 'ccb' || catalog?.discoveredModelsAreAuthoritative) &&
       result.catalogOrigin !== 'probe')
   ) {
     return null
@@ -162,7 +198,7 @@ export async function discoverNativeChatCatalogModels(
     ...(model.isDefault ? { isDefault: true as const } : {}),
     ...(model.contextWindowTokens ? { contextWindowTokens: model.contextWindowTokens } : {}),
     options:
-      agent === 'claude'
+      agent === 'claude' || agent === 'ccb'
         ? createClaudeCatalogOptions({
             effortLevelIds: model.thinkingLevels?.map(({ id }) => id) ?? [],
             supportsFastMode: model.supportsFastMode

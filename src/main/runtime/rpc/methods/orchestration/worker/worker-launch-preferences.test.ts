@@ -10,8 +10,49 @@ import {
   resolveWorkerLaunchPreferences
 } from './worker-launch-preferences'
 import { WorkerStartParams } from '../../../../../../shared/rpc-contract/orchestration-worker-start-params'
+import { checkAgentLaunchModelPreferences } from '../../../../../../shared/agent-launch-model-preferences'
+import { resolveAgentLaunchCommand } from '../../../../../../shared/tui-agent-launch-command'
 
 describe('orchestration worker launch preferences', () => {
+  it('carries CCB model and effort into its terminal command without changing launcher identity', () => {
+    const preferences = { model: 'opus', effort: 'max' }
+    expect(checkAgentLaunchModelPreferences({ agent: 'ccb', ...preferences })).toEqual({
+      preferences
+    })
+    const launch = resolveWorkerLaunchPreferences({ agent: 'ccb', ...preferences })
+    expect(launch.receipt.effective).toEqual({ agent: 'ccb', ...preferences })
+    expect(
+      resolveAgentLaunchCommand({
+        agent: 'ccb',
+        cmdOverrides: {},
+        platform: 'linux',
+        shell: 'posix',
+        sessionOptions: launch.preferences,
+        sessionOptionsOverrideAgentArgs: true
+      })
+    ).toMatchObject({
+      ok: true,
+      command: "ccb '--model' 'opus' '--effort' 'max'",
+      appliedSessionOptions: preferences
+    })
+  })
+
+  it('leaves CCB defaults untouched when no model is requested', () => {
+    expect(checkAgentLaunchModelPreferences({ agent: 'ccb' })).toEqual({ preferences: undefined })
+    const launch = resolveWorkerLaunchPreferences({ agent: 'ccb' })
+    expect(launch.receipt.effective).toEqual({ agent: 'ccb', model: null, effort: null })
+    expect(
+      resolveAgentLaunchCommand({
+        agent: 'ccb',
+        cmdOverrides: {},
+        platform: 'linux',
+        shell: 'posix',
+        sessionOptions: launch.preferences,
+        sessionOptionsOverrideAgentArgs: true
+      })
+    ).toMatchObject({ ok: true, command: 'ccb', appliedSessionOptions: {} })
+  })
+
   it('passes a discovered OMP model through the existing launch arguments and receipt', () => {
     const model = 'google-vertex/claude-haiku-4-5@20251001'
     const launch = resolveWorkerLaunchPreferences({ agent: 'omp', model })

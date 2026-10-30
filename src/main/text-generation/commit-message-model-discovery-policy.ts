@@ -88,7 +88,7 @@ export function planModelDiscovery(
     return command
   }
   const args =
-    spec.id === 'claude'
+    spec.id === 'claude' || spec.id === 'ccb'
       ? buildClaudeModelListArgs(strictMcp, command.prefixArgs)
       : modelDiscovery.args
   return {

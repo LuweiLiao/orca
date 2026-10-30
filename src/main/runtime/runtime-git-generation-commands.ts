@@ -22,6 +22,7 @@ import {
 import { getPullRequestDraftContext } from '../text-generation/pull-request-context'
 import {
   localGitOptionsForTarget,
+  resolveRuntimeGitReadTarget,
   runtimeGitRouteForTarget,
   type RuntimeGitCommandHost
 } from './runtime-git-command-target'
@@ -215,7 +216,7 @@ export class RuntimeGitGenerationCommands {
     agentId: string,
     settingsOverride?: Pick<RuntimeCommitMessageSettingsOverride, 'agentCmdOverrides'>
   ): Promise<DiscoverCommitMessageModelsResult> {
-    const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
+    const target = await resolveRuntimeGitReadTarget(this.host, worktreeSelector)
     const typedAgentId = agentId as TuiAgent
     const agentCommandOverride =
       settingsOverride?.agentCmdOverrides?.[typedAgentId] ??
@@ -233,11 +234,9 @@ export class RuntimeGitGenerationCommands {
       return { success: false, error: localEnv.error }
     }
     const localOptions = localGitOptionsForTarget(target)
-    return localOptions.wslDistro
-      ? discoverCommitMessageModelsLocal(typedAgentId, localEnv.env, agentCommandOverride, {
-          cwd: target.worktree.path,
-          wslDistro: localOptions.wslDistro
-        })
-      : discoverCommitMessageModelsLocal(typedAgentId, localEnv.env, agentCommandOverride)
+    return discoverCommitMessageModelsLocal(typedAgentId, localEnv.env, agentCommandOverride, {
+      cwd: target.worktree.path,
+      ...(localOptions.wslDistro ? { wslDistro: localOptions.wslDistro } : {})
+    })
   }
 }

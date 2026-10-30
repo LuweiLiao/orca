@@ -90,7 +90,7 @@ export function ensureNativeChatModelEnrichment(args: {
   discover: () => Promise<readonly CatalogModel[] | null>
 }): void {
   const catalog = getAgentSessionOptionCatalog(args.agent)
-  if (!catalog?.listModels) {
+  if (!catalog?.listModels && args.agent !== 'ccb') {
     return
   }
   const key = enrichmentKey(args.agent, args.hostKey)
@@ -118,11 +118,11 @@ export function ensureNativeChatModelEnrichment(args: {
         return
       }
       entry.models =
-        args.agent === 'claude'
+        args.agent === 'claude' || args.agent === 'ccb'
           ? [...discovered]
-          : catalog.discoveredModelsAreAuthoritative
+          : catalog?.discoveredModelsAreAuthoritative
             ? mergeDiscoveredAuthoritativeModels(catalog.models, discovered)
-            : mergeCatalogModels(catalog.models, discovered)
+            : mergeCatalogModels(catalog?.models ?? [], discovered)
       for (const listener of entry.listeners) {
         listener([...entry.models])
       }

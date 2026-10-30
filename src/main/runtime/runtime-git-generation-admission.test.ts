@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   loadPullRequestLinkedIssue: vi.fn(),
   prepareLocalCommitMessageAgentEnv: vi.fn(),
   generateCommitMessageFromContext: vi.fn(),
+  discoverCommitMessageModelsLocal: vi.fn(),
   generatePullRequestFieldsFromContext: vi.fn(),
   resolveHostedReviewBodyForGeneration: vi.fn()
 }))
@@ -32,6 +33,7 @@ vi.mock('../text-generation/commit-message-agent-environment', () => ({
   prepareLocalCommitMessageAgentEnv: mocks.prepareLocalCommitMessageAgentEnv
 }))
 vi.mock('../text-generation/commit-message-text-generation', () => ({
+  discoverCommitMessageModelsLocal: mocks.discoverCommitMessageModelsLocal,
   generateCommitMessageFromContext: mocks.generateCommitMessageFromContext,
   generatePullRequestFieldsFromContext: mocks.generatePullRequestFieldsFromContext
 }))
@@ -85,6 +87,38 @@ describe('RuntimeGitGenerationCommands admission', () => {
     mocks.prepareLocalCommitMessageAgentEnv.mockResolvedValue({ ok: true, env: {} })
     mocks.generateCommitMessageFromContext.mockResolvedValue({ success: true, message: 'feat' })
     mocks.generatePullRequestFieldsFromContext.mockResolvedValue({ success: true, fields: {} })
+  })
+
+  it.each([undefined, 'Ubuntu'])(
+    'preserves CCB discovery directory with WSL %s',
+    async (wslDistro) => {
+      const target = makeTarget('/project/ccb', {
+        localGitOptions: wslDistro ? { wslDistro } : {}
+      })
+      await makeCommands(target).discoverRuntimeCommitMessageModels('id:wt-1', 'ccb')
+      expect(mocks.discoverCommitMessageModelsLocal).toHaveBeenCalledWith('ccb', {}, undefined, {
+        cwd: '/project/ccb',
+        ...(wslDistro ? { wslDistro } : {})
+      })
+    }
+  )
+
+  it('discovers CCB models in a folder workspace without resolving Git', async () => {
+    const target = makeTarget('/notes')
+    const host = {
+      resolveRuntimeGitTarget: vi.fn().mockRejectedValue(new Error('not a git worktree')),
+      resolveRuntimeFileTarget: vi.fn(async () => target),
+      getRuntimeSettings: () => ({})
+    }
+    await new RuntimeGitGenerationCommands(host).discoverRuntimeCommitMessageModels(
+      'id:folder:notes',
+      'ccb'
+    )
+    expect(host.resolveRuntimeFileTarget).toHaveBeenCalledWith('id:folder:notes')
+    expect(host.resolveRuntimeGitTarget).not.toHaveBeenCalled()
+    expect(mocks.discoverCommitMessageModelsLocal).toHaveBeenCalledWith('ccb', {}, undefined, {
+      cwd: '/notes'
+    })
   })
 
   it('marks local staged commit context as interactive without dropping WSL routing', async () => {

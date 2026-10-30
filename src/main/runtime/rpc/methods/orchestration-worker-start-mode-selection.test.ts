@@ -228,6 +228,19 @@ describe('worker-start honours the settings default', () => {
     )
   })
 
+  it('starts a structured CCB worker with its requested preferences', async () => {
+    const result = await startWorker(STRUCTURED_DEFAULT, {
+      agent: 'ccb',
+      model: 'opus',
+      effort: 'max'
+    })
+    expect(result).toMatchObject({ state: 'ready', mode: { mode: 'structured' } })
+    expect(createStructuredWorkerSessionForWorktree).toHaveBeenCalledWith(
+      expect.objectContaining({ agent: 'ccb', launchPreferences: { model: 'opus', effort: 'max' } })
+    )
+    expect(createExistingWorktreeWorkerTerminal).not.toHaveBeenCalled()
+  })
+
   it('creates a new worktree WITHOUT an agent terminal and gives it a structured session', async () => {
     // The other half: `createWorkerWorktree` creates agent-first, so a `--worktree new-child`
     // dispatch could only ever end up a PTY terminal worker.
