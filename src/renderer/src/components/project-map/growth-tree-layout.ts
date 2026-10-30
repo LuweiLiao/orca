@@ -22,6 +22,11 @@ export type GrowthLayoutInput = {
   projectIds: ReadonlySet<string> | null
   /** Folded gaps the person opened, by the moment each begins. */
   expandedFolds?: ReadonlySet<number>
+  /**
+   * What to draw, when that is less than `tree` (a replay's moment). The axis, the lanes and every
+   * chat's track come from `tree`, so nothing moves while the visible set changes.
+   */
+  shown?: GrowthTree
 }
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
@@ -55,7 +60,8 @@ export function layoutGrowthTree({
   mode,
   collapsed,
   projectIds,
-  expandedFolds
+  expandedFolds,
+  shown: shownTree = tree
 }: GrowthLayoutInput): GrowthLayout {
   const L = GROWTH_LAYOUT
   const shown = tree.projects.filter((project) => projectIds === null || projectIds.has(project.id))
@@ -114,11 +120,15 @@ export function layoutGrowthTree({
           width: 0,
           height,
           trackCount,
-          startX: lane.start === null ? null : scale.xOf(lane.start),
+          startX: lane.start === null || lane.start > shownTree.now ? null : scale.xOf(lane.start),
           startApprox: lane.startApprox
         })
         for (const bar of laneBars) {
-          const { x, right } = spanOf(bar)
+          const visible = shownTree.bars.get(bar.id)
+          if (!visible) {
+            continue
+          }
+          const { x, right } = spanOf(visible)
           const track = tracks.get(bar.id)!
           bars.set(bar.id, {
             id: bar.id,
@@ -151,7 +161,7 @@ export function layoutGrowthTree({
   for (const lane of lanes.values()) {
     lane.width = width
   }
-  const { wires, joins, pins } = buildGrowthWires({ tree, scale, lanes, bars })
+  const { wires, joins, pins } = buildGrowthWires({ tree: shownTree, scale, lanes, bars })
   const nodes = new Map<string, GrowthBox>()
   for (const lane of lanes.values()) {
     nodes.set(lane.id, lane)

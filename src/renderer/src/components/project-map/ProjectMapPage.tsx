@@ -323,6 +323,7 @@ export default function ProjectMapPage(): React.JSX.Element {
         onOpenAgent={openAgent}
         onOpenWorkspace={openWorkspace}
         onRevealProject={() => setChosenProjectId(null)}
+        bus={appFlowSignalBus}
         renderOverlay={(paths) => (
           <ProjectFlowOverlay
             bus={appFlowSignalBus}

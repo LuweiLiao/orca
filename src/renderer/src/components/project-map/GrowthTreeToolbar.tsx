@@ -1,4 +1,4 @@
-import { Filter, Minus, Plus, Scan } from 'lucide-react'
+import { Filter, History, Minus, Plus, Scan } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -39,6 +39,8 @@ type Props = {
   onZoom: (factor: number) => void
   onFit: () => void
   onShowAll: () => void
+  replay: boolean
+  onReplay: () => void
 }
 
 function toggled<T>(set: ReadonlySet<T>, value: T): Set<T> {
@@ -76,7 +78,9 @@ export function GrowthTreeToolbar({
   zoom,
   onZoom,
   onFit,
-  onShowAll
+  onShowAll,
+  replay,
+  onReplay
 }: Props): React.JSX.Element {
   const active = growthFilterActiveCount(filter)
   return (
@@ -176,6 +180,17 @@ export function GrowthTreeToolbar({
           {translate('growthTree.filter.active', 'Filtered: {{count}}', { count: active })}
         </Button>
       ) : null}
+      <Button
+        type="button"
+        variant={replay ? 'secondary' : 'outline'}
+        size="sm"
+        aria-pressed={replay}
+        data-growth-replay-toggle=""
+        onClick={onReplay}
+      >
+        <History className="size-3.5" />
+        {translate('growthTree.replay.toggle', 'Replay')}
+      </Button>
       <span className="flex-1" />
       <Button type="button" variant="ghost" size="sm" onClick={onShowAll}>
         {translate('growthTree.showAll', 'Show all')}
