@@ -21806,6 +21806,17 @@
       "7d": "最近 7 天",
       "30d": "最近 30 天"
     },
-    "foldedDays": "此处折叠了 {{days}} 天的空闲"
+    "foldedDays": "此处折叠了 {{days}} 天的空闲",
+    "replay": {
+      "toggle": "回放",
+      "loading": "正在读取历史…",
+      "missingHosts": "{{count}} 个主机没有历史记录",
+      "partialHosts": "{{count}} 个主机的历史不完整",
+      "noEvents": "还没有可回放的记录",
+      "pause": "暂停",
+      "play": "播放",
+      "slider": "回放时刻",
+      "speed": "回放速度"
+    }
   }
 }

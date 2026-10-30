@@ -566,6 +566,54 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await tree.getByRole('button', { name: 'Fit to view' }).click()
     await expect(world).toHaveAttribute('data-growth-tier', 'bars')
 
+    // Replay: the slider shows the tree as it stood, and playing flies the recorded events.
+    const total = await tree.locator('[data-growth-bar]').count()
+    await tree.locator('[data-growth-replay-toggle]').click()
+    const replayBar = tree.locator('[data-growth-replay]')
+    await expect(replayBar).toBeVisible()
+    await expect(replayBar.getByText('Reading history')).toHaveCount(0, { timeout: 30_000 })
+    const slider = replayBar.locator('[data-slot="slider"]')
+    const track = (await slider.boundingBox())!
+    const thumb = (await replayBar.getByRole('slider').boundingBox())!
+    const timeBefore = await replayBar.locator('[data-growth-replay-time]').textContent()
+    await page.mouse.move(thumb.x + thumb.width / 2, thumb.y + thumb.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(track.x + track.width * 0.05, thumb.y + thumb.height / 2, { steps: 8 })
+    await page.mouse.up()
+    await expect.poll(() => tree.locator('[data-growth-bar]').count()).toBeLessThan(total)
+    await expect(replayBar.locator('[data-growth-replay-time]')).not.toHaveText(timeBefore ?? '')
+    await screenshot('growth-tree-replay-seek')
+    // The star prompt sits over the bar's right end when it shows; dismiss it before pressing there.
+    const later = page.getByRole('button', { name: 'Later', exact: true })
+    if (await later.isVisible()) {
+      await later.click()
+    }
+    await replayBar.getByRole('radio', { name: '16x' }).click()
+    const play = replayBar.locator('[data-growth-replay-play]')
+    await play.click()
+    await expect(play).toHaveAttribute('aria-label', 'Pause')
+    await expect
+      .poll(() => tree.locator('[data-project-flow-particle]').count(), { timeout: 30_000 })
+      .toBeGreaterThan(0)
+    await screenshot('growth-tree-replay-playing')
+    await play.click()
+    await expect(play).toHaveAttribute('aria-label', 'Play')
+    // With reduced motion the slider still moves and the tree still grows, but nothing flies.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await replayBar.getByRole('slider').focus()
+    await page.keyboard.press('Home')
+    const timeAtStart = await replayBar.locator('[data-growth-replay-time]').textContent()
+    await play.click()
+    await expect(replayBar.locator('[data-growth-replay-time]')).not.toHaveText(timeAtStart ?? '', {
+      timeout: 30_000
+    })
+    await expect(tree.locator('[data-project-flow-particle]')).toHaveCount(0)
+    await play.click()
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await tree.locator('[data-growth-replay-toggle]').click()
+    await expect(replayBar).toHaveCount(0)
+    await expect.poll(() => tree.locator('[data-growth-bar]').count()).toBe(total)
+
     // Arrows walk the chats: down to the next lane, Enter selects, a second Enter jumps.
     await bar(paneKeyOf(lead)).click()
     await page.keyboard.press('ArrowDown')

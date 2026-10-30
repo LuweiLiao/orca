@@ -3,6 +3,7 @@ import type { OrchestrationChatSession } from '../../../../shared/agent-status-t
 import type { DashboardSnapshot } from '../../../../shared/dashboard-snapshot'
 import { buildGrowthTree } from './growth-tree-build'
 import type { GrowthTreePathIndex } from './growth-tree-layout'
+import type { FlowSignalBus } from './project-flow-signal'
 import type { GrowthTree } from './growth-tree-types'
 import { GrowthTreeView, type GrowthTreeJumpTarget } from './GrowthTreeView'
 import type {
@@ -41,6 +42,7 @@ type Props = {
   onOpenAgent: (agent: ProjectMapAgent) => void
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
   onRevealProject: (projectId: string) => void
+  bus: FlowSignalBus
   renderOverlay?: (paths: GrowthTreePathIndex) => React.ReactNode
 }
 

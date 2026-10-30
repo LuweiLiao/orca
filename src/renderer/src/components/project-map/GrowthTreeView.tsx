@@ -8,6 +8,7 @@ import {
   GrowthTreeLabels,
   GrowthTreeRuler
 } from './GrowthTreeGutters'
+import { GrowthTreeReplayBar } from './GrowthTreeReplayBar'
 import { GrowthTreeToolbar } from './GrowthTreeToolbar'
 import { GrowthTreeWorld } from './GrowthTreeWorld'
 import { GROWTH_EMPTY_FILTER, growthFocus, growthWindowStart } from './growth-tree-focus'
@@ -21,6 +22,9 @@ import {
 import type { GrowthTimeMode } from './growth-tree-scale'
 import type { GrowthTree, GrowthTreeBar, GrowthTreeLane } from './growth-tree-types'
 import { growthRevealShift } from './growth-tree-reveal'
+import { growthTreeAt } from './growth-tree-replay'
+import type { FlowSignalBus } from './project-flow-signal'
+import { useGrowthTreeReplay } from './use-growth-tree-replay'
 import { useProjectMapViewport } from './use-project-map-viewport'
 
 const RECENT_FIT_MS = 7 * 24 * 60 * 60 * 1000
@@ -49,6 +53,8 @@ type Props = {
   onOpenLane: (lane: GrowthTreeLane) => void
   /** A pin leads into a project the page is not showing. */
   onRevealProject: (projectId: string) => void
+  /** The channel replayed events fly on; the overlay drawn over the wires listens to it. */
+  bus: FlowSignalBus
   /** Drawn over the wires, given each node's box and each wire's path in world coordinates. */
   renderOverlay?: (paths: GrowthTreePathIndex) => React.ReactNode
 }
@@ -64,6 +70,7 @@ export function GrowthTreeView({
   onOpenBar,
   onOpenLane,
   onRevealProject,
+  bus,
   renderOverlay
 }: Props): React.JSX.Element {
   const [mode, setMode] = useState<GrowthTimeMode>('compressed')
@@ -71,9 +78,15 @@ export function GrowthTreeView({
   const [filter, setFilter] = useState(GROWTH_EMPTY_FILTER)
   const [expandedFolds, setExpandedFolds] = useState<ReadonlySet<number>>(() => new Set())
   const [cursor, setCursor] = useState<string | null>(null)
+  const [replayOpen, setReplayOpen] = useState(false)
+  const replay = useGrowthTreeReplay({ tree, enabled: replayOpen, bus })
+  const shown = useMemo(
+    () => (replay.at === null ? tree : growthTreeAt(tree, replay.at)),
+    [replay.at, tree]
+  )
   const layout = useMemo(
-    () => layoutGrowthTree({ tree, mode, collapsed, projectIds, expandedFolds }),
-    [collapsed, expandedFolds, mode, projectIds, tree]
+    () => layoutGrowthTree({ tree, mode, collapsed, projectIds, expandedFolds, shown }),
+    [collapsed, expandedFolds, mode, projectIds, shown, tree]
   )
   const content = useMemo(
     () => ({ width: layout.width, height: layout.height }),
@@ -86,8 +99,8 @@ export function GrowthTreeView({
   const focus = useMemo(() => growthFocus(tree, selected), [selected, tree])
   const summaryTier = view.zoom < GROWTH_SUMMARY_ZOOM
   const summary = useMemo(
-    () => (summaryTier ? buildGrowthSummary(tree, layout, filter) : null),
-    [filter, layout, summaryTier, tree]
+    () => (summaryTier ? buildGrowthSummary(shown, layout, filter) : null),
+    [filter, layout, shown, summaryTier]
   )
   const cursorId = cursor && layout.bars.has(cursor) ? cursor : null
   const choose = useCallback(
@@ -237,6 +250,13 @@ export function GrowthTreeView({
         onZoom={zoomBy}
         onFit={fitRecent}
         onShowAll={showAll}
+        replay={replayOpen}
+        onReplay={() => {
+          if (replayOpen) {
+            replay.stop()
+          }
+          setReplayOpen(!replayOpen)
+        }}
       />
       <div className="relative flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -278,7 +298,7 @@ export function GrowthTreeView({
                 }}
               >
                 <GrowthTreeWorld
-                  tree={tree}
+                  tree={shown}
                   layout={layout}
                   selectedId={selected}
                   focus={focus}
@@ -319,6 +339,22 @@ export function GrowthTreeView({
           />
         ) : null}
       </div>
+      {replayOpen ? (
+        <GrowthTreeReplayBar
+          at={replay.at ?? replay.range.to}
+          position={replay.position}
+          playing={replay.playing}
+          speed={replay.speed}
+          loading={replay.loading}
+          hasEvents={replay.hasEvents}
+          missingHosts={replay.coverage.missing}
+          partialHosts={replay.coverage.partial}
+          onPlay={replay.play}
+          onPause={replay.pause}
+          onSeek={replay.seek}
+          onSpeed={replay.setSpeed}
+        />
+      ) : null}
     </section>
   )
 }

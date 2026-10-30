@@ -21931,6 +21931,17 @@
       "7d": "Last 7 days",
       "30d": "Last 30 days"
     },
-    "foldedDays": "Idle gap folded here: {{days}} days"
+    "foldedDays": "Idle gap folded here: {{days}} days",
+    "replay": {
+      "loading": "Reading history…",
+      "missingHosts": "Hosts with no history: {{count}}",
+      "partialHosts": "Hosts with partial history: {{count}}",
+      "noEvents": "No recorded events to fly yet",
+      "pause": "Pause",
+      "play": "Play",
+      "slider": "Replay time",
+      "speed": "Replay speed",
+      "toggle": "Replay"
+    }
   }
 }
