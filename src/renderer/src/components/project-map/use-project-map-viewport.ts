@@ -60,6 +60,18 @@ export function useProjectMapViewport(content: { width: number; height: number }
     setView({ x: FIT_PADDING, y: FIT_PADDING, zoom })
   }, [content, size.height, size.width])
 
+  /** Fits a horizontal span of the content, keeping the top of the content in view. */
+  const fitSpan = useCallback(
+    (span: { x: number; width: number }) => {
+      if (size.width === 0) {
+        return
+      }
+      const zoom = clampZoom(Math.min(1, (size.width - FIT_PADDING * 2) / Math.max(1, span.width)))
+      setView({ x: FIT_PADDING - span.x * zoom, y: FIT_PADDING, zoom })
+    },
+    [size.width]
+  )
+
   const centerOn = useCallback(
     (box: { x: number; y: number; width: number; height: number }) => {
       if (size.width === 0) {
@@ -170,6 +182,7 @@ export function useProjectMapViewport(content: { width: number; height: number }
     size,
     view,
     fit,
+    fitSpan,
     centerOn,
     zoomBy,
     contentPoint,
