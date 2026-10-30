@@ -85,6 +85,12 @@ describe('diffDispatchSignals', () => {
     expect(next.signals).toEqual([])
   })
 
+  it('does not replay a delegation when a pane drops out of one snapshot and comes back', () => {
+    const { baseline } = diffDispatchSignals(null, { w1: worker('dispatched') })
+    const gap = diffDispatchSignals(baseline, {})
+    expect(diffDispatchSignals(gap.baseline, { w1: worker('dispatched') }).signals).toEqual([])
+  })
+
   it('needs a parent other than the worker itself', () => {
     const { baseline } = diffDispatchSignals(null, {
       w1: worker('pending', 'd1', null),

@@ -44,5 +44,11 @@ export function diffDispatchSignals(
       signals.push({ id, from: paneKey, to: parent, tone: 'failure' })
     }
   }
+  // Why: a pane that drops out for a snapshot (a reconnect) must not fly its delegation again.
+  for (const [paneKey, seen] of previous ?? []) {
+    if (!baseline.has(paneKey)) {
+      baseline.set(paneKey, seen)
+    }
+  }
   return { signals, baseline }
 }
