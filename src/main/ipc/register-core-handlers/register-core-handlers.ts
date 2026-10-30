@@ -12,6 +12,8 @@ import type { CommitMessageAgentEnvironmentResolvers } from '../../text-generati
 import { registerFilesystemWatcherHandlers } from '../filesystem-watcher-handlers'
 import { registerUsageProviderHandlers } from '../usage-provider-handlers'
 import { registerGitHubHandlers } from '../github'
+import { mergeFlowEvent } from '../../runtime/orchestration/project-flow-events'
+import { publishProjectFlow } from '../../runtime/orchestration/project-flow-publisher'
 import { registerGitLabHandlers } from '../gitlab'
 import { registerHostedReviewHandlers } from '../hosted-review'
 import { registerLinearHandlers } from '../linear/register-handlers'
@@ -193,7 +195,9 @@ export function registerCoreHandlers(
   registerGrokAccountHandlers()
   registerCursorAccountHandlers()
   registerRateLimitHandlers(rateLimits, codexAccounts)
-  registerGitHubHandlers(store, stats)
+  registerGitHubHandlers(store, stats, (repoId, prNumber) =>
+    publishProjectFlow(runtime, mergeFlowEvent(repoId, prNumber))
+  )
   registerGitLabHandlers(store)
   registerHostedReviewHandlers(store, stats)
   registerLinearHandlers()

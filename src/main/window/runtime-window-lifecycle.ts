@@ -258,6 +258,15 @@ export function registerRuntimeWindowLifecycle(
         { consumesTerminalSideEffects: false }
       )
     : null
+  // Why: this host's own flights reach its window by IPC; other hosts arrive over client events.
+  const detachProjectFlow = runtime.onClientEvent(
+    (event) => {
+      if (event.type === 'projectFlow') {
+        send('runtime:projectFlow', event)
+      }
+    },
+    { consumesTerminalSideEffects: false }
+  )
   registerRuntimeRendererLifecycle({
     webContents: mainWebContents,
     runtime,
@@ -269,6 +278,7 @@ export function registerRuntimeWindowLifecycle(
     }
   })
   mainWindow.on('closed', () => {
+    detachProjectFlow()
     detachSidebarInputsNotices?.()
     rendererNotifications.close()
     if (native) {

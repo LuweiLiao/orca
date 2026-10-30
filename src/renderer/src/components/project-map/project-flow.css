@@ -34,6 +34,15 @@
 .project-flow-particle[data-tone='failure'] {
   background: var(--destructive);
 }
+.project-flow-particle[data-tone='handoff'] {
+  background: var(--callout-note);
+}
+.project-flow-particle[data-tone='merge-ready'] {
+  background: var(--status-warning);
+}
+.project-flow-particle[data-tone='merge'] {
+  background: var(--status-success);
+}
 @keyframes project-flow-ride {
   0% {
     offset-distance: 0%;

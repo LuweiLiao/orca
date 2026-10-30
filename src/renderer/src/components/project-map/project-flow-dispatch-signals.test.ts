@@ -74,15 +74,41 @@ describe('diffDispatchSignals', () => {
   it('ignores transitions that are not a delegation or a report', () => {
     const { baseline } = diffDispatchSignals(null, {
       w1: worker('pending'),
-      w2: worker('dispatched', 'd2'),
       w3: worker('completed', 'd3')
     })
     const next = diffDispatchSignals(baseline, {
       w1: worker('completed'),
-      w2: worker('circuit_broken', 'd2'),
       w3: worker('dispatched', 'd3')
     })
     expect(next.signals).toEqual([])
+  })
+
+  it('flies a tripped breaker back as a failure', () => {
+    const { baseline } = diffDispatchSignals(null, { w2: worker('dispatched', 'd2') })
+    const next = diffDispatchSignals(baseline, { w2: worker('circuit_broken', 'd2') })
+    expect(next.signals).toEqual([
+      { id: 'd2:circuit_broken', from: 'w2', to: 'coord', tone: 'failure' }
+    ])
+  })
+
+  it('leaves delegations and reports to a host that sends its own events', () => {
+    const sends = (paneKey: string): boolean => paneKey === 'formal'
+    const { baseline } = diffDispatchSignals(null, {
+      formal: worker('dispatched', 'd1'),
+      legacy: worker('dispatched', 'd2'),
+      tripped: worker('dispatched', 'd3')
+    })
+    const next = diffDispatchSignals(
+      baseline,
+      {
+        formal: worker('completed', 'd1'),
+        legacy: worker('completed', 'd2'),
+        tripped: worker('circuit_broken', 'd3'),
+        arrived: worker('dispatched', 'd4')
+      },
+      (paneKey) => sends(paneKey) || paneKey === 'tripped' || paneKey === 'arrived'
+    )
+    expect(next.signals.map((signal) => signal.id)).toEqual(['d2:completed', 'd3:circuit_broken'])
   })
 
   it('does not replay a delegation when a pane drops out of one snapshot and comes back', () => {

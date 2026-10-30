@@ -234,6 +234,7 @@ export const ORCHESTRATION_SEND_METHODS = [
           dispatchId: routing.dispatchId,
           messageRunId,
           senderPaneKey,
+          flowSender: sender,
           legacyCoordinatorRunId,
           resolveProcessIncarnation: () =>
             attestedCaller?.processIncarnation ??

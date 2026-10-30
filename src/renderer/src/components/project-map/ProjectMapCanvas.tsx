@@ -120,7 +120,9 @@ export function ProjectMapCanvas({
     layout.nodes.has(id) ? id : (collapsed.groupOf.get(id) ?? null)
   const resolveFlow = (signal: FlowSignal): FlowRoute | null => {
     const [from, to] = [shownAs(signal.from), shownAs(signal.to)]
-    return from && to ? resolveFlowRoute(layout.wires, from, to) : null
+    return from && to
+      ? resolveFlowRoute(layout.wires, from, to, { handoff: signal.tone === 'handoff' })
+      : null
   }
   // A window goes with its node, adjusted in render so it never outlives it by a frame.
   windows.keepShown((id) => shownAs(id) !== null)

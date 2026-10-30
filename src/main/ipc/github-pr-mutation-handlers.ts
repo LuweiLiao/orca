@@ -32,7 +32,10 @@ function broadcastSuccessfulPRMutation(
   }
 }
 
-export function registerGitHubPRMutationHandlers(store: Store): void {
+export function registerGitHubPRMutationHandlers(
+  store: Store,
+  onMerged?: (repoId: string, prNumber: number) => void
+): void {
   ipcMain.handle(
     'gh:updatePRTitle',
     async (
@@ -73,6 +76,9 @@ export function registerGitHubPRMutationHandlers(store: Store): void {
         ...getGitHubLocalGitOptionArgs(store, repo)
       )
       broadcastSuccessfulPRMutation(result.ok, repo.path, repo.id, args.prNumber, event.sender.id)
+      if (result.ok) {
+        onMerged?.(repo.id, args.prNumber)
+      }
       return result
     }
   )

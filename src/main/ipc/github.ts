@@ -9,12 +9,16 @@ import { registerGitHubPRReviewHandlers } from './github-pr-review-handlers'
 import { registerGitHubProjectViewHandlers } from './github-project-view-handlers'
 import { registerGitHubWorkItemHandlers } from './github-work-item-handlers'
 
-export function registerGitHubHandlers(store: Store, stats: StatsCollector): void {
+export function registerGitHubHandlers(
+  store: Store,
+  stats: StatsCollector,
+  onMerged?: (repoId: string, prNumber: number) => void
+): void {
   registerGitHubPRRefreshHandlers(store, stats)
   registerGitHubWorkItemHandlers(store)
   registerGitHubPRReadHandlers(store)
   registerGitHubPRReviewHandlers(store)
-  registerGitHubPRMutationHandlers(store)
+  registerGitHubPRMutationHandlers(store, onMerged)
   registerGitHubIssueMutationHandlers(store)
   registerGitHubAccountHandlers(store)
   registerGitHubProjectViewHandlers()

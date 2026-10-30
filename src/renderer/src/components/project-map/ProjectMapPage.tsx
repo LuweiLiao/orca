@@ -38,7 +38,7 @@ import { usePublishProjectMapSessionRelations } from './project-map-session-rela
 import { useProjectMapUndoKey } from './use-project-map-undo'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
-import { createFlowSignalBus } from './project-flow-signal'
+import { appFlowSignalBus } from './project-flow-app'
 import { useProjectFlowDispatchSignals } from './use-project-flow-dispatch-signals'
 import { ProjectFlowOverlay } from './ProjectFlowOverlay'
 import { resolveFlowRoute } from './project-flow-wire-route'
@@ -57,8 +57,7 @@ export default function ProjectMapPage(): React.JSX.Element {
   const activeRepoId = useAppStore((s) => s.activeRepoId)
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const orchestration = useAppStore((s) => s.runtimeAgentOrchestrationByPaneKey)
-  const [flowBus] = useState(createFlowSignalBus)
-  useProjectFlowDispatchSignals(orchestration, flowBus)
+  useProjectFlowDispatchSignals(orchestration, appFlowSignalBus)
   const sessions = useMemo(() => projectMapChatSessions(orchestration), [orchestration])
   const tabsByWorktree = useAppStore((s) => s.unifiedTabsByWorktree)
   const chats = useMemo(
@@ -365,7 +364,7 @@ export default function ProjectMapPage(): React.JSX.Element {
           graph={graph}
           collapsed={collapsed}
           layout={layout}
-          flowBus={flowBus}
+          flowBus={appFlowSignalBus}
           viewport={viewport}
           activeWorktreeId={activeWorktreeId}
           onOpenAgent={openAgent}

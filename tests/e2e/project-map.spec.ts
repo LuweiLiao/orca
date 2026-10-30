@@ -171,7 +171,7 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     }
 
     // Flights are display only and last under a second, so the page records each one it draws.
-    // Each entry reads `tone:direction:state`, kept on the root element between evaluations.
+    // Each entry reads `tone:direction:wire:state`, kept on the root element between evaluations.
     await page.evaluate(() => {
       const flights = new Map<Element, string[]>()
       const particlesIn = (node: Node): Element[] =>
@@ -190,9 +190,16 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
         for (const record of records) {
           for (const node of record.addedNodes) {
             for (const element of particlesIn(node)) {
+              const numbers = (text: string): string =>
+                (text.match(/-?\d+(\.\d+)?/g) ?? []).join(' ')
+              const ridden = numbers(element instanceof HTMLElement ? element.style.offsetPath : '')
+              const onWire = [...document.querySelectorAll('.project-map-wire')].some(
+                (wire) => ridden !== '' && numbers(wire.getAttribute('d') ?? '') === ridden
+              )
               flights.set(element, [
                 element.getAttribute('data-tone') ?? '',
                 element.getAttribute('data-reverse') === 'true' ? 'back' : 'forward',
+                onWire ? 'wire' : 'free',
                 'live'
               ])
             }
@@ -201,7 +208,7 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
             for (const element of particlesIn(node)) {
               const parts = flights.get(element)
               if (parts) {
-                parts[2] = 'gone'
+                parts[3] = 'gone'
               }
             }
           }
@@ -237,7 +244,7 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     await expect(node(paneKeyOf(started.sessionId))).toBeVisible({ timeout: 30_000 })
     await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(1)
     await screenshotFlight('flow-delegate')
-    await expect.poll(flights).toEqual(['delegate:forward:gone'])
+    await expect.poll(flights).toEqual(['delegate:forward:wire:gone'])
     await expect(map.locator('.project-map-wire[data-kind="delegate"]')).toHaveCount(3)
 
     const derived = workers[1]
@@ -304,7 +311,20 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     // The report runs back up the same wire, in the success colour, and is not drawn twice.
     await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(2)
     await screenshotFlight('flow-report')
-    await expect.poll(flights).toEqual(['delegate:forward:gone', 'success:back:gone'])
+    await expect.poll(flights).toEqual(['delegate:forward:wire:gone', 'success:back:wire:gone'])
+
+    // A hand-off note from the still running worker flies back to its coordinator, once.
+    await sessionClient(userDataDir, started.sessionId).call('orchestration.send', {
+      from: started.handle,
+      to: `run:${run.result.run.id}`,
+      subject: 'Handing over the docs',
+      type: 'handoff'
+    })
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(3)
+    await screenshotFlight('flow-handoff')
+    await expect
+      .poll(flights)
+      .toEqual(['delegate:forward:wire:gone', 'success:back:wire:gone', 'handoff:back:wire:gone'])
     const released = await client.call<{ state: string }>('orchestration.workerRelease', {
       dispatch: derived.dispatchId
     })
@@ -335,7 +355,7 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       )
       .toBe('completed')
     await page.waitForTimeout(1_500)
-    expect(await flights()).toHaveLength(2)
+    expect(await flights()).toHaveLength(3)
     await expect(map.locator('[data-project-flow-particle]')).toHaveCount(0)
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     await expect

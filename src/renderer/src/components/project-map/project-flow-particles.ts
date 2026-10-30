@@ -1,4 +1,4 @@
-import type { FlowSignalTone } from './project-flow-signal'
+import type { FlowSignal, FlowSignalTone } from './project-flow-signal'
 
 export const FLOW_PARTICLE_MS = 900
 export const MAX_FLOW_PARTICLES = 24
@@ -34,4 +34,36 @@ export function releaseFlowParticle(
   return current.some((particle) => particle.id === id)
     ? current.filter((particle) => particle.id !== id)
     : current
+}
+
+export const FLOW_HOLD_MS = 2_000
+const MAX_HELD_SIGNALS = 32
+
+export type HeldFlowSignal = { signal: FlowSignal; expiresAt: number }
+
+/** A signal can name a node the layout has not drawn yet; it waits a moment, then is dropped. */
+export function holdFlowSignal(
+  held: readonly HeldFlowSignal[],
+  signal: FlowSignal,
+  now: number
+): readonly HeldFlowSignal[] {
+  return [...held, { signal, expiresAt: now + FLOW_HOLD_MS }].slice(-MAX_HELD_SIGNALS)
+}
+
+export function settleHeldFlowSignals(
+  held: readonly HeldFlowSignal[],
+  resolve: (signal: FlowSignal) => FlowRoute | null,
+  now: number
+): { particles: FlowParticle[]; held: HeldFlowSignal[] } {
+  const particles: FlowParticle[] = []
+  const stillHeld: HeldFlowSignal[] = []
+  for (const entry of held) {
+    const route = entry.expiresAt > now ? resolve(entry.signal) : null
+    if (route) {
+      particles.push({ id: entry.signal.id, tone: entry.signal.tone, ...route })
+    } else if (entry.expiresAt > now) {
+      stillHeld.push(entry)
+    }
+  }
+  return { particles, held: stillHeld }
 }

@@ -21,6 +21,8 @@ import {
 } from '../chat-assignee-admission'
 import { sendChatTask } from '../chat-task-delivery'
 import { dispatchTaskSource } from '../../../../orchestration/dispatch-task-source'
+import { delegateFlowEvent } from '../../../../orchestration/project-flow-events'
+import { publishProjectFlow } from '../../../../orchestration/project-flow-publisher'
 
 export const ORCHESTRATION_DISPATCH_METHODS = [
   defineMethod({
@@ -208,6 +210,8 @@ export const ORCHESTRATION_DISPATCH_METHODS = [
           throw err
         }
       }
+
+      publishProjectFlow(runtime, delegateFlowEvent(ctx.id))
 
       // Why: returnPreamble is opt-in because the preamble is several hundred bytes most callers don't need in the response.
       if (params.returnPreamble) {

@@ -8,6 +8,7 @@ import { RuntimeFileCommands } from '../orca-runtime-files'
 import { nativeChatTranscriptIncludesPath } from '../../native-chat/native-chat-file-provenance'
 import { createRuntimeFileWatcherRemoval } from '../runtime-file-watcher-removal'
 import { RuntimeGitCommands } from '../orca-runtime-git'
+import { mergeFlowEvent } from '../orchestration/project-flow-events'
 import { RuntimeHostedReviewCommands } from '../runtime-hosted-review-commands'
 import { RuntimeGitHubRepositoryQueryCommands } from '../runtime-github-repository-query-commands'
 import { RuntimeGitLabQueryCommands } from '../runtime-gitlab-query-commands'
@@ -292,7 +293,8 @@ export abstract class OrcaRuntimeWithFileCommands extends OrcaRuntimeWithPreserv
 
   protected readonly gitHubReviewMutations = new RuntimeGitHubReviewMutationCommands({
     resolveRepo: (selector) => this.resolveRepoSelector(selector),
-    getLocalGitArgs: (repo) => this.getLocalGitExecutionOptionArgs(repo)
+    getLocalGitArgs: (repo) => this.getLocalGitExecutionOptionArgs(repo),
+    onMerged: (repoId, prNumber) => this.emitClientEvent(mergeFlowEvent(repoId, prNumber))
   })
 
   protected readonly gitHubIssueComments = new RuntimeGitHubIssueCommentCommands({
