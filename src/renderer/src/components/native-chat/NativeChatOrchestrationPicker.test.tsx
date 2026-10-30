@@ -34,6 +34,12 @@ vi.mock('@/lib/agent-catalog', () => ({
   AgentIcon: () => null
 }))
 vi.mock('./native-chat-session-option-discovery', () => ({
+  discoveryContextForTransport: (
+    _target: unknown,
+    _id: unknown,
+    _connection: unknown,
+    context: unknown
+  ) => context,
   resolveNativeChatModelDiscoveryContext: () => ({
     hostKey: 'local',
     runtime: { target: { kind: 'local' }, prefs: {}, worktreeId: null, worktreePath: '' }

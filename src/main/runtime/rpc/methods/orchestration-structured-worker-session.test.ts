@@ -54,6 +54,27 @@ describe('structured worker session', () => {
     }))
   })
 
+  it('creates CCB as a Claude session while keeping worker identity and preferences', async () => {
+    installHost()
+    const created = await createStructuredWorkerSession({
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: session creation is mocked and only this runtime host initializer is called.
+      runtime: { ensureStructuredAgentSessionHost: async () => {} } as never,
+      worktreeId: 'wt_1',
+      agent: 'ccb',
+      dispatchId: 'd_ccb',
+      options: { model: 'opus', effort: 'max' },
+      onJournalActivity: () => {}
+    })
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent: 'claude',
+        options: { launcher: 'ccb', model: 'opus', effort: 'max' }
+      })
+    )
+    expect(structuredWorkerIdentities.get(created.identity.handle)?.agent).toBe('ccb')
+    releaseStructuredWorkerSession('d_ccb')
+  })
+
   it('binds only a redrive subscription at start, and settlement drops it', async () => {
     const { subscribe, dispose } = installHost()
     const created = await createStructuredWorkerSession({

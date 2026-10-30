@@ -4,6 +4,18 @@ import { GROK_SESSION_OPTION_CATALOG } from './agent-session-option-catalog-grok
 import { getCommitMessageAgentSpec, listCommitMessageAgentIds } from './commit-message-agent-spec'
 
 describe('getAgentModelProbeSpec', () => {
+  it('uses the CCB launcher and Claude protocol without Claude account fallback models', () => {
+    const spec = getAgentModelProbeSpec('ccb')!
+    expect(spec).toMatchObject({
+      id: 'ccb',
+      binary: 'ccb',
+      modelSource: 'dynamic',
+      models: [],
+      defaultModelId: '',
+      modelDiscovery: { binary: 'ccb', stdinPayload: expect.stringContaining('list_models') }
+    })
+    expect(getCommitMessageAgentSpec('ccb')).toBeUndefined()
+  })
   it('resolves grok as a discovery-only probe with no static model list', () => {
     const spec = getAgentModelProbeSpec('grok')
     expect(spec).toMatchObject({

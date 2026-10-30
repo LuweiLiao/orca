@@ -14,6 +14,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import { structuredLaunchProviderFor } from '../../../../shared/claude-cli-launch-agents'
 import { isDefinitiveAgentSessionCreateRefusal } from '../../../../shared/agent-session-definitive-refusal'
 import type { AgentMessageSource } from '../../../../shared/agent-session-message-source'
 import type {
@@ -121,6 +122,8 @@ export async function createStructuredWorkerSession(args: {
     }
   }
   try {
+    const { agent, launcherOptions } = structuredLaunchProviderFor(args.agent)
+    const options = launcherOptions ? { ...args.options, ...launcherOptions } : args.options
     created = await createStructuredAgentSessionForWorktree({
       runtime: args.runtime,
       ensureHost: async () => {
@@ -138,9 +141,9 @@ export async function createStructuredWorkerSession(args: {
         payloadFingerprint: ''
       },
       worktree: `id:${args.worktreeId}`,
-      agent: args.agent,
+      agent,
       // Absent, the host seeds the user's saved selection — the same fallback a chat gets.
-      ...(args.options ? { options: args.options } : {}),
+      ...(options ? { options } : {}),
       // Dispatching a worker is background work; it must not pull the surface away from the user.
       activate: false
     })

@@ -29,6 +29,35 @@ afterEach(() => {
 })
 
 describe('orchestration model discovery', () => {
+  it('uses CCB discovery even when a host catalog is preferred', async () => {
+    const host: PickerHost = {
+      target: { kind: 'local' },
+      detection: { kind: 'local' },
+      discovery: context,
+      preferHostCatalog: true
+    }
+    mocks.discover.mockResolvedValue([
+      {
+        id: 'gateway-model',
+        label: 'Gateway model',
+        options: [
+          {
+            id: 'effort',
+            kind: { type: 'select', choices: [{ value: 'high', label: 'High' }] }
+          }
+        ]
+      }
+    ])
+    expect(await discoverOrchestrationModels(host, 'ccb')).toEqual([
+      {
+        id: 'gateway-model',
+        label: 'Gateway model',
+        efforts: [{ value: 'high', label: 'High' }]
+      }
+    ])
+    expect(mocks.catalog).not.toHaveBeenCalled()
+    expect(mocks.discover).toHaveBeenCalledWith('ccb', context.runtime, 'local')
+  })
   it('waits for a host catalog that is still listing before showing agent models', async () => {
     const host: PickerHost = {
       target: { kind: 'local' },

@@ -51,6 +51,7 @@ export function decideWorkerStartMode(args: {
   return decideAgentLaunchMode({
     placement: args.params,
     settings: args.settings,
+    launcherChats: true,
     vocabulary: WORKER_START_VOCABULARY
   })
 }

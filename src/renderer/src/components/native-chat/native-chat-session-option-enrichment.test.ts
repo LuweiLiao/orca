@@ -39,6 +39,47 @@ describe('native chat session option enrichment', () => {
     })
   })
 
+  it('enriches CCB from its own CLI with the listed effort levels', async () => {
+    mocks.discoverRuntimeCommitMessageModels.mockResolvedValue({
+      success: true,
+      catalogOrigin: 'probe',
+      models: [
+        {
+          id: 'gateway-model',
+          label: 'Gateway model',
+          thinkingLevels: [{ id: 'high', label: 'High' }]
+        }
+      ]
+    })
+    const context = {
+      target: { kind: 'local' as const },
+      worktreeId: 'folder',
+      worktreePath: '/folder'
+    }
+    const listener = vi.fn()
+    subscribeNativeChatEnrichedModels('ccb', 'wsl:Ubuntu', listener)
+    ensureNativeChatModelEnrichment({
+      agent: 'ccb',
+      hostKey: 'wsl:Ubuntu',
+      discover: () => discoverNativeChatCatalogModels('ccb', context, 'wsl:Ubuntu')
+    })
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledOnce())
+    expect(mocks.callStructuredAgentSession).not.toHaveBeenCalled()
+    expect(mocks.discoverRuntimeCommitMessageModels).toHaveBeenCalledWith(context, 'ccb')
+    expect(readNativeChatEnrichedModels('ccb', 'wsl:Ubuntu')).toEqual([
+      expect.objectContaining({
+        id: 'gateway-model',
+        options: [
+          expect.objectContaining({
+            id: 'effort',
+            kind: expect.objectContaining({ choices: [{ value: 'high', label: 'High' }] })
+          })
+        ]
+      })
+    ])
+    expect(readNativeChatEnrichedModels('ccb', 'local')).toBeNull()
+  })
+
   it('reads the host catalog only for a pane on this machine', async () => {
     mocks.discoverRuntimeCommitMessageModels.mockResolvedValue({
       success: true,

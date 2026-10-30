@@ -18,33 +18,36 @@ import { filterEnabledTuiAgents } from '../../../../shared/tui-agent-selection'
 import { useDetectedAgents } from '@/hooks/useDetectedAgents'
 import { useAppStore } from '@/store'
 import { runtimeTargetForOwnerEnvironment } from '@/runtime/runtime-client-target'
-import { structuredAgentSessionHostKey } from '@/runtime/structured-agent-session-host-capability'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import { translate } from '@/i18n/i18n'
 import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
-import { resolveNativeChatModelDiscoveryContext } from './native-chat-session-option-discovery'
+import {
+  discoveryContextForTransport,
+  resolveNativeChatModelDiscoveryContext
+} from './native-chat-session-option-discovery'
 import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
 import {
   discoverOrchestrationModels,
   type OrchestrationModel,
-  type PickerHost
+  type PickerHost,
+  type PickerTransport
 } from './native-chat-orchestration-model-discovery'
 
 const NO_SELECTIONS: OrchestrationAgentSelection[] = []
 
-export function pickerHost(
-  terminalTabId: string,
-  transport?: Pick<NativeChatStructuredComposerTransport, 'runtimeEnvironmentId' | 'worktreeId'>
-): PickerHost | null {
+export function pickerHost(terminalTabId: string, transport?: PickerTransport): PickerHost | null {
   const context = resolveNativeChatModelDiscoveryContext(terminalTabId)
   if (transport) {
     const target = runtimeTargetForOwnerEnvironment(transport.runtimeEnvironmentId)
-    const discovery =
-      context?.runtime.worktreeId === (transport.worktreeId ?? null) &&
-      structuredAgentSessionHostKey(context.runtime.target) ===
-        structuredAgentSessionHostKey(target)
-        ? context
-        : undefined
+    const connectionId = transport.worktreeId
+      ? getConnectionIdFromState(useAppStore.getState(), transport.worktreeId)
+      : null
+    const discovery = discoveryContextForTransport(
+      target,
+      transport.worktreeId ?? null,
+      connectionId,
+      context
+    )
     if (target.kind === 'environment') {
       return {
         target,
@@ -58,9 +61,6 @@ export function pickerHost(
         }
       }
     }
-    const connectionId = transport.worktreeId
-      ? getConnectionIdFromState(useAppStore.getState(), transport.worktreeId)
-      : null
     if (connectionId === undefined) {
       return null
     }
