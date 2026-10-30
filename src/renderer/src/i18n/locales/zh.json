@@ -19612,7 +19612,16 @@
       "explicitChatSsh": "无法通过 SSH 进行聊天。请改为在终端中打开智能体。",
       "explicitChatWsl": "WSL 中无法使用聊天功能。请改为在终端中打开智能体。",
       "explicitChatUnavailable": "此工作区无法运行聊天。检查智能体安装或在终端中打开它。",
-      "structuredSessionTerminalNotVisible": "Orca 已在终端中打开 {{value0}}，但启动完成后无法在此处显示。您的聊天草稿已保留。"
+      "structuredSessionTerminalNotVisible": "Orca 已在终端中打开 {{value0}}，但启动完成后无法在此处显示。您的聊天草稿已保留。",
+      "handoff": {
+        "compactedFrom": "交接自 {{from}}（已压缩）",
+        "compacted": "交接（已压缩）",
+        "from": "交接自 {{from}}",
+        "plain": "交接",
+        "summary": "交接的摘要",
+        "messagesCounted": "交接的消息：{{count}} / {{total}} 条",
+        "messages": "交接的消息"
+      }
     },
     "tab": {
       "bar": {
@@ -21488,10 +21497,6 @@
       "nativeHint": "有保存的对话就整段复制，工具调用记录也带过去；没有就把消息整理成文字交过去。",
       "handoffHint": "把消息整理成文字交过去：工具输出和图片只留摘要，不完整复制。",
       "sharedWorkspace": "「{{name}}」也在这个工作区运行，两边可能会改同一批文件。",
-      "useSummary": "用摘要交接",
-      "useSummaryNone": "还没有摘要：先在对话的菜单里生成。",
-      "useSummaryStale": "这份摘要已过时，对话之后有了新消息。",
-      "useSummaryOld": "该主机版本过旧，无法生成聊天摘要。",
       "instruction": "第一条指令（可选）",
       "instructionPlaceholder": "留空：对话打开后等你输入。",
       "sourceWorking": "这个对话还在运行，等这一轮结束再交接。",
@@ -21714,6 +21719,16 @@
       "stopTitle": "停止 {{count}} 个对话？",
       "stopDescription": "这会停止正在进行的工作并结束委派任务，已停止的委派对话无法恢复。",
       "stopDone": "已停止 {{count}} 个对话"
+    },
+    "handoff": {
+      "title": "交接内容",
+      "summary": "压缩成摘要",
+      "summaryHint": "先把对话总结成摘要，新对话只从摘要开始；需要细节时它能去读完整消息。",
+      "summaryMergeHint": "先把这些对话一起总结成摘要，新对话只从摘要开始；需要细节时它能去读完整消息。",
+      "messages": "完整历史",
+      "messagesHint": "把消息原样交过去，会占用新对话多得多的上下文。",
+      "summaryUnavailable": "该主机版本过旧，不能压缩交接。",
+      "compacting": "正在压缩对话…"
     }
   }
 }

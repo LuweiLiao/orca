@@ -13,6 +13,11 @@ export const AGENT_SESSION_FORK_RUNTIME_CAPABILITY = 'agent-session.fork.v1' as 
 // a client sends either only to a host advertising this.
 export const AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY = 'agent-session.fork-merge.v1' as const
 
+// Why: a `handoff` field is refused by an older host's strict `ForkParams`; a client offers the
+// summarized hand-off only to a host advertising this, and hands over full history otherwise.
+export const AGENT_SESSION_FORK_SUMMARY_RUNTIME_CAPABILITY =
+  'agent-session.fork-summary.v1' as const
+
 /** Chats one child can be merged from, the primary source included. */
 export const AGENT_SESSION_FORK_MAX_SOURCES = 8
 
@@ -77,6 +82,8 @@ export type AgentSessionLineageEntry = {
   createdAt: number
   /** Transcript forks only: the newest messages that fit the hand-off, when fewer than all. */
   handedOverCount?: number
+  /** The child got a summary of the sources instead of their messages. Absent: messages. */
+  handoff?: 'summary'
   /** A merge: every chat the child was handed, the primary first and mirrored by the fields above.
    *  Absent from a single-source fork and from older hosts. */
   sources?: AgentSessionLineageSource[]
@@ -119,7 +126,10 @@ export const ForkParams = z
       .array(MergeSource)
       .min(1)
       .max(AGENT_SESSION_FORK_MAX_SOURCES - 1)
-      .optional()
+      .optional(),
+    /** `summary`: the host summarizes the sources and hands over only that, so the child starts
+     *  with little context used. Absent: the messages themselves (or a native copy). */
+    handoff: z.enum(['summary', 'messages']).optional()
   })
   .strict()
 
@@ -152,7 +162,8 @@ export function agentSessionForkFingerprint(
       options: params.options,
       instruction: params.instruction,
       // Dropped when absent, so a single-source fork keeps the fingerprint it always had.
-      mergeSources: params.mergeSources
+      mergeSources: params.mergeSources,
+      handoff: params.handoff
     }
   })
 }
@@ -176,6 +187,7 @@ const LineageEntrySchema = z.object({
   sourceProvider: z.string().min(1).max(128),
   createdAt: z.number().int().nonnegative(),
   handedOverCount: z.number().int().nonnegative().optional(),
+  handoff: z.literal('summary').optional(),
   sources: z
     .array(
       z.object({

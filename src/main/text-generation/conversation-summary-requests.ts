@@ -15,7 +15,9 @@ import {
 } from './commit-message-agent-environment'
 import { resolveTextGenerationParams } from './commit-message-text-generation'
 import {
+  cancelConversationHandoffSummaryLocal,
   cancelConversationSummaryLocal,
+  generateConversationHandoffSummary,
   generateConversationSummary
 } from './conversation-summary-text-generation'
 
@@ -129,5 +131,64 @@ export async function generateConversationSummaryRequest(
     if (activeRequest === request) {
       activeRequest = undefined
     }
+  }
+}
+
+export type ConversationHandoffSummaryResult =
+  | { success: true; text: string }
+  | { success: false; error: string; canceled?: boolean }
+
+/**
+ * The summary a hand-off child starts from. Not saved beside the chats: it covers the cut the
+ * child was made at, which may not be the chat's end. Several hand-offs may run at once; each
+ * stops with its own signal.
+ */
+export async function generateConversationHandoffSummaryRequest(
+  host: ConversationSummaryHost,
+  input: {
+    cwd: string
+    sections: readonly {
+      label: string | null
+      messages: readonly ConversationSummaryMessage[]
+    }[]
+  },
+  signal?: AbortSignal
+): Promise<ConversationHandoffSummaryResult> {
+  if (input.sections.every((section) => section.messages.length === 0)) {
+    return { success: false, error: 'The chat has no messages to summarize yet.' }
+  }
+  if (signal?.aborted) {
+    return { success: false, error: 'Generation canceled.', canceled: true }
+  }
+  const cancel = (): void => cancelConversationHandoffSummaryLocal(input.cwd)
+  signal?.addEventListener('abort', cancel, { once: true })
+  try {
+    const resolved = resolveTextGenerationParams(
+      host.getSettings(),
+      LOCAL_COMMIT_MESSAGE_HOST_KEY,
+      'conversationName',
+      null
+    )
+    if (!resolved.ok) {
+      return { success: false, error: resolved.error }
+    }
+    const localEnv = await prepareLocalCommitMessageAgentEnv(
+      resolved.params.agentId,
+      host.getAgentEnvironment()
+    )
+    if (!localEnv.ok) {
+      return { success: false, error: localEnv.error }
+    }
+    if (signal?.aborted) {
+      return { success: false, error: 'Generation canceled.', canceled: true }
+    }
+    const result = await generateConversationHandoffSummary({
+      sections: input.sections,
+      params: resolved.params,
+      target: { kind: 'local', cwd: input.cwd, ...(localEnv.env ? { env: localEnv.env } : {}) }
+    })
+    return result.success ? { success: true, text: result.text } : result
+  } finally {
+    signal?.removeEventListener('abort', cancel)
   }
 }

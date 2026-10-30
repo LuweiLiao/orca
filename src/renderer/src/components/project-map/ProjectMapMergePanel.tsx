@@ -19,6 +19,10 @@ import {
   ProjectMapForkAgentPicker,
   type ProjectMapForkAgentChoice
 } from './ProjectMapForkAgentPicker'
+import {
+  ProjectMapHandoffModeOption,
+  useProjectMapHandoffMode
+} from './ProjectMapHandoffModeOption'
 
 const SIZE = { width: 400, height: 560 }
 
@@ -57,6 +61,7 @@ export function ProjectMapMergePanel({
     [first.chat?.executionHostId]
   )
   const [supported, setSupported] = useState<boolean | null>(null)
+  const handoff = useProjectMapHandoffMode(target)
   useEffect(() => {
     let cancelled = false
     if (target) {
@@ -82,6 +87,7 @@ export function ProjectMapMergePanel({
         ...(choice.model ? { model: choice.model } : {}),
         ...(choice.effort ? { effort: choice.effort } : {}),
         instruction,
+        handoff: handoff.mode,
         randomUuid: createBrowserUuid,
         mergeWith: others
       })
@@ -210,13 +216,21 @@ export function ProjectMapMergePanel({
             ))}
           </fieldset>
         ) : null}
+        <ProjectMapHandoffModeOption
+          mode={handoff.mode}
+          onChange={handoff.setMode}
+          summaryAvailable={handoff.summaryAvailable}
+          merge
+        />
         <ProjectMapForkAgentPicker origin={first} choice={choice} onChange={setChoice} />
-        <p className="-mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          {translate(
-            'projectMap.merge.handoffHint',
-            'Each chat is handed over as text, through its last completed turn; the longest are cut first, with a link to the rest.'
-          )}
-        </p>
+        {handoff.mode === 'messages' ? (
+          <p className="-mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            {translate(
+              'projectMap.merge.handoffHint',
+              'Each chat is handed over as text, through its last completed turn; the longest are cut first, with a link to the rest.'
+            )}
+          </p>
+        ) : null}
         <label className="flex flex-col gap-1.5">
           <span className="text-[11px] font-semibold text-muted-foreground">
             {translate('projectMap.fork.instruction', 'First instruction (optional)')}
@@ -265,7 +279,9 @@ export function ProjectMapMergePanel({
           onClick={() => void create()}
         >
           {pending
-            ? translate('projectMap.fork.creating', 'Creating…')
+            ? handoff.mode === 'summary'
+              ? translate('projectMap.handoff.compacting', 'Compacting the chat…')
+              : translate('projectMap.fork.creating', 'Creating…')
             : translate('projectMap.merge.create', 'Create merged handoff')}
         </Button>
       </footer>

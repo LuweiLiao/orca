@@ -1,4 +1,5 @@
 import {
+  buildConversationHandoffSummaryPrompt,
   buildConversationSummaryPrompt,
   sanitizeGeneratedConversationSummary,
   type ConversationSummaryMessage
@@ -37,6 +38,35 @@ export async function generateConversationSummary(input: {
   return text
     ? { success: true, text, agentLabel: result.agentLabel }
     : { success: false, error: 'Generated summary was empty after sanitization.' }
+}
+
+/** The summary a hand-off child starts from, of one or several chats; never saved beside them. */
+export async function generateConversationHandoffSummary(input: {
+  sections: readonly { label: string | null; messages: readonly ConversationSummaryMessage[] }[]
+  params: ResolvedSourceControlAiGenerationParams
+  target: CommitMessageGenerationTarget
+  spawnAgent?: SpawnSourceControlAgent
+}): Promise<ConversationSummaryGeneration> {
+  const result = await runGenerationRequest({
+    params: input.params,
+    prompt: buildConversationHandoffSummaryPrompt(input.sections, input.params.customPrompt),
+    target: input.target,
+    spawnAgent: input.spawnAgent ?? spawnSourceControlAgent,
+    emptyResultName: 'summary',
+    // Why its own lane: a summary the person asked for in the same workspace keeps its cancel.
+    operation: 'conversation-handoff'
+  })
+  if (!result.success) {
+    return { success: false, error: result.error, canceled: result.canceled }
+  }
+  const text = sanitizeGeneratedConversationSummary(result.rawOutput)
+  return text
+    ? { success: true, text, agentLabel: result.agentLabel }
+    : { success: false, error: 'Generated summary was empty after sanitization.' }
+}
+
+export function cancelConversationHandoffSummaryLocal(cwd: string): void {
+  cancelLocalGeneration('conversation-handoff', cwd)
 }
 
 export function cancelConversationSummaryLocal(cwd: string): void {

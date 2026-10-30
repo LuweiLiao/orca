@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY,
   AGENT_SESSION_FORK_RUNTIME_CAPABILITY,
+  AGENT_SESSION_FORK_SUMMARY_RUNTIME_CAPABILITY,
   isAgentSessionLineageEntry,
   isAgentSessionLineageSession,
   withoutHandoffReferences,
@@ -47,6 +48,11 @@ async function hostSupports(target: RuntimeClientTarget, capability: string): Pr
 /** Whether this chat's host forks at a picked message and merges several chats into one. */
 export function hostSupportsAgentSessionForkMerge(target: RuntimeClientTarget): Promise<boolean> {
   return hostSupports(target, AGENT_SESSION_FORK_MERGE_RUNTIME_CAPABILITY)
+}
+
+/** Whether this chat's host can hand off a summary of the chat instead of its messages. */
+export function hostSupportsAgentSessionForkSummary(target: RuntimeClientTarget): Promise<boolean> {
+  return hostSupports(target, AGENT_SESSION_FORK_SUMMARY_RUNTIME_CAPABILITY)
 }
 
 /** Whether this chat's host makes a reference to a range of its turns. */

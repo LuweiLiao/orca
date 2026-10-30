@@ -19968,6 +19968,15 @@
       "imagePreview": {
         "fileActions": "File actions",
         "linkActions": "Link actions"
+      },
+      "handoff": {
+        "compactedFrom": "Handed off from {{from}}, compacted",
+        "compacted": "Handed off, compacted",
+        "from": "Handed off from {{from}}",
+        "plain": "Handed off",
+        "summary": "Summary handed over",
+        "messagesCounted": "{{count}} of {{total}} messages handed over",
+        "messages": "Messages handed over"
       }
     },
     "tab": {
@@ -21609,10 +21618,6 @@
       "nativeHint": "Copies the saved conversation, tool calls included; without one, hands over its messages as text.",
       "handoffHint": "Hands over the messages as text: tool output and images are summarised, not copied.",
       "sharedWorkspace": "{{name}} is also working in this workspace; both may edit the same files.",
-      "useSummary": "Hand off with its summary",
-      "useSummaryNone": "No summary yet: generate one from the chat's menu.",
-      "useSummaryStale": "This summary is out of date; the chat has new messages.",
-      "useSummaryOld": "This host is too old to summarize chats.",
       "instruction": "First instruction (optional)",
       "instructionPlaceholder": "Empty: the chat opens and waits for you.",
       "sourceWorking": "That chat is still working; hand it off once its turn ends.",
@@ -21839,6 +21844,16 @@
       "stopTitle": "Stop {{count}} conversations?",
       "stopDescription": "This stops the work in progress and ends any worker assignment. A stopped worker cannot be resumed.",
       "stopDone": "Stopped {{count}} conversations"
+    },
+    "handoff": {
+      "title": "Hand over",
+      "summary": "Compact into a summary",
+      "summaryHint": "Summarizes the chat first; the new chat starts from that summary and can read the full messages when it needs them.",
+      "summaryMergeHint": "Summarizes the chats first; the new chat starts from that summary and can read the full messages when it needs them.",
+      "messages": "Full history",
+      "messagesHint": "Hands over the messages themselves; uses much more of the new chat’s context.",
+      "summaryUnavailable": "This host is too old to compact a hand-off.",
+      "compacting": "Compacting the chat…"
     }
   }
 }

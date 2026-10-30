@@ -168,29 +168,59 @@ test('summarizes a chat on request, edits it, hands off with it, and greys out o
     await expect(text).toHaveValue('EDITED-SUMMARY: lanes, wires and a legend')
     await panel.getByRole('button', { name: 'Close' }).click()
 
-    // The summary becomes the first message of a handoff.
+    // A hand-off compacts by default: the child starts from a fresh summary, not the messages.
+    rmSync(slow, { force: true })
+    const before = readFileSync(requests, 'utf8').split('=====').length
     await node(mainId).click({ button: 'right' })
     await action('new-child').click()
     const fork = map.locator('[data-project-map-fork-panel]')
     await expect(fork).toBeVisible()
-    await expect(fork).toContainText('out of date')
-    await fork.locator('[data-project-map-fork-use-summary]').check()
+    await expect(fork.locator('[data-project-map-handoff-mode="summary"]')).toBeVisible()
+    await expect(fork.locator('[data-project-map-handoff-mode-option="summary"]')).toBeChecked()
     await fork.getByRole('textbox').fill('HANDOFF-GO: continue')
-    await screenshot('fork-with-summary')
+    await screenshot('fork-compacted')
     await fork.getByRole('button', { name: 'Create child chat' }).click()
-    await expect(fork).toHaveCount(0)
+    await expect(fork).toHaveCount(0, { timeout: 60_000 })
     await expect
       .poll(() => sentPrompts(claudeStub.launchLog).find((prompt) => prompt.includes('HANDOFF-GO')))
       .toBeTruthy()
     const handoff = sentPrompts(claudeStub.launchLog).find((prompt) =>
       prompt.includes('HANDOFF-GO')
     )!
-    expect(handoff).toContain('Summary of the previous chat:')
-    expect(handoff).toContain('EDITED-SUMMARY: lanes, wires and a legend')
-    expect(handoff.indexOf('EDITED-SUMMARY')).toBeLessThan(handoff.indexOf('HANDOFF-GO'))
+    // One summary model call, over the source's messages through its last turn.
+    const runs = readFileSync(requests, 'utf8').split('=====')
+    expect(runs.length).toBe(before + 1)
+    expect(runs.at(-2)).toContain('FIRST-TURN: sketch the lanes')
+    expect(handoff).toContain('compacted')
+    expect(handoff).toContain('STUB-SUMMARY: lanes and wires')
+    // The messages themselves stay behind; only a reference to read them through travels.
+    expect(handoff).not.toContain('FIRST-TURN: sketch the lanes')
+    expect(handoff).toMatch(/Read its full messages when the summary is not enough: /)
+    expect(handoff.indexOf('STUB-SUMMARY')).toBeLessThan(handoff.indexOf('HANDOFF-GO'))
+    // The child's chat opens on a hand-off divider, its summary folded, then the instruction.
+    const childWindow = map.locator('[data-project-map-window]')
+    const divider = childWindow.locator('[data-native-chat-handoff="summary"]')
+    await expect(divider).toBeVisible({ timeout: 30_000 })
+    await expect(divider.getByRole('separator')).toContainText('compacted')
+    await expect(divider.locator('[data-native-chat-handoff-context]')).toHaveCount(0)
+    await expect(divider).toContainText('HANDOFF-GO: continue')
+    await expect(divider).not.toContainText('STUB-SUMMARY')
+    await divider.locator('[data-native-chat-handoff-toggle]').click()
+    await expect(divider.locator('[data-native-chat-handoff-context]')).toContainText(
+      'STUB-SUMMARY: lanes and wires'
+    )
+    await screenshot('child-handoff-divider')
+    // The child's lineage records the compacted hand-off.
+    const lineage = await page.evaluate(async () => {
+      const result = await window.api.runtime.call({
+        method: 'agentSession.lineage',
+        params: {}
+      })
+      return JSON.stringify(result)
+    })
+    expect(lineage).toContain('"handoff":"summary"')
 
     // A chat that was closed still draws as a grey node and can be summarized.
-    rmSync(slow, { force: true })
     await node(finishedId).click({ button: 'right' })
     await menu.locator('[data-project-map-action="close"]').click()
     await expect(history).toHaveCount(1, { timeout: 30_000 })

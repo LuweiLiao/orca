@@ -48,6 +48,7 @@ import {
   structuredAgentSessionCreateIntentFingerprint
 } from './structured-agent-session-create'
 import { resolveUncommittedStructuredCreate } from './structured-agent-session-precommit-refusal'
+import { summaryHandoffText } from './structured-agent-session-fork-summary'
 
 type ForkResult =
   | { ok: true; value: AgentSessionForkResult }
@@ -91,9 +92,12 @@ async function forkStructuredAgentSession(
     ),
     ctx.runtime.resolveStructuredAgentSessionLocalWorkspacePath(params.worktree)
   ])
+  // A summary hand-off carries no history, so it never copies; it is the person's default.
+  const summarize = params.handoff === 'summary'
   // A Claude copy resumes only where Claude stored it: the same agent in the same workspace, from
   // one chat, at a point Claude recorded. A merge or a cut at a message travels as text.
   const copy =
+    !summarize &&
     params.agent === 'claude' &&
     merged.length === 0 &&
     params.cut.kind !== 'message' &&
@@ -122,26 +126,32 @@ async function forkStructuredAgentSession(
     createdAt: Date.now()
   }
   const sections = [primary, ...merged]
+  if (summarize) {
+    entry.handoff = 'summary'
+  }
   // Only when the earliest messages are left out: the child reads them through a reference.
   const handoff = copy
     ? null
-    : merged.length > 0
-      ? await forkMergeHandoffText({
-          sections: sections.map((section) => ({
-            source: section.record,
-            messages: section.taken.messages,
-            referenceSource: () => forkSourceReference(section.record, section.taken.cut)
-          })),
-          instruction: params.instruction
-        })
-      : await forkHandoffText({
-          source,
-          messages: taken.messages,
-          instruction: params.instruction,
-          referenceSource: () => forkSourceReference(source, taken.cut)
-        }).then((single) => ({ text: single.text, handedOver: [single.handedOver] }))
+    : summarize
+      ? await summaryHandoffText(ctx, sourcePath ?? childPath, sections, params.instruction)
+      : merged.length > 0
+        ? await forkMergeHandoffText({
+            sections: sections.map((section) => ({
+              source: section.record,
+              messages: section.taken.messages,
+              referenceSource: () => forkSourceReference(section.record, section.taken.cut)
+            })),
+            instruction: params.instruction
+          })
+        : await forkHandoffText({
+            source,
+            messages: taken.messages,
+            instruction: params.instruction,
+            referenceSource: () => forkSourceReference(source, taken.cut)
+          }).then((single) => ({ text: single.text, handedOver: [single.handedOver] }))
   const handedOver = (index: number): number | undefined => {
-    const count = handoff?.handedOver[index]
+    // A summary carries every message's gist, so none are counted as left out.
+    const count = summarize ? undefined : handoff?.handedOver[index]
     return count !== undefined && count < sections[index]!.taken.cut.messageCount
       ? count
       : undefined
