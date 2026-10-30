@@ -3,7 +3,11 @@ import { ORCHESTRATION_DELIVERY_BATCH_LIMIT } from './mailbox-routing-page'
 
 export type PointedUnreadMessage = { id: string; to_handle: string; age_seconds: number }
 
-/** Mail a pointer announced at least `olderThanSeconds` ago that nobody has read; heartbeats are liveness, not mail. */
+/**
+ * Mail a pointer announced at least `olderThanSeconds` ago that nobody has read. Heartbeats are
+ * liveness, not mail; a settled Dispatch's mailbox is skipped because its reused worker's `check`
+ * reads only its current one.
+ */
 export function getPointedUnreadMessages(
   this: OrchestrationDb,
   olderThanSeconds: number,
@@ -18,6 +22,10 @@ export function getPointedUnreadMessages(
        WHERE read = 0 AND delivery_contract = 'current_delivery'
          AND delivered_at IS NOT NULL AND delivered_at <= datetime('now', ?)
          AND pointer_enter_pending = 0 AND type != 'heartbeat'
+         AND NOT EXISTS (
+           SELECT 1 FROM dispatch_contexts d
+           WHERE 'dispatch:' || d.id = messages.to_handle AND d.status != 'dispatched'
+         )
        ORDER BY sequence ASC LIMIT ?`
     )
     .all(`-${olderThanSeconds} seconds`, limit) as PointedUnreadMessage[]
