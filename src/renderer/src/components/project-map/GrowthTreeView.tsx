@@ -25,7 +25,8 @@ import { growthRevealShift } from './growth-tree-reveal'
 import { growthTreeAt } from './growth-tree-replay'
 import type { FlowSignalBus } from './project-flow-signal'
 import { useGrowthTreeReplay } from './use-growth-tree-replay'
-import { useProjectMapViewport } from './use-project-map-viewport'
+import { projectMapSpanView, useProjectMapViewport } from './use-project-map-viewport'
+import { shouldFollowGrowthAutoFit, type GrowthAutoFit } from './growth-tree-auto-fit'
 
 const RECENT_FIT_MS = 7 * 24 * 60 * 60 * 1000
 const READABLE_ZOOM = 0.8
@@ -120,14 +121,21 @@ export function GrowthTreeView({
     })
   }, [])
 
+  // What the person chose about the layout; a change of it widens the tree on purpose.
+  const layoutChoice = `${mode}|${[...collapsed].sort().join(',')}|${[...expandedFolds].sort().join(',')}`
+  const autoFit = useRef<GrowthAutoFit | null>(null)
   const fitRecent = useCallback(() => {
     const from = layout.scale.xOf(tree.now - RECENT_FIT_MS)
+    const span = { x: from, width: layout.scale.xOf(tree.now) - from }
     // A long history keeps a readable zoom and shows its newest part, so "now" is always in view.
-    fitSpan(
-      { x: from, width: layout.scale.xOf(tree.now) - from },
-      { minZoom: READABLE_ZOOM, anchor: 'end', endPadding: NOW_ROOM_PX }
-    )
-  }, [fitSpan, layout.scale, tree.now])
+    const options = { minZoom: READABLE_ZOOM, anchor: 'end', endPadding: NOW_ROOM_PX } as const
+    autoFit.current = {
+      view: projectMapSpanView(size, span, options),
+      at: Date.now(),
+      choice: layoutChoice
+    }
+    fitSpan(span, options)
+  }, [fitSpan, layout.scale, layoutChoice, size, tree.now])
   const projectKey = projectIds ? [...projectIds].sort().join('|') : '*'
   const fittedFor = useRef<string | null>(null)
   useEffect(() => {
@@ -138,6 +146,27 @@ export function GrowthTreeView({
     // Fit once per project scope; later refreshes keep the person's pan and zoom.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, projectKey, size.width])
+  // Why: history rows land just after the tree opens and widen it past "now"; follow that growth
+  // until the person moves the view. Keyed on the content, so the detail panel cannot trigger it.
+  const latestView = useRef(view)
+  latestView.current = view
+  useEffect(() => {
+    if (
+      active &&
+      size.width > 0 &&
+      shouldFollowGrowthAutoFit({
+        last: autoFit.current,
+        view: latestView.current,
+        now: Date.now(),
+        selected: selected !== null,
+        replaying: replay.at !== null,
+        choice: layoutChoice
+      })
+    ) {
+      fitRecent()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout.width])
 
   // Selecting never moves the view; only a detail panel that now covers the chat does, by the least.
   const viewRef = useRef(view)
