@@ -9,6 +9,10 @@ import { ProjectMapCanvasMenu } from './ProjectMapCanvasMenu'
 import { ProjectMapSearch } from './ProjectMapSearch'
 import { ProjectMapNodeOverlays } from './ProjectMapNodeOverlays'
 import { ProjectMapBackdrop } from './ProjectMapBackdrop'
+import { ProjectFlowOverlay } from './ProjectFlowOverlay'
+import type { FlowSignal, FlowSignalBus } from './project-flow-signal'
+import type { FlowRoute } from './project-flow-particles'
+import { resolveFlowRoute } from './project-flow-wire-route'
 import { projectMapNodeIdOf } from './project-map-node-target'
 import { useProjectMapLocate } from './use-project-map-locate'
 import type { Worktree } from '../../../../shared/worktree/types'
@@ -47,6 +51,8 @@ type Props = {
   /** What is drawn: `graph` with busy parents' delegated chats folded into stacks. */
   collapsed: ProjectMapCollapsedView
   layout: ProjectMapLayout
+  /** Real delegations and reports, flown once along the wire between their two chats. */
+  flowBus: FlowSignalBus
   viewport: ReturnType<typeof useProjectMapViewport>
   activeWorktreeId: string | null
   onOpenAgent: (agent: ProjectMapAgent) => void
@@ -69,6 +75,7 @@ export function ProjectMapCanvas({
   graph,
   collapsed,
   layout,
+  flowBus,
   viewport,
   activeWorktreeId,
   onOpenAgent,
@@ -103,6 +110,10 @@ export function ProjectMapCanvas({
   // A chat folded into a stack is shown, and wired, through the stack.
   const shownAs = (id: string): string | null =>
     layout.nodes.has(id) ? id : (collapsed.groupOf.get(id) ?? null)
+  const resolveFlow = (signal: FlowSignal): FlowRoute | null => {
+    const [from, to] = [shownAs(signal.from), shownAs(signal.to)]
+    return from && to ? resolveFlowRoute(layout.wires, from, to) : null
+  }
   // A window goes with its node, adjusted in render so it never outlives it by a frame.
   windows.keepShown((id) => shownAs(id) !== null)
   // A node that vanished (agent closed, project switched) drops out of the selection.
@@ -280,6 +291,7 @@ export function ProjectMapCanvas({
               activeWorktreeId={activeWorktreeId}
               selectedShown={selectedShown}
             />
+            <ProjectFlowOverlay bus={flowBus} resolve={resolveFlow} />
             <ProjectMapNodeLayer
               graph={graph}
               collapsed={collapsed}

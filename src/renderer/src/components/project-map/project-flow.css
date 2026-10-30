@@ -1,0 +1,55 @@
+/* Display-only dots that ride a wire once per real event; colours come from the theme tokens. */
+.project-flow-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.project-flow-particle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ai-action-accent);
+  box-shadow: 0 0 0 2px var(--background);
+  offset-anchor: center;
+  offset-rotate: 0deg;
+  opacity: 0;
+  pointer-events: none;
+  animation-name: project-flow-ride;
+  animation-timing-function: cubic-bezier(0.3, 0.1, 0.3, 1);
+  animation-fill-mode: both;
+}
+.project-flow-particle[data-reverse='true'] {
+  animation-direction: reverse;
+}
+.project-flow-particle[data-tone='success'] {
+  background: var(--status-success);
+}
+.project-flow-particle[data-tone='failure'] {
+  background: var(--destructive);
+}
+@keyframes project-flow-ride {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-flow-particle {
+    display: none;
+  }
+}
