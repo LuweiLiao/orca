@@ -5,6 +5,7 @@ import type {
   DashboardSnapshot,
   DashboardWorkspace
 } from '../../../../shared/dashboard-snapshot'
+import type { AgentSessionReferenceLink } from '../../../../shared/agent-session-reference-link'
 import type { ProjectMapForkInput } from './project-map-graph'
 import type { GrowthTreeInput } from './growth-tree-build'
 
@@ -59,6 +60,25 @@ const chat = (sessionId: string) => ({
   executionHostId: 'local' as const
 })
 
+function reference(
+  carrier: string,
+  source: string,
+  workspaceId: string,
+  createdAt: number,
+  sourceMessageCount: number | null
+): AgentSessionReferenceLink {
+  return {
+    targetSessionId: carrier,
+    messageId: `m-${createdAt}`,
+    messageIndex: 0,
+    referenceUri: `orca-conversation://reference/${source}`,
+    title: source,
+    source: { sessionId: source, workspaceId },
+    sourceMessageCount,
+    createdAt
+  }
+}
+
 function fork(child: string, sources: string[], createdAt: number): AgentSessionLineageEntry {
   return {
     childSessionId: child,
@@ -81,7 +101,7 @@ function fork(child: string, sources: string[], createdAt: number): AgentSession
 }
 
 /**
- * Project A: `a-main` with a coordinator, a worker that finished, a skewed-clock worker, three
+ * Project A: `a-main` (no creation time, as from an older host) with a coordinator, a worker that finished, a skewed-clock worker, three
  * chats merged into one, and a hand-off whose source closed; `a-feat` derived from `a-main`;
  * a folder workspace `a-notes`; an empty `a-empty`. Project B: `b-main`, one chat the A
  * coordinator delegated to.
@@ -113,8 +133,12 @@ export function growthFixture(hidden: ReadonlySet<string> = new Set()): GrowthTr
     cards,
     workspaces: [
       workspace('repo-a', 'a-main'),
-      workspace('repo-a', 'a-feat', { parentWorktreeId: 'a-main' }),
-      workspace('repo-a', 'a-notes', { workspaceKind: 'folder', parentWorktreeId: 'a-main' }),
+      workspace('repo-a', 'a-feat', { parentWorktreeId: 'a-main', createdAt: 5_500_000 }),
+      workspace('repo-a', 'a-notes', {
+        workspaceKind: 'folder',
+        parentWorktreeId: 'a-main',
+        createdAt: 3_000_000
+      }),
       workspace('repo-a', 'a-empty'),
       workspace('repo-b', 'b-main', { hostKind: 'ssh', hostLabel: 'build-box' })
     ]
@@ -124,11 +148,19 @@ export function growthFixture(hidden: ReadonlySet<string> = new Set()): GrowthTr
     ['sess_handed', fork('sess_handed', ['sess_closed'], 6_900_000)]
   ])
   const chatsByPaneKey = new Map(
-    ['s1', 's2', 's3', 'merged', 'handed'].map((key) => [key, chat(`sess_${key}`)])
+    ['lead', 'feat-chat', 's1', 's2', 's3', 'merged', 'handed'].map((key) => [
+      key,
+      chat(`sess_${key}`)
+    ])
   )
   const forks: ProjectMapForkInput = {
     chatsByPaneKey,
     lineage,
+    references: [
+      reference('sess_feat-chat', 'sess_lead', 'a-main', 6_100_000, 3),
+      reference('sess_merged', 'sess_s3', 'a-main', 5_100_000, 2),
+      reference('sess_merged', 'sess_s3', 'a-main', 5_200_000, null)
+    ],
     history: new Map([
       ['sess_closed', { ...chat('sess_closed'), workspaceId: 'a-main', title: 'closed source' }]
     ]),

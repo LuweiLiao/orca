@@ -2,6 +2,7 @@ import { ChevronDown, ChevronRight, Folder, GitBranch } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import type { ProjectMapView } from './use-project-map-viewport'
 import { growthClock, growthDay, growthFoldedSpan } from './growth-tree-labels'
+import type { GrowthTick } from './growth-tree-ticks'
 import type { GrowthLayout } from './growth-tree-layout'
 import type { GrowthTree } from './growth-tree-types'
 
@@ -124,13 +125,29 @@ export function GrowthTreeLabels({
   )
 }
 
+const MIN_LABEL_GAP_PX = 44
+
+/** Drops a mark that would sit on top of the one before it once the tree is zoomed out. */
+function spacedOnScreen(zoom: number): (tick: GrowthTick, index: number) => boolean {
+  let lastX = Number.NEGATIVE_INFINITY
+  return (tick, index) => {
+    if (index === 0 || (tick.x - lastX) * zoom >= MIN_LABEL_GAP_PX) {
+      lastX = tick.x
+      return true
+    }
+    return false
+  }
+}
+
 /** The time ruler. Fixed in y; its x follows the content's pan and zoom. */
 export function GrowthTreeRuler({
   layout,
-  view
+  view,
+  onToggleFold
 }: {
   layout: GrowthLayout
   view: ProjectMapView
+  onToggleFold: (from: number) => void
 }): React.JSX.Element {
   const { scale, ticks } = layout
   const sequence = scale.mode === 'sequence'
@@ -142,7 +159,7 @@ export function GrowthTreeRuler({
       className="relative min-w-0 flex-1 overflow-hidden border-b border-border bg-background"
       style={{ height: GROWTH_RULER_HEIGHT }}
     >
-      {ticks.map((tick) => (
+      {ticks.filter(spacedOnScreen(view.zoom)).map((tick) => (
         <span
           key={tick.index}
           className="absolute top-0 flex h-full items-center border-l border-border pl-1 text-2xs text-muted-foreground tabular-nums"
@@ -156,14 +173,19 @@ export function GrowthTreeRuler({
         </span>
       ))}
       {scale.folds.map((fold) => (
-        <span
+        <button
           key={fold.from}
+          type="button"
+          data-growth-fold-toggle={fold.from}
+          aria-pressed={fold.expanded}
           title={growthFoldedSpan(fold.from, fold.to)}
-          className="absolute top-0 flex h-full items-center justify-center text-2xs text-muted-foreground"
+          aria-label={growthFoldedSpan(fold.from, fold.to)}
+          onClick={() => onToggleFold(fold.from)}
+          className="absolute top-0 flex h-full items-center justify-center text-2xs text-muted-foreground hover:bg-accent/50"
           style={{ left: view.x + fold.x * view.zoom, width: fold.width * view.zoom }}
         >
-          ~
-        </span>
+          {fold.expanded ? '↔' : '~'}
+        </button>
       ))}
     </div>
   )

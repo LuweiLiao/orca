@@ -18,9 +18,14 @@ import {
   type GrowthTimeWindow,
   type GrowthTreeFilter
 } from './growth-tree-focus'
-import { growthBucketLabel, growthKindLabel, growthWindowLabel } from './growth-tree-labels'
-import type { GrowthTimeMode } from './growth-tree-scale'
-import { GROWTH_TREE_EDGE_KINDS, type GrowthTreeEdgeKind } from './growth-tree-types'
+import {
+  growthBucketLabel,
+  growthKindLabel,
+  growthModeLabel,
+  growthWindowLabel
+} from './growth-tree-labels'
+import { GROWTH_TIME_MODES, type GrowthTimeMode } from './growth-tree-scale'
+import { GROWTH_TREE_LINE_KINDS, type GrowthTreeLineKind } from './growth-tree-types'
 
 const BUCKETS: readonly DashboardBucket[] = ['working', 'attention', 'done', 'idle']
 const WINDOWS: readonly GrowthTimeWindow[] = ['all', 'today', '7d', '30d']
@@ -78,18 +83,19 @@ export function GrowthTreeToolbar({
     <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
       <Select
         value={mode}
-        onValueChange={(value) => onMode(value === 'sequence' ? 'sequence' : 'compressed')}
+        onValueChange={(value) =>
+          onMode(GROWTH_TIME_MODES.find((candidate) => candidate === value) ?? 'compressed')
+        }
       >
         <SelectTrigger size="sm" aria-label={translate('growthTree.mode.label', 'Time scale')}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="compressed">
-            {translate('growthTree.mode.compressed', 'Compressed time')}
-          </SelectItem>
-          <SelectItem value="sequence">
-            {translate('growthTree.mode.sequence', 'Event order')}
-          </SelectItem>
+          {GROWTH_TIME_MODES.map((candidate) => (
+            <SelectItem key={candidate} value={candidate}>
+              {growthModeLabel(candidate)}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <Popover>
@@ -124,7 +130,7 @@ export function GrowthTreeToolbar({
               <legend className="mb-1 text-2xs text-muted-foreground">
                 {translate('growthTree.filter.kinds', 'Lines drawn')}
               </legend>
-              {GROWTH_TREE_EDGE_KINDS.map((kind: GrowthTreeEdgeKind) => (
+              {GROWTH_TREE_LINE_KINDS.map((kind: GrowthTreeLineKind) => (
                 <Check
                   key={kind}
                   id={`growth-kind-${kind}`}

@@ -1,5 +1,5 @@
 import type { DashboardBucket } from '../../../../shared/dashboard-snapshot'
-import type { GrowthTree, GrowthTreeBar, GrowthTreeEdgeKind } from './growth-tree-types'
+import type { GrowthTree, GrowthTreeBar, GrowthTreeLineKind } from './growth-tree-types'
 
 export type GrowthTimeWindow = 'all' | 'today' | '7d' | '30d'
 
@@ -7,7 +7,7 @@ export type GrowthTreeFilter = {
   /** Empty shows every status. */
   buckets: ReadonlySet<DashboardBucket>
   /** Relation kinds whose lines are not drawn; their chats stay. */
-  hiddenKinds: ReadonlySet<GrowthTreeEdgeKind>
+  hiddenKinds: ReadonlySet<GrowthTreeLineKind>
   window: GrowthTimeWindow
 }
 
@@ -94,6 +94,14 @@ export function growthFocus(tree: GrowthTree, selectedId: string | null): Growth
           }
         }
       }
+    }
+  }
+  // A pointer joins the two chats it names, one hop: it is not a lineage to walk.
+  for (const reference of tree.references) {
+    if (seeds.includes(reference.from) || seeds.includes(reference.to)) {
+      edges.add(reference.id)
+      nodes.add(reference.from)
+      nodes.add(reference.to)
     }
   }
   return { nodes, edges }

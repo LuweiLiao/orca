@@ -6,6 +6,7 @@ import { translate } from '@/i18n/i18n'
 import { growthBarMatches, type GrowthFocus, type GrowthTreeFilter } from './growth-tree-focus'
 import { growthDateTime, growthFoldedSpan } from './growth-tree-labels'
 import type { GrowthLayout, GrowthLayoutBar, GrowthLayoutPin } from './growth-tree-layout'
+import type { buildGrowthSummary } from './growth-tree-summary'
 import type { GrowthTree, GrowthTreeBar } from './growth-tree-types'
 import { projectMapStateLabel } from './project-map-labels'
 import './growth-tree.css'
@@ -19,6 +20,11 @@ type Props = {
   focus: GrowthFocus | null
   filter: GrowthTreeFilter
   projectNames: ReadonlyMap<string, string>
+  /** The summary tier's lane strips and bundled lines; null draws the chats. */
+  summary: ReturnType<typeof buildGrowthSummary> | null
+  /** The chat the arrow keys are on. */
+  cursorId: string | null
+  zoom: number
   onSelect: (id: string) => void
   onJump: (id: string) => void
   onPin: (pin: GrowthLayoutPin) => void
@@ -32,6 +38,7 @@ const BarButton = memo(function BarButton({
   selected,
   linked,
   dimmed,
+  cursor,
   onSelect,
   onJump
 }: {
@@ -40,6 +47,7 @@ const BarButton = memo(function BarButton({
   selected: boolean
   linked: boolean
   dimmed: boolean
+  cursor: boolean
   onSelect: (id: string) => void
   onJump: (id: string) => void
 }) {
@@ -52,6 +60,9 @@ const BarButton = memo(function BarButton({
       data-selected={selected || undefined}
       data-linked={linked || undefined}
       data-dimmed={dimmed || undefined}
+      data-cursor={cursor || undefined}
+      data-start={bar.start}
+      data-end={bar.end}
       data-history={bar.history || undefined}
       data-approx={bar.startApprox || undefined}
       data-running={bar.running || undefined}
@@ -130,6 +141,9 @@ export function GrowthTreeWorld({
   focus,
   filter,
   projectNames,
+  summary,
+  cursorId,
+  zoom,
   onSelect,
   onJump,
   onPin,
@@ -141,6 +155,7 @@ export function GrowthTreeWorld({
     <div
       data-growth-world=""
       data-focusing={focus !== null || undefined}
+      data-growth-tier={summary ? 'summary' : 'bars'}
       className="absolute top-0 left-0 origin-top-left"
       style={{ width: layout.width, height: layout.height }}
     >
@@ -164,37 +179,69 @@ export function GrowthTreeWorld({
         className="growth-tree-now absolute top-0"
         style={{ left: nowX, height: layout.height }}
       />
-      {layout.scale.folds.map((fold) => (
-        <div
-          key={fold.from}
-          data-growth-fold=""
-          title={growthFoldedSpan(fold.from, fold.to)}
-          className="growth-tree-fold absolute top-0"
-          style={{ left: fold.x, width: fold.width, height: layout.height }}
-        />
-      ))}
+      {layout.scale.folds
+        .filter((fold) => !fold.expanded)
+        .map((fold) => (
+          <div
+            key={fold.from}
+            data-growth-fold=""
+            title={growthFoldedSpan(fold.from, fold.to)}
+            className="growth-tree-fold absolute top-0"
+            style={{ left: fold.x, width: fold.width, height: layout.height }}
+          />
+        ))}
       <svg
         className="pointer-events-none absolute top-0 left-0 overflow-visible"
         width={layout.width}
         height={layout.height}
         aria-hidden
       >
-        {layout.wires.map((wire) => {
-          const hidden = hiddenKinds.has(wire.kind)
-          const inFocus = focus?.edges.has(wire.id) === true
-          return hidden ? null : (
-            <path
-              key={wire.id}
-              d={wire.path}
-              data-growth-wire={wire.id}
-              data-kind={wire.kind}
-              data-highlighted={inFocus || undefined}
-              data-dimmed={(focus !== null && !inFocus) || undefined}
-              className="project-map-wire"
+        <defs>
+          <marker
+            id="growth-reference-arrow"
+            viewBox="0 0 8 8"
+            refX="7"
+            refY="4"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto"
+          >
+            <path d="M0 0 L8 4 L0 8 z" className="growth-tree-arrow" />
+          </marker>
+        </defs>
+        {[...layout.lanes.values()].map((lane) =>
+          lane.startX === null ? null : (
+            <circle
+              key={`start:${lane.id}`}
+              cx={lane.startX}
+              cy={lane.y + lane.height / 2}
+              r={3}
+              data-growth-lane-start={lane.id}
+              data-approx={lane.startApprox || undefined}
+              className="growth-tree-lane-start"
             />
           )
-        })}
-        {layout.joins.map((join) => (
+        )}
+        {summary
+          ? null
+          : layout.wires.map((wire) => {
+              const hidden = hiddenKinds.has(wire.kind)
+              const inFocus = focus?.edges.has(wire.id) === true
+              return hidden ? null : (
+                <path
+                  key={wire.id}
+                  d={wire.path}
+                  data-growth-wire={wire.id}
+                  data-kind={wire.kind}
+                  data-live={wire.live || undefined}
+                  markerEnd={wire.kind === 'reference' ? 'url(#growth-reference-arrow)' : undefined}
+                  data-highlighted={inFocus || undefined}
+                  data-dimmed={(focus !== null && !inFocus) || undefined}
+                  className="project-map-wire"
+                />
+              )
+            })}
+        {(summary ? [] : layout.joins).map((join) => (
           <circle
             key={join.id}
             cx={join.x}
@@ -204,9 +251,53 @@ export function GrowthTreeWorld({
             className="growth-tree-join"
           />
         ))}
+        {summary?.bundles.map((bundle) => (
+          <path
+            key={bundle.id}
+            d={bundle.path}
+            data-growth-bundle={bundle.id}
+            data-count={bundle.count}
+            strokeWidth={(2 + Math.log2(bundle.count) * 2) / zoom}
+            className="growth-tree-bundle"
+          />
+        ))}
       </svg>
+      {summary?.lanes.map((strip) => {
+        const lane = layout.lanes.get(strip.laneId)!
+        return strip.cells.map((cell) => (
+          <div
+            key={`${strip.laneId}:${cell.x}`}
+            data-growth-density={strip.laneId}
+            data-working={cell.working > 0 || undefined}
+            className="growth-tree-density absolute"
+            style={{
+              left: cell.x,
+              top: lane.y + lane.height / 2 - 6,
+              width: 22,
+              height: 12,
+              opacity: Math.min(1, 0.3 + cell.count * 0.2)
+            }}
+          />
+        ))
+      })}
+      {summary?.bundles.map((bundle) => (
+        <span
+          key={`count:${bundle.id}`}
+          data-growth-bundle-count={bundle.id}
+          className="growth-tree-bundle-count absolute rounded-full border border-border bg-card tabular-nums"
+          style={{
+            left: bundle.labelX,
+            top: bundle.labelY,
+            fontSize: 12 / zoom,
+            padding: `0 ${4 / zoom}px`,
+            transform: 'translate(-50%, -50%)'
+          }}
+        >
+          {bundle.count}
+        </span>
+      ))}
       {overlay}
-      {[...layout.bars.values()].map((box) => {
+      {(summary ? [] : [...layout.bars.values()]).map((box) => {
         const bar = tree.bars.get(box.id)!
         return (
           <BarButton
@@ -219,12 +310,13 @@ export function GrowthTreeWorld({
               (focus !== null && !focus.nodes.has(box.id)) ||
               !growthBarMatches(bar, filter, tree.now)
             }
+            cursor={cursorId === box.id}
             onSelect={onSelect}
             onJump={onJump}
           />
         )
       })}
-      {layout.pins.map((pin) => (
+      {(summary ? [] : layout.pins).map((pin) => (
         <PinButton key={pin.id} pin={pin} tree={tree} projectNames={projectNames} onPin={onPin} />
       ))}
     </div>

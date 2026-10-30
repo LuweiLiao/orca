@@ -1,7 +1,8 @@
 import { translate } from '@/i18n/i18n'
 import type { DashboardBucket } from '../../../../shared/dashboard-snapshot'
 import type { GrowthTimeWindow } from './growth-tree-focus'
-import type { GrowthTreeEdgeKind } from './growth-tree-types'
+import type { GrowthTimeMode } from './growth-tree-scale'
+import type { GrowthTreeLineKind } from './growth-tree-types'
 
 export function growthBucketLabel(bucket: DashboardBucket): string {
   switch (bucket) {
@@ -16,7 +17,7 @@ export function growthBucketLabel(bucket: DashboardBucket): string {
   }
 }
 
-export function growthKindLabel(kind: GrowthTreeEdgeKind): string {
+export function growthKindLabel(kind: GrowthTreeLineKind): string {
   switch (kind) {
     case 'derive':
       return translate('growthTree.kind.derive', 'Derived')
@@ -26,6 +27,19 @@ export function growthKindLabel(kind: GrowthTreeEdgeKind): string {
       return translate('growthTree.kind.handoff', 'Handed off')
     case 'merge':
       return translate('growthTree.kind.merge', 'Merged')
+    case 'reference':
+      return translate('growthTree.kind.reference', 'Referenced')
+  }
+}
+
+export function growthModeLabel(mode: GrowthTimeMode): string {
+  switch (mode) {
+    case 'compressed':
+      return translate('growthTree.mode.compressed', 'Compressed time')
+    case 'sequence':
+      return translate('growthTree.mode.sequence', 'Event order')
+    case 'linear':
+      return translate('growthTree.mode.linear', 'Linear time')
   }
 }
 

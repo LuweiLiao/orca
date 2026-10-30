@@ -21873,7 +21873,8 @@
       "hidden": "Hidden in the blueprint.",
       "locate": "Locate in blueprint",
       "openChat": "Open conversation",
-      "openWorkspace": "Open workspace"
+      "openWorkspace": "Open workspace",
+      "created": "Began"
     },
     "folderWorkspace": "Folder workspace",
     "worktree": "Worktree",
@@ -21888,7 +21889,8 @@
     "mode": {
       "label": "Time scale",
       "compressed": "Compressed time",
-      "sequence": "Event order"
+      "sequence": "Event order",
+      "linear": "Linear time"
     },
     "filter": {
       "label": "Filter",
@@ -21920,7 +21922,8 @@
       "derive": "Derived",
       "delegate": "Delegated",
       "handoff": "Handed off",
-      "merge": "Merged"
+      "merge": "Merged",
+      "reference": "Referenced"
     },
     "window": {
       "all": "All time",

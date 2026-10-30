@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { buildGrowthTree } from './growth-tree-build'
 import { growthFixture } from './growth-tree-fixture'
 import { layoutGrowthTree } from './growth-tree-layout'
-import { buildGrowthScale, growthGapWidth } from './growth-tree-scale'
+import { buildGrowthScale, growthGapWidth, type GrowthTimeMode } from './growth-tree-scale'
 
 const tree = buildGrowthTree(growthFixture())
-const draw = (mode: 'compressed' | 'sequence' = 'compressed', collapsed = new Set<string>()) =>
+const draw = (mode: GrowthTimeMode = 'compressed', collapsed = new Set<string>()) =>
   layoutGrowthTree({ tree, mode, collapsed, projectIds: null })
 
 describe('buildGrowthScale', () => {
@@ -114,5 +114,73 @@ describe('layoutGrowthTree', () => {
     for (const id of [...layout.bars.keys(), ...layout.lanes.keys()]) {
       expect(layout.paths.nodes.has(id)).toBe(true)
     }
+  })
+
+  it('draws a reference as a dashed-kind wire from the carrier, without moving any chat', () => {
+    const layout = draw()
+    const wire = layout.wires.find((candidate) => candidate.id === 'reference:feat-chat>lead')
+    expect(wire).toMatchObject({ kind: 'reference', from: 'feat-chat', to: 'lead' })
+    expect(layout.wires.find((candidate) => candidate.id === 'reference:merged>s3')?.live).toBe(
+      true
+    )
+    const bare = layoutGrowthTree({
+      tree: { ...tree, references: [] },
+      mode: 'compressed',
+      collapsed: new Set(),
+      projectIds: null
+    })
+    expect([...layout.bars.values()]).toEqual([...bare.bars.values()])
+    expect([...layout.lanes.values()]).toEqual([...bare.lanes.values()])
+  })
+
+  it('marks where each lane began, dashed when that is only the first chat', () => {
+    const layout = draw()
+    expect(layout.lanes.get('a-feat')).toMatchObject({
+      startX: layout.scale.xOf(5_500_000),
+      startApprox: false
+    })
+    expect(layout.lanes.get('a-main')!.startApprox).toBe(true)
+    for (const lane of layout.lanes.values()) {
+      const first = tree.lanes.get(lane.id)!.barIds.map((id) => layout.bars.get(id)!.x)
+      if (lane.startX !== null && first.length > 0) {
+        expect(lane.startX).toBeLessThanOrEqual(Math.min(...first) + 0.001)
+      }
+    }
+  })
+
+  it('spends the same width on every millisecond in linear time and keeps the order', () => {
+    const layout = draw('linear')
+    const points = layout.scale.points
+    const rates = points.slice(1).map((point, index) => {
+      const before = points[index]!
+      return (point.x - before.x) / (point.time - before.time)
+    })
+    for (const rate of rates) {
+      expect(rate).toBeCloseTo(rates[0]!, 9)
+    }
+    const bars = [...tree.bars.values()].sort((a, b) => a.start - b.start)
+    for (let i = 1; i < bars.length; i++) {
+      expect(layout.bars.get(bars[i]!.id)!.x).toBeGreaterThanOrEqual(
+        layout.bars.get(bars[i - 1]!.id)!.x
+      )
+    }
+    expect(layout.scale.folds).toEqual([])
+  })
+})
+
+describe('folded gaps', () => {
+  const day = 86_400_000
+  it('draws a gap over a day to scale only while it is opened, keeping the order', () => {
+    const times = [0, 1_000, 5 * day, 5 * day + 1_000]
+    const closed = buildGrowthScale(times, 'compressed')
+    const opened = buildGrowthScale(times, 'compressed', new Set([1_000]))
+    expect(closed.folds).toMatchObject([{ from: 1_000, expanded: false, width: 44 }])
+    expect(opened.folds).toMatchObject([{ from: 1_000, expanded: true }])
+    expect(opened.folds[0]!.width).toBeGreaterThan(closed.folds[0]!.width)
+    const xs = times.map((time) => opened.xOf(time))
+    expect(xs).toEqual([...xs].sort((a, b) => a - b))
+    const middle = opened.xOf((1_000 + 5 * day) / 2)
+    expect(middle).toBeCloseTo(opened.xOf(1_000) + opened.folds[0]!.width / 2, 6)
+    expect(opened.width).toBeGreaterThan(closed.width)
   })
 })

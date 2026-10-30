@@ -5,9 +5,10 @@ import type { Page } from '@stablyai/playwright-test'
 import { expect } from './helpers/orca-app'
 import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-stub'
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
-import { addRepoWithWorkspaces } from './helpers/repo-with-workspaces'
+import { addRepoWithWorkspaces, writeWorkspaceMeta } from './helpers/repo-with-workspaces'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
+import { closeProjectMapWindows } from './helpers/project-map-windows'
 import { RuntimeClient } from '../../src/cli/runtime-client'
 import {
   agentSessionForkFingerprint,
@@ -51,6 +52,49 @@ async function sayInChat(page: Page, sessionId: string, message: string, replies
   await expect(chat.getByText('Stub reply.', { exact: true })).toHaveCount(replies, {
     timeout: 30_000
   })
+}
+
+/** Hands a chat's conversation to a new chat in a workspace, as the map's fork and merge do. */
+async function forkChat(
+  page: Page,
+  input: { source: string; worktreeId: string; instruction: string; mergeSources?: string[] }
+): Promise<string> {
+  const childId = createStructuredAgentSessionId('claude', () => crypto.randomUUID())
+  const intent = {
+    sourceSessionId: input.source,
+    originSessionId: input.source,
+    cut: { kind: 'latest' as const },
+    worktree: `id:${input.worktreeId}`,
+    agent: 'claude',
+    instruction: input.instruction,
+    ...(input.mergeSources
+      ? {
+          mergeSources: input.mergeSources.map((sessionId) => ({
+            sessionId,
+            cut: { kind: 'latest' as const }
+          }))
+        }
+      : {}),
+    handoff: 'messages' as const
+  }
+  const params: AgentSessionForkParams = {
+    envelope: {
+      sessionId: childId,
+      clientOperationId: createStructuredAgentSessionOperationId(() => crypto.randomUUID()),
+      expectedRuntimeFence: null,
+      payloadFingerprint: agentSessionForkFingerprint({
+        ...intent,
+        envelope: { sessionId: childId }
+      })
+    },
+    ...intent
+  }
+  const forked = await page.evaluate(
+    (forkParams) => window.api.runtime.call({ method: 'agentSession.fork', params: forkParams }),
+    params
+  )
+  expect(forked, JSON.stringify(forked)).toMatchObject({ ok: true })
+  return childId
 }
 
 test('draws every project on one time axis and jumps from a bar to the blueprint', async ({
@@ -172,37 +216,12 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
       await sayInChat(page, source, message, 1)
       sources.push(source)
     }
-    const mergedId = createStructuredAgentSessionId('claude', () => crypto.randomUUID())
-    const intent = {
-      sourceSessionId: lead,
-      originSessionId: lead,
-      cut: { kind: 'latest' as const },
-      worktree: `id:${worktreeId}`,
-      agent: 'claude',
+    const mergedId = await forkChat(page, {
+      source: lead,
+      worktreeId,
       instruction: 'MERGED: bring the three together',
-      mergeSources: sources.map((sessionId) => ({
-        sessionId,
-        cut: { kind: 'latest' as const }
-      })),
-      handoff: 'messages' as const
-    }
-    const forkParams: AgentSessionForkParams = {
-      envelope: {
-        sessionId: mergedId,
-        clientOperationId: createStructuredAgentSessionOperationId(() => crypto.randomUUID()),
-        expectedRuntimeFence: null,
-        payloadFingerprint: agentSessionForkFingerprint({
-          ...intent,
-          envelope: { sessionId: mergedId }
-        })
-      },
-      ...intent
-    }
-    const forked = await page.evaluate(
-      (params) => window.api.runtime.call({ method: 'agentSession.fork', params }),
-      forkParams
-    )
-    expect(forked, JSON.stringify(forked)).toMatchObject({ ok: true })
+      mergeSources: sources
+    })
 
     // Project B: its own repo and a chat; and a folder workspace with a chat.
     const other = await addRepoWithWorkspaces(page, testInfo, 0)
@@ -235,6 +254,14 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await page.evaluate((id) => window.__store!.getState().setActiveWorktree(id), folderWorkspaceId)
     const folderChat = await createChatOnHost(page, folderWorkspaceId)
     await sayInChat(page, folderChat, 'FOLDER: a chat in a folder workspace', 1)
+
+    // A hand-off into the second project: the two ends sit in different projects.
+    await page.evaluate((id) => window.__store!.getState().setActiveWorktree(id), other.mainId)
+    const crossChild = await forkChat(page, {
+      source: lead,
+      worktreeId: other.mainId,
+      instruction: 'CROSS: carry on in the other project'
+    })
 
     const artifacts = path.join(process.cwd(), 'test-results', 'growth-tree')
     mkdirSync(artifacts, { recursive: true })
@@ -320,6 +347,98 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await expect(tree).toBeVisible()
     await expect(tree.locator('text=/^\\d+%$/').first()).toHaveText(zoomBefore ?? '')
 
+    await expect(bar(paneKeyOf(crossChild))).toBeVisible({ timeout: 30_000 })
+    await tree.getByRole('button', { name: 'Fit to view' }).click()
+
+    // A hand-off into another project is a pin at each end, and a click on one lands on the other.
+    const outPin = tree.locator('[data-growth-pin][data-kind="cross-out"]')
+    const inPin = tree.locator('[data-growth-pin][data-kind="cross-in"]')
+    await expect(outPin).toHaveCount(1)
+    await expect(inPin).toHaveCount(1)
+    await screenshot('growth-tree-cross-pins')
+    await outPin.click()
+    await expect(bar(paneKeyOf(crossChild))).toHaveAttribute('aria-pressed', 'true')
+    await inPin.click()
+    await expect(bar(paneKeyOf(lead))).toHaveAttribute('aria-pressed', 'true')
+    await page.keyboard.press('Escape')
+
+    // Linear time spends the same width on every millisecond of the span.
+    const modeSelect = tree.getByRole('combobox', { name: 'Time scale' })
+    await modeSelect.click()
+    await page.getByRole('option', { name: 'Linear time' }).click()
+    const startOf = async (id: string) =>
+      Number(await bar(paneKeyOf(id)).getAttribute('data-start'))
+    const leftOf = (id: string) =>
+      bar(paneKeyOf(id)).evaluate((el) => Number.parseFloat(el.style.left))
+    const [t1, t2, t3] = [
+      await startOf(lead),
+      await startOf(derived.sessionId),
+      await startOf(mergedId)
+    ]
+    const [x1, x2, x3] = [
+      await leftOf(lead),
+      await leftOf(derived.sessionId),
+      await leftOf(mergedId)
+    ]
+    expect(t1).toBeLessThan(t2)
+    expect(t2).toBeLessThan(t3)
+    expect((x2 - x1) / (t2 - t1)).toBeCloseTo((x3 - x2) / (t3 - t2), 6)
+    await screenshot('growth-tree-linear')
+    await modeSelect.click()
+    await page.getByRole('option', { name: 'Compressed time' }).click()
+
+    // A workspace made days ago starts its lane there; the quiet stretch after it folds, and
+    // opening the fold draws that stretch to scale until it is closed again.
+    await writeWorkspaceMeta(page, [
+      { worktreeId: other.mainId, updates: { createdAt: Date.now() - 5 * 86_400_000 } }
+    ])
+    const foldToggle = tree.locator('[data-growth-fold-toggle]').first()
+    await expect(foldToggle).toBeVisible({ timeout: 30_000 })
+    await expect(tree.locator(`[data-growth-lane-start="${other.mainId}"]`)).not.toHaveAttribute(
+      'data-approx',
+      /.*/
+    )
+    await tree.getByRole('button', { name: 'Fit to view' }).click()
+    const before = await leftOf(otherChat)
+    await foldToggle.click({ position: { x: 6, y: 6 } })
+    await expect(foldToggle).toHaveAttribute('aria-pressed', 'true')
+    expect(await leftOf(otherChat)).toBeGreaterThan(before + 1_000)
+    await screenshot('growth-tree-fold-open')
+    await foldToggle.click({ position: { x: 6, y: 6 } })
+    await expect(foldToggle).toHaveAttribute('aria-pressed', 'false')
+    expect(await leftOf(otherChat)).toBeCloseTo(before, 3)
+    await tree.getByRole('button', { name: 'Fit to view' }).click()
+
+    // Zoomed far out, lanes become density strips and their lines one counted line.
+    const world = tree.locator('[data-growth-world]')
+    for (let i = 0; i < 12 && (await world.getAttribute('data-growth-tier')) !== 'summary'; i++) {
+      await tree.getByRole('button', { name: 'Zoom out' }).click()
+    }
+    await expect(world).toHaveAttribute('data-growth-tier', 'summary')
+    await expect(bar(paneKeyOf(lead))).toHaveCount(0)
+    const counts = await tree
+      .locator('[data-growth-bundle]')
+      .evaluateAll((paths) => paths.map((path) => Number(path.getAttribute('data-count'))))
+    expect(Math.max(...counts)).toBeGreaterThanOrEqual(2)
+    await screenshot('growth-tree-summary')
+    await tree.getByRole('button', { name: 'Fit to view' }).click()
+    await expect(world).toHaveAttribute('data-growth-tier', 'bars')
+
+    // Arrows walk the chats: down to the next lane, Enter selects, a second Enter jumps.
+    await bar(paneKeyOf(lead)).click()
+    await page.keyboard.press('ArrowDown')
+    await expect(bar(paneKeyOf(derived.sessionId))).toHaveAttribute('data-cursor', 'true')
+    await screenshot('growth-tree-cursor')
+    await page.keyboard.press('Enter')
+    await expect(bar(paneKeyOf(derived.sessionId))).toHaveAttribute('aria-pressed', 'true')
+    await page.keyboard.press('Enter')
+    await expect(map.locator('[data-project-map-canvas]')).toBeVisible()
+    await expect(
+      map.locator(`[data-project-map-node="${paneKeyOf(derived.sessionId)}"]`)
+    ).toBeVisible({ timeout: 15_000 })
+    await map.getByRole('radio', { name: 'Growth tree' }).click()
+    await expect(tree).toBeVisible()
+
     // A double click jumps to the blueprint and lands on the same chat.
     await bar(paneKeyOf(derived.sessionId)).dblclick()
     await expect(map.locator('[data-project-map-canvas]')).toBeVisible()
@@ -329,6 +448,55 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
       timeout: 15_000
     })
     await screenshot('growth-tree-jump-blueprint')
+
+    // A message that carries another conversation draws a dashed line to it.
+    await closeProjectMapWindows(map)
+    const node = (id: string) => map.locator(`[data-project-map-node="${id}"]`)
+    await node(paneKeyOf(sources[0]!)).click()
+    const chatWindow = map.locator('[data-project-map-chat-window]')
+    const windowComposer = chatWindow.getByRole('textbox')
+    await expect(windowComposer).toBeVisible()
+    await node(paneKeyOf(lead)).dragTo(windowComposer)
+    await expect(windowComposer.locator('[data-native-chat-conversation-reference]')).toHaveCount(1)
+    await windowComposer.pressSequentially('Use the lead plan.')
+    await windowComposer.press('Enter')
+    await expect(map.locator('.project-map-wire[data-kind="reference"]')).toHaveCount(1, {
+      timeout: 30_000
+    })
+    await closeProjectMapWindows(map)
+    await map.getByRole('radio', { name: 'Growth tree' }).click()
+    const referenceWire = tree.locator('[data-growth-wire][data-kind="reference"]')
+    await expect(referenceWire).toHaveCount(1, { timeout: 30_000 })
+    await expect(referenceWire).toHaveAttribute(
+      'data-growth-wire',
+      `reference:${paneKeyOf(sources[0]!)}>${paneKeyOf(lead)}`
+    )
+    await screenshot('growth-tree-reference')
+    await tree.getByRole('button', { name: 'Filter' }).click()
+    await page.getByLabel('Referenced', { exact: true }).uncheck()
+    await page.keyboard.press('Escape')
+    await expect(referenceWire).toHaveCount(0)
+    await tree.locator('[data-growth-filter-clear]').click()
+    await expect(referenceWire).toHaveCount(1)
+
+    // A chat hidden in the blueprint stays on the tree; jumping to it says why it is not there.
+    await map.getByRole('radio', { name: 'Blueprint' }).click()
+    await node(paneKeyOf(sources[1]!)).click({ button: 'right' })
+    await page
+      .locator('[data-slot="context-menu-content"] [data-project-map-action="hide"]')
+      .click()
+    await expect(node(paneKeyOf(sources[1]!))).toHaveCount(0)
+    await map.getByRole('radio', { name: 'Growth tree' }).click()
+    await bar(paneKeyOf(sources[1]!)).click()
+    await expect(dock).toContainText('Hidden in the blueprint.')
+    await bar(paneKeyOf(sources[1]!)).dblclick()
+    const notice = map.locator('[data-growth-jump-notice="hidden"]')
+    await expect(notice).toBeVisible({ timeout: 15_000 })
+    await expect(map.locator('[data-project-map-canvas]')).toBeVisible()
+    await screenshot('growth-tree-hidden-notice')
+    await notice.getByRole('button', { name: 'Show it' }).click()
+    await expect(notice).toHaveCount(0)
+    await expect(node(paneKeyOf(sources[1]!))).toBeVisible({ timeout: 15_000 })
   } finally {
     await stopCapture()
   }

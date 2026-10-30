@@ -16,6 +16,14 @@ export const GROWTH_TREE_EDGE_KINDS: readonly GrowthTreeEdgeKind[] = [
   'merge'
 ]
 
+/** Every kind of line the tree draws; a reference is a pointer, so it is not an edge. */
+export type GrowthTreeLineKind = GrowthTreeEdgeKind | 'reference'
+
+export const GROWTH_TREE_LINE_KINDS: readonly GrowthTreeLineKind[] = [
+  ...GROWTH_TREE_EDGE_KINDS,
+  'reference'
+]
+
 export type GrowthTreeBar = {
   /** The blueprint's node id for this chat, so a jump lands on the same node. */
   id: string
@@ -54,7 +62,14 @@ export type GrowthTreeLane = {
   childIds: string[]
   barIds: string[]
   /** Earliest chat start; null when the workspace has no chats. */
+  firstChatAt: number | null
+  /**
+   * Where the lane begins: when the workspace was made, held to the first chat, else the first
+   * chat. Null when the workspace has neither.
+   */
   start: number | null
+  /** The workspace carries no creation time, so `start` is the first chat's. */
+  startApprox: boolean
   workspace: ProjectMapWorkspace
 }
 
@@ -93,6 +108,21 @@ export type GrowthTreeCrossLink = {
   at: number
 }
 
+/** A message in one chat pointed at another conversation; nothing was handed over. */
+export type GrowthTreeReference = {
+  id: string
+  kind: 'reference'
+  /** The chat whose message carried the reference. */
+  from: string
+  /** The conversation it pointed at. */
+  to: string
+  projectId: string
+  /** When the first reference between the two was sent, held inside the carrier's bar. */
+  at: number
+  /** The newest reference reads its source as it is now rather than as it was. */
+  live: boolean
+}
+
 export type GrowthTree = {
   now: number
   projects: GrowthTreeProject[]
@@ -100,4 +130,6 @@ export type GrowthTree = {
   bars: Map<string, GrowthTreeBar>
   edges: GrowthTreeEdge[]
   crossLinks: GrowthTreeCrossLink[]
+  /** Pointers between chats of one project; kept apart from `edges` so they never shape tracks. */
+  references: GrowthTreeReference[]
 }

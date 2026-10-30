@@ -41,7 +41,7 @@ export function GrowthTreeDock({
     return null
   }
   const title = bar ? bar.title : lane!.name
-  const relations = [...tree.edges, ...tree.crossLinks].filter(
+  const relations = [...tree.edges, ...tree.crossLinks, ...tree.references].filter(
     (relation) => relation.from === selectedId || relation.to === selectedId
   )
   return (
@@ -91,6 +91,14 @@ export function GrowthTreeDock({
             <Row label={translate('growthTree.dock.chats', 'Conversations')}>
               {lane!.barIds.length}
             </Row>
+            {lane!.start !== null ? (
+              <Row label={translate('growthTree.dock.created', 'Began')}>
+                {growthDateTime(lane!.start)}
+                {lane!.startApprox
+                  ? ` (${translate('growthTree.dock.approx', 'start estimated')})`
+                  : null}
+              </Row>
+            ) : null}
           </>
         )}
         <Row label={translate('growthTree.dock.project', 'Project')}>

@@ -152,6 +152,7 @@ export function buildDashboardSnapshot(
         repoName: boundedLabel(workspace.projectName),
         worktreeName: boundedLabel(worktree.displayName),
         ...(parentWorktreeId ? { parentWorktreeId } : {}),
+        ...(worktree.createdAt ? { createdAt: worktree.createdAt } : {}),
         ...hostMetadata,
         workspaceStatusId: context?.workspaceStatus.id,
         workspaceStatusLabel: context?.workspaceStatus.label,

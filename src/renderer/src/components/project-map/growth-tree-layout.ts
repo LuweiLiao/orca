@@ -20,6 +20,8 @@ export type GrowthLayoutInput = {
   collapsed: ReadonlySet<string>
   /** Projects drawn; null draws all. */
   projectIds: ReadonlySet<string> | null
+  /** Folded gaps the person opened, by the moment each begins. */
+  expandedFolds?: ReadonlySet<number>
 }
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
@@ -52,7 +54,8 @@ export function layoutGrowthTree({
   tree,
   mode,
   collapsed,
-  projectIds
+  projectIds,
+  expandedFolds
 }: GrowthLayoutInput): GrowthLayout {
   const L = GROWTH_LAYOUT
   const shown = tree.projects.filter((project) => projectIds === null || projectIds.has(project.id))
@@ -68,7 +71,12 @@ export function layoutGrowthTree({
       times.push(edge.at)
     }
   }
-  const scale = buildGrowthScale(times, mode)
+  for (const lane of tree.lanes.values()) {
+    if (lane.start !== null && shownIds.has(lane.projectId)) {
+      times.push(lane.start)
+    }
+  }
+  const scale = buildGrowthScale(times, mode, expandedFolds)
   const spanOf = (bar: GrowthTreeBar): { x: number; right: number } => {
     const x = scale.xOf(bar.start)
     return { x, right: Math.max(scale.xOf(bar.end), x + L.minBarWidth) }
@@ -105,7 +113,9 @@ export function layoutGrowthTree({
           y,
           width: 0,
           height,
-          trackCount
+          trackCount,
+          startX: lane.start === null ? null : scale.xOf(lane.start),
+          startApprox: lane.startApprox
         })
         for (const bar of laneBars) {
           const { x, right } = spanOf(bar)

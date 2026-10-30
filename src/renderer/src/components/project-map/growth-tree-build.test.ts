@@ -129,4 +129,55 @@ describe('buildGrowthTree', () => {
       1
     )
   })
+
+  it('starts a lane at its workspace creation time, held to its first chat', () => {
+    const tree = buildGrowthTree(growthFixture())
+    expect(tree.lanes.get('a-feat')).toMatchObject({ start: 5_500_000, startApprox: false })
+    expect(tree.lanes.get('a-notes')).toMatchObject({ start: 3_000_000, startApprox: false })
+    const late = growthFixture()
+    late.snapshot.workspaces!.find((w) => w.worktreeId === 'a-feat')!.createdAt = 9_000_000
+    expect(buildGrowthTree(late).lanes.get('a-feat')).toMatchObject({ start: 6_000_000 })
+  })
+
+  it('falls back to the first chat, marked as an estimate, when creation time is missing', () => {
+    const tree = buildGrowthTree(growthFixture())
+    const main = tree.lanes.get('a-main')!
+    expect(main.startApprox).toBe(true)
+    expect(main.start).toBe(main.firstChatAt)
+    const old = growthFixture()
+    for (const workspace of old.snapshot.workspaces!) {
+      delete workspace.createdAt
+    }
+    for (const lane of buildGrowthTree(old).lanes.values()) {
+      expect(lane.startApprox).toBe(true)
+      expect(lane.start).toBe(lane.firstChatAt)
+    }
+  })
+
+  it('holds a creation time in the future to now, even for a workspace with no chats', () => {
+    const input = growthFixture()
+    input.snapshot.workspaces!.find((w) => w.worktreeId === 'a-empty')!.createdAt =
+      GROWTH_NOW + 5_000
+    expect(buildGrowthTree(input).lanes.get('a-empty')!.start).toBe(GROWTH_NOW)
+  })
+
+  it('begins a derived lane where its workspace was made', () => {
+    const tree = buildGrowthTree(growthFixture())
+    expect(tree.edges.find((edge) => edge.id === 'derive:a-main>a-feat')!.at).toBe(5_500_000)
+  })
+
+  it('keeps one pointer per pair, from the carrier, reading live if the newest does', () => {
+    const tree = buildGrowthTree(growthFixture())
+    expect(tree.references.map((reference) => reference.id)).toEqual([
+      'reference:feat-chat>lead',
+      'reference:merged>s3'
+    ])
+    const merged = tree.references.find((reference) => reference.from === 'merged')!
+    expect(merged.live).toBe(true)
+    const bar = tree.bars.get('merged')!
+    expect(merged.at).toBeGreaterThanOrEqual(bar.start)
+    expect(merged.at).toBeLessThanOrEqual(bar.end)
+    expect(tree.references.find((reference) => reference.from === 'feat-chat')!.live).toBe(false)
+    expect(tree.edges.map((edge) => edge.kind)).not.toContain('reference')
+  })
 })
