@@ -20,19 +20,24 @@ export type FlowLookup = {
 const HOLD_MS = 2_000
 const MAX_HELD = 32
 
+function sessionPaneKey(sessionId: string | undefined): string | null {
+  return sessionId
+    ? structuredAgentSessionPaneKey(structuredAgentSessionTabId(sessionId), sessionId)
+    : null
+}
+
 function resolveEndpoint(endpoint: ProjectFlowEndpoint, lookup: FlowLookup): string | null {
   switch (endpoint.kind) {
     case 'worker':
-      return lookup.paneOfDispatch(endpoint.dispatchId)
+      return lookup.paneOfDispatch(endpoint.dispatchId) ?? sessionPaneKey(endpoint.sessionId)
     case 'coordinator':
-      return lookup.coordinatorPaneOfDispatch(endpoint.dispatchId)
+      return (
+        lookup.coordinatorPaneOfDispatch(endpoint.dispatchId) ?? sessionPaneKey(endpoint.sessionId)
+      )
     case 'pane':
       return endpoint.paneKey
     case 'session':
-      return structuredAgentSessionPaneKey(
-        structuredAgentSessionTabId(endpoint.sessionId),
-        endpoint.sessionId
-      )
+      return sessionPaneKey(endpoint.sessionId)
     case 'workspace':
       return endpoint.workspaceId
     case 'pull-request':

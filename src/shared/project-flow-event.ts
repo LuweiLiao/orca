@@ -5,8 +5,10 @@ export type ProjectFlowKind = (typeof PROJECT_FLOW_KINDS)[number]
 
 /** Where a flight starts or ends; a viewer resolves it with what it already knows. */
 export type ProjectFlowEndpoint =
-  | { kind: 'worker'; dispatchId: string }
-  | { kind: 'coordinator'; dispatchId: string }
+  /** `sessionId` names the chat when the host knows it, so a viewer that no longer holds the
+   *  dispatch (a released worker, a replay) can still place the end. Absent from older hosts. */
+  | { kind: 'worker'; dispatchId: string; sessionId?: string }
+  | { kind: 'coordinator'; dispatchId: string; sessionId?: string }
   | { kind: 'pane'; paneKey: string }
   | { kind: 'session'; sessionId: string }
   | { kind: 'workspace'; workspaceId: string }
@@ -43,7 +45,10 @@ export function parseProjectFlowEndpoint(value: unknown): ProjectFlowEndpoint | 
     case 'worker':
     case 'coordinator': {
       const dispatchId = text('dispatchId')
-      return dispatchId ? { kind: value.kind, dispatchId } : null
+      const sessionId = text('sessionId')
+      return dispatchId
+        ? { kind: value.kind, dispatchId, ...(sessionId ? { sessionId } : {}) }
+        : null
     }
     case 'pane': {
       const paneKey = text('paneKey')

@@ -57,6 +57,26 @@ describe('resolveProjectFlowEvent', () => {
     })
   })
 
+  it('places a worker the window no longer holds by the chat its host named', () => {
+    const paneOf = (sessionId: string) =>
+      structuredAgentSessionPaneKey(structuredAgentSessionTabId(sessionId), sessionId)
+    const released: ProjectFlowEvent = {
+      ...report('succeeded'),
+      from: { kind: 'worker', dispatchId: 'gone', sessionId: 'worker-session' },
+      to: { kind: 'coordinator', dispatchId: 'gone', sessionId: 'coord-session' }
+    }
+    expect(resolveProjectFlowEvent(released, lookup)).toMatchObject({
+      from: paneOf('worker-session'),
+      to: paneOf('coord-session')
+    })
+    // A dispatch the window still holds keeps its own pane.
+    const held: ProjectFlowEvent = {
+      ...report('succeeded'),
+      from: { kind: 'worker', dispatchId: 'd1', sessionId: 'worker-session' }
+    }
+    expect(resolveProjectFlowEvent(held, lookup)?.from).toBe('worker-pane')
+  })
+
   it('keeps a merge-ready note apart from a merge', () => {
     const base = {
       type: 'projectFlow' as const,
