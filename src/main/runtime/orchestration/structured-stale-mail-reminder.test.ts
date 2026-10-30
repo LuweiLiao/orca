@@ -106,6 +106,29 @@ describe('reminding a busy session of mail it was pointed at but never read', ()
     expect(send).toHaveBeenCalledTimes(2)
   })
 
+  // A reused worker's check reads only its current Dispatch, so a settled one's leftover mail
+  // would be pointed at forever.
+  it('leaves mail in a settled Dispatch mailbox alone', async () => {
+    const { open, send, insert, age, activity } = rig()
+    const run = open.createRun({
+      objective: 'draw',
+      coordinatorHandle: 'term-coordinator',
+      coordinatorPaneKey: 'tab-coordinator:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    })
+    const task = open.createTask({ spec: 'draw', runId: run.id })
+    open.db
+      .prepare(
+        `INSERT INTO dispatch_contexts (id, run_id, task_id, assignee_handle, status, created_at)
+         VALUES ('ctx_draw', ?, ?, 'structworker_draw', 'completed', '2026-10-30 05:02:31')`
+      )
+      .run(run.id, task.id)
+    insert('status', 'high')
+
+    age(45)
+    await activity()
+    expect(send).not.toHaveBeenCalled()
+  })
+
   it('leaves heartbeats, read mail and mail inside an unacked batch alone', async () => {
     const { open, send, insert, age, activity } = rig()
     insert('heartbeat')
