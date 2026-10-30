@@ -1,7 +1,6 @@
 import { parseProjectFlowEvent } from '../../../../shared/project-flow-event'
 import type { RuntimeClientEvent } from '../../../../shared/remote-runtime/session-graph/runtime-client-events'
 import { useAppStore } from '@/store'
-import { scheduleRuntimeGraphSync } from '@/runtime/sync-runtime-graph/graph-sync-scheduler'
 import { createProjectFlowIntake, type FlowLookup } from './project-flow-intake'
 import { createFlowSignalBus } from './project-flow-signal'
 
@@ -23,11 +22,15 @@ function flowLookupFromStore(): FlowLookup {
   }
 }
 
-const intake = createProjectFlowIntake(
-  appFlowSignalBus,
-  flowLookupFromStore,
-  Date.now,
-  scheduleRuntimeGraphSync
+let requestRefresh: () => void = () => {}
+
+/** Set by the map while it is open, so a flight naming an unknown worker asks for a fresh graph. */
+export function setProjectFlowRefresh(refresh: (() => void) | null): void {
+  requestRefresh = refresh ?? (() => {})
+}
+
+const intake = createProjectFlowIntake(appFlowSignalBus, flowLookupFromStore, Date.now, () =>
+  requestRefresh()
 )
 
 /** A host's event, local or remote, is untrusted until it parses. */
