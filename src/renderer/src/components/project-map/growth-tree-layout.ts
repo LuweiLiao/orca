@@ -1,185 +1,204 @@
-import { buildGrowthScale, type GrowthTimeMode } from './growth-tree-scale'
-import { growthTreeTicks } from './growth-tree-ticks'
-import { buildGrowthWires } from './growth-tree-wires'
-import type { GrowthTree, GrowthTreeBar } from './growth-tree-types'
+import { buildGrowthPins, growthForkPath, growthRelationPath } from './growth-tree-wires'
+import type { GrowthTree } from './growth-tree-types'
+import { planGrowthProject } from './growth-tree-rows'
 import {
+  GROWTH_LANE_COLORS,
   GROWTH_LAYOUT,
   type GrowthBox,
   type GrowthLayout,
-  type GrowthLayoutBar,
   type GrowthLayoutGroup,
-  type GrowthLayoutLane
+  type GrowthLayoutLane,
+  type GrowthLayoutRow,
+  type GrowthLayoutWire
 } from './growth-tree-layout-types'
 
 export * from './growth-tree-layout-types'
 
 export type GrowthLayoutInput = {
   tree: GrowthTree
-  mode: GrowthTimeMode
   /** Project groups drawn as a header only. */
   collapsed: ReadonlySet<string>
   /** Projects drawn; null draws all. */
   projectIds: ReadonlySet<string> | null
-  /** Folded gaps the person opened, by the moment each begins. */
-  expandedFolds?: ReadonlySet<number>
   /**
-   * What to draw, when that is less than `tree` (a replay's moment). The axis, the lanes and every
-   * chat's track come from `tree`, so nothing moves while the visible set changes.
+   * What to draw, when that is less than `tree` (a replay's moment). Rows and columns come from
+   * `tree`, so nothing moves while the visible set changes.
    */
   shown?: GrowthTree
 }
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
-/** Chats on the lowest free track of their lane, a delegated chat on its delegator's when free. */
-function assignTracks(
-  bars: readonly GrowthTreeBar[],
-  parentOf: ReadonlyMap<string, string>,
-  span: (bar: GrowthTreeBar) => { x: number; right: number }
-): Map<string, number> {
-  const ends: number[] = []
-  const tracks = new Map<string, number>()
-  for (const bar of [...bars].sort((a, b) => a.start - b.start || cmp(a.id, b.id))) {
-    const { x, right } = span(bar)
-    const free = (track: number): boolean =>
-      (ends[track] ?? Number.NEGATIVE_INFINITY) + GROWTH_LAYOUT.trackGap <= x
-    const preferred = tracks.get(parentOf.get(bar.id) ?? '')
-    let track =
-      preferred !== undefined && free(preferred) ? preferred : ends.findIndex((_, i) => free(i))
-    if (track < 0) {
-      track = ends.length
-    }
-    ends[track] = right
-    tracks.set(bar.id, track)
-  }
-  return tracks
-}
-
 export function layoutGrowthTree({
   tree,
-  mode,
   collapsed,
   projectIds,
-  expandedFolds,
-  shown: shownTree = tree
+  shown = tree
 }: GrowthLayoutInput): GrowthLayout {
   const L = GROWTH_LAYOUT
-  const shown = tree.projects.filter((project) => projectIds === null || projectIds.has(project.id))
-  const shownIds = new Set(shown.map((project) => project.id))
-  const times = [tree.now]
-  for (const bar of tree.bars.values()) {
-    if (shownIds.has(bar.projectId)) {
-      times.push(bar.start, bar.end)
-    }
-  }
-  for (const edge of tree.edges) {
-    if (shownIds.has(edge.projectId)) {
-      times.push(edge.at)
-    }
-  }
-  for (const lane of tree.lanes.values()) {
-    if (lane.start !== null && shownIds.has(lane.projectId)) {
-      times.push(lane.start)
-    }
-  }
-  const scale = buildGrowthScale(times, mode, expandedFolds)
-  const spanOf = (bar: GrowthTreeBar): { x: number; right: number } => {
-    const x = scale.xOf(bar.start)
-    return { x, right: Math.max(scale.xOf(bar.end), x + L.minBarWidth) }
-  }
-  const sameLaneSource = new Map<string, string>()
-  for (const edge of tree.edges) {
-    if (
-      edge.kind !== 'derive' &&
-      tree.bars.get(edge.from)?.workspaceId === tree.bars.get(edge.to)?.workspaceId
-    ) {
-      sameLaneSource.set(edge.to, sameLaneSource.get(edge.to) ?? edge.from)
-    }
-  }
+  const projects = tree.projects.filter(
+    (project) => projectIds === null || projectIds.has(project.id)
+  )
+  const shownEdges = new Set(shown.edges.map((edge) => edge.id))
+  const plans = projects.map((project) => planGrowthProject(tree, project, shown, shownEdges))
+  // Every project counts, collapsed or not, so folding one never shifts the text of the others.
+  const columnCount = Math.max(
+    1,
+    ...plans.flatMap((plan) => [...plan.columns.values()].map((c) => c + 1))
+  )
+  // Room right of the last column for the bows of its relations.
+  const graphWidth = Math.max(
+    L.minGraphWidth,
+    L.graphPadding + (columnCount - 1) * L.column + L.column * 0.9
+  )
+  const textX = graphWidth + L.textGap
+  const xOf = (column: number): number => L.graphPadding + column * L.column
 
   const groups: GrowthLayoutGroup[] = []
   const lanes = new Map<string, GrowthLayoutLane>()
-  const bars = new Map<string, GrowthLayoutBar>()
-  let y = L.top
-  for (const project of shown) {
+  const rows = new Map<string, GrowthLayoutRow>()
+  const wires: GrowthLayoutWire[] = []
+  const centers = new Map<string, { x: number; y: number }>()
+  let y: number = L.top
+  projects.forEach((project, index) => {
+    const { entries, columns, drawn } = plans[index]!
     const isCollapsed = collapsed.has(project.id)
     const top = y
-    y += L.groupHeader
+    const bodyTop = y + L.groupHeader
+    const rowY = (row: number): number => bodyTop + row * L.rowHeight + L.rowHeight / 2
     if (!isCollapsed) {
-      for (const laneId of project.laneIds) {
-        const lane = tree.lanes.get(laneId)!
-        const laneBars = lane.barIds.map((id) => tree.bars.get(id)!)
-        const tracks = assignTracks(laneBars, sameLaneSource, spanOf)
-        const trackCount = Math.max(1, ...[...tracks.values()].map((track) => track + 1))
-        const height = trackCount * L.trackHeight + L.lanePadding * 2
+      project.laneIds.forEach((laneId, laneIndex) => {
+        const span = drawn.extent.get(laneId)
         lanes.set(laneId, {
           id: laneId,
           projectId: project.id,
-          x: 0,
-          y,
-          width: 0,
-          height,
-          trackCount,
-          startX: lane.start === null || lane.start > shownTree.now ? null : scale.xOf(lane.start),
-          startApprox: lane.startApprox
+          column: columns.get(laneId)!,
+          color: laneIndex % GROWTH_LANE_COLORS,
+          x: xOf(columns.get(laneId)!),
+          top: span ? rowY(span.top) : null,
+          bottom: span ? rowY(span.bottom) : null
         })
-        for (const bar of laneBars) {
-          const visible = shownTree.bars.get(bar.id)
-          if (!visible) {
-            continue
-          }
-          const { x, right } = spanOf(visible)
-          const track = tracks.get(bar.id)!
-          bars.set(bar.id, {
-            id: bar.id,
-            laneId,
-            track,
-            x,
-            width: right - x,
-            height: L.barHeight,
-            y: y + L.lanePadding + track * L.trackHeight + (L.trackHeight - L.barHeight) / 2
-          })
+      })
+      const tips = new Set<string>()
+      entries.forEach((entry, row) => {
+        const visible =
+          entry.kind === 'chat' ? shown.bars.has(entry.id) : drawn.extent.has(entry.laneId)
+        if (!visible) {
+          return
         }
-        y += height + L.laneGap
+        const lane = lanes.get(entry.laneId)!
+        const cy = rowY(row)
+        const tip = !tips.has(entry.laneId)
+        tips.add(entry.laneId)
+        rows.set(entry.id, {
+          id: entry.id,
+          kind: entry.kind,
+          laneId: entry.laneId,
+          y: bodyTop + row * L.rowHeight,
+          cx: lane.x,
+          cy,
+          tip
+        })
+        centers.set(entry.id, { x: lane.x, y: cy })
+      })
+      for (const fork of drawn.forks) {
+        const parent = lanes.get(fork.parent)!
+        const child = lanes.get(fork.child)!
+        wires.push({
+          id: fork.edgeId,
+          kind: 'derive',
+          from: fork.parent,
+          to: fork.child,
+          projectId: project.id,
+          color: child.color,
+          path: growthForkPath(
+            { x: parent.x, y: rowY(fork.parentRow) },
+            { x: child.x, y: rowY(fork.childRow) }
+          )
+        })
       }
-    }
-    const emptyY = !isCollapsed && project.emptyLaneIds.length > 0 ? y : null
-    if (emptyY !== null) {
-      y += L.emptyRow + L.laneGap
+      y = bodyTop + entries.length * L.rowHeight
+    } else {
+      y = bodyTop
     }
     groups.push({
       projectId: project.id,
       y: top,
       height: y - top,
       collapsed: isCollapsed,
-      emptyLaneIds: isCollapsed ? [] : project.emptyLaneIds,
-      emptyY
+      emptyLaneIds: project.emptyLaneIds
     })
     y += L.groupGap
+  })
+
+  for (const edge of shown.edges) {
+    const from = centers.get(edge.from)
+    const to = centers.get(edge.to)
+    if (edge.kind !== 'derive' && from && to) {
+      const { id, kind, projectId } = edge
+      wires.push({
+        id,
+        kind,
+        from: edge.from,
+        to: edge.to,
+        projectId,
+        path: growthRelationPath(from, to)
+      })
+    }
   }
-  const width = scale.width + 160
-  for (const lane of lanes.values()) {
-    lane.width = width
+  for (const reference of shown.references) {
+    const from = centers.get(reference.from)
+    const to = centers.get(reference.to)
+    if (from && to) {
+      wires.push({
+        id: reference.id,
+        kind: 'reference',
+        from: reference.from,
+        to: reference.to,
+        projectId: reference.projectId,
+        path: growthRelationPath(from, to),
+        ...(reference.live ? { live: true as const } : {})
+      })
+    }
   }
-  const { wires, joins, pins } = buildGrowthWires({ tree: shownTree, scale, lanes, bars })
+  wires.sort((a, b) => cmp(a.id, b.id))
+
+  const r = L.dotRadius
   const nodes = new Map<string, GrowthBox>()
   for (const lane of lanes.values()) {
-    nodes.set(lane.id, lane)
+    if (lane.top !== null && lane.bottom !== null) {
+      nodes.set(lane.id, {
+        x: lane.x - r,
+        y: lane.top,
+        width: r * 2,
+        height: lane.bottom - lane.top
+      })
+    }
   }
-  for (const bar of bars.values()) {
-    nodes.set(bar.id, bar)
+  for (const row of rows.values()) {
+    nodes.set(row.id, {
+      x: row.cx - r,
+      y: row.cy - r,
+      width: r * 2,
+      height: r * 2
+    })
   }
   return {
-    width,
-    height: y + L.top,
-    scale,
-    ticks: growthTreeTicks(scale),
+    width: textX,
+    height: y - L.groupGap + L.top,
+    textX,
     groups,
     lanes,
-    bars,
-    joins,
+    rows,
     wires,
-    pins,
-    paths: { nodes, edges: new Map(wires.map((wire) => [wire.id, wire.path])), wires }
+    pins: buildGrowthPins(
+      shown,
+      new Set([...rows.values()].filter((row) => row.kind === 'chat').map((row) => row.id))
+    ),
+    paths: {
+      nodes,
+      edges: new Map(wires.map((wire) => [wire.id, wire.path])),
+      wires
+    }
   }
 }

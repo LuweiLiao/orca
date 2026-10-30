@@ -1,157 +1,60 @@
-import { wirePath } from './project-map-wires'
-import type { GrowthScale } from './growth-tree-scale'
-import {
-  GROWTH_LAYOUT,
-  type GrowthLayoutBar,
-  type GrowthLayoutJoin,
-  type GrowthLayoutLane,
-  type GrowthLayoutPin,
-  type GrowthLayoutWire
-} from './growth-tree-layout-types'
+import { GROWTH_LAYOUT, type GrowthLayoutPin } from './growth-tree-layout-types'
 import type { GrowthTree } from './growth-tree-types'
-
-const JOIN_GAP_PX = 14
-const MIN_RUN_PX = 12
-const DERIVE_RUN_PX = 36
-const PIN_STEP_PX = 16
-const PIN_OFFSET_PX = 12
-
-type Input = {
-  tree: GrowthTree
-  scale: GrowthScale
-  lanes: ReadonlyMap<string, GrowthLayoutLane>
-  bars: ReadonlyMap<string, GrowthLayoutBar>
-}
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
-/**
- * Wires between the drawn chats and lanes. Hand-off and merge sources into one chat meet at a
- * hollow point just left of it. A relation across two projects is two pins, never a long line.
- */
-export function buildGrowthWires({ tree, scale, lanes, bars }: Input): {
-  wires: GrowthLayoutWire[]
-  joins: GrowthLayoutJoin[]
-  pins: GrowthLayoutPin[]
-} {
-  const wires: GrowthLayoutWire[] = []
-  const joins: GrowthLayoutJoin[] = []
-  const centerY = (box: { y: number; height: number }): number => box.y + box.height / 2
-  const incoming = new Map<string, number>()
-  for (const edge of tree.edges) {
-    if (
-      (edge.kind === 'handoff' || edge.kind === 'merge') &&
-      bars.has(edge.from) &&
-      bars.has(edge.to)
-    ) {
-      incoming.set(edge.to, (incoming.get(edge.to) ?? 0) + 1)
-    }
-  }
-  const joined = new Set([...incoming].filter(([, count]) => count >= 2).map(([id]) => id))
-  for (const edge of tree.edges) {
-    const { id, kind, from, to, projectId } = edge
-    if (kind === 'derive') {
-      const parent = lanes.get(from)
-      const child = lanes.get(to)
-      if (parent && child) {
-        const x1 = scale.xOf(edge.at)
-        const row = (lane: GrowthLayoutLane): number =>
-          lane.y + GROWTH_LAYOUT.lanePadding + GROWTH_LAYOUT.trackHeight / 2
-        wires.push({
-          id,
-          kind,
-          from,
-          to,
-          projectId,
-          path: wirePath(x1 - DERIVE_RUN_PX, row(parent), x1, row(child))
-        })
-      }
-      continue
-    }
-    const source = bars.get(from)
-    const target = bars.get(to)
-    if (!source || !target) {
-      continue
-    }
-    const endX = joined.has(to) && kind !== 'delegate' ? target.x - JOIN_GAP_PX : target.x
-    const startX = Math.max(
-      source.x,
-      Math.min(scale.xOf(edge.at), source.x + source.width, endX - MIN_RUN_PX)
-    )
-    wires.push({
-      id,
-      kind,
-      from,
-      to,
-      projectId,
-      path: wirePath(startX, centerY(source), endX, centerY(target))
-    })
-  }
-  for (const to of [...joined].sort(cmp)) {
-    const target = bars.get(to)!
-    const joinId = `join:${to}`
-    const y = centerY(target)
-    joins.push({ id: joinId, x: target.x - JOIN_GAP_PX, y })
-    wires.push({
-      id: `joinout:${to}`,
-      kind: 'merge',
-      from: joinId,
-      to,
-      projectId: tree.bars.get(to)!.projectId,
-      path: wirePath(target.x - JOIN_GAP_PX, y, target.x, y)
-    })
-  }
-  for (const reference of tree.references) {
-    const source = bars.get(reference.from)
-    const target = bars.get(reference.to)
-    if (source && target) {
-      wires.push({
-        id: reference.id,
-        kind: 'reference',
-        from: reference.from,
-        to: reference.to,
-        projectId: reference.projectId,
-        path: referencePath(source, target, scale.xOf(reference.at)),
-        ...(reference.live ? { live: true as const } : {})
-      })
-    }
-  }
-  wires.sort((a, b) => cmp(a.id, b.id))
-  return { wires, joins, pins: buildPins(tree, bars) }
+/** A workspace line, straight down its column from the newest row to where it began. */
+export function growthLanePath(x: number, top: number, bottom: number): string {
+  return `M${x} ${top} L${x} ${bottom}`
 }
 
 /**
- * From the carrying chat at the moment of the message to the middle of the chat it pointed at.
- * The pointed-at chat is usually older, so the line can run leftward; it bows out of the way.
+ * A derived workspace leaving its parent, gitgraph style: it bends out right above the parent row
+ * it came from, then runs straight up its own column to its first chat.
  */
-function referencePath(source: GrowthLayoutBar, target: GrowthLayoutBar, atX: number): string {
-  const startX = Math.max(source.x, Math.min(atX, source.x + source.width))
-  const startY = source.y + source.height / 2
-  const endX = Math.max(target.x, Math.min(startX, target.x + target.width))
-  const endY = target.y + target.height / 2
-  const bow = Math.max(24, Math.abs(endY - startY) * 0.5)
-  const side = endX <= startX ? -bow : bow
-  return `M${startX} ${startY} C${startX + side} ${startY} ${endX + side} ${endY} ${endX} ${endY}`
+export function growthForkPath(
+  parent: { x: number; y: number },
+  child: { x: number; y: number }
+): string {
+  const bend = Math.min(GROWTH_LAYOUT.rowHeight, parent.y - child.y)
+  const mid = parent.y - bend / 2
+  const end = parent.y - bend
+  const curve = `M${parent.x} ${parent.y} C${parent.x} ${mid} ${child.x} ${mid} ${child.x} ${end}`
+  return end > child.y ? `${curve} L${child.x} ${child.y}` : curve
 }
 
-function buildPins(
-  tree: GrowthTree,
-  bars: ReadonlyMap<string, GrowthLayoutBar>
-): GrowthLayoutPin[] {
+/**
+ * A relation between two chats: within one column it bows out to the right so it never hides
+ * under the workspace line; across columns it is an S-curve with vertical ends.
+ */
+export function growthRelationPath(
+  from: { x: number; y: number },
+  to: { x: number; y: number }
+): string {
+  if (from.x === to.x) {
+    // Longer spans bow further out, so arcs in one column nest instead of piling up.
+    const rows = Math.abs(to.y - from.y) / GROWTH_LAYOUT.rowHeight
+    const bow = Math.min(GROWTH_LAYOUT.column * 0.9, 6 + rows * 3)
+    return `M${from.x} ${from.y} C${from.x + bow} ${from.y} ${to.x + bow} ${to.y} ${to.x} ${to.y}`
+  }
+  const mid = (from.y + to.y) / 2
+  return `M${from.x} ${from.y} C${from.x} ${mid} ${to.x} ${mid} ${to.x} ${to.y}`
+}
+
+/** A relation across two projects is a chip on each end's row, never a long line. */
+export function buildGrowthPins(tree: GrowthTree, drawn: ReadonlySet<string>): GrowthLayoutPin[] {
   const grouped = new Map<string, GrowthLayoutPin>()
   const place = (
     kind: 'cross-in' | 'cross-out',
-    barId: string,
+    rowId: string,
     other: string,
     target: string
   ): void => {
-    const id = `pin:${kind}:${barId}:${other}`
+    const id = `pin:${kind}:${rowId}:${other}`
     const pin = grouped.get(id) ?? {
       id,
       kind,
-      barId,
-      x: 0,
-      y: 0,
+      rowId,
       otherProjectId: other,
       targets: []
     }
@@ -159,39 +62,24 @@ function buildPins(
     grouped.set(id, pin)
   }
   for (const link of tree.crossLinks) {
-    if (bars.has(link.to)) {
+    if (drawn.has(link.to)) {
       place('cross-in', link.to, link.fromProjectId, link.from)
     }
-    if (bars.has(link.from)) {
+    if (drawn.has(link.from)) {
       place('cross-out', link.from, link.toProjectId, link.to)
     }
   }
   for (const bar of tree.bars.values()) {
-    if (bar.unresolvedSource && bars.has(bar.id)) {
-      grouped.set(`pin:unresolved:${bar.id}`, {
-        id: `pin:unresolved:${bar.id}`,
+    if (bar.unresolvedSource && drawn.has(bar.id)) {
+      const id = `pin:unresolved:${bar.id}`
+      grouped.set(id, {
+        id,
         kind: 'unresolved',
-        barId: bar.id,
-        x: 0,
-        y: 0,
+        rowId: bar.id,
         otherProjectId: null,
         targets: []
       })
     }
   }
-  const pins = [...grouped.values()].sort((a, b) => cmp(a.id, b.id))
-  const leftCount = new Map<string, number>()
-  const rightCount = new Map<string, number>()
-  for (const pin of pins) {
-    const box = bars.get(pin.barId)!
-    const counts = pin.kind === 'cross-out' ? rightCount : leftCount
-    const slot = counts.get(pin.barId) ?? 0
-    counts.set(pin.barId, slot + 1)
-    pin.y = box.y + box.height / 2
-    pin.x =
-      pin.kind === 'cross-out'
-        ? box.x + box.width + PIN_OFFSET_PX + slot * PIN_STEP_PX
-        : box.x - PIN_OFFSET_PX - slot * PIN_STEP_PX
-  }
-  return pins
+  return [...grouped.values()].sort((a, b) => cmp(a.id, b.id))
 }

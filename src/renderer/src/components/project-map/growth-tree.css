@@ -1,118 +1,135 @@
+/* Workspace columns cycle through existing accent tokens, as gitgraph colours branches by index. */
+[data-growth-tree] {
+  --gt-lane-0: var(--callout-note);
+  --gt-lane-1: var(--callout-important);
+  --gt-lane-2: var(--status-success);
+  --gt-lane-3: var(--status-warning);
+  --gt-lane-4: color-mix(in srgb, var(--callout-note) 50%, var(--status-success));
+  --gt-lane-5: color-mix(in srgb, var(--callout-important) 55%, var(--destructive));
+  --gt-lane: var(--gt-lane-0);
+}
+
 .growth-tree-group {
   border-top: 1px solid var(--pm-lane-border);
 }
-.growth-tree-lane {
-  background: var(--pm-lane);
-  border-block: 1px solid var(--pm-lane-border);
+.growth-tree-group:first-child {
+  border-top-color: transparent;
 }
-.growth-tree-lane[data-selected] {
-  border-color: color-mix(in srgb, var(--pm-kind-workspace) 60%, transparent);
-}
-.growth-tree-now {
-  width: 0;
-  border-left: 1px dashed color-mix(in srgb, var(--foreground) 25%, transparent);
-}
-.growth-tree-fold {
-  background: repeating-linear-gradient(
-    135deg,
-    transparent 0 5px,
-    color-mix(in srgb, var(--foreground) 5%, transparent) 5px 6px
-  );
-}
-.growth-tree-join {
-  fill: var(--background);
-  stroke: var(--pm-wire-fork);
-  stroke-width: 2;
+.growth-tree-group:hover {
+  background: var(--accent);
 }
 
-.growth-tree-bar {
-  --pm-kind: var(--pm-kind-agent);
-  background: color-mix(in srgb, var(--pm-kind) 14%, var(--card));
-  border-color: color-mix(in srgb, var(--pm-kind) 45%, var(--border));
-  color: var(--foreground);
+.growth-tree-row-hit {
   cursor: default;
 }
-.growth-tree-bar[data-history] {
-  --pm-kind: var(--pm-kind-history);
-  border-style: dashed;
+.growth-tree-row-hit:hover {
+  background: color-mix(in srgb, var(--foreground) 4%, transparent);
 }
-.growth-tree-bar[data-approx] {
-  border-left-style: dotted;
+.growth-tree-row-hit[data-selected] {
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
 }
-.growth-tree-bar[data-running] {
-  border-right-width: 2px;
+.growth-tree-row-hit[data-cursor] {
+  box-shadow: inset 0 0 0 1px var(--ring);
 }
-.growth-tree-bar[data-linked] {
-  border-color: var(--pm-kind);
+.growth-tree-row-hit:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--ring);
 }
-.growth-tree-bar[data-selected] {
-  outline: 2px solid var(--pm-kind);
-  outline-offset: 1px;
+.growth-tree-row-hit[data-dimmed] ~ div .growth-tree-title,
+.growth-tree-row-hit[data-dimmed] ~ div .growth-tree-chip {
+  opacity: 0.45;
 }
-.growth-tree-bar[data-dimmed],
-.growth-tree-pin:disabled {
-  opacity: 0.5;
+.growth-tree-row-hit[data-history] ~ div .growth-tree-title {
+  font-style: italic;
 }
-[data-growth-world][data-focusing] .growth-tree-bar[data-dimmed] {
-  opacity: 0.28;
+
+.growth-tree-chip {
+  border-color: color-mix(in srgb, var(--gt-lane) 55%, transparent);
+  background: color-mix(in srgb, var(--gt-lane) 12%, transparent);
+  color: var(--foreground);
 }
-.growth-tree-bar:focus-visible,
+.growth-tree-chip:hover,
+.growth-tree-chip[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--gt-lane) 24%, transparent);
+}
+.growth-tree-chip:focus-visible,
 .growth-tree-pin:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 1px;
 }
+.growth-tree-pin:hover:not(:disabled) {
+  background: var(--accent);
+}
+.growth-tree-pin:disabled {
+  opacity: 0.5;
+}
 .growth-tree-pin[data-kind='unresolved'] {
   border-style: dashed;
-  background: transparent;
 }
 
-[data-growth-world] .project-map-wire[data-dimmed] {
-  stroke-opacity: 0.28;
+.growth-tree-lane {
+  fill: none;
+  stroke: var(--gt-lane);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
-
+.growth-tree-lane[data-selected] {
+  stroke-width: 3.5;
+}
+.growth-tree-wire[data-kind='derive'] {
+  stroke: var(--gt-lane);
+}
+.growth-tree-wire:not([data-kind='derive']) {
+  stroke-width: 1.5;
+  stroke-opacity: 0.75;
+}
+.growth-tree-wire[data-highlighted] {
+  stroke-width: 2.5;
+  stroke-opacity: 1;
+}
+.growth-tree-wire[data-dimmed] {
+  stroke-opacity: 0.2;
+}
 /* Dashed: a message pointed at another conversation; nothing was handed over. */
-[data-growth-world] .project-map-wire[data-kind='reference'] {
-  stroke-dasharray: 5 4;
+.growth-tree-wire[data-kind='reference'] {
+  stroke-dasharray: 4 3;
 }
-[data-growth-world] .project-map-wire[data-kind='reference'][data-live='true'] {
+.growth-tree-wire[data-kind='reference'][data-live] {
   stroke-dasharray: 2 3;
 }
 .growth-tree-arrow {
   fill: var(--pm-wire-reference);
 }
-.growth-tree-lane-start {
-  fill: var(--pm-kind-workspace);
+
+.growth-tree-dot {
+  fill: var(--gt-lane);
+  stroke: var(--background);
+  stroke-width: 2;
 }
-.growth-tree-lane-start[data-approx] {
+/* Hollow: a closed chat that a hand-off still points at, or a workspace with no chats. */
+.growth-tree-dot[data-history],
+.growth-tree-dot[data-kind='lane'] {
   fill: var(--background);
-  stroke: var(--pm-kind-workspace);
-  stroke-width: 1.5;
+  stroke: var(--gt-lane);
 }
-.growth-tree-bar[data-cursor] {
-  outline: 2px dashed var(--ring);
-  outline-offset: 2px;
+.growth-tree-dot[data-running] {
+  animation: growth-tree-running 1.6s ease-in-out infinite;
 }
-.growth-tree-density {
-  border-radius: 3px;
-  background: var(--pm-kind-agent);
+.growth-tree-dot[data-selected] {
+  stroke: var(--foreground);
 }
-.growth-tree-density[data-working] {
-  background: var(--status-success);
+.growth-tree-dot[data-dimmed] {
+  opacity: 0.35;
 }
-.growth-tree-bundle {
-  fill: none;
-  stroke: var(--pm-wire-fork);
-  stroke-linecap: round;
-  stroke-opacity: 0.7;
-}
-.growth-tree-bundle-count {
-  line-height: 1.4;
-  pointer-events: none;
+@keyframes growth-tree-running {
+  50% {
+    stroke: color-mix(in srgb, var(--gt-lane) 45%, var(--background));
+    stroke-width: 5;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .growth-tree-bar,
-  .growth-tree-pin {
-    transition: none;
+  .growth-tree-dot[data-running] {
+    animation: none;
   }
 }

@@ -21755,17 +21755,12 @@
     "worktree": "工作树",
     "groupCollapsed": "{{chats}} 个对话，{{working}} 个运行中",
     "emptyLanes": "空工作区：{{count}} 个",
+    "noChats": "这里还没有对话",
     "jump": {
       "hidden": "这个对话在蓝图中被隐藏了。",
       "missing": "这个对话不在蓝图上。",
       "unhide": "显示出来",
       "dismiss": "知道了"
-    },
-    "mode": {
-      "label": "时间刻度",
-      "compressed": "压缩时间",
-      "sequence": "事件顺序",
-      "linear": "线性时间"
     },
     "filter": {
       "label": "筛选",
@@ -21774,7 +21769,6 @@
       "window": "时间范围",
       "active": "已筛选：{{count}} 项"
     },
-    "showAll": "显示全部",
     "empty": "项目运行过 agent 之后，对话会出现在这里。",
     "pin": {
       "from": "来自项目 {{project}}",
@@ -21806,7 +21800,6 @@
       "7d": "最近 7 天",
       "30d": "最近 30 天"
     },
-    "foldedDays": "此处折叠了 {{days}} 天的空闲",
     "replay": {
       "toggle": "回放",
       "loading": "正在读取历史…",

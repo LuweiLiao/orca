@@ -5,7 +5,7 @@ import type { Page } from '@stablyai/playwright-test'
 import { expect } from './helpers/orca-app'
 import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-stub'
 import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
-import { addRepoWithWorkspaces, writeWorkspaceMeta } from './helpers/repo-with-workspaces'
+import { addRepoWithWorkspaces } from './helpers/repo-with-workspaces'
 import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
 import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
 import { closeProjectMapWindows } from './helpers/project-map-windows'
@@ -57,7 +57,12 @@ async function sayInChat(page: Page, sessionId: string, message: string, replies
 /** Hands a chat's conversation to a new chat in a workspace, as the map's fork and merge do. */
 async function forkChat(
   page: Page,
-  input: { source: string; worktreeId: string; instruction: string; mergeSources?: string[] }
+  input: {
+    source: string
+    worktreeId: string
+    instruction: string
+    mergeSources?: string[]
+  }
 ): Promise<string> {
   const childId = createStructuredAgentSessionId('claude', () => crypto.randomUUID())
   const intent = {
@@ -90,14 +95,18 @@ async function forkChat(
     ...intent
   }
   const forked = await page.evaluate(
-    (forkParams) => window.api.runtime.call({ method: 'agentSession.fork', params: forkParams }),
+    (forkParams) =>
+      window.api.runtime.call({
+        method: 'agentSession.fork',
+        params: forkParams
+      }),
     params
   )
   expect(forked, JSON.stringify(forked)).toMatchObject({ ok: true })
   return childId
 }
 
-test('draws every project on one time axis and jumps from a bar to the blueprint', async ({
+test('draws every project as one vertical tree, a row per chat, and jumps from a row to the blueprint', async ({
   orcaPage: page,
   electronApp,
   claudeStub,
@@ -155,7 +164,11 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
       const clipboardData = new DataTransfer()
       clipboardData.setData('text/plain', text)
       element.dispatchEvent(
-        new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true })
+        new ClipboardEvent('paste', {
+          clipboardData,
+          bubbles: true,
+          cancelable: true
+        })
       )
     }, cards)
     await expect(composer.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(2)
@@ -169,21 +182,27 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
       objective: 'Export work',
       from
     })
-    const workers: { dispatchId: string; taskId: string; sessionId: string; handle: string }[] = []
+    const workers: {
+      dispatchId: string
+      taskId: string
+      sessionId: string
+      handle: string
+    }[] = []
     for (const placement of placements) {
-      const started = await leadClient.call<{ dispatchId: string; taskId: string; state: string }>(
-        'orchestration.workerStart',
-        {
-          from,
-          run: run.result.run.id,
-          spec: `Implement ${placement.displayName}.`,
-          agent: 'claude',
-          model: 'sonnet',
-          effort: 'medium',
-          timeoutMs: 60_000,
-          ...placement
-        }
-      )
+      const started = await leadClient.call<{
+        dispatchId: string
+        taskId: string
+        state: string
+      }>('orchestration.workerStart', {
+        from,
+        run: run.result.run.id,
+        spec: `Implement ${placement.displayName}.`,
+        agent: 'claude',
+        model: 'sonnet',
+        effort: 'medium',
+        timeoutMs: 60_000,
+        ...placement
+      })
       const dispatch = await leadClient.call<{
         dispatch: { assignee_orca_session_id: string; assignee_handle: string }
       }>('orchestration.dispatchShow', { task: started.result.taskId })
@@ -207,7 +226,9 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
         outcome: 'succeeded'
       })
     })
-    await leadClient.call('orchestration.workerRelease', { dispatch: finished.dispatchId })
+    await leadClient.call('orchestration.workerRelease', {
+      dispatch: finished.dispatchId
+    })
 
     // A merged handoff of three chats: the coordinator and two more with a finished turn each.
     const sources: string[] = []
@@ -249,12 +270,14 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
           { projectGroupId: group.id, name: 'Interviews', folderPath },
           { runtimeEnvironmentId: null }
         )
-      const spare = await store
-        .getState()
-        .createFolderWorkspace(
-          { projectGroupId: group.id, name: 'Archive', folderPath: `${folderPath}/archive` },
-          { runtimeEnvironmentId: null }
-        )
+      const spare = await store.getState().createFolderWorkspace(
+        {
+          projectGroupId: group.id,
+          name: 'Archive',
+          folderPath: `${folderPath}/archive`
+        },
+        { runtimeEnvironmentId: null }
+      )
       if (!folder || !spare) {
         throw new Error('Could not create folder workspaces')
       }
@@ -283,7 +306,9 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await page.evaluate(() => window.__store!.getState().openProjectMapPage())
     const map = page.locator('.project-map')
     await expect(map.getByRole('heading', { name: 'Project Map' })).toBeVisible()
-    await expect(map.locator('[data-project-map-canvas]')).toBeVisible({ timeout: 30_000 })
+    await expect(map.locator('[data-project-map-canvas]')).toBeVisible({
+      timeout: 30_000
+    })
 
     // Switch to the growth tree: every project shows, the blueprint canvas is gone.
     await map.getByRole('radio', { name: 'Growth tree' }).click()
@@ -298,12 +323,42 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await expect(bar(paneKeyOf(folderChat))).toBeVisible({ timeout: 30_000 })
     // The worker that finished and was released is still on the tree.
     await expect(bar(paneKeyOf(finished.sessionId))).toBeVisible()
-    // Three sources meet at one hollow point; a folder workspace has no derive line into it.
-    await expect(tree.locator('[data-growth-join]')).toHaveCount(1)
+    // A merge draws one line from each of its three sources; a folder workspace has no derive line.
     await expect(
-      tree.locator('[data-growth-lane-label]', { hasText: 'Folder workspace' })
+      tree.locator(`[data-growth-wire$=">${paneKeyOf(mergedId)}"]:not([data-kind="reference"])`)
+    ).toHaveCount(3)
+    await expect(
+      tree.locator('[data-growth-lane-label][aria-label*="Folder workspace"]')
     ).toHaveCount(1)
     await expect(tree.locator('[data-growth-wire][data-kind="derive"]')).toHaveCount(1)
+    // One row per chat, none overlapping, each dot inside its own row, newest on top.
+    const misplaced = await tree.evaluate((root) => {
+      const problems: string[] = []
+      const rows = [...root.querySelectorAll('[data-growth-row]')]
+        .map((el) => ({
+          id: el.getAttribute('data-growth-row')!,
+          rect: el.getBoundingClientRect()
+        }))
+        .sort((a, b) => a.rect.top - b.rect.top)
+      rows.slice(1).forEach((row, i) => {
+        if (row.rect.top < rows[i]!.rect.bottom - 0.5) {
+          problems.push(`row ${row.id} overlaps the row above`)
+        }
+      })
+      for (const row of rows) {
+        const dot = root.querySelector(`[data-growth-dot="${CSS.escape(row.id)}"]`)
+        const center = dot
+          ? (dot.getBoundingClientRect().top + dot.getBoundingClientRect().bottom) / 2
+          : -1
+        if (center < row.rect.top || center > row.rect.bottom) {
+          problems.push(`dot of ${row.id} outside its row`)
+        }
+      }
+      return problems
+    })
+    expect(misplaced).toEqual([])
+    const topOf = async (id: string): Promise<number> => (await bar(paneKeyOf(id)).boundingBox())!.y
+    expect(await topOf(mergedId)).toBeLessThan(await topOf(lead))
     await screenshot('growth-tree-overview')
 
     // One click selects: the dock opens and the chat's neighbours stay lit while the rest dim.
@@ -347,150 +402,25 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await tree.locator('[data-growth-filter-clear]').click()
     await expect(tree.locator('[data-growth-filter-clear]')).toHaveCount(0)
 
-    // Each view keeps its own pan and zoom when you switch away and back.
-    const zoomBefore = await tree.locator('text=/^\\d+%$/').first().textContent()
+    // Switching away and back keeps the tree.
     await map.getByRole('radio', { name: 'Blueprint' }).click()
     await expect(map.locator('[data-project-map-canvas]')).toBeVisible()
     await expect(tree).toBeHidden()
     await map.getByRole('radio', { name: 'Growth tree' }).click()
     await expect(tree).toBeVisible()
-    await expect(tree.locator('text=/^\\d+%$/').first()).toHaveText(zoomBefore ?? '')
 
     await expect(bar(paneKeyOf(crossChild))).toBeVisible({ timeout: 30_000 })
-    await tree.getByRole('button', { name: 'Fit to view' }).click()
 
-    // An open tooltip owns the first Escape, so let any transient one close first.
-    const dismiss = async (): Promise<void> => {
-      if ((await tooltip.count()) > 0) {
-        await page.keyboard.press('Escape')
-        await expect(tooltip).toHaveCount(0)
-      }
-      await page.keyboard.press('Escape')
-      await expect(dock).toHaveCount(0)
-    }
-
-    // Every lane label sits inside its own lane, and none overlaps another, at the default zoom
-    // and zoomed far out; each project group keeps its header and its empty-workspaces row inside it.
-    const zoomText = tree.locator('text=/^\\d+%$/').first()
-    const zoomOf = async (): Promise<number> =>
-      Number.parseInt((await zoomText.textContent()) ?? '0', 10)
-    const expectLabelsAligned = async (): Promise<void> => {
-      const misplaced = await tree.evaluate((root) => {
-        const rect = (el: Element) => el.getBoundingClientRect()
-        const problems: string[] = []
-        const labels = [...root.querySelectorAll('[data-growth-lane-label]')]
-        for (const label of labels) {
-          const id = label.getAttribute('data-growth-lane-label')
-          const lane = root.querySelector(`[data-growth-lane="${id}"]`)
-          if (!lane) {
-            continue
-          }
-          const [l, w] = [rect(label), rect(lane)]
-          const center = (l.top + l.bottom) / 2
-          if (center < w.top - 1 || center > w.bottom + 1) {
-            problems.push(`label ${id} center ${center} outside lane ${w.top}-${w.bottom}`)
-          }
-          if (label.scrollHeight > label.clientHeight + 1) {
-            problems.push(`label ${id} text overflows its row`)
-          }
-        }
-        const sorted = labels.map(rect).sort((a, b) => a.top - b.top)
-        sorted.slice(1).forEach((r, i) => {
-          if (r.top < sorted[i]!.bottom - 1) {
-            problems.push(`labels overlap at ${r.top}`)
-          }
-        })
-        for (const band of root.querySelectorAll('[data-growth-group-band]')) {
-          const id = band.getAttribute('data-growth-group-band')
-          const empty = root.querySelector(`[data-growth-empty-lanes="${id}"]`)
-          const header = root.querySelector(`[data-growth-group="${id}"]`)
-          for (const part of [empty, header]) {
-            if (
-              part &&
-              (rect(part).top < rect(band).top - 1 || rect(part).bottom > rect(band).bottom + 1)
-            ) {
-              problems.push(`group ${id} part outside its band`)
-            }
-          }
-        }
-        return problems
-      })
-      expect(misplaced).toEqual([])
-    }
-    await expectLabelsAligned()
-    for (let i = 0; i < 12 && (await zoomOf()) > 40; i++) {
-      await tree.getByRole('button', { name: 'Zoom out' }).click()
-    }
-    await expectLabelsAligned()
-    await screenshot('growth-tree-labels-zoomed-out')
-    await tree.getByRole('button', { name: 'Fit to view' }).click()
-
-    // The default view shows a readable zoom and the line for now, even for a long history.
-    const worldBox = tree.locator('[data-growth-viewport]')
-    const nowInView = async (): Promise<boolean> => {
-      const [view, now] = await Promise.all([
-        worldBox.boundingBox(),
-        tree.locator('[data-growth-now]').boundingBox()
-      ])
-      return (
-        view !== null && now !== null && now.x >= view.x - 1 && now.x <= view.x + view.width + 1
-      )
-    }
-    expect(await nowInView()).toBe(true)
-    expect(await zoomOf()).toBeGreaterThanOrEqual(80)
-    const eventOrder = tree.getByRole('combobox', { name: 'Time scale' })
-    await eventOrder.click()
-    await page.getByRole('option', { name: 'Event order' }).click()
-    await tree.getByRole('button', { name: 'Fit to view' }).click()
-    expect(await nowInView()).toBe(true)
-    expect(await zoomOf()).toBeGreaterThanOrEqual(80)
-    await screenshot('growth-tree-default-view')
-
-    // Selecting a chat does not move the view; a chat the detail panel would cover moves only
-    // as far as it takes to show it.
-    const transformOf = (): Promise<string> =>
-      tree.locator('[data-growth-world]').evaluate((el) => el.parentElement!.style.transform)
-    const barsByX = await tree.evaluate((root) => {
-      const view = root.querySelector('[data-growth-viewport]')!.getBoundingClientRect()
-      return [...root.querySelectorAll('[data-growth-bar]')]
-        .map((el) => ({
-          id: el.getAttribute('data-growth-bar')!,
-          rect: el.getBoundingClientRect()
-        }))
-        .filter(({ rect }) => rect.left >= view.left && rect.right <= view.right)
-        .map(({ id, rect }) => ({ id, x: rect.left, right: rect.right, view: view.right }))
-        .sort((a, b) => a.x - b.x)
-    })
-    // Clear of the 288px detail panel, so opening it cannot cover the chat.
-    const leftmost = barsByX.find(({ right, view }) => right <= view - 300)!.id
-    const rightmost = barsByX.at(-1)!.id
-    const transformBefore = await transformOf()
-    await bar(leftmost).click()
+    // The detail panel narrows the list instead of covering the selected row.
+    await bar(paneKeyOf(lead)).click()
     await expect(dock).toBeVisible()
-    expect(await transformOf()).toBe(transformBefore)
-    await dismiss()
-    await bar(rightmost).click()
-    await expect(dock).toBeVisible()
-    // The panel narrows the viewport a moment after it opens; the chat is then panned into view.
-    await expect
-      .poll(async () => {
-        const [viewRect, barRect] = await Promise.all([
-          worldBox.boundingBox(),
-          bar(rightmost).boundingBox()
-        ])
-        return (
-          viewRect !== null &&
-          barRect !== null &&
-          barRect.x >= viewRect.x &&
-          barRect.x + barRect.width <= viewRect.x + viewRect.width
-        )
-      })
-      .toBe(true)
-    expect(await tree.locator('[data-growth-viewport]').evaluate((el) => el.scrollLeft)).toBe(0)
-    await dismiss()
-    await eventOrder.click()
-    await page.getByRole('option', { name: 'Compressed time' }).click()
-    await tree.getByRole('button', { name: 'Fit to view' }).click()
+    const [listBox, leadBox] = await Promise.all([
+      tree.locator('[data-growth-viewport]').boundingBox(),
+      bar(paneKeyOf(lead)).boundingBox()
+    ])
+    expect(leadBox!.x + leadBox!.width).toBeLessThanOrEqual(listBox!.x + listBox!.width + 1)
+    await page.keyboard.press('Escape')
+    await expect(dock).toHaveCount(0)
 
     // A hand-off into another project is a pin at each end, and a click on one lands on the other.
     const outPin = tree.locator('[data-growth-pin][data-kind="cross-out"]')
@@ -504,74 +434,14 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await expect(bar(paneKeyOf(lead))).toHaveAttribute('aria-pressed', 'true')
     await page.keyboard.press('Escape')
 
-    // Linear time spends the same width on every millisecond of the span.
-    const modeSelect = tree.getByRole('combobox', { name: 'Time scale' })
-    await modeSelect.click()
-    await page.getByRole('option', { name: 'Linear time' }).click()
-    const startOf = async (id: string) =>
-      Number(await bar(paneKeyOf(id)).getAttribute('data-start'))
-    const leftOf = (id: string) =>
-      bar(paneKeyOf(id)).evaluate((el) => Number.parseFloat(el.style.left))
-    const [t1, t2, t3] = [
-      await startOf(lead),
-      await startOf(derived.sessionId),
-      await startOf(mergedId)
-    ]
-    const [x1, x2, x3] = [
-      await leftOf(lead),
-      await leftOf(derived.sessionId),
-      await leftOf(mergedId)
-    ]
-    expect(t1).toBeLessThan(t2)
-    expect(t2).toBeLessThan(t3)
-    expect((x2 - x1) / (t2 - t1)).toBeCloseTo((x3 - x2) / (t3 - t2), 6)
-    await screenshot('growth-tree-linear')
-    await modeSelect.click()
-    await page.getByRole('option', { name: 'Compressed time' }).click()
-
-    // A workspace made days ago starts its lane there; the quiet stretch after it folds, and
-    // opening the fold draws that stretch to scale until it is closed again.
-    await writeWorkspaceMeta(page, [
-      { worktreeId: other.mainId, updates: { createdAt: Date.now() - 5 * 86_400_000 } }
-    ])
-    const foldToggle = tree.locator('[data-growth-fold-toggle]').first()
-    await expect(foldToggle).toBeVisible({ timeout: 30_000 })
-    await expect(tree.locator(`[data-growth-lane-start="${other.mainId}"]`)).not.toHaveAttribute(
-      'data-approx',
-      /.*/
-    )
-    await tree.getByRole('button', { name: 'Fit to view' }).click()
-    const before = await leftOf(otherChat)
-    await foldToggle.click({ position: { x: 6, y: 6 } })
-    await expect(foldToggle).toHaveAttribute('aria-pressed', 'true')
-    expect(await leftOf(otherChat)).toBeGreaterThan(before + 1_000)
-    await screenshot('growth-tree-fold-open')
-    await foldToggle.click({ position: { x: 6, y: 6 } })
-    await expect(foldToggle).toHaveAttribute('aria-pressed', 'false')
-    expect(await leftOf(otherChat)).toBeCloseTo(before, 3)
-    await tree.getByRole('button', { name: 'Fit to view' }).click()
-
-    // Zoomed far out, lanes become density strips and their lines one counted line.
-    const world = tree.locator('[data-growth-world]')
-    for (let i = 0; i < 12 && (await world.getAttribute('data-growth-tier')) !== 'summary'; i++) {
-      await tree.getByRole('button', { name: 'Zoom out' }).click()
-    }
-    await expect(world).toHaveAttribute('data-growth-tier', 'summary')
-    await expect(bar(paneKeyOf(lead))).toHaveCount(0)
-    const counts = await tree
-      .locator('[data-growth-bundle]')
-      .evaluateAll((paths) => paths.map((path) => Number(path.getAttribute('data-count'))))
-    expect(Math.max(...counts)).toBeGreaterThanOrEqual(2)
-    await screenshot('growth-tree-summary')
-    await tree.getByRole('button', { name: 'Fit to view' }).click()
-    await expect(world).toHaveAttribute('data-growth-tier', 'bars')
-
     // Replay: the slider shows the tree as it stood, and playing flies the recorded events.
     const total = await tree.locator('[data-growth-bar]').count()
     await tree.locator('[data-growth-replay-toggle]').click()
     const replayBar = tree.locator('[data-growth-replay]')
     await expect(replayBar).toBeVisible()
-    await expect(replayBar.getByText('Reading history')).toHaveCount(0, { timeout: 30_000 })
+    await expect(replayBar.getByText('Reading history')).toHaveCount(0, {
+      timeout: 30_000
+    })
     const slider = replayBar.locator('[data-slot="slider"]')
     const track = (await slider.boundingBox())!
     const thumb = (await replayBar.getByRole('slider').boundingBox())!
@@ -593,7 +463,9 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await play.click()
     await expect(play).toHaveAttribute('aria-label', 'Pause')
     await expect
-      .poll(() => tree.locator('[data-project-flow-particle]').count(), { timeout: 30_000 })
+      .poll(() => tree.locator('[data-project-flow-particle]').count(), {
+        timeout: 30_000
+      })
       .toBeGreaterThan(0)
     await screenshot('growth-tree-replay-playing')
     await play.click()
@@ -614,18 +486,29 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await expect(replayBar).toHaveCount(0)
     await expect.poll(() => tree.locator('[data-growth-bar]').count()).toBe(total)
 
-    // Arrows walk the chats: down to the next lane, Enter selects, a second Enter jumps.
+    // Arrows walk the rows: up to the row above, Enter selects, a second Enter jumps.
     await bar(paneKeyOf(lead)).click()
-    await page.keyboard.press('ArrowDown')
-    await expect(bar(paneKeyOf(derived.sessionId))).toHaveAttribute('data-cursor', 'true')
+    const above = await tree.evaluate((root, id) => {
+      const rows = [...root.querySelectorAll('[data-growth-row]')].sort(
+        (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top
+      )
+      const index = rows.findIndex((row) => row.getAttribute('data-growth-row') === id)
+      return rows[index - 1]!.getAttribute('data-growth-row')!
+    }, paneKeyOf(lead))
+    await page.keyboard.press('ArrowUp')
+    await expect(tree.locator(`[data-growth-bar="${above}"]`)).toHaveAttribute(
+      'data-cursor',
+      'true'
+    )
     await screenshot('growth-tree-cursor')
     await page.keyboard.press('Enter')
-    await expect(bar(paneKeyOf(derived.sessionId))).toHaveAttribute('aria-pressed', 'true')
+    await expect(tree.locator(`[data-growth-bar="${above}"]`)).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
     await page.keyboard.press('Enter')
     await expect(map.locator('[data-project-map-canvas]')).toBeVisible()
-    await expect(
-      map.locator(`[data-project-map-node="${paneKeyOf(derived.sessionId)}"]`)
-    ).toBeVisible({ timeout: 15_000 })
+    await expect(map.locator(`[data-project-map-node="${above}"]`)).toBeVisible({ timeout: 15_000 })
     await map.getByRole('radio', { name: 'Growth tree' }).click()
     await expect(tree).toBeVisible()
 

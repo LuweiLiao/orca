@@ -1,7 +1,6 @@
 import { translate } from '@/i18n/i18n'
 import type { DashboardBucket } from '../../../../shared/dashboard-snapshot'
 import type { GrowthTimeWindow } from './growth-tree-focus'
-import type { GrowthTimeMode } from './growth-tree-scale'
 import type { GrowthTreeLineKind } from './growth-tree-types'
 
 export function growthBucketLabel(bucket: DashboardBucket): string {
@@ -29,17 +28,6 @@ export function growthKindLabel(kind: GrowthTreeLineKind): string {
       return translate('growthTree.kind.merge', 'Merged')
     case 'reference':
       return translate('growthTree.kind.reference', 'Referenced')
-  }
-}
-
-export function growthModeLabel(mode: GrowthTimeMode): string {
-  switch (mode) {
-    case 'compressed':
-      return translate('growthTree.mode.compressed', 'Compressed time')
-    case 'sequence':
-      return translate('growthTree.mode.sequence', 'Event order')
-    case 'linear':
-      return translate('growthTree.mode.linear', 'Linear time')
   }
 }
 
@@ -74,21 +62,4 @@ export function growthDateTimeSeconds(time: number): string {
     minute: '2-digit',
     second: '2-digit'
   })
-}
-
-export function growthDay(time: number): string {
-  return new Date(time).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })
-}
-
-export function growthClock(time: number, seconds = false): string {
-  return new Date(time).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    ...(seconds ? { second: '2-digit' } : {})
-  })
-}
-
-export function growthFoldedSpan(from: number, to: number): string {
-  const days = Math.max(1, Math.round((to - from) / (24 * 60 * 60 * 1000)))
-  return translate('growthTree.foldedDays', 'Idle gap folded here: {{days}} days', { days })
 }

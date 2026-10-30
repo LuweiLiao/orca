@@ -1,93 +1,85 @@
 import { describe, expect, it } from 'vitest'
 import { buildGrowthTree } from './growth-tree-build'
 import { growthFixture } from './growth-tree-fixture'
+import { growthNearestRow, growthScrollToRow } from './growth-tree-keyboard-nav'
 import { layoutGrowthTree } from './growth-tree-layout'
-import { buildGrowthScale, growthGapWidth, type GrowthTimeMode } from './growth-tree-scale'
+import { growthTreeAt } from './growth-tree-replay'
 
 const tree = buildGrowthTree(growthFixture())
-const draw = (mode: GrowthTimeMode = 'compressed', collapsed = new Set<string>()) =>
-  layoutGrowthTree({ tree, mode, collapsed, projectIds: null })
-
-describe('buildGrowthScale', () => {
-  const times = [0, 1_000, 5_000, 60_000, 3_600_000, 3 * 86_400_000, 3 * 86_400_000 + 5]
-
-  it('keeps the order of moments in both modes', () => {
-    for (const mode of ['compressed', 'sequence'] as const) {
-      const scale = buildGrowthScale(times, mode)
-      const xs = times.map((time) => scale.xOf(time))
-      expect(xs).toEqual([...xs].sort((a, b) => a - b))
-      expect(new Set(xs).size).toBe(times.length)
-    }
-  })
-
-  it('folds a gap over a day and widens longer gaps by less than their length', () => {
-    const scale = buildGrowthScale(times, 'compressed')
-    expect(scale.folds).toHaveLength(1)
-    expect(growthGapWidth(60_000)).toBeLessThan(growthGapWidth(3_600_000))
-    expect(growthGapWidth(1e12)).toBeLessThanOrEqual(140)
-  })
-
-  it('gives the same scale for the same moments in any order', () => {
-    const a = buildGrowthScale(times, 'compressed')
-    const b = buildGrowthScale(times.toReversed(), 'compressed')
-    expect(a.points).toEqual(b.points)
-  })
-})
+const draw = (collapsed = new Set<string>()) =>
+  layoutGrowthTree({ tree, collapsed, projectIds: null })
 
 describe('layoutGrowthTree', () => {
   it('lays the same tree out the same way', () => {
     const a = draw()
     const b = draw()
-    expect([...a.bars.values()]).toEqual([...b.bars.values()])
+    expect([...a.rows.values()]).toEqual([...b.rows.values()])
     expect(a.wires).toEqual(b.wires)
     expect(a.height).toBe(b.height)
   })
 
-  it('never lets a later chat start left of an earlier one in compressed time or event order', () => {
-    for (const mode of ['compressed', 'sequence'] as const) {
-      const layout = draw(mode)
-      const bars = [...tree.bars.values()].sort((a, b) => a.start - b.start)
+  it('gives every chat its own row, newest on top within a project', () => {
+    const layout = draw()
+    const ys = [...layout.rows.values()].map((row) => row.y)
+    expect(new Set(ys).size).toBe(ys.length)
+    for (const project of tree.projects) {
+      const bars = [...tree.bars.values()]
+        .filter((bar) => bar.projectId === project.id)
+        .sort((a, b) => b.start - a.start)
       for (let i = 1; i < bars.length; i++) {
-        expect(layout.bars.get(bars[i]!.id)!.x).toBeGreaterThanOrEqual(
-          layout.bars.get(bars[i - 1]!.id)!.x
-        )
+        expect(layout.rows.get(bars[i]!.id)!.y).toBeGreaterThan(layout.rows.get(bars[i - 1]!.id)!.y)
       }
     }
   })
 
-  it('never overlaps two chats on one track', () => {
+  it('keeps a workspace in one column and never lets two live workspaces share one', () => {
     const layout = draw()
-    const seen = [...layout.bars.values()]
-    for (const a of seen) {
-      for (const b of seen) {
-        if (a.id < b.id && a.laneId === b.laneId && a.track === b.track) {
-          expect(a.x + a.width <= b.x || b.x + b.width <= a.x).toBe(true)
+    for (const row of layout.rows.values()) {
+      expect(row.cx).toBe(layout.lanes.get(row.laneId)!.x)
+    }
+    const lanes = [...layout.lanes.values()].filter((lane) => lane.top !== null)
+    for (const a of lanes) {
+      for (const b of lanes) {
+        if (a.id < b.id && a.projectId === b.projectId && a.column === b.column) {
+          expect(a.bottom! < b.top! || b.bottom! < a.top!).toBe(true)
         }
       }
     }
   })
 
-  it('draws a derive wire but none into the folder lane', () => {
+  it('branches a derived workspace off to the right of its parent, never a folder', () => {
     const layout = draw()
     const derives = layout.wires.filter((wire) => wire.kind === 'derive')
-    expect(derives.map((wire) => wire.to)).toEqual(['a-feat'])
+    expect(derives.map((wire) => [wire.from, wire.to])).toEqual([['a-main', 'a-feat']])
+    expect(layout.lanes.get('a-feat')!.column).toBeGreaterThan(layout.lanes.get('a-main')!.column)
+    expect(derives[0]!.color).toBe(layout.lanes.get('a-feat')!.color)
   })
 
-  it('joins several merge sources at one hollow point left of the merged chat', () => {
+  it('marks only the newest row of each workspace as its tip', () => {
     const layout = draw()
-    expect(layout.joins.map((join) => join.id)).toEqual(['join:merged'])
-    const merged = layout.bars.get('merged')!
-    expect(layout.joins[0]!.x).toBeLessThan(merged.x)
-    const into = layout.wires.filter((wire) => wire.to === 'merged')
+    const tips = [...layout.rows.values()].filter((row) => row.tip)
+    expect(tips.map((row) => row.laneId).sort()).toEqual(
+      [...new Set([...layout.rows.values()].map((row) => row.laneId))].sort()
+    )
+    for (const tip of tips) {
+      for (const row of layout.rows.values()) {
+        if (row.laneId === tip.laneId) {
+          expect(row.y).toBeGreaterThanOrEqual(tip.y)
+        }
+      }
+    }
+  })
+
+  it('sends every merge source straight into the merged chat', () => {
+    const into = draw().wires.filter((wire) => wire.to === 'merged')
     expect(into.map((wire) => wire.id).sort()).toEqual([
       'handoff:s1>merged',
-      'joinout:merged',
       'merge:s2>merged',
       'merge:s3>merged'
     ])
   })
 
-  it('puts a pin at each end of a cross-project delegation and no long wire', () => {
+  it('puts a chip on each end of a cross-project delegation and no long wire', () => {
     const layout = draw()
     expect(
       layout.pins
@@ -98,89 +90,78 @@ describe('layoutGrowthTree', () => {
     expect(layout.wires.some((wire) => wire.to === 'b-chat')).toBe(false)
   })
 
-  it('draws a collapsed project as its header only, keeping the pin that leads back into it', () => {
-    const layout = draw('compressed', new Set(['repo-a']))
-    expect([...layout.bars.keys()]).toEqual(['b-chat'])
+  it('draws a collapsed project as its header only, keeping the chip that leads back into it', () => {
+    const layout = draw(new Set(['repo-a']))
+    expect([...layout.rows.keys()]).toEqual(['b-chat'])
     expect(layout.wires).toEqual([])
     expect(layout.pins.map((pin) => pin.id)).toEqual(['pin:cross-in:b-chat:repo-a'])
-    expect(layout.groups.find((group) => group.projectId === 'repo-a')!.collapsed).toBe(true)
+    expect(layout.textX).toBe(draw().textX)
   })
 
-  it('exports a path for every wire and a box for every node', () => {
+  it('exports a path for every wire and a box for every dot', () => {
     const layout = draw()
     expect([...layout.paths.edges.keys()].sort()).toEqual(
       layout.wires.map((wire) => wire.id).sort()
     )
-    for (const id of [...layout.bars.keys(), ...layout.lanes.keys()]) {
+    for (const id of layout.rows.keys()) {
       expect(layout.paths.nodes.has(id)).toBe(true)
     }
   })
 
-  it('draws a reference as a dashed-kind wire from the carrier, without moving any chat', () => {
+  it('draws references without moving any chat', () => {
     const layout = draw()
-    const wire = layout.wires.find((candidate) => candidate.id === 'reference:feat-chat>lead')
-    expect(wire).toMatchObject({ kind: 'reference', from: 'feat-chat', to: 'lead' })
-    expect(layout.wires.find((candidate) => candidate.id === 'reference:merged>s3')?.live).toBe(
-      true
-    )
+    expect(layout.wires.find((wire) => wire.id === 'reference:feat-chat>lead')).toMatchObject({
+      kind: 'reference',
+      from: 'feat-chat',
+      to: 'lead'
+    })
     const bare = layoutGrowthTree({
       tree: { ...tree, references: [] },
-      mode: 'compressed',
       collapsed: new Set(),
       projectIds: null
     })
-    expect([...layout.bars.values()]).toEqual([...bare.bars.values()])
-    expect([...layout.lanes.values()]).toEqual([...bare.lanes.values()])
+    expect([...layout.rows.values()]).toEqual([...bare.rows.values()])
   })
 
-  it('marks where each lane began, dashed when that is only the first chat', () => {
-    const layout = draw()
-    expect(layout.lanes.get('a-feat')).toMatchObject({
-      startX: layout.scale.xOf(5_500_000),
-      startApprox: false
+  it('keeps every row in place while a replay shows only part of the tree', () => {
+    const full = draw()
+    const shown = growthTreeAt(tree, 4_150_000)
+    const partial = layoutGrowthTree({
+      tree,
+      collapsed: new Set(),
+      projectIds: null,
+      shown
     })
-    expect(layout.lanes.get('a-main')!.startApprox).toBe(true)
-    for (const lane of layout.lanes.values()) {
-      const first = tree.lanes.get(lane.id)!.barIds.map((id) => layout.bars.get(id)!.x)
-      if (lane.startX !== null && first.length > 0) {
-        expect(lane.startX).toBeLessThanOrEqual(Math.min(...first) + 0.001)
-      }
+    expect(partial.rows.size).toBeLessThan(full.rows.size)
+    for (const row of partial.rows.values()) {
+      expect({ ...row, tip: false }).toEqual({
+        ...full.rows.get(row.id)!,
+        tip: false
+      })
     }
-  })
-
-  it('spends the same width on every millisecond in linear time and keeps the order', () => {
-    const layout = draw('linear')
-    const points = layout.scale.points
-    const rates = points.slice(1).map((point, index) => {
-      const before = points[index]!
-      return (point.x - before.x) / (point.time - before.time)
-    })
-    for (const rate of rates) {
-      expect(rate).toBeCloseTo(rates[0]!, 9)
-    }
-    const bars = [...tree.bars.values()].sort((a, b) => a.start - b.start)
-    for (let i = 1; i < bars.length; i++) {
-      expect(layout.bars.get(bars[i]!.id)!.x).toBeGreaterThanOrEqual(
-        layout.bars.get(bars[i - 1]!.id)!.x
-      )
-    }
-    expect(layout.scale.folds).toEqual([])
+    expect(partial.rows.has('merged')).toBe(false)
   })
 })
 
-describe('folded gaps', () => {
-  const day = 86_400_000
-  it('draws a gap over a day to scale only while it is opened, keeping the order', () => {
-    const times = [0, 1_000, 5 * day, 5 * day + 1_000]
-    const closed = buildGrowthScale(times, 'compressed')
-    const opened = buildGrowthScale(times, 'compressed', new Set([1_000]))
-    expect(closed.folds).toMatchObject([{ from: 1_000, expanded: false, width: 44 }])
-    expect(opened.folds).toMatchObject([{ from: 1_000, expanded: true }])
-    expect(opened.folds[0]!.width).toBeGreaterThan(closed.folds[0]!.width)
-    const xs = times.map((time) => opened.xOf(time))
-    expect(xs).toEqual([...xs].sort((a, b) => a - b))
-    const middle = opened.xOf((1_000 + 5 * day) / 2)
-    expect(middle).toBeCloseTo(opened.xOf(1_000) + opened.folds[0]!.width / 2, 6)
-    expect(opened.width).toBeGreaterThan(closed.width)
+describe('growth tree keys', () => {
+  const layout = draw()
+  const rows = [...layout.rows.values()].sort((a, b) => a.y - b.y)
+
+  it('steps down and up through the rows as drawn', () => {
+    expect(growthNearestRow(layout, null, 'down')).toBe(rows[0]!.id)
+    expect(growthNearestRow(layout, rows[0]!.id, 'down')).toBe(rows[1]!.id)
+    expect(growthNearestRow(layout, rows[1]!.id, 'up')).toBe(rows[0]!.id)
+  })
+
+  it('moves right into the derived workspace column', () => {
+    const lead = layout.rows.get('lead')!
+    const next = growthNearestRow(layout, 'lead', 'right')
+    expect(layout.rows.get(next!)!.cx).toBeGreaterThan(lead.cx)
+  })
+
+  it('scrolls only as far as needed to bring a row into view', () => {
+    expect(growthScrollToRow({ y: 100 }, 30, { top: 0, height: 400 })).toBe(0)
+    expect(growthScrollToRow({ y: 500 }, 30, { top: 0, height: 400 })).toBe(154)
+    expect(growthScrollToRow({ y: 100 }, 30, { top: 300, height: 400 })).toBe(-224)
   })
 })

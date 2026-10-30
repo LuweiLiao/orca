@@ -1,37 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Network } from 'lucide-react'
 import { translate } from '@/i18n/i18n'
 import { GrowthTreeDock } from './GrowthTreeDock'
-import {
-  GROWTH_LABEL_WIDTH,
-  GROWTH_RULER_HEIGHT,
-  GrowthTreeLabels,
-  GrowthTreeRuler
-} from './GrowthTreeGutters'
 import { GrowthTreeReplayBar } from './GrowthTreeReplayBar'
 import { GrowthTreeToolbar } from './GrowthTreeToolbar'
 import { GrowthTreeWorld } from './GrowthTreeWorld'
 import { GROWTH_EMPTY_FILTER, growthFocus, growthWindowStart } from './growth-tree-focus'
-import { buildGrowthSummary, GROWTH_SUMMARY_ZOOM } from './growth-tree-summary'
-import { useGrowthTreeKeys } from './use-growth-tree-keys'
+import { growthScrollToRow } from './growth-tree-keyboard-nav'
 import {
+  GROWTH_LAYOUT,
   layoutGrowthTree,
   type GrowthLayoutPin,
   type GrowthTreePathIndex
 } from './growth-tree-layout'
-import type { GrowthTimeMode } from './growth-tree-scale'
 import type { GrowthTree, GrowthTreeBar, GrowthTreeLane } from './growth-tree-types'
-import { growthRevealShift } from './growth-tree-reveal'
 import { growthTreeAt } from './growth-tree-replay'
 import { createFlowSignalBus, type FlowSignalBus } from './project-flow-signal'
+import { useGrowthTreeKeys } from './use-growth-tree-keys'
 import { useGrowthTreeReplay } from './use-growth-tree-replay'
-import { projectMapSpanView, useProjectMapViewport } from './use-project-map-viewport'
-import { shouldFollowGrowthAutoFit, type GrowthAutoFit } from './growth-tree-auto-fit'
-
-const RECENT_FIT_MS = 7 * 24 * 60 * 60 * 1000
-const READABLE_ZOOM = 0.8
-const NOW_ROOM_PX = 120
-const BAR_HEIGHT_FOR_CENTER = 22
 
 export type GrowthTreeJumpTarget = {
   id: string
@@ -74,38 +60,30 @@ export function GrowthTreeView({
   bus,
   renderOverlay
 }: Props): React.JSX.Element {
-  const [mode, setMode] = useState<GrowthTimeMode>('compressed')
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [filter, setFilter] = useState(GROWTH_EMPTY_FILTER)
-  const [expandedFolds, setExpandedFolds] = useState<ReadonlySet<number>>(() => new Set())
   const [cursor, setCursor] = useState<string | null>(null)
   const [replayOpen, setReplayOpen] = useState(false)
   // Why: a replay flies only what it plays back; live work that happens meanwhile is not mixed in.
   const [replayBus] = useState(createFlowSignalBus)
-  const replay = useGrowthTreeReplay({ tree, enabled: replayOpen, bus: replayBus })
+  const replay = useGrowthTreeReplay({
+    tree,
+    enabled: replayOpen,
+    bus: replayBus
+  })
   const shown = useMemo(
     () => (replay.at === null ? tree : growthTreeAt(tree, replay.at)),
     [replay.at, tree]
   )
   const layout = useMemo(
-    () => layoutGrowthTree({ tree, mode, collapsed, projectIds, expandedFolds, shown }),
-    [collapsed, expandedFolds, mode, projectIds, shown, tree]
+    () => layoutGrowthTree({ tree, collapsed, projectIds, shown }),
+    [collapsed, projectIds, shown, tree]
   )
-  const content = useMemo(
-    () => ({ width: layout.width, height: layout.height }),
-    [layout.height, layout.width]
-  )
-  const viewport = useProjectMapViewport(content)
-  const { view, size, fitSpan, panBy, centerOn, zoomBy, fit } = viewport
+  const scrollRef = useRef<HTMLDivElement>(null)
   const known = selectedId && (tree.bars.has(selectedId) || tree.lanes.has(selectedId))
   const selected = known ? selectedId : null
   const focus = useMemo(() => growthFocus(tree, selected), [selected, tree])
-  const summaryTier = view.zoom < GROWTH_SUMMARY_ZOOM
-  const summary = useMemo(
-    () => (summaryTier ? buildGrowthSummary(shown, layout, filter) : null),
-    [filter, layout, shown, summaryTier]
-  )
-  const cursorId = cursor && layout.bars.has(cursor) ? cursor : null
+  const cursorId = cursor && layout.rows.has(cursor) ? cursor : null
   const choose = useCallback(
     (id: string | null) => {
       setCursor(id)
@@ -113,76 +91,30 @@ export function GrowthTreeView({
     },
     [onSelect]
   )
-  const toggleFold = useCallback((from: number) => {
-    setExpandedFolds((current) => {
-      const next = new Set(current)
-      if (!next.delete(from)) {
-        next.add(from)
-      }
-      return next
-    })
-  }, [])
 
-  // What the person chose about the layout; a change of it widens the tree on purpose.
-  const layoutChoice = `${mode}|${[...collapsed].sort().join(',')}|${[...expandedFolds].sort().join(',')}`
-  const autoFit = useRef<GrowthAutoFit | null>(null)
-  const fitRecent = useCallback(() => {
-    const from = layout.scale.xOf(tree.now - RECENT_FIT_MS)
-    const span = { x: from, width: layout.scale.xOf(tree.now) - from }
-    // A long history keeps a readable zoom and shows its newest part, so "now" is always in view.
-    const options = { minZoom: READABLE_ZOOM, anchor: 'end', endPadding: NOW_ROOM_PX } as const
-    autoFit.current = {
-      view: projectMapSpanView(size, span, options),
-      at: Date.now(),
-      choice: layoutChoice
-    }
-    fitSpan(span, options)
-  }, [fitSpan, layout.scale, layoutChoice, size, tree.now])
+  // A row to bring into view once it is laid out (a pin can first expand or reveal its project).
+  const [pendingReveal, setPendingReveal] = useState<string | null>(null)
   const projectKey = projectIds ? [...projectIds].sort().join('|') : '*'
-  const fittedFor = useRef<string | null>(null)
-  useEffect(() => {
-    if (active && size.width > 0 && fittedFor.current !== projectKey) {
-      fittedFor.current = projectKey
-      fitRecent()
-    }
-    // Fit once per project scope; later refreshes keep the person's pan and zoom.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, projectKey, size.width])
-  // Why: history rows land just after the tree opens and widen it past "now"; follow that growth
-  // until the person moves the view. Keyed on the content, so the detail panel cannot trigger it.
-  const latestView = useRef(view)
-  latestView.current = view
-  useEffect(() => {
-    if (
-      active &&
-      size.width > 0 &&
-      shouldFollowGrowthAutoFit({
-        last: autoFit.current,
-        view: latestView.current,
-        now: Date.now(),
-        selected: selected !== null,
-        replaying: replay.at !== null,
-        choice: layoutChoice
-      })
-    ) {
-      fitRecent()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout.width])
-
-  // Selecting never moves the view; only a detail panel that now covers the chat does, by the least.
-  const viewRef = useRef(view)
-  viewRef.current = view
-  const selectedBox = selected ? layout.bars.get(selected) : undefined
-  useEffect(() => {
-    if (!active || !selectedBox || size.width === 0) {
+  const scrolledFor = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current
+    if (!active || !scroller) {
       return
     }
-    const { dx, dy } = growthRevealShift(selectedBox, viewRef.current, size)
-    if (dx !== 0 || dy !== 0) {
-      panBy(dx, dy)
+    const row = pendingReveal ? layout.rows.get(pendingReveal) : undefined
+    if (row) {
+      scrolledFor.current = projectKey
+      setPendingReveal(null)
+      scroller.scrollTop += growthScrollToRow(row, GROWTH_LAYOUT.rowHeight, {
+        top: scroller.scrollTop,
+        height: scroller.clientHeight
+      })
+    } else if (scrolledFor.current !== projectKey) {
+      // Newest is on top: a new scope opens at the top; later refreshes keep the scroll.
+      scrolledFor.current = projectKey
+      scroller.scrollTop = 0
     }
-  }, [active, panBy, selectedBox, size])
+  }, [active, layout, pendingReveal, projectKey])
 
   const toggleGroup = useCallback((projectId: string) => {
     setCollapsed((current) => {
@@ -201,28 +133,18 @@ export function GrowthTreeView({
       if (!bar) {
         return
       }
-      const outside = projectIds !== null && !projectIds.has(bar.projectId)
-      const nextCollapsed = new Set(collapsed)
-      nextCollapsed.delete(bar.projectId)
-      const next = layoutGrowthTree({
-        tree,
-        mode,
-        collapsed: nextCollapsed,
-        projectIds: outside ? null : projectIds,
-        expandedFolds
-      })
-      const box = next.bars.get(bar.id)
-      if (outside) {
-        fittedFor.current = '*'
+      if (projectIds !== null && !projectIds.has(bar.projectId)) {
         onRevealProject(bar.projectId)
       }
-      setCollapsed(nextCollapsed)
-      if (box) {
-        centerOn({ x: box.x, y: box.y, width: box.width, height: BAR_HEIGHT_FOR_CENTER })
-      }
+      setCollapsed((current) => {
+        const next = new Set(current)
+        next.delete(bar.projectId)
+        return next
+      })
+      setPendingReveal(bar.id)
       choose(bar.id)
     },
-    [centerOn, choose, collapsed, expandedFolds, mode, onRevealProject, projectIds, tree]
+    [choose, onRevealProject, projectIds, tree.bars]
   )
 
   const jump = useCallback(
@@ -246,25 +168,24 @@ export function GrowthTreeView({
 
   useGrowthTreeKeys({
     active,
-    summary: summaryTier,
     layout,
-    view,
-    size,
     selected,
     cursor: cursorId,
     onCursor: setCursor,
     onSelect,
     onJump: jump,
-    onFit: fitRecent,
-    onZoom: zoomBy,
-    onCenter: centerOn
+    onReveal: setPendingReveal
   })
 
+  // A selection made elsewhere (the blueprint, a pin) is brought into view.
+  useEffect(() => {
+    if (selected && layout.rows.has(selected)) {
+      setPendingReveal(selected)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected])
+
   const windowStart = growthWindowStart(filter.window, tree.now)
-  const showAll = useCallback(() => {
-    setFilter((current) => ({ ...current, window: 'all' }))
-    fit()
-  }, [fit])
   const empty = layout.groups.length === 0 || tree.bars.size === 0
   return (
     <section
@@ -275,12 +196,6 @@ export function GrowthTreeView({
       <GrowthTreeToolbar
         filter={filter}
         onFilter={setFilter}
-        mode={mode}
-        onMode={setMode}
-        zoom={view.zoom}
-        onZoom={zoomBy}
-        onFit={fitRecent}
-        onShowAll={showAll}
         replay={replayOpen}
         onReplay={() => {
           if (replayOpen) {
@@ -290,73 +205,37 @@ export function GrowthTreeView({
         }}
       />
       <div className="relative flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0">
-            <div
-              className="shrink-0 border-r border-b border-border"
-              style={{ width: GROWTH_LABEL_WIDTH, height: GROWTH_RULER_HEIGHT }}
-            />
-            <GrowthTreeRuler layout={layout} view={view} onToggleFold={toggleFold} />
-          </div>
-          <div className="flex min-h-0 flex-1">
-            <GrowthTreeLabels
-              tree={tree}
-              layout={layout}
-              view={view}
-              height={size.height}
-              selectedId={selected}
-              onSelectLane={choose}
-              onJumpLane={jump}
-              onToggleGroup={toggleGroup}
-            />
-            <div
-              ref={viewport.viewportRef}
-              data-growth-viewport=""
-              onPointerDown={viewport.onBackgroundPointerDown}
-              onClick={() => {
-                if (!viewport.consumeDrag()) {
-                  choose(null)
-                }
-              }}
-              className="project-map-viewport relative min-w-0 flex-1 cursor-default overflow-clip"
-            >
-              <div
-                className="absolute top-0 left-0 origin-top-left"
-                style={{
-                  width: layout.width,
-                  height: layout.height,
-                  transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`
-                }}
-              >
-                <GrowthTreeWorld
-                  tree={shown}
-                  layout={layout}
-                  selectedId={selected}
-                  focus={focus}
-                  filter={filter}
-                  projectNames={projectNames}
-                  summary={summary}
-                  cursorId={cursorId}
-                  zoom={view.zoom}
-                  onSelect={choose}
-                  onJump={jump}
-                  onPin={onPin}
-                  overlay={renderOverlay?.(layout.paths, replayOpen ? replayBus : bus)}
-                />
+        <div
+          ref={scrollRef}
+          data-growth-viewport=""
+          onClick={() => choose(null)}
+          className="scrollbar-sleek relative min-w-0 flex-1 overflow-auto bg-background"
+        >
+          <GrowthTreeWorld
+            tree={shown}
+            layout={layout}
+            selectedId={selected}
+            focus={focus}
+            filter={filter}
+            projectNames={projectNames}
+            cursorId={cursorId}
+            onSelect={choose}
+            onJump={jump}
+            onPin={onPin}
+            onToggleGroup={toggleGroup}
+            overlay={renderOverlay?.(layout.paths, replayOpen ? replayBus : bus)}
+          />
+          {empty ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex max-w-80 flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+                <Network aria-hidden className="size-6" />
+                {translate(
+                  'growthTree.empty',
+                  'Conversations appear here once a project has run an agent.'
+                )}
               </div>
-              {empty ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex max-w-80 flex-col items-center gap-2 text-center text-sm text-muted-foreground">
-                    <Network aria-hidden className="size-6" />
-                    {translate(
-                      'growthTree.empty',
-                      'Conversations appear here once a project has run an agent.'
-                    )}
-                  </div>
-                </div>
-              ) : null}
             </div>
-          </div>
+          ) : null}
         </div>
         {selected ? (
           <GrowthTreeDock

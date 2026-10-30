@@ -21880,17 +21880,12 @@
     "worktree": "Worktree",
     "groupCollapsed": "{{chats}} chats, {{working}} working",
     "emptyLanes": "Empty workspaces: {{count}}",
+    "noChats": "No conversations here yet",
     "jump": {
       "hidden": "This conversation is hidden in the blueprint.",
       "missing": "This conversation is not on the blueprint.",
       "unhide": "Show it",
       "dismiss": "Dismiss"
-    },
-    "mode": {
-      "label": "Time scale",
-      "compressed": "Compressed time",
-      "sequence": "Event order",
-      "linear": "Linear time"
     },
     "filter": {
       "label": "Filter",
@@ -21899,7 +21894,6 @@
       "window": "Time window",
       "active": "Filtered: {{count}}"
     },
-    "showAll": "Show all",
     "empty": "Conversations appear here once a project has run an agent.",
     "pin": {
       "from": "From project {{project}}",
@@ -21931,7 +21925,6 @@
       "7d": "Last 7 days",
       "30d": "Last 30 days"
     },
-    "foldedDays": "Idle gap folded here: {{days}} days",
     "replay": {
       "loading": "Reading history…",
       "missingHosts": "Hosts with no history: {{count}}",
