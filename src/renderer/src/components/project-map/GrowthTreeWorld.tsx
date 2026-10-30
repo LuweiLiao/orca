@@ -162,6 +162,7 @@ export function GrowthTreeWorld({
       {layout.groups.map((group) => (
         <div
           key={group.projectId}
+          data-growth-group-band={group.projectId}
           className="growth-tree-group absolute left-0"
           style={{ top: group.y, height: group.height, width: layout.width }}
         />
@@ -176,6 +177,7 @@ export function GrowthTreeWorld({
         />
       ))}
       <div
+        data-growth-now=""
         className="growth-tree-now absolute top-0"
         style={{ left: nowX, height: layout.height }}
       />
