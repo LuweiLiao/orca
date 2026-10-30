@@ -1,6 +1,7 @@
 import { parseProjectFlowEvent } from '../../../../shared/project-flow-event'
 import type { RuntimeClientEvent } from '../../../../shared/remote-runtime/session-graph/runtime-client-events'
 import { useAppStore } from '@/store'
+import { scheduleRuntimeGraphSync } from '@/runtime/sync-runtime-graph/graph-sync-scheduler'
 import { createProjectFlowIntake, type FlowLookup } from './project-flow-intake'
 import { createFlowSignalBus } from './project-flow-signal'
 
@@ -22,13 +23,18 @@ function flowLookupFromStore(): FlowLookup {
   }
 }
 
-const intake = createProjectFlowIntake(appFlowSignalBus, flowLookupFromStore)
+const intake = createProjectFlowIntake(
+  appFlowSignalBus,
+  flowLookupFromStore,
+  Date.now,
+  scheduleRuntimeGraphSync
+)
 
 /** A host's event, local or remote, is untrusted until it parses. */
-export function acceptProjectFlowEvent(raw: unknown): void {
+export function acceptProjectFlowEvent(raw: unknown, source: 'local' | 'remote' = 'remote'): void {
   const event = parseProjectFlowEvent(raw)
   if (event) {
-    intake.accept(event)
+    intake.accept(event, source)
   }
 }
 
@@ -45,7 +51,9 @@ export function acceptClientEvent(event: RuntimeClientEvent): boolean {
 
 export function register(unsubs: (() => void)[]): void {
   // Why: this machine's own host has no environment id, so its flights come by IPC.
-  const unsubscribeLocal = window.api.runtime?.onProjectFlow?.(acceptProjectFlowEvent)
+  const unsubscribeLocal = window.api.runtime?.onProjectFlow?.((event) =>
+    acceptProjectFlowEvent(event, 'local')
+  )
   if (unsubscribeLocal) {
     unsubs.push(unsubscribeLocal)
   }
