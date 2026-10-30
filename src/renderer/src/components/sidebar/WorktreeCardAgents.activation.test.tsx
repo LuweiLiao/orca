@@ -137,7 +137,8 @@ vi.mock('../terminal-pane/stale-agent-row', () => ({
 }))
 
 vi.mock('@/lib/agent-session/structured-agent-session-tab-activation', () => ({
-  activateStructuredAgentSessionTab: structuredActivationMocks.activateStructuredAgentSessionTab
+  activateStructuredAgentSessionTab: structuredActivationMocks.activateStructuredAgentSessionTab,
+  activateStructuredAgentSessionById: vi.fn(() => false)
 }))
 
 vi.mock('./useWorktreeAgentRows', () => ({
@@ -203,7 +204,9 @@ describe('WorktreeCardAgents activation', () => {
     renderToStaticMarkup(<WorktreeCardAgents worktreeId="wt-1" />)
     capturedRowActivations[0].onActivate(tabId, paneKey)
 
-    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1')
+    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1', {
+      revealInSidebar: false
+    })
     expect(structuredActivationMocks.activateStructuredAgentSessionTab).toHaveBeenCalledWith({
       worktreeId: 'wt-1',
       tabId
@@ -285,7 +288,9 @@ describe('WorktreeCardAgents activation', () => {
     expect(capturedRowActivations).toHaveLength(1)
     capturedRowActivations[0].onActivate(tabId, paneKey)
 
-    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1')
+    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1', {
+      revealInSidebar: false
+    })
     expect(activationMocks.activateTabAndFocusPane).toHaveBeenCalledWith(tabId, LEAF_A, {
       ackPaneKeyOnSuccess: paneKey,
       flashFocusedPane: true,
@@ -324,7 +329,9 @@ describe('WorktreeCardAgents activation', () => {
     expect(capturedRowActivations).toHaveLength(1)
     capturedRowActivations[0].onActivate(tabId, paneKey)
 
-    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1')
+    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1', {
+      revealInSidebar: false
+    })
     expect(activationMocks.activateTabAndFocusPane).toHaveBeenCalledWith(tabId, LEAF_A, {
       ackPaneKeyOnSuccess: paneKey,
       flashFocusedPane: true,
@@ -354,7 +361,9 @@ describe('WorktreeCardAgents activation', () => {
     expect(capturedRowActivations).toHaveLength(1)
     capturedRowActivations[0].onActivate(tabId, paneKey)
 
-    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1')
+    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1', {
+      revealInSidebar: false
+    })
     expect(activationMocks.activateTabAndFocusPane).not.toHaveBeenCalled()
     expect(staleAgentRowMocks.dismissStaleAgentRowByKey).not.toHaveBeenCalled()
   })
@@ -386,7 +395,9 @@ describe('WorktreeCardAgents activation', () => {
     expect(capturedRowActivations).toHaveLength(1)
     capturedRowActivations[0].onActivate(tabId, paneKey)
 
-    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1')
+    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1', {
+      revealInSidebar: false
+    })
     expect(mockActiveTabId).toBe(fallbackTabId)
     expect(activationMocks.activateTabAndFocusPane).not.toHaveBeenCalled()
     expect(staleAgentRowMocks.dismissStaleAgentRowByKey).not.toHaveBeenCalled()
@@ -465,7 +476,9 @@ describe('WorktreeCardAgents activation', () => {
     expect(capturedRowActivations).toHaveLength(1)
     capturedRowActivations[0].onActivate(tabId, paneKey)
 
-    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1')
+    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1', {
+      revealInSidebar: false
+    })
     expect(activationMocks.activateTabAndFocusPane).not.toHaveBeenCalled()
     expect(staleAgentRowMocks.dismissStaleAgentRowByKey).toHaveBeenCalledWith(paneKey)
   })
@@ -508,7 +521,9 @@ describe('WorktreeCardAgents activation', () => {
       row?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1')
+    expect(activationMocks.activateAndRevealWorktree).toHaveBeenCalledWith('wt-1', {
+      revealInSidebar: false
+    })
     expect(activationMocks.activateTabAndFocusPane).toHaveBeenCalledWith(tabId, LEAF_A, {
       ackPaneKeyOnSuccess: paneKey,
       flashFocusedPane: true,

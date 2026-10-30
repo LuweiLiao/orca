@@ -175,7 +175,8 @@ const WorktreeCardAgentsBody = React.memo(function WorktreeCardAgentsBody({
         return
       }
       // Why: design-doc rule — every user-initiated worktree switch must route through activateAndRevealWorktree (cross-repo activation + nav history).
-      activateAndRevealWorktree(worktreeId)
+      // Why no sidebar reveal: the clicked row is on screen, and revealing a card taller than the sidebar scrolls to its top, away from the row.
+      activateAndRevealWorktree(worktreeId, { revealInSidebar: false })
       const session = agents.find((agent) => agent.paneKey === paneKey)?.structuredSession
       if (session) {
         const target = structuredAgentSessionTargetForHost(session.executionHostId)
