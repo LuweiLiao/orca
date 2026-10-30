@@ -90,6 +90,10 @@ export function importFederatedRelayItem(
       | undefined
     if (params.lifecycle.kind === 'heartbeat' && !duplicate) {
       this.recordHeartbeat(params.dispatchId, params.lifecycle.at)
+      // Same as a local heartbeat: recorded liveness needs no pointer, only `check` visibility.
+      if (message.delivered_at === null) {
+        this.markAsDelivered([message.id], message.to_handle)
+      }
     } else if (params.lifecycle.kind === 'worker_report') {
       lifecycle = this.settleWorkerReportInTransaction({
         taskId: params.lifecycle.taskId,

@@ -159,6 +159,10 @@ function reconcileHeartbeatMessage(
 
   // Update only this Dispatch so old heartbeats cannot mask a hung retry.
   db.recordHeartbeat(dispatchId, msg.created_at)
+  if (msg.delivered_at === null) {
+    // Liveness is already recorded; a pointer would only wake the coordinator to ack it. Stays unread for `check`.
+    db.markAsDelivered([msg.id], msg.to_handle)
+  }
   return { action: 'heartbeat_recorded', dispatchId }
 }
 
