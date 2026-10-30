@@ -353,9 +353,9 @@ export default function ProjectMapPage(): React.JSX.Element {
         onOpenWorkspace={openWorkspace}
         onRevealProject={() => setChosenProjectId(null)}
         bus={appFlowSignalBus}
-        renderOverlay={(paths) => (
+        renderOverlay={(paths, bus) => (
           <ProjectFlowOverlay
-            bus={appFlowSignalBus}
+            bus={bus}
             resolve={(signal) =>
               resolveFlowRoute(paths.wires, signal.from, signal.to, {
                 handoff: signal.tone === 'handoff'

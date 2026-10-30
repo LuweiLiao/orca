@@ -23,7 +23,7 @@ import type { GrowthTimeMode } from './growth-tree-scale'
 import type { GrowthTree, GrowthTreeBar, GrowthTreeLane } from './growth-tree-types'
 import { growthRevealShift } from './growth-tree-reveal'
 import { growthTreeAt } from './growth-tree-replay'
-import type { FlowSignalBus } from './project-flow-signal'
+import { createFlowSignalBus, type FlowSignalBus } from './project-flow-signal'
 import { useGrowthTreeReplay } from './use-growth-tree-replay'
 import { projectMapSpanView, useProjectMapViewport } from './use-project-map-viewport'
 import { shouldFollowGrowthAutoFit, type GrowthAutoFit } from './growth-tree-auto-fit'
@@ -54,10 +54,10 @@ type Props = {
   onOpenLane: (lane: GrowthTreeLane) => void
   /** A pin leads into a project the page is not showing. */
   onRevealProject: (projectId: string) => void
-  /** The channel replayed events fly on; the overlay drawn over the wires listens to it. */
+  /** Live signals: what the overlay flies while replay is closed. */
   bus: FlowSignalBus
-  /** Drawn over the wires, given each node's box and each wire's path in world coordinates. */
-  renderOverlay?: (paths: GrowthTreePathIndex) => React.ReactNode
+  /** Drawn over the wires in world coordinates, flying the signals of the bus it is given. */
+  renderOverlay?: (paths: GrowthTreePathIndex, bus: FlowSignalBus) => React.ReactNode
 }
 
 export function GrowthTreeView({
@@ -80,7 +80,9 @@ export function GrowthTreeView({
   const [expandedFolds, setExpandedFolds] = useState<ReadonlySet<number>>(() => new Set())
   const [cursor, setCursor] = useState<string | null>(null)
   const [replayOpen, setReplayOpen] = useState(false)
-  const replay = useGrowthTreeReplay({ tree, enabled: replayOpen, bus })
+  // Why: a replay flies only what it plays back; live work that happens meanwhile is not mixed in.
+  const [replayBus] = useState(createFlowSignalBus)
+  const replay = useGrowthTreeReplay({ tree, enabled: replayOpen, bus: replayBus })
   const shown = useMemo(
     () => (replay.at === null ? tree : growthTreeAt(tree, replay.at)),
     [replay.at, tree]
@@ -339,7 +341,7 @@ export function GrowthTreeView({
                   onSelect={choose}
                   onJump={jump}
                   onPin={onPin}
-                  overlay={renderOverlay?.(layout.paths)}
+                  overlay={renderOverlay?.(layout.paths, replayOpen ? replayBus : bus)}
                 />
               </div>
               {empty ? (

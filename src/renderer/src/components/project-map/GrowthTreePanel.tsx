@@ -43,7 +43,7 @@ type Props = {
   onOpenWorkspace: (workspace: ProjectMapWorkspace) => void
   onRevealProject: (projectId: string) => void
   bus: FlowSignalBus
-  renderOverlay?: (paths: GrowthTreePathIndex) => React.ReactNode
+  renderOverlay?: (paths: GrowthTreePathIndex, bus: FlowSignalBus) => React.ReactNode
 }
 
 /** Builds the tree only while shown; hidden, it keeps the last one and its pan, zoom and filters. */

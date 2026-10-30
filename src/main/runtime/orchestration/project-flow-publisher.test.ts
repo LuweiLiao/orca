@@ -1,4 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { testOrcaSessionId } from '../../../shared/orca-session-address-test-fixture'
+import {
+  mintStructuredWorkerHandle,
+  mintStructuredWorkerPaneKey,
+  structuredWorkerProcessIncarnation
+} from '../structured-worker-identity'
 import { OrchestrationDb } from './db'
 import { delegateFlowEvent, mergeFlowEvent } from './project-flow-events'
 import { publishProjectFlow } from './project-flow-publisher'
@@ -54,6 +60,35 @@ describe('publishProjectFlow', () => {
     publishProjectFlow(withNone.sink, delegateFlowEvent('d2'))
     expect(withBroken.notify).toHaveBeenCalledTimes(1)
     expect(withNone.notify).toHaveBeenCalledTimes(1)
+  })
+
+  it('names a dispatch by its chats, so a released worker can still be placed', () => {
+    const db = memoryDb()
+    const coordinator = testOrcaSessionId('5c7e9b1d-3f6a-4c8e-9d1f-4a6c8e0b2d36')
+    const worker = testOrcaSessionId('6d8f0c2e-4a7b-4d9f-8e2a-5b7d9f1c3e47')
+    const run = db.createRun({
+      objective: 'flow',
+      coordinatorHandle: null,
+      coordinatorPaneKey: null,
+      coordinatorOrcaSessionId: coordinator
+    })
+    const task = db.createTask({ runId: run.id, spec: 'work' })
+    const dispatch = db.createDispatchContext({
+      taskId: task.id,
+      assigneeHandle: mintStructuredWorkerHandle(),
+      assigneePaneKey: mintStructuredWorkerPaneKey(worker),
+      processIncarnation: structuredWorkerProcessIncarnation(worker),
+      creator: { kind: 'system' },
+      maxDepth: Number.MAX_SAFE_INTEGER
+    })
+    const { notify, sink: target } = sink(db)
+    publishProjectFlow(target, delegateFlowEvent(dispatch.id))
+    const ends = {
+      from: { kind: 'coordinator', dispatchId: dispatch.id, sessionId: coordinator },
+      to: { kind: 'worker', dispatchId: dispatch.id, sessionId: worker }
+    }
+    expect(notify.mock.calls[0]?.[0]).toMatchObject(ends)
+    expect(db.readProjectFlowHistory({}).entries[0]).toMatchObject(ends)
   })
 
   it('records the run the caller knew when the event names no dispatch', () => {
