@@ -9,6 +9,7 @@ import type { WriteSettlement } from '../../../shared/pty-write-settlement'
 export type OrchestrationMailboxPointerMessage = {
   id: string
   type: string
+  priority?: string
   sequence: number
   pointer_enter_pending?: number
   pointer_pty_id?: string | null

@@ -67,7 +67,8 @@ export function structuredMailNotice(input: {
     messages.length,
     input.mailboxHandle,
     input.cliCommand,
-    heldDeliveryId
+    heldDeliveryId,
+    messages
   )
   return {
     kind: 'message',

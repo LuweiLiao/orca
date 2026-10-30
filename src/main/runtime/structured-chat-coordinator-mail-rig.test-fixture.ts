@@ -290,11 +290,13 @@ afterEach(async () => {
 export const WAIT = { timeout: 10_000, interval: 10 }
 
 export const POINTER =
-  /You have 1 orchestration message\. Run `orca(-dev)? orchestration check --run run_\w+`\./
+  /You have 1 orchestration message \([a-z_]+\)\. Run `orca(-dev)? orchestration check --run run_\w+`\./
 
-/** Exact PTY mailbox pointer, including CLI spelling. */
-export function ptyPointer(mailboxHandle: string): string {
-  return formatMessagePointer(1, mailboxHandle, localOrchestrationCliCommand()).trim()
+/** Exact PTY mailbox pointer for one message, including CLI spelling. */
+export function ptyPointer(mailboxHandle: string, type = 'worker_done'): string {
+  return formatMessagePointer(1, mailboxHandle, localOrchestrationCliCommand(), undefined, [
+    { type }
+  ]).trim()
 }
 
 export function turnText(turn: { text: string }): string {

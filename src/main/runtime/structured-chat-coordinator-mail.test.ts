@@ -185,7 +185,10 @@ describe('a worker result reaches the structured chat that coordinates it', () =
     await vi.waitFor(() => expect(providerFaults.turnStarts).toBe(2), WAIT)
     const revived = connectionFor(COORDINATOR)
     expect(turnText(revived.turns.at(-1)!)).toBe(
-      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand()).trim()
+      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand(), undefined, [
+        { type: 'worker_done' },
+        { type: 'worker_done' }
+      ]).trim()
     )
     await settleTurn(COORDINATOR, revived.turns.length - 1)
     await vi.waitFor(
@@ -416,7 +419,10 @@ describe('a worker result reaches the structured chat that coordinates it', () =
     await finishWorker(idOf(second.task), { handle: 'term_worker_2', paneKey: WORKER_2_PANE })
     await vi.waitFor(() => expect(chat.turns).toHaveLength(1), WAIT)
     expect(turnText(chat.turns[0]!)).toBe(
-      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand()).trim()
+      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand(), undefined, [
+        { type: 'worker_done' },
+        { type: 'worker_done' }
+      ]).trim()
     )
     expect(await queuedCardTexts()).toEqual([])
     expect(codex.connections.length).toBe(before)
@@ -513,7 +519,7 @@ describe('a worker result reaches the structured chat that coordinates it', () =
     expect(chat.steers).toHaveLength(0)
     const cli = localOrchestrationCliCommand()
     expect(turnText(chat.turns[2]!)).toContain(
-      `You have 1 new orchestration message after delivery ${heldId}, which you have not acknowledged. If you no longer have it, run \`${cli} orchestration check --run ${runId}\` to see it again; once it is handled, run \`${cli} orchestration check --run ${runId} --ack ${heldId}\`.`
+      `You have 1 new orchestration message (worker_done) after delivery ${heldId}, which you have not acknowledged. If you no longer have it, run \`${cli} orchestration check --run ${runId}\` to see it again; once it is handled, run \`${cli} orchestration check --run ${runId} --ack ${heldId}\`.`
     )
 
     // Ending that turn without acking stays quiet: nothing newer arrived, so no edge even reads the chat to send.
@@ -530,7 +536,7 @@ describe('a worker result reaches the structured chat that coordinates it', () =
     await finishWorker(idOf(task3.task), { handle: 'term_worker_2', paneKey: WORKER_2_PANE })
     await vi.waitFor(() => expect(chat.turns).toHaveLength(4), WAIT)
     expect(turnText(chat.turns[3]!)).toContain(
-      `You have 1 new orchestration message after delivery ${heldId}`
+      `You have 1 new orchestration message (worker_done) after delivery ${heldId}`
     )
 
     const next = await call(
@@ -741,7 +747,7 @@ describe('any live session is addressable by its id', () => {
 
     await vi.waitFor(() => expect(peer.turns).toHaveLength(1), WAIT)
     // Direct mail is not in a Run, so the pointer names no `--run`.
-    expect(turnText(peer.turns[0]!)).toBe(ptyPointer(`orca_session_id:${PEER_CHAT}`))
+    expect(turnText(peer.turns[0]!)).toBe(ptyPointer(`orca_session_id:${PEER_CHAT}`, 'status'))
     await settleTurn(PEER_CHAT, 0)
     const checked = await call('orchestration.check', {}, { sessionId: PEER_CHAT })
     expect(checked).toMatchObject({ count: 1, messages: [{ subject: 'ping' }] })
