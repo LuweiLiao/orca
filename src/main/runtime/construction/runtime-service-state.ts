@@ -1,4 +1,5 @@
 import { OrchestrationStructuredMailboxPointerDelivery } from '../orchestration/structured-mailbox-pointer-delivery'
+import { StructuredStaleMailReminder } from '../orchestration/structured-stale-mail-reminder'
 
 import { createStructuredMailboxPointerHost } from '../orchestration/structured-mailbox-pointer-host'
 import { localOrchestrationCliCommand } from '../orchestration/cli-command'
@@ -266,6 +267,19 @@ export abstract class OrcaRuntimeWithStopRequestedPtyIds extends OrcaRuntimeWith
         this.orchestrationSenderNames.nameOf(party, reportedDispatchId),
       host: createStructuredMailboxPointerHost()
     })
+
+  protected readonly orchestrationStructuredStaleMailReminder = new StructuredStaleMailReminder({
+    getDb: () => this._orchestrationDb,
+    ownerSessionId: (mailboxHandle) =>
+      this.resolveStructuredMailboxTarget(mailboxHandle)?.sessionId,
+    redeliver: (mailboxHandle) => this.deliverPendingMessagesForHandle(mailboxHandle)
+  })
+
+  /** Journal movement redrives parked mail and reminds the session of mail it left unread. */
+  protected onStructuredSessionJournalActivity(sessionId: string): void {
+    this.orchestrationStructuredMailboxPointerDelivery.onJournalActivity(sessionId)
+    this.orchestrationStructuredStaleMailReminder.sweep(sessionId)
+  }
 
   /** What Orca calls an agent that sends through it; public for every such send site. */
   readonly orchestrationSenderNames = new RuntimeOrchestrationSenderNames({
