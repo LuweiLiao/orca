@@ -363,17 +363,63 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
         page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
       )
       .toBe(false)
+    // A finished chat given a second task: its map context only changes when the host next tells
+    // the window, so the flight must not wait for the chat's turn to start.
+    const reused = workers[0]
+    if (!reused) {
+      throw new Error('the first worker must have started')
+    }
+    await sessionClient(userDataDir, reused.sessionId).call('orchestration.send', {
+      from: reused.handle,
+      to: `run:${run.result.run.id}`,
+      subject: 'CSV done',
+      type: 'worker_done',
+      payload: JSON.stringify({
+        taskId: reused.taskId,
+        dispatchId: reused.dispatchId,
+        outcome: 'succeeded'
+      })
+    })
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(4)
+    // Let the host's own follow-up updates after that report finish, so nothing else tells the
+    // window about the next task.
+    await page.waitForTimeout(3_000)
+    const dispatchAgain = async (target: StartedWorker) => {
+      const task = await client.call<{ task: { id: string } }>('orchestration.taskCreate', {
+        spec: `Once more for ${target.handle.slice(-4)}`,
+        run: run.result.run.id,
+        from
+      })
+      const dispatched = await client.call<{ dispatch: { id: string } }>('orchestration.dispatch', {
+        task: task.result.task.id,
+        to: target.handle,
+        from,
+        returnPreamble: true,
+        run: run.result.run.id
+      })
+      return { taskId: task.result.task.id, dispatchId: dispatched.result.dispatch.id }
+    }
+    const reportAgain = (target: StartedWorker, again: { taskId: string; dispatchId: string }) =>
+      sessionClient(userDataDir, target.sessionId).call('orchestration.send', {
+        from: target.handle,
+        to: `run:${run.result.run.id}`,
+        subject: 'Done again',
+        type: 'worker_done',
+        payload: JSON.stringify({ ...again, outcome: 'succeeded' })
+      })
+    const firstAgain = await dispatchAgain(reused)
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(5)
+    const secondAgain = await dispatchAgain(started)
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(6)
     await expect
-      .poll(() =>
-        page.evaluate(
-          (tabId) =>
-            Object.values(window.__store!.getState().unifiedTabsByWorktree).some((tabs) =>
-              tabs.some((tab) => tab.id === tabId)
-            ),
-          structuredAgentSessionTabId(derived.sessionId)
-        )
-      )
-      .toBe(false)
+      .poll(async () => (await flights()).slice(4))
+      .toEqual(['delegate:forward:wire:gone', 'delegate:forward:wire:gone'])
+    await reportAgain(reused, firstAgain)
+    await reportAgain(started, secondAgain)
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(8)
+    await expect
+      .poll(async () => (await flights()).slice(6))
+      .toEqual(['success:back:wire:gone', 'success:back:wire:gone'])
     await worker.click()
     await expect(chatWindow.getByText('Stub reply.', { exact: true }).first()).toBeVisible({
       timeout: 30_000

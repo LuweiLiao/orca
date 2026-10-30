@@ -212,7 +212,9 @@ export function registerRuntimeClientIpcBridge(
   }
 
   // Why: this machine's own host has no environment id, so its flights come by IPC.
-  const unsubscribeLocalProjectFlow = window.api.runtime.onProjectFlow?.(acceptProjectFlowEvent)
+  const unsubscribeLocalProjectFlow = window.api.runtime.onProjectFlow?.((event) =>
+    acceptProjectFlowEvent(event, 'local')
+  )
   if (unsubscribeLocalProjectFlow) {
     unsubs.push(unsubscribeLocalProjectFlow)
   }
