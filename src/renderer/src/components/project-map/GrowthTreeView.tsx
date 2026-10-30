@@ -20,9 +20,12 @@ import {
 } from './growth-tree-layout'
 import type { GrowthTimeMode } from './growth-tree-scale'
 import type { GrowthTree, GrowthTreeBar, GrowthTreeLane } from './growth-tree-types'
+import { growthRevealShift } from './growth-tree-reveal'
 import { useProjectMapViewport } from './use-project-map-viewport'
 
 const RECENT_FIT_MS = 7 * 24 * 60 * 60 * 1000
+const READABLE_ZOOM = 0.8
+const NOW_ROOM_PX = 120
 const BAR_HEIGHT_FOR_CENTER = 22
 
 export type GrowthTreeJumpTarget = {
@@ -77,7 +80,7 @@ export function GrowthTreeView({
     [layout.height, layout.width]
   )
   const viewport = useProjectMapViewport(content)
-  const { view, size, fitSpan, centerOn, zoomBy, fit } = viewport
+  const { view, size, fitSpan, panBy, centerOn, zoomBy, fit } = viewport
   const known = selectedId && (tree.bars.has(selectedId) || tree.lanes.has(selectedId))
   const selected = known ? selectedId : null
   const focus = useMemo(() => growthFocus(tree, selected), [selected, tree])
@@ -106,7 +109,11 @@ export function GrowthTreeView({
 
   const fitRecent = useCallback(() => {
     const from = layout.scale.xOf(tree.now - RECENT_FIT_MS)
-    fitSpan({ x: from, width: layout.scale.xOf(tree.now) + 120 - from })
+    // A long history keeps a readable zoom and shows its newest part, so "now" is always in view.
+    fitSpan(
+      { x: from, width: layout.scale.xOf(tree.now) - from },
+      { minZoom: READABLE_ZOOM, anchor: 'end', endPadding: NOW_ROOM_PX }
+    )
   }, [fitSpan, layout.scale, tree.now])
   const projectKey = projectIds ? [...projectIds].sort().join('|') : '*'
   const fittedFor = useRef<string | null>(null)
@@ -118,6 +125,20 @@ export function GrowthTreeView({
     // Fit once per project scope; later refreshes keep the person's pan and zoom.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, projectKey, size.width])
+
+  // Selecting never moves the view; only a detail panel that now covers the chat does, by the least.
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const selectedBox = selected ? layout.bars.get(selected) : undefined
+  useEffect(() => {
+    if (!active || !selectedBox || size.width === 0) {
+      return
+    }
+    const { dx, dy } = growthRevealShift(selectedBox, viewRef.current, size)
+    if (dx !== 0 || dy !== 0) {
+      panBy(dx, dy)
+    }
+  }, [active, panBy, selectedBox, size])
 
   const toggleGroup = useCallback((projectId: string) => {
     setCollapsed((current) => {
@@ -246,7 +267,7 @@ export function GrowthTreeView({
                   choose(null)
                 }
               }}
-              className="project-map-viewport relative min-w-0 flex-1 cursor-default overflow-hidden"
+              className="project-map-viewport relative min-w-0 flex-1 cursor-default overflow-clip"
             >
               <div
                 className="absolute top-0 left-0 origin-top-left"

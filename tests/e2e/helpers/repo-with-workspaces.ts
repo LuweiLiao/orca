@@ -27,9 +27,10 @@ export type RepoWithWorkspaces = {
 export async function addRepoWithWorkspaces(
   page: Page,
   testInfo: TestInfo,
-  count: number
+  count: number,
+  name = 'repo-with-workspaces'
 ): Promise<RepoWithWorkspaces> {
-  const root = testInfo.outputPath('repo-with-workspaces')
+  const root = testInfo.outputPath(name)
   const repoPath = path.join(root, 'repo')
   mkdirSync(repoPath, { recursive: true })
   const git = (...args: string[]) => execFileSync('git', args, { cwd: repoPath, stdio: 'pipe' })

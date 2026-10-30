@@ -224,11 +224,14 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     })
 
     // Project B: its own repo and a chat; and a folder workspace with a chat.
-    const other = await addRepoWithWorkspaces(page, testInfo, 0)
+    const other = await addRepoWithWorkspaces(page, testInfo, 1)
+    // A third project with nothing running in it: only empty workspaces.
+    await addRepoWithWorkspaces(page, testInfo, 1, 'idle-repo')
     await page.evaluate((id) => window.__store!.getState().setActiveWorktree(id), other.mainId)
     const otherChat = await createChatOnHost(page, other.mainId)
     await sayInChat(page, otherChat, 'OTHER: a chat in the second project', 1)
     const folderPath = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'orca-growth-folder-')))
+    mkdirSync(path.join(folderPath, 'archive'))
     registerPostElectronShutdownCleanup(async () =>
       rmSync(folderPath, { recursive: true, force: true })
     )
@@ -246,8 +249,14 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
           { projectGroupId: group.id, name: 'Interviews', folderPath },
           { runtimeEnvironmentId: null }
         )
-      if (!folder) {
-        throw new Error('Could not create folder workspace')
+      const spare = await store
+        .getState()
+        .createFolderWorkspace(
+          { projectGroupId: group.id, name: 'Archive', folderPath: `${folderPath}/archive` },
+          { runtimeEnvironmentId: null }
+        )
+      if (!folder || !spare) {
+        throw new Error('Could not create folder workspaces')
       }
       return `folder:${folder.id}`
     }, folderPath)
@@ -319,7 +328,7 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
 
     // Collapse a project group: its bars leave, the header stays.
     const groups = tree.locator('[data-growth-group]')
-    await expect(groups).toHaveCount(3)
+    await expect(groups).toHaveCount(4)
     const otherGroup = tree.locator(`[data-growth-group="${other.repoId}"]`)
     await otherGroup.click()
     await expect(otherGroup).toHaveAttribute('aria-expanded', 'false')
@@ -348,6 +357,139 @@ test('draws every project on one time axis and jumps from a bar to the blueprint
     await expect(tree.locator('text=/^\\d+%$/').first()).toHaveText(zoomBefore ?? '')
 
     await expect(bar(paneKeyOf(crossChild))).toBeVisible({ timeout: 30_000 })
+    await tree.getByRole('button', { name: 'Fit to view' }).click()
+
+    // An open tooltip owns the first Escape, so let any transient one close first.
+    const dismiss = async (): Promise<void> => {
+      if ((await tooltip.count()) > 0) {
+        await page.keyboard.press('Escape')
+        await expect(tooltip).toHaveCount(0)
+      }
+      await page.keyboard.press('Escape')
+      await expect(dock).toHaveCount(0)
+    }
+
+    // Every lane label sits inside its own lane, and none overlaps another, at the default zoom
+    // and zoomed far out; each project group keeps its header and its empty-workspaces row inside it.
+    const zoomText = tree.locator('text=/^\\d+%$/').first()
+    const zoomOf = async (): Promise<number> =>
+      Number.parseInt((await zoomText.textContent()) ?? '0', 10)
+    const expectLabelsAligned = async (): Promise<void> => {
+      const misplaced = await tree.evaluate((root) => {
+        const rect = (el: Element) => el.getBoundingClientRect()
+        const problems: string[] = []
+        const labels = [...root.querySelectorAll('[data-growth-lane-label]')]
+        for (const label of labels) {
+          const id = label.getAttribute('data-growth-lane-label')
+          const lane = root.querySelector(`[data-growth-lane="${id}"]`)
+          if (!lane) {
+            continue
+          }
+          const [l, w] = [rect(label), rect(lane)]
+          const center = (l.top + l.bottom) / 2
+          if (center < w.top - 1 || center > w.bottom + 1) {
+            problems.push(`label ${id} center ${center} outside lane ${w.top}-${w.bottom}`)
+          }
+          if (label.scrollHeight > label.clientHeight + 1) {
+            problems.push(`label ${id} text overflows its row`)
+          }
+        }
+        const sorted = labels.map(rect).sort((a, b) => a.top - b.top)
+        sorted.slice(1).forEach((r, i) => {
+          if (r.top < sorted[i]!.bottom - 1) {
+            problems.push(`labels overlap at ${r.top}`)
+          }
+        })
+        for (const band of root.querySelectorAll('[data-growth-group-band]')) {
+          const id = band.getAttribute('data-growth-group-band')
+          const empty = root.querySelector(`[data-growth-empty-lanes="${id}"]`)
+          const header = root.querySelector(`[data-growth-group="${id}"]`)
+          for (const part of [empty, header]) {
+            if (
+              part &&
+              (rect(part).top < rect(band).top - 1 || rect(part).bottom > rect(band).bottom + 1)
+            ) {
+              problems.push(`group ${id} part outside its band`)
+            }
+          }
+        }
+        return problems
+      })
+      expect(misplaced).toEqual([])
+    }
+    await expectLabelsAligned()
+    for (let i = 0; i < 12 && (await zoomOf()) > 40; i++) {
+      await tree.getByRole('button', { name: 'Zoom out' }).click()
+    }
+    await expectLabelsAligned()
+    await screenshot('growth-tree-labels-zoomed-out')
+    await tree.getByRole('button', { name: 'Fit to view' }).click()
+
+    // The default view shows a readable zoom and the line for now, even for a long history.
+    const worldBox = tree.locator('[data-growth-viewport]')
+    const nowInView = async (): Promise<boolean> => {
+      const [view, now] = await Promise.all([
+        worldBox.boundingBox(),
+        tree.locator('[data-growth-now]').boundingBox()
+      ])
+      return (
+        view !== null && now !== null && now.x >= view.x - 1 && now.x <= view.x + view.width + 1
+      )
+    }
+    expect(await nowInView()).toBe(true)
+    expect(await zoomOf()).toBeGreaterThanOrEqual(80)
+    const eventOrder = tree.getByRole('combobox', { name: 'Time scale' })
+    await eventOrder.click()
+    await page.getByRole('option', { name: 'Event order' }).click()
+    await tree.getByRole('button', { name: 'Fit to view' }).click()
+    expect(await nowInView()).toBe(true)
+    expect(await zoomOf()).toBeGreaterThanOrEqual(80)
+    await screenshot('growth-tree-default-view')
+
+    // Selecting a chat does not move the view; a chat the detail panel would cover moves only
+    // as far as it takes to show it.
+    const transformOf = (): Promise<string> =>
+      tree.locator('[data-growth-world]').evaluate((el) => el.parentElement!.style.transform)
+    const barsByX = await tree.evaluate((root) => {
+      const view = root.querySelector('[data-growth-viewport]')!.getBoundingClientRect()
+      return [...root.querySelectorAll('[data-growth-bar]')]
+        .map((el) => ({
+          id: el.getAttribute('data-growth-bar')!,
+          rect: el.getBoundingClientRect()
+        }))
+        .filter(({ rect }) => rect.left >= view.left && rect.right <= view.right)
+        .map(({ id, rect }) => ({ id, x: rect.left, right: rect.right, view: view.right }))
+        .sort((a, b) => a.x - b.x)
+    })
+    // Clear of the 288px detail panel, so opening it cannot cover the chat.
+    const leftmost = barsByX.find(({ right, view }) => right <= view - 300)!.id
+    const rightmost = barsByX.at(-1)!.id
+    const transformBefore = await transformOf()
+    await bar(leftmost).click()
+    await expect(dock).toBeVisible()
+    expect(await transformOf()).toBe(transformBefore)
+    await dismiss()
+    await bar(rightmost).click()
+    await expect(dock).toBeVisible()
+    // The panel narrows the viewport a moment after it opens; the chat is then panned into view.
+    await expect
+      .poll(async () => {
+        const [viewRect, barRect] = await Promise.all([
+          worldBox.boundingBox(),
+          bar(rightmost).boundingBox()
+        ])
+        return (
+          viewRect !== null &&
+          barRect !== null &&
+          barRect.x >= viewRect.x &&
+          barRect.x + barRect.width <= viewRect.x + viewRect.width
+        )
+      })
+      .toBe(true)
+    expect(await tree.locator('[data-growth-viewport]').evaluate((el) => el.scrollLeft)).toBe(0)
+    await dismiss()
+    await eventOrder.click()
+    await page.getByRole('option', { name: 'Compressed time' }).click()
     await tree.getByRole('button', { name: 'Fit to view' }).click()
 
     // A hand-off into another project is a pin at each end, and a click on one lands on the other.
