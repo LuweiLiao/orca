@@ -7,11 +7,8 @@ import {
 import { resolveFleetWorkerOutcome } from '../../../../../../shared/orchestration-fleet-outcome-resolution'
 import type { WorkerTerminalListState } from '../../../../orchestration/worker-terminal-ownership'
 import type { OrchestrationDb } from '../../../../orchestration/db'
-import type { OrcaSessionId } from '../../../../../../shared/orca-session-address'
-import {
-  chatAssigneeSessionId,
-  type ChatAssigneeObservation
-} from '../../../../orchestration/chat-assignee'
+import { chatAssigneeSessionId } from '../../../../orchestration/chat-assignee'
+import type { SessionWorkerObservation } from './session-worker-observation'
 import { refreshFleetWorkerVerdict } from '../federation/federated-fleet-snapshot'
 
 export type WorkerListPageParams = {
@@ -28,8 +25,8 @@ export function projectWorkerFleet(args: {
   limit: number
   now: number
   completeProjection?: boolean
-  /** A chat assignee's verdict; no agent-status row names a chat, so its reach stands in. */
-  observeChat?: (sessionId: OrcaSessionId) => ChatAssigneeObservation
+  /** A chat or structured worker's verdict; no agent-status row binds a session without a PTY. */
+  observeSession?: (dispatchId: string, terminalHandle: string) => SessionWorkerObservation | null
 }) {
   const workers: FleetDurableWorker[] = args.rows.map((row) => {
     return {
@@ -67,7 +64,7 @@ export function projectWorkerFleet(args: {
       }),
       durable
     }
-    applyChatAssigneeLiveness(fleet, args.observeChat, args.now)
+    applySessionWorkerLiveness(fleet, args.observeSession, args.now)
     return fleet
   }
 
@@ -87,23 +84,33 @@ export function projectWorkerFleet(args: {
     page: { limit: workers.length, total: workers.length, hasMore: false, nextCursor: null },
     durable
   }
-  applyChatAssigneeLiveness(fleet, args.observeChat, args.now)
+  applySessionWorkerLiveness(fleet, args.observeSession, args.now)
   return fleet
 }
 
 /** Read off the session records, as worker-show and mail read it: at rest is live, closed exited. */
-function applyChatAssigneeLiveness(
+function applySessionWorkerLiveness(
   fleet: { workers: OrchestrationFleetWorker[]; durable: ReadonlyMap<string, FleetDurableWorker> },
-  observeChat: ((sessionId: OrcaSessionId) => ChatAssigneeObservation) | undefined,
+  observeSession:
+    | ((dispatchId: string, terminalHandle: string) => SessionWorkerObservation | null)
+    | undefined,
   now: number
 ): void {
-  for (const worker of observeChat ? fleet.workers : []) {
-    const chat = chatAssigneeSessionId(fleet.durable.get(worker.dispatchId)?.agentTerminalHandle)
+  for (const worker of observeSession ? fleet.workers : []) {
+    const handle = fleet.durable.get(worker.dispatchId)?.agentTerminalHandle
     // A durable death certificate (a stop, a release) outranks a read of the records.
-    if (!chat || !observeChat || worker.liveness.verdict === 'exited') {
+    if (!handle || !observeSession || worker.liveness.verdict === 'exited') {
       continue
     }
-    const observed = observeChat(chat)
+    const observed = observeSession(worker.dispatchId, handle)
+    // A structured worker the records cannot prove keeps the fleet's own verdict.
+    if (
+      !observed ||
+      observed.status === 'identity_changed' ||
+      (observed.status === 'unverifiable' && !chatAssigneeSessionId(handle))
+    ) {
+      continue
+    }
     worker.liveness =
       observed.status === 'live'
         ? { verdict: 'live', observedAt: now, source: 'execution_host' }

@@ -1,16 +1,12 @@
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
-import type { OrcaSessionId } from '../../../../../../shared/orca-session-address'
-import {
-  chatAssigneeSessionId,
-  observeChatAssignee,
-  type ChatAssigneeObservation
-} from '../../../../orchestration/chat-assignee'
+import { chatAssigneeSessionId, observeChatAssignee } from '../../../../orchestration/chat-assignee'
 import type { OrchestrationDb } from '../../../../orchestration/db'
 import {
   holdStructuredWorker,
   observeStructuredSession
 } from '../../../../structured-worker-authority'
 import { resolveStructuredWorkerForDispatch } from '../../orchestration-structured-worker-lifecycle'
+import { isStructuredWorkerHandle } from '../../../../../../shared/structured-worker-handle'
 
 export type SessionWorkerObservation = {
   terminal: null
@@ -22,16 +18,13 @@ export type SessionWorkerObservation = {
 }
 
 /** Read session records for structured/chat workers; null selects the PTY path. */
-export async function inspectSessionWorker(
-  runtime: Pick<OrcaRuntimeService, 'ensureStructuredAgentSessionHost'>,
+export function observeSessionWorker(
   db: OrchestrationDb,
   dispatchId: string,
   terminalHandle: string
-): Promise<SessionWorkerObservation | null> {
+): SessionWorkerObservation | null {
   const chat = chatAssigneeSessionId(terminalHandle)
   if (chat) {
-    // Chat address is its exact identity; ensure host records are installed after restart.
-    await runtime.ensureStructuredAgentSessionHost().catch(() => undefined)
     const observed = observeChatAssignee(chat, db)
     return {
       terminal: null,
@@ -41,7 +34,9 @@ export async function inspectSessionWorker(
       terminalHandle: null
     }
   }
-  const structured = resolveStructuredWorkerForDispatch(db, dispatchId)
+  const structured = isStructuredWorkerHandle(terminalHandle)
+    ? resolveStructuredWorkerForDispatch(db, dispatchId)
+    : null
   if (!structured) {
     return null
   }
@@ -69,14 +64,33 @@ export async function inspectSessionWorker(
   }
 }
 
-/** A fleet page's chat verdicts, read off the session records a restart leaves uninstalled. */
-export async function chatAssigneeObserver(
+/** As observeSessionWorker, after installing the host records a restart leaves uninstalled. */
+export async function inspectSessionWorker(
+  runtime: Pick<OrcaRuntimeService, 'ensureStructuredAgentSessionHost'>,
+  db: OrchestrationDb,
+  dispatchId: string,
+  terminalHandle: string
+): Promise<SessionWorkerObservation | null> {
+  if (chatAssigneeSessionId(terminalHandle)) {
+    await runtime.ensureStructuredAgentSessionHost().catch(() => undefined)
+  }
+  return observeSessionWorker(db, dispatchId, terminalHandle)
+}
+
+/** A fleet page's session-worker verdicts, read off records a restart leaves uninstalled. */
+export async function sessionWorkerObserver(
   runtime: Pick<OrcaRuntimeService, 'ensureStructuredAgentSessionHost'>,
   db: OrchestrationDb,
   rows: readonly { agentTerminalHandle: string | null }[]
-): Promise<(sessionId: OrcaSessionId) => ChatAssigneeObservation> {
-  if (rows.some((row) => chatAssigneeSessionId(row.agentTerminalHandle))) {
+): Promise<(dispatchId: string, terminalHandle: string) => SessionWorkerObservation | null> {
+  if (
+    rows.some(
+      (row) =>
+        chatAssigneeSessionId(row.agentTerminalHandle) ||
+        isStructuredWorkerHandle(row.agentTerminalHandle)
+    )
+  ) {
     await runtime.ensureStructuredAgentSessionHost().catch(() => undefined)
   }
-  return (sessionId) => observeChatAssignee(sessionId, db)
+  return (dispatchId, terminalHandle) => observeSessionWorker(db, dispatchId, terminalHandle)
 }
