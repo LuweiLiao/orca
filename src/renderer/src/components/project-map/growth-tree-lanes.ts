@@ -36,6 +36,17 @@ export function buildGrowthLanes(
         (a, b) => a.start - b.start || cmp(a.id, b.id)
       )
       const folder = workspace.workspaceKind === 'folder'
+      const firstChatAt = own[0]?.start ?? null
+      const created =
+        workspace.createdAt !== undefined && workspace.createdAt > 0
+          ? Math.min(workspace.createdAt, now)
+          : null
+      const start =
+        created === null
+          ? firstChatAt
+          : firstChatAt === null
+            ? created
+            : Math.min(created, firstChatAt)
       lanes.set(workspace.worktreeId, {
         id: workspace.worktreeId,
         projectId: graph.projectId,
@@ -46,7 +57,9 @@ export function buildGrowthLanes(
         parentId: folder ? null : workspace.parentId,
         childIds: [],
         barIds: own.map((bar) => bar.id),
-        start: own[0]?.start ?? null,
+        firstChatAt,
+        start,
+        startApprox: created === null,
         workspace
       })
     }
@@ -67,7 +80,9 @@ export function buildGrowthLanes(
   const reachOf = (id: string): number | null => {
     if (!reach.has(id)) {
       const lane = lanes.get(id)!
-      const starts = [lane.start, ...lane.childIds.map(reachOf)].flatMap((value) => value ?? [])
+      const starts = [lane.firstChatAt, ...lane.childIds.map(reachOf)].flatMap(
+        (value) => value ?? []
+      )
       reach.set(id, starts.length > 0 ? Math.min(...starts) : null)
     }
     return reach.get(id)!
@@ -89,7 +104,8 @@ export function buildGrowthLanes(
       const lane = lanes.get(id)!
       for (const childId of lane.childIds) {
         const child = lanes.get(childId)!
-        const at = reachOf(childId)
+        const reached = reachOf(childId)
+        const at = reached === null ? null : child.startApprox ? reached : (child.start ?? reached)
         if (at !== null && child.kind === 'worktree' && lane.kind === 'worktree') {
           deriveEdges.push({
             id: `derive:${id}>${childId}`,

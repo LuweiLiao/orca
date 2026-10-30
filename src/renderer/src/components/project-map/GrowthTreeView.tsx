@@ -11,6 +11,8 @@ import {
 import { GrowthTreeToolbar } from './GrowthTreeToolbar'
 import { GrowthTreeWorld } from './GrowthTreeWorld'
 import { GROWTH_EMPTY_FILTER, growthFocus, growthWindowStart } from './growth-tree-focus'
+import { buildGrowthSummary, GROWTH_SUMMARY_ZOOM } from './growth-tree-summary'
+import { useGrowthTreeKeys } from './use-growth-tree-keys'
 import {
   layoutGrowthTree,
   type GrowthLayoutPin,
@@ -48,15 +50,6 @@ type Props = {
   renderOverlay?: (paths: GrowthTreePathIndex) => React.ReactNode
 }
 
-function typingIn(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    target.closest(
-      'input, textarea, select, [contenteditable], [role="dialog"], [role="listbox"]'
-    ) !== null
-  )
-}
-
 export function GrowthTreeView({
   tree,
   active,
@@ -73,9 +66,11 @@ export function GrowthTreeView({
   const [mode, setMode] = useState<GrowthTimeMode>('compressed')
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set())
   const [filter, setFilter] = useState(GROWTH_EMPTY_FILTER)
+  const [expandedFolds, setExpandedFolds] = useState<ReadonlySet<number>>(() => new Set())
+  const [cursor, setCursor] = useState<string | null>(null)
   const layout = useMemo(
-    () => layoutGrowthTree({ tree, mode, collapsed, projectIds }),
-    [collapsed, mode, projectIds, tree]
+    () => layoutGrowthTree({ tree, mode, collapsed, projectIds, expandedFolds }),
+    [collapsed, expandedFolds, mode, projectIds, tree]
   )
   const content = useMemo(
     () => ({ width: layout.width, height: layout.height }),
@@ -86,6 +81,28 @@ export function GrowthTreeView({
   const known = selectedId && (tree.bars.has(selectedId) || tree.lanes.has(selectedId))
   const selected = known ? selectedId : null
   const focus = useMemo(() => growthFocus(tree, selected), [selected, tree])
+  const summaryTier = view.zoom < GROWTH_SUMMARY_ZOOM
+  const summary = useMemo(
+    () => (summaryTier ? buildGrowthSummary(tree, layout, filter) : null),
+    [filter, layout, summaryTier, tree]
+  )
+  const cursorId = cursor && layout.bars.has(cursor) ? cursor : null
+  const choose = useCallback(
+    (id: string | null) => {
+      setCursor(id)
+      onSelect(id)
+    },
+    [onSelect]
+  )
+  const toggleFold = useCallback((from: number) => {
+    setExpandedFolds((current) => {
+      const next = new Set(current)
+      if (!next.delete(from)) {
+        next.add(from)
+      }
+      return next
+    })
+  }, [])
 
   const fitRecent = useCallback(() => {
     const from = layout.scale.xOf(tree.now - RECENT_FIT_MS)
@@ -126,7 +143,8 @@ export function GrowthTreeView({
         tree,
         mode,
         collapsed: nextCollapsed,
-        projectIds: outside ? null : projectIds
+        projectIds: outside ? null : projectIds,
+        expandedFolds
       })
       const box = next.bars.get(bar.id)
       if (outside) {
@@ -137,9 +155,9 @@ export function GrowthTreeView({
       if (box) {
         centerOn({ x: box.x, y: box.y, width: box.width, height: BAR_HEIGHT_FOR_CENTER })
       }
-      onSelect(bar.id)
+      choose(bar.id)
     },
-    [centerOn, collapsed, mode, onRevealProject, onSelect, projectIds, tree]
+    [centerOn, choose, collapsed, expandedFolds, mode, onRevealProject, projectIds, tree]
   )
 
   const jump = useCallback(
@@ -161,33 +179,21 @@ export function GrowthTreeView({
     [onJump, tree.bars, tree.lanes]
   )
 
-  useEffect(() => {
-    if (!active) {
-      return
-    }
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (
-        event.defaultPrevented ||
-        event.altKey ||
-        event.metaKey ||
-        event.ctrlKey ||
-        typingIn(event.target)
-      ) {
-        return
-      }
-      if (event.key === 'Escape' && selected) {
-        onSelect(null)
-      } else if (event.key.toLowerCase() === 'f' && !event.shiftKey) {
-        fitRecent()
-      } else if (event.key === '+' || event.key === '=') {
-        zoomBy(1.2)
-      } else if (event.key === '-') {
-        zoomBy(1 / 1.2)
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [active, fitRecent, onSelect, selected, zoomBy])
+  useGrowthTreeKeys({
+    active,
+    summary: summaryTier,
+    layout,
+    view,
+    size,
+    selected,
+    cursor: cursorId,
+    onCursor: setCursor,
+    onSelect,
+    onJump: jump,
+    onFit: fitRecent,
+    onZoom: zoomBy,
+    onCenter: centerOn
+  })
 
   const windowStart = growthWindowStart(filter.window, tree.now)
   const showAll = useCallback(() => {
@@ -218,7 +224,7 @@ export function GrowthTreeView({
               className="shrink-0 border-r border-b border-border"
               style={{ width: GROWTH_LABEL_WIDTH, height: GROWTH_RULER_HEIGHT }}
             />
-            <GrowthTreeRuler layout={layout} view={view} />
+            <GrowthTreeRuler layout={layout} view={view} onToggleFold={toggleFold} />
           </div>
           <div className="flex min-h-0 flex-1">
             <GrowthTreeLabels
@@ -227,7 +233,7 @@ export function GrowthTreeView({
               view={view}
               height={size.height}
               selectedId={selected}
-              onSelectLane={onSelect}
+              onSelectLane={choose}
               onJumpLane={jump}
               onToggleGroup={toggleGroup}
             />
@@ -237,7 +243,7 @@ export function GrowthTreeView({
               onPointerDown={viewport.onBackgroundPointerDown}
               onClick={() => {
                 if (!viewport.consumeDrag()) {
-                  onSelect(null)
+                  choose(null)
                 }
               }}
               className="project-map-viewport relative min-w-0 flex-1 cursor-default overflow-hidden"
@@ -257,7 +263,10 @@ export function GrowthTreeView({
                   focus={focus}
                   filter={filter}
                   projectNames={projectNames}
-                  onSelect={onSelect}
+                  summary={summary}
+                  cursorId={cursorId}
+                  zoom={view.zoom}
+                  onSelect={choose}
                   onJump={jump}
                   onPin={onPin}
                   overlay={renderOverlay?.(layout.paths)}
@@ -282,7 +291,7 @@ export function GrowthTreeView({
             tree={tree}
             selectedId={selected}
             projectNames={projectNames}
-            onClose={() => onSelect(null)}
+            onClose={() => choose(null)}
             onLocate={jump}
             onOpenBar={onOpenBar}
             onOpenLane={onOpenLane}

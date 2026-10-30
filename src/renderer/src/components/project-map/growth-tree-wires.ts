@@ -101,8 +101,37 @@ export function buildGrowthWires({ tree, scale, lanes, bars }: Input): {
       path: wirePath(target.x - JOIN_GAP_PX, y, target.x, y)
     })
   }
+  for (const reference of tree.references) {
+    const source = bars.get(reference.from)
+    const target = bars.get(reference.to)
+    if (source && target) {
+      wires.push({
+        id: reference.id,
+        kind: 'reference',
+        from: reference.from,
+        to: reference.to,
+        projectId: reference.projectId,
+        path: referencePath(source, target, scale.xOf(reference.at)),
+        ...(reference.live ? { live: true as const } : {})
+      })
+    }
+  }
   wires.sort((a, b) => cmp(a.id, b.id))
   return { wires, joins, pins: buildPins(tree, bars) }
+}
+
+/**
+ * From the carrying chat at the moment of the message to the middle of the chat it pointed at.
+ * The pointed-at chat is usually older, so the line can run leftward; it bows out of the way.
+ */
+function referencePath(source: GrowthLayoutBar, target: GrowthLayoutBar, atX: number): string {
+  const startX = Math.max(source.x, Math.min(atX, source.x + source.width))
+  const startY = source.y + source.height / 2
+  const endX = Math.max(target.x, Math.min(startX, target.x + target.width))
+  const endY = target.y + target.height / 2
+  const bow = Math.max(24, Math.abs(endY - startY) * 0.5)
+  const side = endX <= startX ? -bow : bow
+  return `M${startX} ${startY} C${startX + side} ${startY} ${endX + side} ${endY} ${endX} ${endY}`
 }
 
 function buildPins(

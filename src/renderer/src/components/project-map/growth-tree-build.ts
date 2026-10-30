@@ -149,7 +149,7 @@ export function buildGrowthTree(input: GrowthTreeInput): GrowthTree {
   edges.push(...deriveEdges)
   edges.sort((a, b) => cmp(a.id, b.id))
   crossLinks.sort((a, b) => cmp(a.id, b.id))
-  return { now, projects: groups, lanes, bars, edges, crossLinks }
+  return { now, projects: groups, lanes, bars, edges, crossLinks, references: [] }
 }
 
 /** The project each pane belongs to: where its own session lives, else the first that lists it. */

@@ -1,6 +1,6 @@
 import type { GrowthScale } from './growth-tree-scale'
 import type { GrowthTick } from './growth-tree-ticks'
-import type { GrowthTreeEdgeKind } from './growth-tree-types'
+import type { GrowthTreeLineKind } from './growth-tree-types'
 
 export const GROWTH_LAYOUT = {
   top: 8,
@@ -17,7 +17,14 @@ export const GROWTH_LAYOUT = {
 
 export type GrowthBox = { x: number; y: number; width: number; height: number }
 export type GrowthLayoutBar = GrowthBox & { id: string; laneId: string; track: number }
-export type GrowthLayoutLane = GrowthBox & { id: string; projectId: string; trackCount: number }
+export type GrowthLayoutLane = GrowthBox & {
+  id: string
+  projectId: string
+  trackCount: number
+  /** World x where the workspace began; null for a workspace with no known start. */
+  startX: number | null
+  startApprox: boolean
+}
 export type GrowthLayoutGroup = {
   projectId: string
   y: number
@@ -29,11 +36,13 @@ export type GrowthLayoutGroup = {
 export type GrowthLayoutJoin = { id: string; x: number; y: number }
 export type GrowthLayoutWire = {
   id: string
-  kind: GrowthTreeEdgeKind
+  kind: GrowthTreeLineKind
   from: string
   to: string
   projectId: string
   path: string
+  /** References only: the newest one reads its source live. */
+  live?: true
 }
 export type GrowthLayoutPin = {
   id: string

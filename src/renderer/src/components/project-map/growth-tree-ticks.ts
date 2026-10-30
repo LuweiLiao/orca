@@ -17,7 +17,7 @@ function dayKey(time: number): string {
 export function growthTreeTicks(scale: GrowthScale): GrowthTick[] {
   const { points, mode } = scale
   const days = new Set(points.map((point) => dayKey(point.time)))
-  if (mode === 'compressed' && days.size > 1) {
+  if (mode !== 'sequence' && days.size > 1) {
     const seen = new Set<string>()
     return points.filter((point) => {
       const key = dayKey(point.time)

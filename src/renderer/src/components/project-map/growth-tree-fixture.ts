@@ -59,7 +59,7 @@ const chat = (sessionId: string) => ({
 })
 
 /**
- * Project A: `a-main` with a coordinator, a worker that finished, a skewed-clock worker, three
+ * Project A: `a-main` (no creation time, as from an older host) with a coordinator, a worker that finished, a skewed-clock worker, three
  * chats merged into one, and a hand-off whose source closed; `a-feat` derived from `a-main`;
  * a folder workspace `a-notes`; an empty `a-empty`. Project B: `b-main`, one chat the A
  * coordinator delegated to.
@@ -91,8 +91,12 @@ export function growthFixture(hidden: ReadonlySet<string> = new Set()): GrowthTr
     cards,
     workspaces: [
       workspace('repo-a', 'a-main'),
-      workspace('repo-a', 'a-feat', { parentWorktreeId: 'a-main' }),
-      workspace('repo-a', 'a-notes', { workspaceKind: 'folder', parentWorktreeId: 'a-main' }),
+      workspace('repo-a', 'a-feat', { parentWorktreeId: 'a-main', createdAt: 5_500_000 }),
+      workspace('repo-a', 'a-notes', {
+        workspaceKind: 'folder',
+        parentWorktreeId: 'a-main',
+        createdAt: 3_000_000
+      }),
       workspace('repo-a', 'a-empty'),
       workspace('repo-b', 'b-main', { hostKind: 'ssh', hostLabel: 'build-box' })
     ]
@@ -102,7 +106,10 @@ export function growthFixture(hidden: ReadonlySet<string> = new Set()): GrowthTr
     ['sess_handed', 'sess_closed']
   ])
   const chatsByPaneKey = new Map(
-    ['s1', 's2', 's3', 'merged', 'handed'].map((key) => [key, chat(`sess_${key}`)])
+    ['lead', 'feat-chat', 's1', 's2', 's3', 'merged', 'handed'].map((key) => [
+      key,
+      chat(`sess_${key}`)
+    ])
   )
   const forks: ProjectMapForkInput = {
     chatsByPaneKey,

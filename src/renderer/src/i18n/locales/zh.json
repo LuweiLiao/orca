@@ -28625,7 +28625,8 @@
       "hidden": "已在蓝图中隐藏。",
       "locate": "在蓝图中定位",
       "openChat": "打开对话",
-      "openWorkspace": "打开工作区"
+      "openWorkspace": "打开工作区",
+      "created": "创建于"
     },
     "folderWorkspace": "文件夹工作区",
     "worktree": "工作树",
@@ -28640,7 +28641,8 @@
     "mode": {
       "label": "时间刻度",
       "compressed": "压缩时间",
-      "sequence": "事件顺序"
+      "sequence": "事件顺序",
+      "linear": "线性时间"
     },
     "filter": {
       "label": "筛选",
@@ -28671,8 +28673,9 @@
     "kind": {
       "derive": "派生",
       "delegate": "委派",
-      "handoff": "交接",
-      "merge": "合并交接"
+      "handoff": "分叉",
+      "merge": "合并交接",
+      "reference": "引用"
     },
     "window": {
       "all": "全部时间",
