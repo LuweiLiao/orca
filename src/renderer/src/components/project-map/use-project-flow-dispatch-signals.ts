@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import type { AgentStatusOrchestrationContext } from '../../../../shared/agent-status-types'
 import { useAppStore } from '@/store'
+import { scheduleRuntimeGraphSync } from '@/runtime/sync-runtime-graph'
+import { setProjectFlowRefresh } from './project-flow-app'
 import { diffDispatchSignals, type DispatchBaseline } from './project-flow-dispatch-signals'
 import { hostPublishesProjectFlow } from './project-flow-host-support'
 import type { FlowSignalBus } from './project-flow-signal'
@@ -14,6 +16,10 @@ export function useProjectFlowDispatchSignals(
   bus: FlowSignalBus
 ): void {
   const baseline = useRef<DispatchBaseline | null>(null)
+  useEffect(() => {
+    setProjectFlowRefresh(scheduleRuntimeGraphSync)
+    return () => setProjectFlowRefresh(null)
+  }, [])
   useEffect(() => {
     const { runtimeStatusByEnvironmentId } = useAppStore.getState()
     const hostSendsFlow = (paneKey: string): boolean => {
