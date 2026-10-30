@@ -25,6 +25,7 @@ import { revokeAgentSessionPublicationFences } from '../../agent-session/agent-s
 import { RUN_PANE_KEY_MATCH_SUFFIX_SQL } from './pane-key-match'
 import { installWorkerTerminalPriorOwnerIndex } from './worker-terminal/worker-terminal-prior-owner-index'
 import { UNRELEASED_MINTED_WORKER_TERMINAL_SQL } from './worker-terminal/worker-terminal-release'
+import { pruneProjectFlowLogIfDue } from './project-flow/project-flow-log-store'
 
 class OrchestrationDbCore {
   readonly crewChanges = new CrewChanges()
@@ -53,6 +54,8 @@ class OrchestrationDbCore {
   private changedDispatchIds: Set<string> | null = null
   /** The user's auto-close switch; this runtime's choice also governs the remote workers it coordinates. */
   workerAutoReleaseEnabled: (() => boolean) | undefined
+  /** When the flow log was last pruned; the log prunes itself when this is over an hour old. */
+  projectFlowPrunedAt: number | undefined
 
   constructor(dbPath: (string & {}) | ':memory:') {
     this.db = new Database(dbPath)
@@ -145,6 +148,8 @@ class OrchestrationDbCore {
       }
     })
     hardenOrchestrationDatabaseFiles(dbPath)
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the core is only ever constructed as the OrchestrationDb it is typed as, like the calls above.
+    pruneProjectFlowLogIfDue.call(this as unknown as OrchestrationDb)
   }
 
   /** After the writes that fired it, so the read sees committed rows and never runs inside a trigger;

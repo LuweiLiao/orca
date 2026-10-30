@@ -1,4 +1,5 @@
 import type { AgentDelegationGrantStoreMethods } from './delegation-grants/agent-delegation-grant-store'
+import type { ProjectFlowLogStoreMethods } from './project-flow/project-flow-log-store'
 import type { AttemptObservationStoreMethods } from './attempt-observation-store'
 import type { CoordinatorRunStoreMethods } from './coordinator-runs/coordinator-run-store'
 import type { DecisionGateStoreMethods } from './decision-gates/decision-gate-store'
@@ -72,6 +73,7 @@ export type OrchestrationDbMethods = AttemptObservationStoreMethods &
   BotRunResendMethods &
   BotRequestOutcomeMethods &
   AgentDelegationGrantStoreMethods &
+  ProjectFlowLogStoreMethods &
   CreateTablesMethods &
   SchemaMigrateMethods &
   SchemaColumnProbesMethods &

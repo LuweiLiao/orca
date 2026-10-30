@@ -12,7 +12,7 @@ export type FlowSender = { paneKey?: string | null; orcaSessionId?: string | nul
 export function publishMessageFlow(args: {
   runtime: OrcaRuntimeService
   db: OrchestrationDb
-  message: Pick<MessageRow, 'id' | 'type' | 'to_handle'>
+  message: Pick<MessageRow, 'id' | 'type' | 'to_handle'> & { run_id?: string }
   sender: FlowSender
   reconciled?: LifecycleReconciliationResult
 }): void {
@@ -28,6 +28,6 @@ export function publishMessageFlow(args: {
           paneKeyOfHandle: (handle) => runtime.getTerminalPaneKey(handle)
         })
   if (event) {
-    publishProjectFlow(runtime, event)
+    publishProjectFlow(runtime, event, message.run_id ? { runId: message.run_id } : {})
   }
 }

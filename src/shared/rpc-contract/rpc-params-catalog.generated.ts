@@ -724,6 +724,7 @@ import {
   PreflightDetectRemoteWindowsTerminalCapabilities,
   PreflightProjectAgentDetection
 } from './preflight/preflight-params'
+import { ProjectFlowHistoryParams } from './project-flow-history-params'
 import {
   ProjectHostSetupClone,
   ProjectHostSetupCreate,
@@ -1946,6 +1947,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'preflight.refreshAgents': PreflightAgentRefresh,
   'project.list': null,
   'project.update': ProjectUpdate,
+  'projectFlow.history': ProjectFlowHistoryParams,
   'projectGroup.checkHooks': ProjectGroupHooksCheck,
   'projectGroup.create': ProjectGroupCreate,
   'projectGroup.delete': ProjectGroupSelector,

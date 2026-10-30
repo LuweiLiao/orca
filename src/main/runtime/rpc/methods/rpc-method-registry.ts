@@ -51,6 +51,7 @@ import { LINEAR_AGENT_ACCESS_METHODS } from './integrations/linear/linear-agent-
 import { JIRA_METHODS } from './integrations/jira/jira'
 import { SSH_METHODS } from './ssh/ssh'
 import { MANAGED_SERVER_METHODS } from './host-management/managed-server'
+import { PROJECT_FLOW_HISTORY_METHODS } from './project-flow-history'
 import { RECIPE_VM_WAKE_METHODS } from './host-management/recipe-vm-wake'
 import { ENVIRONMENT_DOCTOR_METHODS } from './host-management/environment-doctor'
 import { SPEECH_METHODS } from './speech/speech'
@@ -231,6 +232,7 @@ const SERVICE_RPC_METHODS = [
   ...JIRA_METHODS,
   ...SSH_METHODS,
   ...MANAGED_SERVER_METHODS,
+  ...PROJECT_FLOW_HISTORY_METHODS,
   ...RECIPE_VM_WAKE_METHODS,
   ...ENVIRONMENT_DOCTOR_METHODS,
   ...SPEECH_METHODS,
