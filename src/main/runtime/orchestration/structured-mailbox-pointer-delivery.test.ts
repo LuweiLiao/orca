@@ -362,7 +362,7 @@ describe('structured mailbox pointer delivery', () => {
     await flush()
     expect(send).toHaveBeenCalledTimes(2)
     expect(send.mock.calls[1]![0].body.blocks[0]).toMatchObject({
-      text: expect.stringContaining('You have 1 orchestration message.')
+      text: expect.stringContaining('You have 1 orchestration message (status).')
     })
   })
 

@@ -99,7 +99,8 @@ export function stageOrchestrationMailboxPointer<TWaiter extends OrchestrationMe
       formatMessagePointer(
         args.messages.length,
         args.mailboxHandle,
-        args.deps.getCliCommand(expectedTarget.terminalHandle)
+        args.deps.getCliCommand(expectedTarget.terminalHandle),
+        args.messages
       )
     )
     if (isSettledWrite(writeResult)) {

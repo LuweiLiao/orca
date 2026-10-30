@@ -299,15 +299,12 @@ export class OrchestrationStructuredMailboxPointerDelivery<
       this.retain(mailboxHandle, sessionId, 'session-not-attached', reservedTypes)
       return false
     }
+    const cli = this.deps.getCliCommand()
+    const text = formatMessagePointer(unread.length, mailboxHandle, cli, unread).trim()
     const body: AgentJournalMessageItem = {
       kind: 'message',
       role: 'user',
-      blocks: [
-        {
-          type: 'text',
-          text: formatMessagePointer(unread.length, mailboxHandle, this.deps.getCliCommand()).trim()
-        }
-      ],
+      blocks: [{ type: 'text', text }],
       from: structuredMailSource({
         db,
         mailboxHandle,

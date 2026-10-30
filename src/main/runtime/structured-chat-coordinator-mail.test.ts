@@ -226,7 +226,10 @@ describe('a worker result reaches the structured chat that coordinates it', () =
     await vi.waitFor(() => expect(providerFaults.turnStarts).toBe(2), WAIT)
     const revived = connectionFor(COORDINATOR)
     expect(turnText(revived.turns.at(-1)!)).toBe(
-      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand()).trim()
+      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand(), [
+        { type: 'worker_done' },
+        { type: 'worker_done' }
+      ]).trim()
     )
     await settleTurn(COORDINATOR, revived.turns.length - 1)
     await vi.waitFor(
@@ -463,7 +466,10 @@ describe('a worker result reaches the structured chat that coordinates it', () =
     await finishWorker(idOf(second.task), { handle: 'term_worker_2', paneKey: WORKER_2_PANE })
     await vi.waitFor(() => expect(chat.turns).toHaveLength(1), WAIT)
     expect(turnText(chat.turns[0]!)).toBe(
-      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand()).trim()
+      formatMessagePointer(2, `run:${runId}`, localOrchestrationCliCommand(), [
+        { type: 'worker_done' },
+        { type: 'worker_done' }
+      ]).trim()
     )
     expect(await queuedCardTexts()).toEqual([])
     expect(codex.connections.length).toBe(before)
@@ -685,7 +691,7 @@ describe('any live session is addressable by its id', () => {
 
     await vi.waitFor(() => expect(peer.turns).toHaveLength(1), WAIT)
     // Direct mail is not in a Run, so the pointer names no `--run`.
-    expect(turnText(peer.turns[0]!)).toBe(ptyPointer(`orca_session_id:${PEER_CHAT}`))
+    expect(turnText(peer.turns[0]!)).toBe(ptyPointer(`orca_session_id:${PEER_CHAT}`, 'status'))
     await settleTurn(PEER_CHAT, 0)
     const checked = await call('orchestration.check', {}, { sessionId: PEER_CHAT })
     expect(checked).toMatchObject({ count: 1, messages: [{ subject: 'ping' }] })

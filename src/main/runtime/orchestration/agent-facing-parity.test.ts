@@ -187,7 +187,7 @@ describe('a chat agent and a terminal agent see the same text but for how each i
 
       for (const mailbox of ['run:run_parity', CHAT_ADDRESS]) {
         expect(await renderChatPointer(mailbox)).toBe(
-          formatMessagePointer(1, mailbox, terminalCli).trim()
+          formatMessagePointer(1, mailbox, terminalCli, [{ type: 'status' }]).trim()
         )
       }
     }
