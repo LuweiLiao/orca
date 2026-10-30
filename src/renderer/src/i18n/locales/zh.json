@@ -21730,5 +21730,79 @@
       "summaryUnavailable": "该主机版本过旧，不能压缩交接。",
       "compacting": "正在压缩对话…"
     }
+  },
+  "growthTree": {
+    "dock": {
+      "label": "选中项详情",
+      "close": "关闭详情",
+      "status": "状态",
+      "closed": "已关闭",
+      "time": "时间",
+      "now": "现在",
+      "approx": "开始时间为估算",
+      "workspace": "工作区",
+      "kind": "类型",
+      "chats": "对话",
+      "project": "项目",
+      "relations": "关系",
+      "hidden": "已在蓝图中隐藏。",
+      "locate": "在蓝图中定位",
+      "openChat": "打开对话",
+      "openWorkspace": "打开工作区"
+    },
+    "folderWorkspace": "文件夹工作区",
+    "worktree": "工作树",
+    "groupCollapsed": "{{chats}} 个对话，{{working}} 个运行中",
+    "emptyLanes": "空工作区：{{count}} 个",
+    "jump": {
+      "hidden": "这个对话在蓝图中被隐藏了。",
+      "missing": "这个对话不在蓝图上。",
+      "unhide": "显示出来",
+      "dismiss": "知道了"
+    },
+    "mode": {
+      "label": "时间刻度",
+      "compressed": "压缩时间",
+      "sequence": "事件顺序"
+    },
+    "filter": {
+      "label": "筛选",
+      "status": "状态",
+      "kinds": "显示的连线",
+      "window": "时间范围",
+      "active": "已筛选：{{count}} 项"
+    },
+    "showAll": "显示全部",
+    "empty": "项目运行过 agent 之后，对话会出现在这里。",
+    "pin": {
+      "from": "来自项目 {{project}}",
+      "to": "去往项目 {{project}}",
+      "unresolved": "来源未加载"
+    },
+    "view": {
+      "label": "地图视图",
+      "blueprint": "蓝图",
+      "growth": "生长树"
+    },
+    "allProjects": "全部项目",
+    "bucket": {
+      "working": "运行中",
+      "attention": "需要处理",
+      "done": "已完成",
+      "idle": "空闲"
+    },
+    "kind": {
+      "derive": "派生",
+      "delegate": "委派",
+      "handoff": "交接",
+      "merge": "合并交接"
+    },
+    "window": {
+      "all": "全部时间",
+      "today": "今天",
+      "7d": "最近 7 天",
+      "30d": "最近 30 天"
+    },
+    "foldedDays": "此处折叠了 {{days}} 天的空闲"
   }
 }

@@ -40,6 +40,8 @@ import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
 import { createFlowSignalBus } from './project-flow-signal'
 import { useProjectFlowDispatchSignals } from './use-project-flow-dispatch-signals'
+import { ProjectFlowOverlay } from './ProjectFlowOverlay'
+import { resolveFlowRoute } from './project-flow-wire-route'
 import { ProjectMapSummaryHost } from './ProjectMapSummaryHost'
 import { GrowthTreePanel } from './GrowthTreePanel'
 import { GrowthTreeJumpNotice } from './GrowthTreeJumpNotice'
@@ -351,6 +353,12 @@ export default function ProjectMapPage(): React.JSX.Element {
         onOpenAgent={openAgent}
         onOpenWorkspace={openWorkspace}
         onRevealProject={() => setChosenProjectId(null)}
+        renderOverlay={(paths) => (
+          <ProjectFlowOverlay
+            bus={flowBus}
+            resolve={(signal) => resolveFlowRoute(paths.wires, signal.from, signal.to)}
+          />
+        )}
       />
       {growing ? null : graph && collapsed && layout ? (
         <ProjectMapCanvas

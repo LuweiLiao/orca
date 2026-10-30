@@ -160,6 +160,6 @@ export function layoutGrowthTree({
     joins,
     wires,
     pins,
-    paths: { nodes, edges: new Map(wires.map((wire) => [wire.id, wire.path])) }
+    paths: { nodes, edges: new Map(wires.map((wire) => [wire.id, wire.path])), wires }
   }
 }
