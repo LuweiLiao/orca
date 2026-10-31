@@ -151,7 +151,8 @@ describe('linux package recovery actions', () => {
     const send = vi.fn()
     const updater = await loadUpdaterModule()
     updater.setupAutoUpdater({ webContents: { send } } as never, {
-      getLastUpdateCheckAt: () => Date.now()
+      getLastUpdateCheckAt: () => Date.now(),
+      installMode: 'supervised-headless-serve'
     })
     return { send, updater }
   }

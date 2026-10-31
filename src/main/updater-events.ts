@@ -22,6 +22,8 @@ const AUTO_UPDATE_RETRY_INTERVAL_MS = 60 * 60 * 1000
 
 export function registerAutoUpdaterHandlers({
   autoUpdater,
+  downloadAvailableUpdate,
+  canInstallDebUpdate,
   clearBackgroundCheckLaunchPending,
   clearAvailableUpdateContext,
   consumeMissingManifestPrereleaseFallbackResult,
@@ -165,6 +167,9 @@ export function registerAutoUpdaterHandlers({
             ...(isExternallyManagedLinuxInstall() ? { externallyManaged: true } : {})
           }
         )
+        if (!wasUserInitiated && !missingManifestFallback && !publishingWindowLastGoodCheck) {
+          downloadAvailableUpdate()
+        }
       } finally {
         clearUpdateAvailableEventPending(attemptId)
       }
@@ -245,7 +250,7 @@ export function registerAutoUpdaterHandlers({
     void preExtractDownloadedAppImageUpdate(info.downloadedFile, (filePath) =>
       linuxPackageRecovery.isInUpdaterPendingCache(filePath)
     )
-    const linuxPackageStatus = resolveLinuxPackageDownloadedStatus(info)
+    const linuxPackageStatus = resolveLinuxPackageDownloadedStatus(info, canInstallDebUpdate())
     if (linuxPackageStatus) {
       sendStatus(linuxPackageStatus)
       return

@@ -219,7 +219,7 @@ describe('updater', () => {
       expect(autoUpdaterMock.disableDifferentialDownload).toBe(false)
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: 'https://github.com/LuweiLiao/orca/releases/latest/download'
       })
     }
   )
@@ -262,7 +262,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: 'https://github.com/LuweiLiao/orca/releases/latest/download'
       })
     }
   )
@@ -302,7 +302,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: 'https://github.com/LuweiLiao/orca/releases/latest/download'
       })
     }
   )
@@ -356,7 +356,7 @@ describe('updater', () => {
       expect(send).toHaveBeenCalledWith('updater:status', { state: 'not-available' })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: 'https://github.com/LuweiLiao/orca/releases/latest/download'
       })
     }
   )
@@ -402,7 +402,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: 'https://github.com/LuweiLiao/orca/releases/latest/download'
       })
     }
   )
@@ -470,7 +470,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/download/v1.3.18-rc.1'
+        url: 'https://github.com/LuweiLiao/orca/releases/download/v1.3.18-rc.1'
       })
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
     })
@@ -497,7 +497,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/download/v1.4.121-rc.6.perf'
+        url: 'https://github.com/LuweiLiao/orca/releases/download/v1.4.121-rc.6.perf'
       })
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
     })
@@ -564,7 +564,7 @@ describe('updater', () => {
       })
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/download/v1.4.121'
+        url: 'https://github.com/LuweiLiao/orca/releases/download/v1.4.121'
       })
     })
   })

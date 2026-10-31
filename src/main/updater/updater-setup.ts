@@ -1,6 +1,7 @@
 import { app, powerMonitor } from 'electron'
 import type { BrowserWindow } from 'electron'
 import { isUpdaterActive } from './updater-build-switch'
+import { MAIN_RELEASE_REPO } from '../../shared/release-channel'
 import type { ReleaseBuild, ReleaseChannel } from '../../shared/release-channel'
 import type { ReleaseBuildListOptions } from '../updater-release-build-cache'
 import type {
@@ -13,7 +14,7 @@ import type {
   RemoteServerUpdaterSnapshot,
   RemoteServerUpdateSupport
 } from '../../shared/remote-server-update'
-import { getLinuxPackageType } from '../linux-update-package-type'
+import { isExternallyManagedLinuxInstall } from '../linux-update-package-type'
 import { createUpdaterDiagnosticLogger } from '../linux-package-install-diagnostic'
 import { registerAutoUpdaterHandlers } from '../updater-events'
 import { getServeUpdateHandoffFailure } from '../serve-update-handoff'
@@ -149,9 +150,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
       autoUpdater.disableDifferentialDownload = false
     }
     // Why: supervised serve installs require an explicit handoff; ordinary service quits must never install implicitly.
-    // Only an explicit AppImage/non-root marker may opt into electron-updater's implicit quit install.
-    autoUpdater.autoInstallOnAppQuit =
-      this.updateInstallMode === 'interactive' && getLinuxPackageType() === 'non-root'
+    autoUpdater.autoInstallOnAppQuit = false
     // Why: MacUpdater ignores quitAndInstall arguments; the surviving CLI supervisor must be the only serve relaunch owner.
     autoUpdater.autoRunAppAfterInstall = this.updateInstallMode === 'interactive'
     // Why: our only on-machine window into electron-updater; otherwise an unexpected update-not-available or failed fetch is invisible.
@@ -161,7 +160,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     if (this.activeUpdateSource === 'release') {
       autoUpdater.setFeedURL({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: `https://github.com/${MAIN_RELEASE_REPO}/releases/latest/download`
       })
     }
     if (this.autoUpdaterInitialized) {
@@ -171,6 +170,17 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
 
     registerAutoUpdaterHandlers({
       autoUpdater,
+      canInstallDebUpdate: () => this.updateInstallMode === 'interactive',
+      downloadAvailableUpdate: () => {
+        if (
+          this.updateInstallMode === 'interactive' &&
+          this.activeUpdateSource === 'release' &&
+          !this.isPinnedBuildActive &&
+          !isExternallyManagedLinuxInstall()
+        ) {
+          this.downloadUpdate()
+        }
+      },
       clearBackgroundCheckLaunchPending: () => this.clearBackgroundCheckLaunchPending(),
       clearAvailableUpdateContext: () => this.clearAvailableUpdateContext(),
       consumeMissingManifestPrereleaseFallbackResult: () =>
