@@ -1,5 +1,7 @@
 import type { AgentSessionSubscribeEvent } from '../../../src/shared/agent-session-wire'
-export function snapshotEvent(fence = 3): AgentSessionSubscribeEvent {
+export function snapshotEvent(
+  fence = 3
+): Extract<AgentSessionSubscribeEvent, { type: 'snapshot' }> {
   return {
     type: 'snapshot',
     sessionId: 'session-1',
@@ -50,5 +52,5 @@ export function snapshotWithMessage(): AgentSessionSubscribeEvent {
       },
       liveCursor: { epoch: 'epoch-1', sequence: 1 }
     }
-  } as AgentSessionSubscribeEvent
+  }
 }

@@ -233,6 +233,7 @@ setTimeout(() => { db.exec('COMMIT'); db.close() }, 200)`,
       const installed = {
         // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: teardown calls only `stopDelivery` and `flushAllStreamedEvents` on the host.
         host: {
+          deps: {},
           stopDelivery: () => {},
           flushAllStreamedEvents: async () => {
             await new Promise<void>((resolve) => setTimeout(resolve, 10))

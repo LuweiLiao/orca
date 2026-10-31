@@ -114,3 +114,6 @@ investigations remain assessment-only and are not included as implemented work.
   that an installer, an agent account or every supported platform was tested.
 
 See [LLW Validation](llw-validation.md) for this integration's actual results.
+
+The November 1 follow-up queue integration and keyboard behavior are described
+in [Chat Follow-ups](llw-follow-up-queue.md).

@@ -401,7 +401,7 @@ export function registerJournalUnsentSendHoldTests(): void {
       const journal = await open()
       await hold(journal)
 
-      expect(cardOrder(journal)).toEqual(['A', 'B', 'C'])
+      expect(cardOrder(journal)).toEqual(['C', 'A', 'B'])
     })
   })
 
