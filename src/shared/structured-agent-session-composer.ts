@@ -138,6 +138,13 @@ export function isStructuredAgentSessionComposerCommand(
   )
 }
 
+/** Host actions send no message; /goal is an action only on hosts that set goals. */
+export function isStructuredAgentSessionHostCommand(text: string, hostSetsGoals: boolean): boolean {
+  return (
+    isStructuredAgentSessionComposerCommand(text) ||
+    (hostSetsGoals && isStructuredAgentSessionGoalCommand(text))
+  )
+}
 /** `/clear` or `/compact` alone: a conversation command with nothing after it. */
 export function isLoneStructuredAgentSessionConversationCommand(text: string): boolean {
   const command = commandParts(text.trim())

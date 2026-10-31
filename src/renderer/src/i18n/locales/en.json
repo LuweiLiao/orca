@@ -19387,6 +19387,8 @@
       "composer": {
         "imageUnsupported": "Image paste is not supported for this agent.",
         "send": "Send",
+        "alternateSteerHint": "{{shortcut}} to steer",
+        "alternateQueueHint": "{{shortcut}} to queue",
         "noPty": "No live terminal — toggle back to reconnect.",
         "locked": "Input is held by another device.",
         "placeholder": "Ask anything, @ to mention files, / for commands",

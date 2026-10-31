@@ -13,7 +13,7 @@ import {
   type NativeChatResolvedTarget
 } from './native-chat-composer-target'
 import { useNativeChatComposerAttachments } from './use-native-chat-composer-attachments'
-import { nativeChatImageSendBlock } from './native-chat-image-reattach'
+import { nativeChatComposerSendState } from './native-chat-composer-send-state'
 import { useNativeChatComposerHandle } from './use-native-chat-composer-handle'
 import { useNativeChatFileDrops } from './use-native-chat-file-drops'
 import { useNativeChatComposerKeyDown } from './use-native-chat-composer-keydown'
@@ -35,7 +35,6 @@ import { useNativeChatComposerCommandPicker } from './use-native-chat-composer-c
 import { useNativeChatAnnotations } from './use-native-chat-annotations'
 import { useNativeChatComposerInputEvents } from './use-native-chat-composer-input-events'
 import { useNativeChatOrchestrationInsert } from './use-native-chat-orchestration-insert'
-import { nativeChatComposerSendDisabled } from './native-chat-composer-send-disabled'
 
 export type {
   NativeChatComposerHandle,
@@ -174,18 +173,6 @@ const NativeChatComposerPane = forwardRef<NativeChatComposerHandle, NativeChatCo
     })
     const { imageAttachments, attachResolvedPaths, clearImageAttachments, removeImageAttachment } =
       attachments
-    const imageBlock = nativeChatImageSendBlock(imageAttachments)
-    const sendButtonDisabled = nativeChatComposerSendDisabled({
-      isWorking,
-      hasPty,
-      canStop: Boolean(onStop),
-      pastedTextSaving: attachments.pastedTextSaving,
-      disabled,
-      sendOut: structuredTransport?.sendOut === true,
-      imagesHoldSend: imageBlock.holdsSend,
-      sendBlocked: structuredTransport?.sendBlockedReason !== undefined,
-      hasMessage: draft.trim() !== '' || imageAttachments.length > 0 || hasAnnotations
-    })
 
     const { pickAttachments, attachExternalPaths, captureCopiedFiles, resolveAttachmentOwner } =
       useNativeChatFileDrops({
@@ -292,7 +279,7 @@ const NativeChatComposerPane = forwardRef<NativeChatComposerHandle, NativeChatCo
       optimisticSendOutcome,
       terminalTabId
     })
-    const { send, goalMode } = useNativeChatComposerSubmit({
+    const { send, goalMode, messageDelivery } = useNativeChatComposerSubmit({
       structuredTransport,
       draftScopeKey,
       draft,
@@ -303,8 +290,21 @@ const NativeChatComposerPane = forwardRef<NativeChatComposerHandle, NativeChatCo
       sendPty,
       sendStructured,
       consumeOrcaCommand: resume.consume,
+      matchesOrcaCommand: resume.matchesDraft,
       setDraft,
       setCaret
+    })
+    const sendState = nativeChatComposerSendState({
+      draft,
+      messageDelivery,
+      imageAttachments,
+      hasAnnotations,
+      pastedTextSaving: attachments.pastedTextSaving,
+      disabled,
+      structuredTransport,
+      editSession: undefined,
+      isWorking,
+      canStop: hasPty && onStop !== undefined
     })
 
     const interrupt = useNativeChatComposerInterrupt({
@@ -371,9 +371,11 @@ const NativeChatComposerPane = forwardRef<NativeChatComposerHandle, NativeChatCo
         imageAttachments={imageAttachments}
         numberImages={Boolean(structuredTransport)}
         attachmentEnvironmentId={structuredTransport?.runtimeEnvironmentId ?? undefined}
-        sendButtonDisabled={sendButtonDisabled}
-        sendBlockedReason={imageBlock.reason ?? structuredTransport?.sendBlockedReason ?? null}
+        sendButtonDisabled={sendState.sendButtonDisabled}
+        sendBlockedReason={sendState.sendBlockedReason}
         isWorking={isWorking}
+        hasDraft={sendState.hasDraft}
+        alternateSend={sendState.alternateSend}
         isStopping={isStopping}
         afterStop={afterStop}
         attachDisabled={

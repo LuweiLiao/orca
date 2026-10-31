@@ -3,7 +3,7 @@ import { useMemo, useRef } from 'react'
 import { useStructuredAgentSessionSendOptions } from './use-structured-agent-session-send-options'
 import { useStructuredAgentSessionSends } from './use-structured-agent-session-sends'
 import { useStructuredAgentSessionCommandWrite } from './use-structured-agent-session-command-write'
-import { structuredAgentSessionSendQueues } from './structured-agent-session-queue-request'
+import { structuredAgentSessionSendFollowUp } from './structured-agent-session-queue-request'
 import type { AgentType } from '../../../../shared/agent-status-types'
 import { nativeChatQueueFollowUps } from '../../../../shared/native-chat-follow-up-behavior'
 import type { AgentSessionCancelResult } from '../../../../shared/agent-session-wire'
@@ -164,6 +164,7 @@ export function useStructuredAgentSession(args: {
     stopping: stopControl.stopping,
     sendOptions
   })
+  const sendFollowUp = structuredAgentSessionSendFollowUp(queue)
 
   const usage = useStructuredAgentSessionContextUsage(journalItems, usageSupport, state.epoch)
 
@@ -308,7 +309,9 @@ export function useStructuredAgentSession(args: {
     queuedMessages: queuedController,
     capturePresentation,
     /** A plain send would queue: the host takes it, the setting or a waiting command asks, and no unanswerable prompt blocks it. */
-    sendsQueue: structuredAgentSessionSendQueues(queue),
+    sendsQueue: sendFollowUp.action === 'queue',
+    /** What a plain send does now, and whether its alternate would send any differently. */
+    sendFollowUp,
     cancel: (turnId: string | undefined, prompt?: { itemId: string; expectedRevision: number }) =>
       cancelStructuredAgentSessionPrompt(admit(), turnId, prompt),
     stopBackgroundTask: (taskId?: string) =>

@@ -29,6 +29,7 @@ import { translate } from '@/i18n/i18n'
 import { useNativeChatComposerDraftUnsaved } from './use-native-chat-draft-unsaved'
 import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
 import { useNativeChatTextDelegationNotice } from './native-chat-text-delegation-notice'
+import type { NativeChatFollowUpBehavior } from '../../../../shared/native-chat-follow-up-behavior'
 
 export type NativeChatComposerFieldProps = {
   /** Pane identity published to the drop pipeline so a native file drop lands
@@ -55,6 +56,10 @@ export type NativeChatComposerFieldProps = {
   /** Why the send button is disabled, when the user can do something about it. */
   sendBlockedReason?: string | null
   isWorking: boolean
+  /** The draft holds text or images, so Send takes Stop's place while the agent works. */
+  hasDraft?: boolean
+  /** While the agent works: what Cmd/Ctrl+Enter would do instead of a plain send, when it differs. */
+  alternateSend?: NativeChatFollowUpBehavior
   /** This client's Stop request is in flight: the Stop control is disabled and says so. */
   isStopping?: boolean
   /** The chat reads Stopping: the placeholder says a message runs after the stop, queued as a
@@ -148,6 +153,8 @@ export function NativeChatComposerField({
   sendButtonDisabled,
   sendBlockedReason,
   isWorking,
+  hasDraft = false,
+  alternateSend,
   isStopping = false,
   afterStop,
   attachDisabled,
@@ -402,6 +409,8 @@ export function NativeChatComposerField({
                 sendBlockedReason={sendBlockedReason}
                 draftNotSaved={draftNotSaved}
                 isWorking={isWorking}
+                hasDraft={hasDraft}
+                alternateSend={alternateSend}
                 isStopping={isStopping}
                 isDictating={isDictating}
                 isDictationHoldMode={isDictationHoldMode}

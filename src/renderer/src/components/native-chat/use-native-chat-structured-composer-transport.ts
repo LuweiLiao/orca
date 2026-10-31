@@ -100,6 +100,7 @@ export function useNativeChatStructuredComposerTransport(args: {
         }),
       ...(setThreadGoalObjective ? { threadGoal: { setObjective: setThreadGoalObjective } } : {}),
       sendOut: controller.sendOut || starting,
+      sendFollowUp: controller.sendFollowUp,
       ...(sendBlockedReason !== null ? { sendBlockedReason } : {}),
       optionsSurface: controller.optionSurface,
       conversationCommands: controller.conversationCommands,
