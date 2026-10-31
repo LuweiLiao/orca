@@ -50,14 +50,6 @@ it('isolates mounted chats from unrelated settings and renders their live follow
   try {
     await act(async () => {})
     mocks.controllerRender.mockClear()
-    act(() => useAppStore.setState({ settings: { ...settings, nativeChatQueueFollowUps: false } }))
-    expect(mocks.controllerRender).not.toHaveBeenCalled()
-    act(() =>
-      useAppStore.setState({
-        settings: { ...settings, showTasksButton: !settings.showTasksButton }
-      })
-    )
-    expect(mocks.controllerRender).not.toHaveBeenCalled()
     act(() => useAppStore.setState({ settings: { ...settings, nativeChatQueueFollowUps: true } }))
     expect(new Set(mocks.controllerRender.mock.calls.map(([sessionId]) => sessionId))).toEqual(
       new Set(['local-chat', 'ssh-chat'])

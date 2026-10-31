@@ -1,3 +1,4 @@
+import type { AgentSessionJournalProviderHandle } from '../../../shared/agent-session-journal-types'
 // Share one connection per test profile to match production host ownership.
 
 import { resolve } from 'node:path'
@@ -152,4 +153,48 @@ export function deleteTestJournalRow(db: Database.Database, sessionId: string, s
     liveEpoch(db, sessionId),
     seq
   )
+}
+
+export function writeTestLegacyTerminalGaps(
+  db: Database.Database,
+  sessionId: string,
+  base: {
+    epoch: string
+    sequence: number
+    fence: number
+    providerHandle: AgentSessionJournalProviderHandle
+  },
+  count: number
+): number {
+  let seq = base.sequence
+  for (let index = 0; index < count; index++) {
+    const id = `terminal-${index}`
+    insertTestJournalRow(db, sessionId, {
+      v: 3,
+      epoch: base.epoch,
+      seq: ++seq,
+      fence: base.fence,
+      ts: 1,
+      kind: 'submission',
+      clientMessageId: id,
+      payloadFingerprint: id,
+      body: { kind: 'message', role: 'user', blocks: [{ type: 'text', text: id }] },
+      providerHandle: base.providerHandle,
+      handoverRecorded: true,
+      origin: 'client'
+    })
+    insertTestJournalRow(db, sessionId, {
+      v: 3,
+      epoch: base.epoch,
+      seq: ++seq,
+      fence: base.fence,
+      ts: 1,
+      kind: 'dispatch',
+      clientMessageId: id,
+      state: 'rejected',
+      providerItemId: null,
+      reason: 'not sent'
+    })
+  }
+  return seq
 }

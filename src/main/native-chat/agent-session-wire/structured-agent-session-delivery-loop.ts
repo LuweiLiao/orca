@@ -18,7 +18,6 @@ import type {
 } from './structured-agent-session-host-types'
 import {
   acceptedNoLaterThan,
-  oldestQueuedSubmission,
   recordStructuredAgentSessionStartFailure,
   refusedStructuredAgentSessionStart,
   startThatFailedWhileQueued
@@ -38,6 +37,7 @@ import { waitsForCodexTurnOptions } from './structured-agent-session-message-opt
 import type { StructuredAgentSessionRanRecorder } from './structured-agent-session-ran-options'
 import { sameProviderChild } from './structured-agent-session-provider-child'
 import type { StructuredAgentSessionAcquireAborts } from './structured-agent-session-acquire-aborts'
+import { selectableStructuredSubmission } from './structured-agent-session-input-selection'
 
 export type StructuredAgentSessionDeliveryLoopDeps = {
   deliveryOrder: StructuredAgentSessionDeliveryOrder
@@ -104,10 +104,7 @@ export class StructuredAgentSessionDeliveryLoop {
     if (this.disposed) {
       return Promise.resolve()
     }
-    this.deps.deliveryOrder.reconcile(
-      sessionId,
-      this.deps.sessions.get(sessionId)?.journal.submissions() ?? []
-    )
+    this.deps.deliveryOrder.reconcile(sessionId, this.deps.sessions.get(sessionId)?.journal)
     if (this.running.has(sessionId)) {
       return this.runs.get(sessionId) ?? Promise.resolve()
     }
@@ -204,9 +201,9 @@ export class StructuredAgentSessionDeliveryLoop {
     if (!(await this.deps.closeWhatTheUserClosed(sessionId))) {
       return this.stop(sessionId)
     }
-    const oldest = oldestQueuedSubmission(session)
     // Commands block while their child lives; ended command commits wake delivery again.
     const work = this.deps.currentWork(sessionId)
+    const oldest = selectableStructuredSubmission(session.journal, work)
     if (!oldest || (session.child && work && structuredAgentSessionCommandRunning(work))) {
       return this.stop(sessionId)
     }

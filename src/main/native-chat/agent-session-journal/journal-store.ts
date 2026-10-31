@@ -1,7 +1,9 @@
+import { journalInputOrder } from './journal-input-order'
 // Each session owns its fold and queue; all statements use the host's shared database connection.
 
 import type { AgentJournalDispatchRejection } from '../../../shared/agent-session-failure-words'
 import { randomUUID } from 'node:crypto'
+import { retireCoveredJournalFloor } from './journal-commit'
 import { createJournalPublicReader } from './journal-public-read'
 import type {
   AgentJournalAcceptanceReceipt,
@@ -11,7 +13,6 @@ import type {
   AgentJournalRenderItem,
   AgentJournalSnapshot,
   AgentJournalSubmission,
-  AgentJournalThreadGoal,
   AgentJournalTurnLifecycle,
   AgentSessionJournalIdentity
 } from '../../../shared/agent-session-journal-types'
@@ -44,7 +45,6 @@ import type {
   JournalItemLinkageVisitor,
   JournalLifecycleBatchInput,
   JournalPlannedLifecycleBatchInput,
-  JournalReadSince,
   JournalSubmissionConsume,
   JournalSubmissionInput,
   JournalTombstoneInput,
@@ -115,13 +115,16 @@ export class AgentSessionJournal {
       readOnly: () => this.database.readOnly,
       cursor: this.cursor,
       adopt: (loaded) => {
+        journalInputOrder(loaded.state).carryRecovery(journalInputOrder(this.state))
         this.adoptLoadedJournal(loaded)
         this.onCommitted?.()
       },
       commit: (rows, savedAt) => {
+        this.queuedMessages.inputState()
         for (const row of rows) {
           applyJournalRow(this.state, row, savedAt)
         }
+        this.reopenUnmarked = retireCoveredJournalFloor(this.state, this.reopenUnmarked)
         this.onCommitted?.(rows)
       },
       notifyCommitted: () => this.onCommitted?.([]),
@@ -149,6 +152,10 @@ export class AgentSessionJournal {
     return this.identity.agent
   }
 
+  get inputOrder() {
+    return journalInputOrder(this.state)
+  }
+
   /** Only rows from this handle's opening epoch can predate the open. */
   wroteBeforeOpen(sequence: number | undefined): boolean {
     return (
@@ -166,6 +173,7 @@ export class AgentSessionJournal {
   async open(): Promise<void> {
     await this.restore()
     this.openedThrough = this.cursor()
+    journalInputOrder(this.state).markOpeningRecovery()
   }
 
   /** Refuse future writes and drain admitted ones; the host retains database ownership. */
@@ -225,7 +233,7 @@ export class AgentSessionJournal {
     journalThreadGoalSource(this.state.items.values())
 
   /** Read across the journal, beyond any client's loaded page. */
-  threadGoal = (): AgentJournalThreadGoal | null => this.threadGoalSource().goal
+  threadGoal = () => this.threadGoalSource().goal
 
   /** Read across the journal, beyond any client's loaded page. */
   contextUsage = (): AgentSessionContextUsage =>
@@ -262,7 +270,7 @@ export class AgentSessionJournal {
     return this.queue.readInOrder(read)
   }
 
-  readSince(cursor: AgentJournalCursor, limit?: number): JournalReadSince {
+  readSince(cursor: AgentJournalCursor, limit?: number) {
     const { sessionId } = this.identity
     const rowsAfter = journalRowsAfterReader(this.database.db, sessionId, this.state.epoch, limit)
     return readJournalSince({ state: this.state, rowsAfter }, cursor, () => this.cursor())
@@ -309,7 +317,6 @@ export class AgentSessionJournal {
       const sequence = since ?? this.state.lastSequence + 1
       this.reopenUnmarked = { epoch: this.state.epoch, sequence }
       await this.appendQueueReopen(fence, since)
-      this.reopenUnmarked = null
     }
   }
 
@@ -345,10 +352,7 @@ export class AgentSessionJournal {
   }
 
   /** Failed initialization proves handed-over but unanswered sends never ran. */
-  async rejectPendingSubmissions(
-    fence: number,
-    rejection: AgentJournalDispatchRejection
-  ): Promise<string[]> {
+  async rejectPendingSubmissions(fence: number, rejection: AgentJournalDispatchRejection) {
     return rejectJournalPendingSubmissions(this, fence, rejection)
   }
 
@@ -370,6 +374,7 @@ export class AgentSessionJournal {
   }
 
   private adoptLoadedJournal(loaded: JournalLoad): void {
+    journalInputOrder(loaded.state).carryRecovery(journalInputOrder(this.state))
     this.state = loaded.state
   }
 }

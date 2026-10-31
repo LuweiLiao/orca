@@ -1,3 +1,4 @@
+import { selectedStructuredSubmission } from './structured-agent-session-input-selection'
 import { agentJournalItemKey } from '../../../shared/agent-session-journal-item-key'
 import { AGENT_JOURNAL_THREAD_SCOPE } from '../../../shared/agent-session-journal-types'
 import { isQueuedAgentJournalSubmission } from '../../../shared/agent-session-queued-submission'
@@ -136,14 +137,5 @@ export function acceptedNoLaterThan(
 export function oldestQueuedSubmission(
   session: Pick<StructuredAgentSessionHostSession, 'journal'>
 ): ReturnType<StructuredAgentSessionHostSession['journal']['submissions']>[number] | undefined {
-  let oldest: ReturnType<typeof oldestQueuedSubmission>
-  for (const submission of session.journal.submissions()) {
-    if (
-      isQueuedAgentJournalSubmission(submission) &&
-      (oldest === undefined || (submission.acceptedSequence ?? 0) < (oldest.acceptedSequence ?? 0))
-    ) {
-      oldest = submission
-    }
-  }
-  return oldest
+  return selectedStructuredSubmission(session.journal)
 }

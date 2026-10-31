@@ -1,6 +1,9 @@
+import { readJournalLegacyCards } from './journal-queue-import'
+import { journalInputOrder } from './journal-input-order'
 // Replay live epochs without rewriting history; damage/newer rows fail load and remain on disk.
 
 import type Database from '../../sqlite/sync-database'
+import { journalInputAcceptance } from './journal-input-provenance'
 import {
   applyJournalRow,
   createJournalReducerState,
@@ -33,20 +36,31 @@ export function replayJournal(db: Database.Database, sessionId: string): Journal
   if (epoch === null) {
     return null
   }
-  const fold = startJournalRowFold({ sessionId, epoch })
+  const fold = startJournalRowFold({
+    sessionId,
+    epoch,
+    originalAcceptance: (id) => journalInputAcceptance(db, sessionId, id)
+  })
   for (const entry of iterateJournalEpochRows(db, sessionId, epoch)) {
     if (!fold.add(entry)) {
       break
     }
   }
-  return fold.finish()
+  const loaded = fold.finish()
+  journalInputOrder(loaded.state).overlay(loaded.state, readJournalLegacyCards(db, loaded.state))
+  return loaded
 }
 
-export function startJournalRowFold(input: { sessionId: string; epoch: string }): {
+export function startJournalRowFold(input: {
+  sessionId: string
+  epoch: string
+  originalAcceptance?: Parameters<typeof createJournalReducerState>[2]
+}): {
   add: (entry: { seq: number; rowJson: string; ts?: number }) => boolean
   finish: () => JournalLoad
 } {
-  const state = createJournalReducerState(input.sessionId, input.epoch)
+  const state = createJournalReducerState(input.sessionId, input.epoch, input.originalAcceptance)
+  journalInputOrder(state).beginReconstruction()
   let expectedSequence = FIRST_JOURNAL_SEQUENCE
   let damage: JournalDamage | null = null
   let anchored = false
@@ -89,6 +103,13 @@ export function startJournalRowFold(input: { sessionId: string; epoch: string })
     return true
   }
   const finish = (): JournalLoad => {
+    {
+      journalInputOrder(state).finishReconstruction(state)
+      journalInputOrder(state).lineage.restoreFrontier(
+        state.lastSequence,
+        state.inputEntries.values()
+      )
+    }
     state.oldestSequence = FIRST_JOURNAL_SEQUENCE
     // Empty epochs contain no recoverable history; founding a fresh epoch loses nothing.
     const found =

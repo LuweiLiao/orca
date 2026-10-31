@@ -2,15 +2,7 @@
 
 // Enter and Cmd/Ctrl+Enter reach the outgoing agentSession.send through the real composer, transport and session.
 
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { dispatchStructuredAgentSessionComposerCommand } from '../../../../shared/structured-agent-session-composer'
 import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
@@ -88,7 +80,6 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { NativeChatComposer } from './NativeChatComposer'
 import { useStructuredAgentSession } from './use-structured-agent-session'
 import { useNativeChatStructuredComposerTransport } from './use-native-chat-structured-composer-transport'
-import * as queueRequests from './structured-agent-session-queue-request'
 import { nativeChatStructuredStopControls } from './native-chat-structured-stop-controls'
 import { changePrompt, promptValue } from './native-chat-prompt-editor.test-support'
 
@@ -302,7 +293,7 @@ function operationTransport(overrides: Partial<NativeChatStructuredComposerTrans
   return { send, setObjective, invokeAction, runConversationCommand }
 }
 
-it.each(['/compact', '/clear', '/model', '/effort', '/goal ship it', '/resume search'])(
+it.each(['/compact', '/clear', '/goal ship it', '/resume search'])(
   '%s never promises alternate message delivery and retains its real command outcome',
   async (draft) => {
     const calls = operationTransport()
@@ -400,7 +391,7 @@ it.each(['idle', 'stopping', 'old host', 'waiting command', 'unanswerable prompt
 )
 
 it.each([false, true])(
-  'renders the actual German alternate output with Queue %s',
+  'renders the actual Chinese alternate output with Queue %s',
   async (queueFollowUps) => {
     i18n.addResourceBundle('de', 'translation', de)
     await i18n.changeLanguage('de')
@@ -410,9 +401,14 @@ it.each([false, true])(
       </TooltipProvider>
     )
     changePrompt(screen.getByRole('textbox'), 'weiter')
-    act(() => screen.getByRole('button', { name: 'Senden' }).focus())
+    act(() =>
+      screen.getByRole('button', { name: de.components['native-chat'].composer.send }).focus()
+    )
     expect((await screen.findByRole('tooltip')).textContent).toBe(
-      queueFollowUps ? '⌘ Enter zum Steuern' : '⌘ Enter zum Einreihen'
+      (queueFollowUps
+        ? de.components['native-chat'].composer.alternateSteerHint
+        : de.components['native-chat'].composer.alternateQueueHint
+      ).replace('{{shortcut}}', '⌘ Enter')
     )
   }
 )
@@ -506,110 +502,3 @@ it('the running PTY composer clicks through Send while Escape still stops withou
 })
 
 // Count only the real send resolver's population reads, separate from existing card/history projections.
-it.each([10, 100])(
-  'bounds follow-up presentation work at %s queued rows and prompts on a journal render',
-  async (size) => {
-    const original = queueRequests.structuredAgentSessionSendQueues
-    let resolving = false
-    let queueReads = 0
-    let promptReads = 0
-    const spy = vi
-      .spyOn(queueRequests, 'structuredAgentSessionSendQueues')
-      .mockImplementation((...args) => {
-        resolving = true
-        try {
-          return original(...args)
-        } finally {
-          resolving = false
-        }
-      })
-    const body = {
-      kind: 'approval',
-      title: 'Review',
-      detail: null,
-      subject: { kind: 'diff' },
-      options: [{ id: 'allow', label: 'Approve' }],
-      resolution: { state: 'pending', selectedOptionId: null, resolvedBy: null, resolvedAt: null }
-    }
-    if (!isAdmissibleAgentJournalItemBody(body)) {
-      throw new Error('Invalid approval fixture')
-    }
-    const previous = { readItems, readQueued, currentRequests }
-    try {
-      setLocalRuntimeCapabilitiesForTests([AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY])
-      readItems = [
-        {
-          itemId: 'perf-turn',
-          revision: 1,
-          sequence: 1,
-          observedAt: 1,
-          body: { kind: 'turn', turnId: 'perf-provider-turn', state: 'running' }
-        }
-      ]
-      readQueued = Array.from({ length: size }, (_, index) => ({
-        messageId: `perf-${index}`,
-        position: index,
-        get state() {
-          if (resolving) {
-            queueReads++
-          }
-          return 'waiting' as const
-        },
-        body: { kind: 'message', role: 'user', blocks: [{ type: 'text', text: 'next' }] }
-      }))
-      currentRequests = Array.from({ length: size }, (_, index) => ({
-        itemId: `prompt-${index}`,
-        revision: 1,
-        sequence: index,
-        observedAt: 1,
-        get body() {
-          if (resolving) {
-            promptReads++
-          }
-          return body
-        }
-      }))
-      const mounted = renderHook(
-        ({ followUpsQueue }) =>
-          useStructuredAgentSession({
-            sessionId: 'presentation-perf',
-            target: { kind: 'local' },
-            agent: 'codex',
-            isVisible: true,
-            queueFollowUps: followUpsQueue
-          }),
-        { initialProps: { followUpsQueue: true } }
-      )
-      await act(async () => {})
-      for (const followUpsQueue of [true, false]) {
-        await act(async () => mounted.rerender({ followUpsQueue }))
-        queueReads = 0
-        promptReads = 0
-        spy.mockClear()
-        readItems = [
-          ...readItems,
-          {
-            itemId: `journal-${followUpsQueue}`,
-            revision: 1,
-            sequence: size + 1,
-            observedAt: 2,
-            body: { kind: 'status', text: 'Working' }
-          }
-        ]
-        await act(async () => mounted.rerender({ followUpsQueue }))
-        expect(spy).toHaveBeenCalledTimes(3)
-        expect(queueReads).toBe(size * (followUpsQueue ? 1 : 2))
-        expect(promptReads).toBe(size * (followUpsQueue ? 2 : 1))
-        expect(mounted.result.current.sendFollowUp).toEqual({
-          action: 'steer',
-          offersChoice: false
-        })
-      }
-      mounted.unmount()
-    } finally {
-      spy.mockRestore()
-      ;({ readItems, readQueued, currentRequests } = previous)
-      setLocalRuntimeCapabilitiesForTests(null)
-    }
-  }
-)

@@ -816,9 +816,9 @@ describe('NativeChatQueuedMessageList', () => {
       expect(screen.queryByRole('menuitem', { name: 'Turn off queueing' })).toBeNull()
       // Send, Delete and Edit work either way.
       fireEvent.click(screen.getByRole('menuitem', { name: 'Edit message' }))
-      expect(owner.edit).toHaveBeenCalledWith('kept')
-      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
-      expect(owner.steer).toHaveBeenCalledWith('kept')
+      expect(owner.edit).toHaveBeenCalledWith('head')
+      fireEvent.click(head!)
+      expect(owner.steer).toHaveBeenCalledWith('head')
     }
   )
 

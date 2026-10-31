@@ -1,5 +1,5 @@
-import type { AgentJournalSubmission } from '../../../shared/agent-session-journal-types'
-import { isQueuedAgentJournalSubmission } from '../../../shared/agent-session-queued-submission'
+import type { AgentSessionJournal } from '../agent-session-journal/journal-store'
+import { selectedStructuredSubmission } from './structured-agent-session-input-selection'
 
 export type StructuredAgentSessionDeliveryPlace = {
   before: Promise<void>
@@ -17,8 +17,9 @@ type Lane = {
 export class StructuredAgentSessionDeliveryOrder {
   private readonly lanes = new Map<string, Lane>()
 
-  reconcile(sessionId: string, submissions: readonly AgentJournalSubmission[]): void {
-    const queued = submissions.filter(isQueuedAgentJournalSubmission)
+  reconcile(sessionId: string, journal: AgentSessionJournal | undefined): void {
+    const selected = journal && selectedStructuredSubmission(journal)
+    const queued = selected ? [selected] : []
     const lane = this.lanes.get(sessionId)
     const ids = new Set(queued.map((submission) => submission.clientMessageId))
     for (const [id, place] of lane?.sends ?? []) {
@@ -27,9 +28,7 @@ export class StructuredAgentSessionDeliveryOrder {
         place.release()
       }
     }
-    for (const submission of queued.sort(
-      (a, b) => (a.acceptedSequence ?? 0) - (b.acceptedSequence ?? 0)
-    )) {
+    for (const submission of queued) {
       const current = this.lanes.get(sessionId)
       if (!current?.sends.has(submission.clientMessageId)) {
         const place = this.reserve(sessionId)

@@ -163,7 +163,7 @@ describe('MobileNativeChatQueuedMessages', () => {
     const mounted = await mount({ cards: [card({ messageId: 'w', text: 'next' })] })
     const rows = mounted.root.findAllByProps({ testID: 'queued-card-row' })
     expect(rows).toHaveLength(1)
-    expect(texts(mounted)).toEqual(['Queued', 1, 'next', 'Steer'])
+    expect(texts(mounted)).toEqual(['Queued', 1, 'next', 'Send'])
     // At most two lines: the row has no hover title to read the rest from.
     expect(
       mounted.root.find(
@@ -473,7 +473,12 @@ describe('MobileNativeChatQueuedMessages', () => {
     let answer: (done: boolean) => void = () => undefined
     const onSend = vi.fn(() => new Promise<boolean>((resolve) => (answer = resolve)))
     const onDelete = vi.fn(async () => true)
-    const mounted = await mount({ cards: [card({ messageId: 'w' })], onSend, onDelete })
+    const mounted = await mount({
+      cards: [card({ messageId: 'w' })],
+      onSend,
+      onDelete,
+      agentWorking: true
+    })
     const button = (label: string) =>
       mounted.root.find(
         (node) => typeof node.type === 'string' && node.props.accessibilityLabel === label
@@ -535,7 +540,8 @@ describe('MobileNativeChatQueuedMessages', () => {
         pause: { reason: 'stopped' },
         onClearAll,
         onResume,
-        onSend
+        onSend,
+        agentWorking: true
       })
       await act(async () =>
         mounted.root
@@ -652,7 +658,11 @@ describe('MobileNativeChatQueuedMessages', () => {
 
     it('keeps Steer on its cards: one card can still go beside the paused rest', async () => {
       const onSend = vi.fn(async () => true)
-      const mounted = await mountPaused({ pause: { reason: 'stopped' }, onSend })
+      const mounted = await mountPaused({
+        pause: { reason: 'stopped' },
+        onSend,
+        agentWorking: true
+      })
       const steer = mounted.root.findByProps({
         accessibilityLabel: 'Submit without interrupting the model'
       })

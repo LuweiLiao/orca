@@ -1,3 +1,5 @@
+export { serializeJournalRow, journalRowByteLength } from './journal-row-encoding'
+import type { JournalInputContext, JournalInputLineage } from './journal-input-lineage'
 import type { JournalItemEcho } from './journal-item-echo'
 // Upcast on read; preserve unknown versions/kinds and fail load instead of skipping history.
 // New kinds need reader-first rollout or a version bump because older builds may delete them.
@@ -41,6 +43,7 @@ export type JournalEpochRow = JournalRowBase & {
   kind: 'epoch'
   reason: AgentJournalEpochReason
   providerHandle: AgentSessionJournalProviderHandle
+  inputOrderLineage?: JournalInputLineage
   /** Preserve original adoption through same-conversation epoch replacement. */
   historyOrigin?: unknown
 }
@@ -118,6 +121,7 @@ export function isJournalStopOrResumeRow(row: JournalRow): row is JournalStopOrR
 /** Persist before dispatch; the optimistic bubble gives provider echoes a slot without duplication. */
 export type JournalSubmissionRow = JournalRowBase & {
   kind: 'submission'
+  inputOrderContext?: JournalInputContext
   clientMessageId: string
   payloadFingerprint: string
   providerHandle: AgentSessionJournalProviderHandle
@@ -188,10 +192,6 @@ export type JournalRowParse =
   | { ok: false; unreadable: false }
   /** Future content forbids writing/compacting this journal. */
   | { ok: false; unreadable: true }
-
-export function serializeJournalRow(row: JournalRow): string {
-  return JSON.stringify(row)
-}
 
 export function parseJournalRow(line: string): JournalRowParse {
   let parsed: unknown
@@ -348,8 +348,4 @@ function lifecycleMutationContent(value: unknown): AgentJournalContentVerdict {
     return contentCheck(value)
   }
   return isJournalTag(kind) ? 'unreadable' : 'malformed'
-}
-
-export function journalRowByteLength(row: JournalRow): number {
-  return Buffer.byteLength(serializeJournalRow(row), 'utf8') + 1
 }
