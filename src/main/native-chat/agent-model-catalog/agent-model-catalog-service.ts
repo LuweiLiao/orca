@@ -33,6 +33,7 @@ export type { AgentModelCatalogServiceDeps, AgentModelCatalogService }
 import { resolveAgentModelCatalogScope } from './agent-model-catalog-scope'
 import { independentAgentModelCatalog } from './agent-model-catalog-discovery'
 import { PrioritySemaphore } from '../../../shared/priority-semaphore'
+import { seedAccountModelCatalog } from './agent-model-catalog-account-seed'
 
 /** Keep picker discovery outside session queues and key it to the launched/selected account.
  * Probe unavailability persists until another probe answers, independently of live model listings. */
@@ -163,6 +164,7 @@ export function createAgentModelCatalogService(
         listed: AgentModelCatalogEntry | null,
         extra: { listingInProgress?: true } = {}
       ): Promise<AgentSessionModelCatalogResult> => {
+        seedAccountModelCatalog(deps.store, params, scope, lifetime.signal.aborted)
         if (
           params.verifiedOnly &&
           (!listed ||
@@ -184,7 +186,7 @@ export function createAgentModelCatalogService(
               display,
               independent &&
                 !params.legacyOptionsDisplay &&
-                (!deps.store.verified(display) || (!exact && !params.legacy))
+                (display !== listed || !deps.store.verified(display) || (!exact && !params.legacy))
                 ? false
                 : exact && listed !== null && deps.store.verified(listed)
                   ? true
@@ -256,10 +258,7 @@ export function createAgentModelCatalogService(
         return answer(deps.store.get(fingerprint))
       }
       if (!entry) {
-        if (!listing) {
-          return answer(null)
-        }
-        if (!params.waitForListing) {
+        if (!listing || !params.waitForListing) {
           return answer(null)
         }
         const listed = await listing
