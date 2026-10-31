@@ -15,4 +15,18 @@ describe('agentReplyInstructions', () => {
     }
     expect(agentReplyInstructions('gemini', { experimentalDoubaoPersona: true })).toBeNull()
   })
+
+  it('asks Claude and Codex to show images and file paths unless turned off', () => {
+    for (const agent of ['claude', 'codex']) {
+      const parts = agentReplyInstructions(agent, { experimentalDoubaoPersona: true })!.split(
+        '\n\n'
+      )
+      expect(parts.at(-2)).toMatch(/^## 图片和文件展示/)
+      expect(parts.at(-2)).toContain('![说明](/绝对路径.png)')
+      expect(
+        agentReplyInstructions(agent, { experimentalShowImagesAndFilePaths: false })
+      ).not.toContain('图片和文件展示')
+    }
+    expect(agentReplyInstructions('gemini', {})).toBeNull()
+  })
 })

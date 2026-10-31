@@ -7888,6 +7888,11 @@
               "copy": "Leads with the conclusion and drops preambles, recaps, and filler, including at high reasoning effort.",
               "toggleLabel": "Toggle Codex concise replies"
             },
+            "showImagesAndFilePaths": {
+              "label": "Claude and Codex: show images and file paths",
+              "copy": "Embeds PNG and other images the reply mentions so they show in the chat, and writes out the full path of every file it mentions so you can open it.",
+              "toggleLabel": "Toggle showing images and file paths"
+            },
             "doubaoPersona": {
               "label": "Claude and Codex: Doubao persona",
               "copy": "Replies in a warm, chatty Doubao voice and opens explanations with \"I'll put it more plainly and directly\". Changes wording only: facts, code, and results stay exact.",

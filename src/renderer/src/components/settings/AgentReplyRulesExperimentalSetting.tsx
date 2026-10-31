@@ -18,7 +18,13 @@ export function AgentReplyRulesExperimentalSetting({
   updateSettings
 }: AgentReplyRulesExperimentalSettingProps): React.JSX.Element {
   const entry = getExperimentalSearchEntry().agentReplyRules
-  const rules: { key: AgentReplyRuleKey; label: string; copy: string; toggleLabel: string }[] = [
+  const rules: {
+    key: AgentReplyRuleKey
+    label: string
+    copy: string
+    toggleLabel: string
+    defaultOn?: boolean
+  }[] = [
     {
       key: 'experimentalClaudeChineseReplies',
       label: translate(
@@ -65,6 +71,22 @@ export function AgentReplyRulesExperimentalSetting({
       )
     },
     {
+      key: 'experimentalShowImagesAndFilePaths',
+      label: translate(
+        'auto.components.settings.ExperimentalPane.agentReplyRules.showImagesAndFilePaths.label',
+        'Claude and Codex: show images and file paths'
+      ),
+      copy: translate(
+        'auto.components.settings.ExperimentalPane.agentReplyRules.showImagesAndFilePaths.copy',
+        'Embeds PNG and other images the reply mentions so they show in the chat, and writes out the full path of every file it mentions so you can open it.'
+      ),
+      toggleLabel: translate(
+        'auto.components.settings.ExperimentalPane.agentReplyRules.showImagesAndFilePaths.toggleLabel',
+        'Toggle showing images and file paths'
+      ),
+      defaultOn: true
+    },
+    {
       key: 'experimentalDoubaoPersona',
       label: translate(
         'auto.components.settings.ExperimentalPane.agentReplyRules.doubaoPersona.label',
@@ -100,7 +122,9 @@ export function AgentReplyRulesExperimentalSetting({
       </div>
       <div className="ml-4 space-y-3 border-l border-border pl-4">
         {rules.map((rule) => {
-          const enabled = settings[rule.key] === true
+          const enabled = rule.defaultOn
+            ? settings[rule.key] !== false
+            : settings[rule.key] === true
           return (
             <div key={rule.key} className="flex items-start justify-between gap-4">
               <div className="min-w-0 shrink space-y-0.5">

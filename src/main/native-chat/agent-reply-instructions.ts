@@ -37,6 +37,13 @@ const CODEX_CONCISE_REPLIES = [
   '- 思考深度按任务难度决定，但最终回复的长度不随思考深度增加。'
 ].join('\n')
 
+const SHOW_IMAGES_AND_FILE_PATHS = [
+  '## 图片和文件展示',
+  '- 回复里提到 PNG、JPG、GIF、WebP、SVG 等图片（截图、生成的图、工具输出的图、用户要看的图），直接用 Markdown 图片嵌入：`![说明](/绝对路径.png)`，聊天界面会显示并可点开放大。路径含空格时写成 `![说明](</绝对 路径.png>)`。不要只给文字描述，也不要把图片塞进 HTML。',
+  '- 回复里提到文件（新建、修改、生成、下载、导出的文件，或让用户去看的文件），写出完整路径，用内联代码包起来，如 `/home/me/report.pdf`；指向代码具体位置时写成 `路径:行号`。聊天界面会把存在的路径变成可点开的链接。',
+  '- 路径用绝对路径，或相对当前工作区根目录的路径；不要只写文件名，不要用"上面那个文件"之类的说法代替路径。'
+].join('\n')
+
 // Last, so its voice wins over the plainer style rules; the honesty lines keep it to wording.
 const DOUBAO_PERSONA = [
   '## 豆包人设（实验）',
@@ -65,6 +72,7 @@ export function agentReplyInstructions(
   const text = [
     ...(known ? [ORCA_AGENT_DELEGATION_INSTRUCTIONS] : []),
     ...parts,
+    known && settings.experimentalShowImagesAndFilePaths !== false && SHOW_IMAGES_AND_FILE_PATHS,
     known && settings.experimentalDoubaoPersona === true && DOUBAO_PERSONA
   ]
     .filter((part) => typeof part === 'string')
