@@ -117,3 +117,6 @@ See [LLW Validation](llw-validation.md) for this integration's actual results.
 
 The November 1 follow-up queue integration and keyboard behavior are described
 in [Chat Follow-ups](llw-follow-up-queue.md).
+
+The model catalog, Mermaid viewer and host model/effort defaults integration is
+described in [Agent Model Defaults](llw-agent-model-defaults.md).

@@ -48,6 +48,86 @@ test.use({
   orcaAppExtraEnv: { ORCA_BACKGROUND_LAUNCH: '1', ORCA_E2E_STUB_EFFORT_CATALOG: '1' }
 })
 
+test('CCB host defaults persist and explicit chat choices take priority', async ({
+  orcaPage: page,
+  ccbStub
+}, testInfo) => {
+  await waitForSessionReady(page)
+  const worktreeId = await waitForActiveWorktree(page)
+  const stopCapture = await startHiddenRendererFrameCapture(page)
+  try {
+    await page.evaluate(async (command) => {
+      const state = window.__store!.getState()
+      await state.updateSettingsOrThrow({
+        uiLanguage: 'en',
+        experimentalNativeChat: true,
+        tabAutoGenerateTitle: false,
+        agentCmdOverrides: { ccb: `"${command}"` },
+        agentLaunchChoices: {}
+      })
+      window.__store!.setState({ detectedAgentIds: ['ccb'] })
+      state.openSettingsTarget({ pane: 'agents', repoId: null })
+      state.openSettingsPage()
+    }, ccbStub.command)
+    const row = page.locator('div.py-3').filter({ has: page.getByText('ccb', { exact: true }) })
+    const expand = row.getByRole('button', { name: 'Expand agent settings', exact: true })
+    if (await expand.isVisible()) {
+      await expand.click()
+    }
+    const defaults = row.locator('[data-agent-model-defaults="ccb"]')
+    await defaults.getByRole('combobox', { name: 'Default model', exact: true }).click()
+    await page.getByRole('option', { name: 'Sonnet', exact: true }).click()
+    await defaults.getByRole('combobox', { name: 'Default effort', exact: true }).click()
+    await page.getByRole('option', { name: 'Low', exact: true }).click()
+    await expect
+      .poll(() =>
+        page.evaluate(async () => (await window.api.settings.get()).agentLaunchChoices?.ccb)
+      )
+      .toEqual({ model: 'sonnet', options: { effort: 'low' } })
+    await defaults.screenshot({ path: testInfo.outputPath('ccb-default-model-effort.png') })
+    await page.reload()
+    await waitForSessionReady(page)
+    expect(
+      await page.evaluate(async () => (await window.api.settings.get()).agentLaunchChoices?.ccb)
+    ).toEqual({ model: 'sonnet', options: { effort: 'low' } })
+    await page.evaluate(() => window.__store!.getState().closeSettingsPage())
+    for (const explicit of [false, true]) {
+      const launch = await page.evaluate(
+        ({ worktreeId, explicit }) =>
+          window.api.runtime.call({
+            method: 'agent.launch',
+            params: {
+              agent: 'ccb',
+              target: { kind: 'existing', worktree: `id:${worktreeId}` },
+              surface: 'chat',
+              ...(explicit ? { sessionOptions: { model: 'opus', effort: 'high' } } : {}),
+              prompt: {
+                text: explicit ? 'Explicit choice.' : 'Global defaults.',
+                delivery: 'submit'
+              },
+              presentation: 'background'
+            }
+          }),
+        { worktreeId, explicit }
+      )
+      expect(launch).toMatchObject({ ok: true, result: { outcome: { kind: 'structured' } } })
+      await expect
+        .poll(() =>
+          readFileSync(ccbStub.log, 'utf8')
+            .split('\n')
+            .some(
+              (line) =>
+                line.includes(`"--model","${explicit ? 'opus' : 'sonnet'}"`) &&
+                line.includes(`"--effort","${explicit ? 'high' : 'low'}"`)
+            )
+        )
+        .toBe(true)
+    }
+  } finally {
+    await stopCapture()
+  }
+})
+
 test('CCB discovers its own models and retains a selected model and effort', async ({
   orcaPage: page,
   electronApp,

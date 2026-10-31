@@ -1,3 +1,4 @@
+import type { AgentLaunchChoices } from './agent-launch-choices'
 import type { BrowserLinkOpeningSettings } from './browser-link-opening-settings'
 import type { ClaudeAccountSwitchSettings } from './claude-account-switch-settings'
 import type { ExternalConversationSettings } from './external-conversation-settings'
@@ -15,4 +16,4 @@ export type GlobalSettingsBase = NativeChatGlobalSettings &
   ExternalConversationSettings &
   BrowserLinkOpeningSettings &
   AgentReplyRuleSettings &
-  ProjectMapSettings
+  ProjectMapSettings & { agentLaunchChoices?: AgentLaunchChoices }

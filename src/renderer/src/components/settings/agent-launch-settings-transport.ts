@@ -4,6 +4,7 @@ import type {
 } from '../../../../shared/agent-launch-settings'
 import {
   AGENT_LAUNCH_AUTO_PERMISSIONS_CAPABILITY,
+  AGENT_LAUNCH_CHOICES_CAPABILITY,
   AGENT_LAUNCH_NATIVE_CHAT_PERMISSIONS_CAPABILITY,
   AGENT_LAUNCH_PERMISSION_CHOICE_CAPABILITY,
   AGENT_LAUNCH_SETTINGS_CAPABILITY
@@ -58,6 +59,15 @@ export async function mutateHostAgentLaunchSettings(
   mutation: AgentLaunchSettingsMutation,
   signal?: AbortSignal
 ): Promise<AgentLaunchSettings> {
+  if (
+    mutation.type === 'launch-choices' &&
+    !(await runtimeEnvironmentSupportsCapability(
+      owner.environmentId,
+      AGENT_LAUNCH_CHOICES_CAPABILITY
+    ))
+  ) {
+    throw new Error('agent_launch_choices_unsupported')
+  }
   if (
     !(await runtimeEnvironmentSupportsCapability(
       owner.environmentId,

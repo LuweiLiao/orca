@@ -133,7 +133,7 @@ it.each(
   await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
   expect(persist).toHaveBeenCalledTimes(2)
   const imports = feedback.slice(before)
-  expect(imports.map((work) => work.text)).toEqual([recipe, recipe])
+  expect(imports.map((work) => work.text)).toEqual([recipe])
   for (const work of imports) {
     expect(work.chars).toBeLessThanOrEqual(36 * recipe.length + 12000)
   }
@@ -195,8 +195,9 @@ it('retains failed conversion through the ordinary callback and announces only t
     )
   )
   expect(useAppStore.getState().settings?.agentPermissionOverrides?.claude).toBe('auto')
-  expect(useAppStore.getState().settings?.agentDefaultArgs?.claude).toBe('--model opus')
-  await waitFor(() => expect(input.value).toBe('--model opus'))
+  expect(useAppStore.getState().settings?.agentDefaultArgs?.claude).toBe('')
+  expect(useAppStore.getState().settings?.agentLaunchChoices?.claude?.model).toBe('opus')
+  await waitFor(() => expect(input.value).toBe(''))
   act(() => savedArguments('--later'))
   expect(input.value).toBe('--later')
   fireEvent.change(input, { target: { value: '--dirty' } })

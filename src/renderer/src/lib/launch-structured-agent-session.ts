@@ -10,6 +10,7 @@ import {
 import { structuredLaunchSeedOptions } from '../../../shared/native-chat-session-option-defaults'
 import {
   claudeLauncherOptionsOf,
+  claudeLauncherFromOptions,
   structuredLaunchProviderFor
 } from '../../../shared/claude-cli-launch-agents'
 import { toRuntimeWorktreeSelector } from '@/runtime/runtime-worktree-selector'
@@ -146,7 +147,12 @@ function buildStructuredAgentSessionLaunchIntent(
       ...(launcherOptions ? { options: launcherOptions } : {}),
       randomUuid: createBrowserUuid
     }),
-    ...launchSeedOptions(state, owner, agent, hostSeedOptions)
+    ...launchSeedOptions(
+      state,
+      owner,
+      claudeLauncherFromOptions(launcherOptions) ?? agent,
+      launcherOptions && owner.target.kind !== 'local' ? undefined : hostSeedOptions
+    )
   }
 }
 

@@ -156,7 +156,6 @@ export async function launchAgentBackgroundSession(
         leafId,
         agent,
         ...(hasPrompt && !isFollowupPath ? { prompt: trimmedPrompt } : {}),
-        ...(startupPlan.sessionOptions ? { sessionOptions: startupPlan.sessionOptions } : {}),
         legacy: {
           command: startupPlan.launchCommand,
           env: paneEnv,

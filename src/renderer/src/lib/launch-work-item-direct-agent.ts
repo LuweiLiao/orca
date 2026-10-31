@@ -12,11 +12,12 @@ import type { StartupCommandDelivery } from '../../../shared/codex-startup-deliv
 import type { TuiAgent } from '../../../shared/tui-agent'
 import type { AgentStartupShell } from '../../../shared/tui-agent-startup-shell'
 import {
-  resolveTuiAgentLaunchArgs,
   resolveTuiAgentLaunchEnv,
   type AgentLaunchProfileSettings
 } from '../../../shared/tui-agent-launch-defaults'
 import { translate } from '@/i18n/i18n'
+import { terminalSessionOptionInputs } from '../../../shared/tui-agent-launch-command'
+import { resolveStartupShell } from '../../../shared/tui-agent-startup-shell'
 
 export function buildDirectWorkItemAgentStartupPlan(args: {
   agent: TuiAgent | null
@@ -42,10 +43,14 @@ export function buildDirectWorkItemAgentStartupPlan(args: {
     return { startupPlan: null, draftLaunchedNatively: false, startupPlanFailed: false }
   }
 
-  const effectiveAgentArgs =
-    args.agentArgs === undefined
-      ? resolveTuiAgentLaunchArgs(args.agent, args.settings)
-      : args.agentArgs
+  const startupOptions = terminalSessionOptionInputs({
+    agent: args.agent,
+    settings: args.settings,
+    agentArgs: args.agentArgs,
+    sessionOptions: undefined,
+    command: args.settings?.agentCmdOverrides?.[args.agent],
+    shell: resolveStartupShell(args.launchPlatform, args.shell)
+  })
   const effectiveAgentEnv = resolveTuiAgentLaunchEnv(args.agent, args.settings, args.launchPlatform)
   const draftLaunchPlan =
     args.promptDelivery === 'submit-after-ready'
@@ -57,7 +62,7 @@ export function buildDirectWorkItemAgentStartupPlan(args: {
           platform: args.launchPlatform,
           ...(args.shell ? { shell: args.shell } : {}),
           isRemote: args.isRemote,
-          agentArgs: effectiveAgentArgs,
+          ...startupOptions,
           agentEnv: effectiveAgentEnv
         })
 
@@ -86,7 +91,7 @@ export function buildDirectWorkItemAgentStartupPlan(args: {
     platform: args.launchPlatform,
     ...(args.shell ? { shell: args.shell } : {}),
     isRemote: args.isRemote,
-    agentArgs: effectiveAgentArgs,
+    ...startupOptions,
     agentEnv: effectiveAgentEnv,
     allowEmptyPromptLaunch: true
   })

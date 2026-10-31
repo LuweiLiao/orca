@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { projectAgentLaunchSettings } from '../../../../shared/agent-launch-settings'
 import {
   AGENT_LAUNCH_AUTO_PERMISSIONS_CAPABILITY,
+  AGENT_LAUNCH_CHOICES_CAPABILITY,
   AGENT_LAUNCH_NATIVE_CHAT_PERMISSIONS_CAPABILITY
 } from '../../../../shared/agent-launch-runtime-capability'
 const rpc = vi.hoisted(() => ({ call: vi.fn(), supports: vi.fn() }))
@@ -20,6 +21,23 @@ beforeEach(() => {
   rpc.call.mockResolvedValue({
     settings: projectAgentLaunchSettings({ agentDefaultArgs: { claude: '--host' } })
   })
+})
+
+it('keeps model-default mutations off older hosts', async () => {
+  rpc.supports.mockImplementation(
+    async (_id, capability) => capability !== AGENT_LAUNCH_CHOICES_CAPABILITY
+  )
+  await expect(
+    mutateHostAgentLaunchSettings(
+      { environmentId: 'older-host' },
+      {
+        type: 'launch-choices',
+        agent: 'ccb',
+        patch: { model: 'gateway-model', options: { effort: 'high' } }
+      }
+    )
+  ).rejects.toThrow('agent_launch_choices_unsupported')
+  expect(rpc.call).not.toHaveBeenCalled()
 })
 
 describe('host agent launch settings transport', () => {

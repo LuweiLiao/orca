@@ -55,7 +55,10 @@ export function launchAgentInWebHostTab(args: {
     onPromptDelivered
   } = args
   const hasPrompt = prompt.length > 0
-  const launchPreferences = toAgentLaunchPreferences(startupPlan.sessionOptions)
+  const desktopDefaults = useAppStore.getState().settings?.agentLaunchChoices?.[agent]
+  const launchPreferences = toAgentLaunchPreferences(
+    desktopDefaults ? undefined : startupPlan.sessionOptions
+  )
   const structuredPromptDelivery: AgentPromptDelivery =
     promptDelivery === 'draft' ? 'draft' : 'auto-submit'
   const launch = {

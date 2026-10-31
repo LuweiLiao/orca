@@ -86,8 +86,8 @@ describe('createWebRuntimeSessionTerminal', () => {
     resetTerminalCreateEnvironment()
   })
 
-  it.each([false, true])(
-    'sends the desktop launch settings for an empty-prompt quick launch (host authority: %s)',
+  it.each([false, true, 'defaults'] as const)(
+    'uses host defaults on current peers and captured arguments on older peers (%s)',
     async (hostAuthority) => {
       const runtimeCall = vi.fn(async (request: { method: string; params?: unknown }) => {
         if (request.method === 'status.get') {
@@ -99,7 +99,12 @@ describe('createWebRuntimeSessionTerminal', () => {
               graphStatus: 'ready',
               runtimeProtocolVersion: 3,
               minCompatibleRuntimeClientVersion: 2,
-              capabilities: hostAuthority ? ['agent-session.host-authority.v1'] : []
+              capabilities: hostAuthority
+                ? [
+                    'agent-session.host-authority.v1',
+                    ...(hostAuthority === 'defaults' ? ['settings.agent-launch.choices.v1'] : [])
+                  ]
+                : []
             }
           }
         }
@@ -154,8 +159,14 @@ describe('createWebRuntimeSessionTerminal', () => {
       if (hostAuthority) {
         expect(createRequests[0]).toMatchObject({
           method: 'terminal.createAgentSession',
-          params: { agent: 'claude', agentArgs: '--model "model with spaces"' }
+          params: {
+            agent: 'claude',
+            ...(hostAuthority === 'defaults' ? {} : { agentArgs: '--model "model with spaces"' })
+          }
         })
+        if (hostAuthority === 'defaults') {
+          expect(createRequests[0].params).not.toHaveProperty('agentArgs')
+        }
         expect(createRequests[0].params).not.toHaveProperty('command')
       } else {
         expect(createRequests[0]).toMatchObject({

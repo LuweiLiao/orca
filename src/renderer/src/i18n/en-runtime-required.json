@@ -184,6 +184,7 @@
         "cdc9ac4b2d": "editor"
       },
       "UpdateCard": {
+        "09a55c39b5": "Installing...",
         "522df222b9": "spinner",
         "7ffc08506e": "check",
         "d5253b54af": "error"
@@ -3484,6 +3485,9 @@
     }
   },
   "settings": {
+    "agents": {
+      "loadingModels": "Loading models..."
+    },
     "browser": {
       "clientHostedRemote": {
         "description": "Render remote workspace pages on this desktop; network traffic still goes through the remote host. Applies to new pages only.",

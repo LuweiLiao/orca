@@ -32,13 +32,15 @@ const initializeResponse = {
   available_output_styles: ['default']
 }
 if (process.env.ORCA_E2E_STUB_EFFORT_CATALOG === '1') {
-  initializeResponse.models.push({
-    value: 'opus',
-    displayName: 'Opus',
-    description: '',
-    supportsEffort: true,
-    supportedEffortLevels: ['low', 'high']
-  })
+  initializeResponse.models.push(
+    ...['opus', 'sonnet'].map((value) => ({
+      value,
+      displayName: value === 'opus' ? 'Opus' : 'Sonnet',
+      description: '',
+      supportsEffort: true,
+      supportedEffortLevels: ['low', 'high']
+    }))
+  )
 }
 
 // A prompt containing "slow" runs until it is interrupted.

@@ -61,6 +61,54 @@ describe('a structured worker seeds the dispatch launch preferences', () => {
 })
 
 describe('the create the seed options land in', () => {
+  it.each([false, true])(
+    'uses CCB defaults independently of Claude and preserves dispatch choices (%s)',
+    async (explicit) => {
+      const read = vi.fn()
+      const prepared = await prepareStructuredAgentSessionCreateForWorktree({
+        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: prepare uses only these runtime methods before acquiring the fixture host.
+        runtime: {
+          resolveStructuredAgentSessionCreateIntent: async () => ({
+            location: {
+              executionHostId: 'local',
+              wslDistro: null,
+              workspaceId: 'repo::wt',
+              workspaceKind: 'folder'
+            },
+            provider: 'claude',
+            agent: 'claude',
+            runtimeKind: 'native',
+            accountHome: { variable: 'CLAUDE_CONFIG_DIR', path: '/host/.claude' },
+            options: { model: 'unrelated-claude', effort: 'high' }
+          }),
+          structuredAgentSessionLaunchSeedOptions: (agent) =>
+            agent === 'ccb' ? { model: 'gateway-only', effort: 'low' } : undefined
+        } as never,
+        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: acquired create preparation reads only this host's optional catalog; no attach is executed.
+        ensureHost: async () => ({ deps: { modelCatalog: { read } } }) as never,
+        envelope: {
+          sessionId: 'sess_ccb',
+          clientOperationId: 'op_ccb',
+          expectedRuntimeFence: null,
+          payloadFingerprint: ''
+        },
+        worktree: 'id:repo::wt',
+        agent: 'claude',
+        caller: { callerKey: 'orchestration:dispatch:ctx_1' },
+        options: {
+          launcher: 'ccb',
+          ...(explicit ? { model: 'explicit-gateway', effort: 'high' } : {})
+        }
+      })
+      expect(prepared.attachParams.options).toEqual({
+        launcher: 'ccb',
+        model: explicit ? 'explicit-gateway' : 'gateway-only',
+        effort: explicit ? 'high' : 'low'
+      })
+      expect(read).not.toHaveBeenCalled()
+    }
+  )
+
   const settingsResolved = {
     location: { executionHostId: 'local', wslDistro: null, workspaceId: 'repo::wt' },
     provider: 'codex',

@@ -111,6 +111,7 @@ describe('scoped agent permission defaults', () => {
       codex: 'ask',
       grok: mode === 'manual' ? 'ask' : 'full-access',
       antigravity: mode === 'manual' ? 'ask' : 'full-access',
+      gemini: mode === 'manual' ? 'ask' : 'full-access',
       opencode: 'full-access'
     })
     expect(structuredLaunchSeedOptions(after, 'claude')).toEqual({ permissionMode: 'auto' })

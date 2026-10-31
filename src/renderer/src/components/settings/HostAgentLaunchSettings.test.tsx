@@ -162,7 +162,7 @@ describe('host launch settings form', () => {
     const others = await screen.findByRole('radiogroup', { name: 'Permissions for other agents' })
     fireEvent.focus(screen.getByRole('button', { name: 'Supported agents' }))
     expect((await screen.findByRole('tooltip')).textContent).toContain(
-      'Claude, Claude Agent Teams, and Codex'
+      'Claude, Claude Agent Teams, ccb, and Codex'
     )
     expect(within(others).getByRole('radio', { name: 'Yolo' }).getAttribute('aria-checked')).toBe(
       'true'

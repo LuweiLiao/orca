@@ -243,6 +243,11 @@
       }
     },
     "agents": {
+      "defaultModel": "默认模型",
+      "defaultEffort": "默认思考强度",
+      "modelDefault": "使用智能体默认设置",
+      "loadingModels": "正在加载模型...",
+      "modelDefaultsScope": "用于此主机上新建的对话、终端和工作智能体。启动时明确选择的值优先。",
       "codexTerminalServerIsolation": {
         "title": "在自己的服务器上运行每个 Codex 终端",
         "description": "保持 Orca 的状态和关闭选项卡正常工作。关闭以使用 Codex 的共享服务器及其智能体概述。适用于新终端。"

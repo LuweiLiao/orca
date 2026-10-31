@@ -44,6 +44,7 @@ import { agentChoiceOpensAsChat } from '@/lib/host-chat-program'
 import { useAppStore } from '@/store'
 import { useDetectedAgents, type AgentDetectionTarget } from '@/hooks/useDetectedAgents'
 import { AgentDefaultSetting } from './AgentDefaultSetting'
+import { AgentModelDefaultsEditor } from './AgentModelDefaultsEditor'
 import { AgentDetectionCatalog } from './AgentDetectionCatalog'
 import type { AgentCatalogRowProps } from './AgentCatalogRow'
 import { HostAgentEnvironmentEditor } from './HostAgentEnvironmentEditor'
@@ -147,7 +148,11 @@ export function AgentLaunchSettingsCatalog({
   }
   const saveUserArgs = async (agent: TuiAgent, label: string, value: string): Promise<void> => {
     const lifted = liftAgentPermissionArgs(agent, value)
-    await mutate({ type: 'user-arguments', agent, value })
+    await mutate(
+      settings.agentChoices
+        ? { type: 'launch-choices', agent, userArgs: value }
+        : { type: 'user-arguments', agent, value }
+    )
     if (lifted.choice) {
       const chatSupported = nativeChatPermissionsSupported && agentChatPermissionModes(agent)
       const values = { agent: label, mode: agentPermissionChoiceLabel(lifted.choice, label) }
@@ -188,9 +193,11 @@ export function AgentLaunchSettingsCatalog({
     isEnabled: isTuiAgentEnabled(agent.id, settings.disabledTuiAgents),
     isDefault: isDetected && settings.defaultTuiAgent === agent.id,
     cmdOverride: isDetected ? settings.agentCmdOverrides[agent.id] : undefined,
-    argsOverride: typed
-      ? (typed.userArgs[agent.id] ?? '')
-      : resolveTuiAgentLaunchArgs(agent.id, settings),
+    argsOverride: settings.agentChoices
+      ? (settings.agentChoices.userArgs[agent.id] ?? '')
+      : typed
+        ? (typed.userArgs[agent.id] ?? '')
+        : resolveTuiAgentLaunchArgs(agent.id, settings),
     launchArgs: typed ? (settings.agentDefaultArgs[agent.id] ?? '') : undefined,
     envOverride: !local
       ? {}
@@ -199,6 +206,15 @@ export function AgentLaunchSettingsCatalog({
         : resolveTuiAgentLaunchEnv(agent.id, { agentDefaultEnv: local.settings.agentDefaultEnv }),
     permission: typed ? undefined : permissions.rows.get(agent.id),
     permissionChoice: choiceRow(agent.id),
+    modelDefaultsEditor:
+      settings.agentChoices && isDetected ? (
+        <AgentModelDefaultsEditor
+          agent={agent.id}
+          value={settings.agentChoices.defaults[agent.id]}
+          detection={detectionTarget}
+          onSave={(patch) => mutate({ type: 'launch-choices', agent: agent.id, patch })}
+        />
+      ) : undefined,
     onSetDefault: () =>
       save({
         type: 'default',
@@ -207,9 +223,11 @@ export function AgentLaunchSettingsCatalog({
     onSetEnabled: (enabled) => save({ type: 'availability', agent: agent.id, enabled }),
     onSaveOverride: (value) => mutate({ type: 'command', agent: agent.id, value }),
     onSaveArgs: (value) =>
-      typed
-        ? saveUserArgs(agent.id, agent.label, value)
-        : mutate({ type: 'arguments', agent: agent.id, value }),
+      settings.agentChoices && !typed
+        ? mutate({ type: 'launch-choices', agent: agent.id, userArgs: value })
+        : typed
+          ? saveUserArgs(agent.id, agent.label, value)
+          : mutate({ type: 'arguments', agent: agent.id, value }),
     onSaveEnv: (value) => local?.saveEnvironment(agent.id, value),
     ...(!local
       ? {

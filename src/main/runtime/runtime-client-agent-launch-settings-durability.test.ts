@@ -31,6 +31,41 @@ vi.mock('../agent-hooks/managed-agent-hook-controls', () => ({
 }))
 
 describe('durable execution-host launch settings', () => {
+  it.each([false, true])(
+    'rolls back failed model defaults without losing a newer choice (%s)',
+    async (newer) => {
+      const { store, authority, readState } = await fixture()
+      store.updateSettings({ agentLaunchChoices: {}, agentDefaultArgs: { ccb: '--verbose' } })
+      await store.flushPendingOrThrowAsync()
+      const controller = new RuntimeClientSettingsController(store)
+      authority.failNextWrite()
+      const gate = authority.pause()
+      const writing = controller.mutateAgentLaunch({
+        type: 'launch-choices',
+        agent: 'ccb',
+        patch: { model: 'opus', options: { effort: 'high' } }
+      })
+      const refused = expect(writing).rejects.toThrow('profile_state_write_failed')
+      try {
+        await gate.started.promise
+        if (newer) {
+          store.updateSettings({
+            agentLaunchChoices: { ccb: { model: 'sonnet', options: { effort: 'low' } } },
+            agentDefaultArgs: { ccb: '--debug' }
+          })
+        }
+      } finally {
+        gate.finish.resolve()
+      }
+      await refused
+      await store.flushPendingOrThrowAsync()
+      const expected = newer ? { ccb: { model: 'sonnet', options: { effort: 'low' } } } : {}
+      expect(store.getSettings().agentLaunchChoices).toEqual(expected)
+      expect(readState().settings.agentLaunchChoices).toEqual(expected)
+      expect(store.getSettings().agentDefaultArgs?.ccb).toBe(newer ? '--debug' : '--verbose')
+    }
+  )
+
   it('persists host carrier edits and reloads the same terminal and new-chat intent', async () => {
     const { store, readState } = await fixture()
     const controller = new RuntimeClientSettingsController(store)
@@ -93,7 +128,8 @@ describe('durable execution-host launch settings', () => {
     const controller = new RuntimeClientSettingsController(store)
     await controller.update({ agentDefaultArgs: { codex: '--model new' } })
     expect(store.getSettings()).toMatchObject({
-      agentDefaultArgs: { codex: '--model new' },
+      agentDefaultArgs: { codex: '' },
+      agentLaunchChoices: { codex: { model: 'new' } },
       agentDefaultEnv: {
         claude: { ANTHROPIC_BASE_URL: 'http://old-proxy' },
         goose: { KEEP: 'custom' }
@@ -103,7 +139,8 @@ describe('durable execution-host launch settings', () => {
     expect(store.getSettings().agentDefaultArgs).not.toHaveProperty('claude')
     await controller.update({ agentDefaultEnv: { goose: { GOOSE_MODE: 'auto', KEEP: 'new' } } })
     expect(store.getSettings().agentDefaultEnv).toEqual({ goose: { KEEP: 'new' } })
-    expect(store.getSettings().agentDefaultArgs).toEqual({ codex: '--model new' })
+    expect(store.getSettings().agentDefaultArgs).toEqual({ codex: '' })
+    expect(resolveTuiAgentLaunchArgs('codex', store.getSettings())).toBe('-m new')
     expect(resolveTuiAgentLaunchEnv('goose', store.getSettings())).toEqual({
       GOOSE_MODE: 'auto',
       KEEP: 'new'

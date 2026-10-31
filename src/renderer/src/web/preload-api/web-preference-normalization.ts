@@ -1,3 +1,4 @@
+import { normalizeAgentLaunchChoices } from '../../../../shared/agent-launch-choices'
 import {
   isAgentChatPermissionMode,
   normalizeAgentNativeChatPermissionModes
@@ -174,13 +175,15 @@ function migrateBrowserSavedAgentPermission(stored: Partial<GlobalSettings>) {
   if (hasTypedAgentPermission(stored) || (!stored.agentDefaultArgs && !stored.agentDefaultEnv)) {
     return {}
   }
-  return migrateAgentPermissionChoice(
+  const { agentLaunchChoices: _browserChoices, ...permission } = migrateAgentPermissionChoice(
     {
       agentDefaultArgs: { ...DEFAULT_TUI_AGENT_ARGS, ...stored.agentDefaultArgs },
-      agentDefaultEnv: { ...DEFAULT_TUI_AGENT_ENV, ...stored.agentDefaultEnv }
+      agentDefaultEnv: { ...DEFAULT_TUI_AGENT_ENV, ...stored.agentDefaultEnv },
+      agentLaunchChoices: {}
     },
     null
   )
+  return permission
 }
 
 export function mergeSettings(
@@ -208,6 +211,13 @@ export function mergeSettings(
     agentDefaultArgs: normalizeTuiAgentArgsRecord(
       updates.agentDefaultArgs ?? base.agentDefaultArgs
     ),
+    ...(updates.agentLaunchChoices !== undefined || base.agentLaunchChoices !== undefined
+      ? {
+          agentLaunchChoices: normalizeAgentLaunchChoices(
+            updates.agentLaunchChoices ?? base.agentLaunchChoices
+          )
+        }
+      : {}),
     agentDefaultEnv: normalizeTuiAgentEnvRecord(updates.agentDefaultEnv ?? base.agentDefaultEnv),
     voice: {
       ...(base.voice ?? defaults.voice),

@@ -59,6 +59,8 @@ export const AGENT_LAUNCH_UNSTARTED_TAB_CLIENT_CAPABILITY = 'agent.launch.unstar
 // `agent_session_operation_unknown` for it, as before the host knew.
 export const AGENT_LAUNCH_TAB_CLOSED_CLIENT_CAPABILITY = 'agent.launch.tab-closed.v1' as const
 
+export const AGENT_LAUNCH_CHOICES_CAPABILITY = 'settings.agent-launch.choices.v1' as const
+
 export const AGENT_LAUNCH_SETTINGS_CAPABILITY = 'settings.agent-launch.v1' as const
 
 // Host accepts scoped terminal permission mutations, including Auto.
@@ -79,6 +81,7 @@ export const AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY = 'agent.launch.surface.v1'
 
 export const AGENT_LAUNCH_RUNTIME_CAPABILITIES = [
   AGENT_LAUNCH_SETTINGS_CAPABILITY,
+  AGENT_LAUNCH_CHOICES_CAPABILITY,
   AGENT_LAUNCH_AUTO_PERMISSIONS_CAPABILITY,
   AGENT_LAUNCH_NATIVE_CHAT_PERMISSIONS_CAPABILITY,
   AGENT_LAUNCH_PERMISSION_CHOICE_CAPABILITY,

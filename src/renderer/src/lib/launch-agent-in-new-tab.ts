@@ -1,7 +1,4 @@
-import type {
-  AgentSessionLaunchPlan,
-  AgentSessionLaunchRequest
-} from '@/lib/agent-session-launch-plan'
+import type { AgentSessionLaunchRequest } from '@/lib/agent-session-launch-plan'
 import { useAppStore } from '@/store'
 import type { AgentStartupPlan } from '@/lib/tui-agent-startup'
 import { planLaunchAgentStartupPrompt } from '@/lib/launch-agent-startup-prompt-plan'
@@ -16,11 +13,10 @@ import {
 import { runtimeEnvironmentIdOrLocalUnlessTwin } from '@/lib/worktree-runtime-owner'
 import { isWebRuntimeSessionActive } from '@/runtime/web-runtime-session-environment'
 import { launchAgentInWebHostTab } from '@/lib/launch-agent-web-host-tab'
-import {
-  resolveTuiAgentLaunchArgs,
-  resolveTuiAgentLaunchEnv
-} from '../../../shared/tui-agent-launch-defaults'
+import { resolveTuiAgentLaunchEnv } from '../../../shared/tui-agent-launch-defaults'
 import { TUI_AGENT_CONFIG } from '../../../shared/tui-agent-config'
+import { terminalSessionOptionInputs } from '../../../shared/tui-agent-launch-command'
+import { resolveStartupShell } from '../../../shared/tui-agent-startup-shell'
 import type { TuiAgent } from '../../../shared/tui-agent'
 import type { LaunchSource } from '../../../shared/telemetry-events'
 import { resolveAgentLaunchExecutionContext } from '@/lib/launch-agent-execution-context'
@@ -32,18 +28,8 @@ import {
   launchOnceHostAnswered,
   routeNewTabLaunch
 } from '@/lib/launch-agent-in-new-tab-host-agents'
-import type { AgentLaunchRequestId } from '@/lib/agent-launch-request-id'
+import type { LaunchAgentInNewTabRequest } from './launch-agent-in-new-tab-request'
 import type { NativeChatComposerFocusIntent } from '@/components/native-chat/use-native-chat-composer-reveal-focus'
-
-/** The user action this launch serves: minted where that action is handled, or carried by the
- *  route the caller already planned for it. */
-type LaunchAgentInNewTabRequest =
-  | { requestId: AgentLaunchRequestId; agentSessionLaunchPlan?: undefined }
-  | {
-      /** Keeps a preflighted route authoritative across workspace creation. */
-      agentSessionLaunchPlan: AgentSessionLaunchPlan
-      requestId?: undefined
-    }
 
 export type LaunchAgentInNewTabArgs = LaunchAgentInNewTabRequest & {
   requestedSurface?: AgentSessionLaunchRequest['requestedSurface']
@@ -146,8 +132,14 @@ function launchAgentInNewTabInternal(args: LaunchAgentInNewTabArgs): LaunchAgent
     return null
   }
   const { resolvedLaunchPlatform, isRemote, queuedShell } = executionContext
-  const effectiveAgentArgs =
-    agentArgs !== undefined ? agentArgs : resolveTuiAgentLaunchArgs(agent, store.settings)
+  const startupOptions = terminalSessionOptionInputs({
+    agent,
+    settings: store.settings,
+    agentArgs,
+    sessionOptions: undefined,
+    command: store.settings?.agentCmdOverrides?.[agent],
+    shell: resolveStartupShell(resolvedLaunchPlatform, queuedShell)
+  })
   const agentEnv = resolveTuiAgentLaunchEnv(agent, store.settings, resolvedLaunchPlatform)
   const trimmedPrompt = prompt?.trim() ?? ''
   const hasPrompt = trimmedPrompt.length > 0
@@ -161,7 +153,7 @@ function launchAgentInNewTabInternal(args: LaunchAgentInNewTabArgs): LaunchAgent
     platform: resolvedLaunchPlatform,
     shell: queuedShell,
     isRemote,
-    agentArgs: effectiveAgentArgs,
+    ...startupOptions,
     agentEnv
   }
   const { startupPlan, pasteDraftAfterLaunch, submitPastedPrompt } = planLaunchAgentStartupPrompt({

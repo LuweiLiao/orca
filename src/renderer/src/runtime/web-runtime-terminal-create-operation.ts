@@ -1,4 +1,6 @@
 import { buildDefaultTerminalOptions } from '@/lib/pane-manager/pane-terminal-options'
+import { AGENT_LAUNCH_CHOICES_CAPABILITY } from '../../../shared/agent-launch-runtime-capability'
+import { runtimeEnvironmentSupportsCapability } from './runtime-rpc-client'
 import { createAgentSessionKeyboardOptions } from './agent-session-keyboard-capability'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type { RuntimeMobileSessionCreateTerminalResult } from '../../../shared/runtime-types'
@@ -84,8 +86,18 @@ export async function createWebRuntimeSessionTerminalResult(
   let createdLeafId: string | undefined
   try {
     const agent = args.launchAgent ?? args.agent
-    const agentArgsOverride =
-      args.agentArgs !== undefined ? args.agentArgs : args.launchConfig?.agentArgs
+    const hostDefaults =
+      agent &&
+      !args.preparedAgentCommand &&
+      !args.afterTabId &&
+      args.agentSessionKind === 'fresh' &&
+      args.agentArgs === undefined &&
+      (await runtimeEnvironmentSupportsCapability(environmentId, AGENT_LAUNCH_CHOICES_CAPABILITY))
+    const agentArgsOverride = hostDefaults
+      ? undefined
+      : args.agentArgs !== undefined
+        ? args.agentArgs
+        : args.launchConfig?.agentArgs
     if (agent) {
       // Paired panes retain the default keyboard advertisement, including on Windows clients.
       const keyboardProtocol = buildDefaultTerminalOptions().vtExtensions?.kittyKeyboard

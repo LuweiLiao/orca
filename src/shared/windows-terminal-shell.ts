@@ -43,7 +43,7 @@ export function resolveWindowsShellStartupFamily(
 }
 
 export function resolveLocalWindowsAgentStartupShell(args: {
-  platform: NodeJS.Platform
+  platform: NodeJS.Platform | null | undefined
   isRemote: boolean
   terminalWindowsShell?: string | null
 }): AgentStartupShell | undefined {

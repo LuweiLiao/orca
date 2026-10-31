@@ -1,3 +1,5 @@
+import type { PreparedStructuredAgentSessionCreate } from './structured-agent-session-create-types'
+export type { PreparedStructuredAgentSessionCreate } from './structured-agent-session-create-types'
 // Resolve the host launch identity, then commit an at-rest create or the compatible acquired path.
 
 import { AGENT_CHAT_PERMISSION_MODE_OPTION_ID } from '../../../../shared/agent-chat-permission-mode'
@@ -8,10 +10,7 @@ import type {
   AgentSessionMutationEnvelope,
   AgentSessionMutationResult
 } from '../../../../shared/agent-session-wire'
-import {
-  attachFingerprintFields,
-  type AgentSessionAttachParams
-} from '../../../native-chat/agent-session-wire/structured-agent-session-attach'
+import { attachFingerprintFields } from '../../../native-chat/agent-session-wire/structured-agent-session-attach'
 import { recordConversationReferenceLinks } from '../../../native-chat/agent-session-reference-links'
 import type { StructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/structured-agent-session-host'
 import type { StructuredAgentSessionCaller } from '../../../native-chat/agent-session-wire/structured-agent-session-host-types'
@@ -21,7 +20,6 @@ import type {
 } from '../../../../shared/structured-agent-session-create'
 import { structuredAgentSessionOptionOverridesRefusal } from '../../../native-chat/agent-session-wire/structured-agent-session-options-read'
 import { savedAgentSessionCatalogModels } from '../../../native-chat/agent-session-wire/structured-agent-session-pick-reply'
-import type { StructuredAgentSessionCreateOptions } from '../../../native-chat/agent-session-wire/structured-agent-session-create'
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import {
   captureStructuredAgentCliSource,
@@ -35,19 +33,11 @@ import {
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../shared/layout-owner-switch'
 import { structuredAgentSessionClosedBeforeCreate } from './structured-agent-session-close-before-create'
 import { structuredLaunchSeedOnSavedListing } from '../../session-tabs/structured-launch-seed-listing'
-import { mergeCreateOptions } from '../../../../shared/claude-cli-launch-agents'
+import {
+  mergeCreateOptions,
+  claudeLauncherFromOptions
+} from '../../../../shared/claude-cli-launch-agents'
 import type { ChatTabPlacement } from '../../agent-session/agent-session-tab-layout'
-
-export type PreparedStructuredAgentSessionCreate = {
-  host: StructuredAgentSessionHost
-  attachParams: AgentSessionAttachParams
-  hostLaunchDirectory?: string
-  catalogModels?: StructuredAgentSessionCreateOptions['catalogModels']
-  /** Null when the caller supplied its own location; only a resolved worktree publishes a tab. */
-  tab: { workspaceId: string; agent: StructuredAgentId } | null
-  /** Absent for older clients and provider-dependent in-process callers. */
-  atRest?: { firstMessage?: StructuredAgentSessionFirstMessage }
-}
 
 /** New creates keep the immutable client intent in the ledger; legacy creates keep attach identity. */
 export function structuredAgentSessionCreateIntentFingerprint(params: {
@@ -100,7 +90,8 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
       : undefined)
   // Adoption replay may need the record loaded from disk before source discovery can be skipped.
   let host = args.resumeFrom ? await args.ensureHost() : null
-  const resolved = await args.runtime.resolveStructuredAgentSessionCreateIntent({
+  const launcher = args.agent === 'claude' ? claudeLauncherFromOptions(args.options) : null
+  const intent = await args.runtime.resolveStructuredAgentSessionCreateIntent({
     envelope: args.envelope,
     worktree: args.worktree,
     agent: args.agent,
@@ -108,6 +99,10 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
     structuredAgentCliSourceEvidence,
     ...(args.resumeFrom ? { resumeFrom: args.resumeFrom } : {})
   })
+  const resolved =
+    launcher && !args.resumeFrom
+      ? { ...intent, options: args.runtime.structuredAgentSessionLaunchSeedOptions(launcher) }
+      : intent
   const attachFingerprint = computeAgentSessionPayloadFingerprint({
     method: 'agentSession.attach',
     sessionId: args.envelope.sessionId,
@@ -160,11 +155,12 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
       .catch(() => null))
   // After the fingerprints: a remembered model the saved listing no longer names moves, with the
   // effort the create runs under it. A model the create names itself is never moved.
-  const options = args.options?.model
-    ? picked
-    : await structuredLaunchSeedOnSavedListing(host, args.agent, picked, catalogFolder)
+  const options =
+    args.options?.model || launcher
+      ? picked
+      : await structuredLaunchSeedOnSavedListing(host, args.agent, picked, catalogFolder)
   const catalogModels =
-    options && host.deps.modelCatalog
+    !launcher && options && host.deps.modelCatalog
       ? await savedAgentSessionCatalogModels(
           host.deps,
           resolved.provider,

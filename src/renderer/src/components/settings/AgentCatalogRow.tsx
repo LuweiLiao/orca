@@ -95,6 +95,7 @@ export type AgentCatalogRowProps = {
   /** The text a terminal launch gets, when it differs from the editable Arguments. */
   launchArgs?: string
   environmentEditor?: React.ReactNode
+  modelDefaultsEditor?: React.ReactNode
 }
 
 export function AgentCatalogRow({
@@ -119,6 +120,7 @@ export function AgentCatalogRow({
   sessionSourceHome,
   environmentNames,
   environmentEditor,
+  modelDefaultsEditor,
   permission,
   permissionChoice,
   launchArgs = argsOverride
@@ -273,6 +275,7 @@ export function AgentCatalogRow({
 
       {expandable && cmdOpen && (
         <div className="mt-3 space-y-3 pl-10">
+          {modelDefaultsEditor}
           {permissionChoice && (
             <div ref={permissionRef}>
               <AgentPermissionMenu agentId={agentId} label={label} permission={permissionChoice} />

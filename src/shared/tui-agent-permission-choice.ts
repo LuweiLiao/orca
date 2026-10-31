@@ -70,6 +70,28 @@ export function agentPermissionEnv(
   return choice === 'full-access' ? { ...YOLO_TUI_AGENT_ENV[agent] } : {}
 }
 
+export function readLaunchPermissionChoice(
+  values: Readonly<Record<string, unknown>> | null | undefined
+): AgentPermissionChoice | undefined {
+  const choice = values?.permissionMode ?? values?.mode
+  return isAgentPermissionChoice(choice) ? choice : undefined
+}
+
+export function agentPermissionHasTerminalChoice(
+  agent: TuiAgent,
+  choice: AgentPermissionChoice
+): boolean {
+  if (choice === 'own') {
+    return AGENT_PERMISSION_CHOICES.some(
+      (mode) => mode !== 'own' && agentPermissionHasTerminalChoice(agent, mode)
+    )
+  }
+  return (
+    agentPermissionArgs(agent, choice) !== '' ||
+    Object.keys(agentPermissionEnv(agent, choice)).length > 0
+  )
+}
+
 function supportsChoice(agent: TuiAgent, choice: AgentPermissionChoice): boolean {
   return (
     choice === 'own' ||
