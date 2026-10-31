@@ -3,8 +3,9 @@ import { useMemo, useRef } from 'react'
 import { useStructuredAgentSessionSendOptions } from './use-structured-agent-session-send-options'
 import { useStructuredAgentSessionSends } from './use-structured-agent-session-sends'
 import { useStructuredAgentSessionCommandWrite } from './use-structured-agent-session-command-write'
-import { structuredAgentSessionNewSendsQueue } from './structured-agent-session-queue-request'
+import { structuredAgentSessionSendQueues } from './structured-agent-session-queue-request'
 import type { AgentType } from '../../../../shared/agent-status-types'
+import { nativeChatQueueFollowUps } from '../../../../shared/native-chat-follow-up-behavior'
 import type { AgentSessionCancelResult } from '../../../../shared/agent-session-wire'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import { structuredAgentLabel } from '@/lib/structured-agent-session-launch-label'
@@ -36,12 +37,8 @@ import { useStructuredAgentSessionContextUsage } from './use-structured-agent-se
 import { useStructuredAgentSessionRailOutline } from './use-structured-agent-session-rail-outline'
 import { useStructuredAgentSessionQueuedMessages } from './use-structured-agent-session-queued-messages'
 import { structuredConversationCommandRunner } from './structured-conversation-command-send'
-import {
-  commandCardWaiting,
-  pendingSendsOutsideQueuedCards
-} from './structured-agent-session-queued-cards'
+import { pendingSendsOutsideQueuedCards } from './structured-agent-session-queued-cards'
 import { hostStatesTurnScopes } from '../../../../shared/native-chat-turn-membership'
-import { pendingPromptsAllUnanswerableHere } from '../../../../shared/agent-session-approval-subject'
 import { withNativeChatCutTurnNotices } from '../../../../shared/native-chat-cut-turn-notice'
 import { useNativeChatContextClearFloor } from './use-native-chat-context-clear-floor'
 import { useStructuredAgentSessionRewind } from './use-structured-agent-session-rewind'
@@ -77,7 +74,7 @@ export function useStructuredAgentSession(args: {
     hostStopping = false,
     launch,
     providerStarting = false,
-    queueFollowUps = true,
+    queueFollowUps = nativeChatQueueFollowUps(null),
     sessionId,
     target,
     transportEnabled = true
@@ -143,16 +140,16 @@ export function useStructuredAgentSession(args: {
   const stopControlInput = { sessionId, target, transportState, hostStopping, mutate }
   const stopControl = useStructuredAgentSessionStop(stopControlInput)
   const prompts = pendingStructuredSessionPrompts(transportState)
-  const promptsUnanswerableHere = pendingPromptsAllUnanswerableHere(prompts)
-  // A send after a command the queue will run goes behind it, even with follow-ups off.
-  // A host's queue waits on any pending prompt, and nothing here can settle one this build cannot
-  // answer: the send must start a turn, after which the card's cancel works.
-  const commandWaiting = commandCardWaiting(transportState.queuedMessages)
-  const queueEnabled = (queueFollowUps || commandWaiting) && !promptsUnanswerableHere
-  const queue = useMemo(
-    () => ({ capability: queueCapability, enabled: queueEnabled }),
-    [queueCapability, queueEnabled]
-  )
+  const isWorking = transportState.isWorking || transportState.queueSendsNext
+  // Resolved per send, so a send's alternate flips the setting before the queue's own rules.
+  const queue = {
+    capability: queueCapability,
+    followUpsQueue: queueFollowUps,
+    isWorking,
+    stopping: stopControl.stopping,
+    session: transportState,
+    prompts
+  }
   const sends = useStructuredAgentSessionSends({
     sessionId,
     target,
@@ -198,9 +195,6 @@ export function useStructuredAgentSession(args: {
     write,
     capturePresentation
   })
-  // A queued send is a card, never a transcript bubble.
-  const isWorking = transportState.isWorking || transportState.queueSendsNext
-  // A message typed during a command queues behind it on the host.
   const send = (...input: Parameters<typeof sends.send>) =>
     // Legacy: an older host refuses sends while a command runs; removable once those hosts age out.
     (!commandPending.current || hostStatesTurnScopes(journalItems)) &&
@@ -313,9 +307,8 @@ export function useStructuredAgentSession(args: {
     stopPressed: stopControl.pressed,
     queuedMessages: queuedController,
     capturePresentation,
-    /** A send made now while the agent works is held as a queued card: the host queues, and this
-     *  send asks it to (the setting is on and no pending prompt blocks the queue). */
-    sendsQueue: structuredAgentSessionNewSendsQueue(queue),
+    /** A plain send would queue: the host takes it, the setting or a waiting command asks, and no unanswerable prompt blocks it. */
+    sendsQueue: structuredAgentSessionSendQueues(queue),
     cancel: (turnId: string | undefined, prompt?: { itemId: string; expectedRevision: number }) =>
       cancelStructuredAgentSessionPrompt(admit(), turnId, prompt),
     stopBackgroundTask: (taskId?: string) =>

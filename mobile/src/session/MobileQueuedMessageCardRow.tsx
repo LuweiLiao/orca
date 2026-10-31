@@ -22,6 +22,8 @@ type QueuedMessageCardRowProps = {
   busy: boolean
   editBlocked: boolean
   steerHeld: boolean
+  /** Steer only into a running turn; an idle agent's card reads Send. */
+  agentWorking: boolean
   onSend: () => void
   onDelete: () => void
   onMore: () => void
@@ -56,6 +58,7 @@ function QueuedMessageCardContents({
   busy,
   editBlocked,
   steerHeld,
+  agentWorking,
   onSend,
   onDelete,
   onMore
@@ -64,7 +67,7 @@ function QueuedMessageCardContents({
   const returned = card.state === 'returned'
   // "Steer" submits beside the running turn, the paused queue's cards too; a card whose own send
   // failed, or a returned one, is sent again.
-  const steers = !returned && !card.paused && !card.command
+  const steers = agentWorking && !returned && !card.paused && !card.command
   return (
     <View testID="queued-card-row" style={[styles.card, styles.divided]}>
       <View style={styles.row}>

@@ -8,7 +8,10 @@ import { getDefaultSettings } from '../../../../shared/constants'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
 import { setLocalRuntimeCapabilitiesForTests } from '@/runtime/local-runtime-capabilities'
+
 import { ChatBehaviorSetting } from './ChatBehaviorSetting'
+import { i18n } from '@/i18n/i18n'
+import zh from '../../i18n/locales/zh.json'
 import { TooltipProvider } from '../ui/tooltip'
 
 afterEach(() => {
@@ -185,14 +188,15 @@ describe('ChatBehaviorSetting shell environment', () => {
   })
 })
 
-describe('ChatBehaviorSetting queue follow-ups', () => {
-  const QUEUE_TOGGLE = '[aria-label="Toggle queue follow-ups"]'
+describe('ChatBehaviorSetting follow-up behavior', () => {
+  const FOLLOW_UP_SWITCH = '[role="switch"][aria-label="Queue follow-ups"]'
+  const QUEUE_TOGGLE = FOLLOW_UP_SWITCH
 
   it('shows the switch, with copy naming the image exception, when the host queues messages', () => {
     setLocalRuntimeCapabilitiesForTests([AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY])
     const updateSettings = vi.fn()
     const { container } = renderSetting({}, updateSettings)
-    expect(container.textContent).toContain('Messages with images send right away.')
+    expect(container.textContent).toContain('Cmd/Ctrl+Enter does the opposite for one message.')
     fireEvent.click(container.querySelector(QUEUE_TOGGLE)!)
     expect(updateSettings).toHaveBeenCalledWith({ nativeChatQueueFollowUps: false })
   })
@@ -201,7 +205,7 @@ describe('ChatBehaviorSetting queue follow-ups', () => {
     setLocalRuntimeCapabilitiesForTests([])
     const updateSettings = vi.fn()
     const { getByRole, getByText } = renderSetting({}, updateSettings)
-    const toggle = getByRole('switch', { name: 'Toggle queue follow-ups' })
+    const toggle = getByRole('switch', { name: 'Queue follow-ups' })
     expect(toggle.hasAttribute('disabled')).toBe(true)
     expect(getByText(/This host does not support queued follow-ups/)).toBeTruthy()
     fireEvent.click(toggle)
@@ -219,7 +223,7 @@ describe('ChatBehaviorSetting queue follow-ups', () => {
       { nativeChatQueueFollowUps: false },
       updateSettings
     )
-    const toggle = getByRole('switch', { name: 'Toggle queue follow-ups' })
+    const toggle = getByRole('switch', { name: 'Queue follow-ups' })
     expect(toggle.hasAttribute('disabled')).toBe(true)
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(getByText(/Queue support has not been confirmed/)).toBeTruthy()
@@ -243,13 +247,51 @@ describe('ChatBehaviorSetting queue follow-ups', () => {
     const updateSettings = vi.fn()
     const { getByRole, getByText, queryByText } = renderSetting({}, updateSettings)
     await act(async () => {})
-    const toggle = getByRole('switch', { name: 'Toggle queue follow-ups' })
+    const toggle = getByRole('switch', { name: 'Queue follow-ups' })
     expect(toggle.hasAttribute('disabled')).toBe(true)
     expect(getByText(/Queue support has not been confirmed/)).toBeTruthy()
     expect(queryByText(/This host does not support queued follow-ups/)).toBeNull()
     fireEvent.click(toggle)
     expect(updateSettings).not.toHaveBeenCalled()
   })
+
+  it.each([true, false, undefined])(
+    'reads Queue by default and toggles the existing boolean (%s)',
+    (saved) => {
+      setLocalRuntimeCapabilitiesForTests([AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY])
+      const updateSettings = vi.fn()
+      const { container } = renderSetting({ nativeChatQueueFollowUps: saved }, updateSettings)
+      const toggle = container.querySelector<HTMLButtonElement>(FOLLOW_UP_SWITCH)!
+      expect(toggle.getAttribute('aria-checked')).toBe(String(saved !== false))
+      // The alternate is described relative to the switch, so the copy holds on and off.
+      expect(container.textContent).toContain('Cmd/Ctrl+Enter does the opposite for one message.')
+      fireEvent.click(toggle)
+      expect(updateSettings).toHaveBeenCalledWith({ nativeChatQueueFollowUps: saved === false })
+    }
+  )
+})
+
+it('renders the Queue switch and description using the Chinese catalog', async () => {
+  setLocalRuntimeCapabilitiesForTests([AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY])
+  i18n.addResourceBundle('zh', 'translation', zh, true, true)
+  await act(async () => {
+    await i18n.changeLanguage('zh')
+  })
+  try {
+    const { container } = renderSetting({})
+    const copy = zh.components.settings.nativeChat
+    expect(
+      container
+        .querySelector(`[role="switch"][aria-label="${copy.followUpBehaviorTitle}"]`)
+        ?.getAttribute('aria-checked')
+    ).toBe('true')
+    expect(container.textContent).toContain(copy.followUpBehaviorTitle)
+    expect(container.textContent).toContain(copy.followUpBehaviorCopy)
+  } finally {
+    await act(async () => {
+      await i18n.changeLanguage('en')
+    })
+  }
 })
 
 describe('ChatBehaviorSetting resume after restart', () => {

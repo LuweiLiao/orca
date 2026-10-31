@@ -1,6 +1,7 @@
+import type { NativeChatSendFollowUp } from '../../../src/shared/native-chat-follow-up-behavior'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Keyboard, Pressable, type TextInput, View } from 'react-native'
-import { ArrowUp, Mic, Plus, Square } from 'lucide-react-native'
+import { Mic, Plus, Square } from 'lucide-react-native'
 import { colors } from '../theme/mobile-theme'
 import { NATIVE_CHAT_COMPOSER_PLACEHOLDER } from '../../../src/shared/native-chat-turn-status'
 import { MobileNativeChatComposerMenu } from './MobileNativeChatComposerMenu'
@@ -21,6 +22,8 @@ import { keepHeldPressThroughLongPress } from './held-press-long-press'
 import { mobileNativeChatComposerShowsStop } from './mobile-native-chat-composer-layout'
 import { MobileNativeChatStopButton } from './MobileNativeChatStopButton'
 import { mobileNativeChatComposerStyles as styles } from './mobile-native-chat-composer-styles'
+import { MobileNativeChatSendButton } from './MobileNativeChatSendButton'
+import type { MobileNativeChatSendIntent } from './mobile-native-chat-send'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -47,7 +50,9 @@ type Props = {
   /** Controlled composer text — owned by the parent so dictation can write to it. */
   value: string
   onChangeText: (text: string) => void
-  onSend: (text: string) => Promise<boolean>
+  onSend: (text: string, intent?: MobileNativeChatSendIntent) => Promise<boolean>
+  /** While the agent works on a host that queues: what a tap on Send does and whether holding it offers the other way; null otherwise. */
+  sendFollowUp?: NativeChatSendFollowUp | null
   /** Changes whenever the route focuses a different chat composer surface. */
   sendSurfaceId: string
   /** Reads the retained route's focus generation without forcing a screen render. */
@@ -80,6 +85,9 @@ type Props = {
   stop?: { onStop?: () => void; held: boolean } | null
 }
 
+/** What a chat's composer sends through, which the chat view hands down from its route. */
+export type MobileNativeChatSendProps = Pick<Props, 'onSend' | 'sendFollowUp'>
+
 export function MobileNativeChatComposer({
   inputRef,
   value,
@@ -105,7 +113,8 @@ export function MobileNativeChatComposer({
   placeholder = NATIVE_CHAT_COMPOSER_PLACEHOLDER,
   filePaths = NO_FILE_PATHS,
   onNeedFiles,
-  stop = null
+  stop = null,
+  sendFollowUp = null
 }: Props): React.JSX.Element {
   const fallbackInputRef = useRef<TextInput>(null)
   const fieldRef = inputRef ?? fallbackInputRef
@@ -169,7 +178,7 @@ export function MobileNativeChatComposer({
     }
   }, [])
 
-  const handleSend = async (): Promise<void> => {
+  const handleSend = async (intent?: MobileNativeChatSendIntent): Promise<void> => {
     if (!canSend || sendingRef.current) {
       return
     }
@@ -181,7 +190,7 @@ export function MobileNativeChatComposer({
     try {
       // Raw, not trimmed: the send seam owns the wire trim, and a rejection has
       // to hand the user back exactly what they typed (#14819).
-      const accepted = await onSend(value)
+      const accepted = await (intent ? onSend(value, intent) : onSend(value))
       if (
         accepted &&
         mountedRef.current &&
@@ -302,22 +311,11 @@ export function MobileNativeChatComposer({
               // Only this phone's own request holds Stop: a repeat is how a stuck stop escalates.
               <MobileNativeChatStopButton onStop={stop.onStop} held={stop.held} />
             ) : (
-              <Pressable
-                accessibilityLabel="Send message"
-                style={({ pressed }) => [
-                  styles.sendButton,
-                  !canSend && styles.sendButtonDisabled,
-                  pressed && canSend && styles.pressed
-                ]}
-                onPress={handleSend}
-                disabled={!canSend}
-              >
-                <ArrowUp
-                  size={19}
-                  color={canSend ? colors.bgBase : colors.textMuted}
-                  strokeWidth={2.4}
-                />
-              </Pressable>
+              <MobileNativeChatSendButton
+                canSend={canSend}
+                sendFollowUp={sendFollowUp}
+                onSend={(intent) => void handleSend(intent)}
+              />
             )}
           </View>
         </View>

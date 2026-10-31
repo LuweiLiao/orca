@@ -6,7 +6,6 @@ import type {
   AgentJournalRenderItem,
   AgentJournalResolution
 } from '../../../src/shared/agent-session-journal-types'
-import type { AgentSessionSubscribeEvent } from '../../../src/shared/agent-session-wire'
 import type { SessionOptionDescriptor } from '../../../src/shared/native-chat-session-options'
 import type { RpcClient } from '../transport/rpc-client'
 import { markRpcDeliveryUnknown } from '../transport/rpc-delivery-ambiguity'
@@ -32,59 +31,10 @@ function ok(result: unknown) {
   return { ok: true, result, _meta: { runtimeId: 'runtime-1' } }
 }
 
-function snapshotEvent(fence = 3): AgentSessionSubscribeEvent {
-  return {
-    type: 'snapshot',
-    sessionId: 'session-1',
-    fence,
-    page: {
-      sessionId: 'session-1',
-      epoch: 'epoch-1',
-      fence,
-      direction: 'tail',
-      items: [],
-      removedItemIds: [],
-      submissions: [],
-      window: {
-        oldest: null,
-        newest: null,
-        nextCursor: { epoch: 'epoch-1', sequence: 0 }
-      },
-      liveCursor: { epoch: 'epoch-1', sequence: 0 },
-      hasOlder: false,
-      hasNewer: false
-    }
-  }
-}
-
-function snapshotWithMessage(): AgentSessionSubscribeEvent {
-  const event = snapshotEvent()
-  return {
-    ...event,
-    page: {
-      ...event.page,
-      items: [
-        {
-          itemId: 'msg-1',
-          revision: 1,
-          sequence: 1,
-          observedAt: 10,
-          body: {
-            kind: 'message',
-            role: 'user',
-            blocks: [{ type: 'text', text: 'sent before the blip' }]
-          }
-        }
-      ],
-      window: {
-        oldest: { epoch: 'epoch-1', sequence: 1 },
-        newest: { epoch: 'epoch-1', sequence: 1 },
-        nextCursor: { epoch: 'epoch-1', sequence: 2 }
-      },
-      liveCursor: { epoch: 'epoch-1', sequence: 1 }
-    }
-  } as AgentSessionSubscribeEvent
-}
+import {
+  snapshotEvent,
+  snapshotWithMessage
+} from './mobile-structured-session-snapshot.test-fixture'
 
 function pendingResolution(): AgentJournalResolution {
   return {
@@ -239,10 +189,14 @@ describe('useMobileStructuredAgentSession', () => {
   let listener: ((value: unknown) => void) | null = null
   const onSendError = vi.fn()
   const unsubscribe = vi.fn()
+  const unsubscribePreference = vi.fn()
   const sendRequest = vi.fn(defaultSendRequest)
   const subscribe = vi.fn((_method: string, _params: unknown, onData: (value: unknown) => void) => {
-    listener = onData
-    return unsubscribe
+    if (_method === 'agentSession.subscribe') {
+      listener = onData
+      return unsubscribe
+    }
+    return unsubscribePreference
   })
   const client = {
     sendRequest,
@@ -331,14 +285,18 @@ describe('useMobileStructuredAgentSession', () => {
         sendRequest.mock.calls.filter(([method]) => method === 'agentSession.hold')
       ).toHaveLength(1)
     )
-    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() =>
+      expect(
+        subscribe.mock.calls.filter(([method]) => method === 'agentSession.subscribe')
+      ).toHaveLength(1)
+    )
 
     // A transport loss retires the connection-scoped hold; after the host's 15s grace
     // it may evict the provider child. Reconnect must acquire before replaying the stream.
     await act(async () => {
       renderer?.update(createElement(Harness, { connected: false }))
     })
-    expect(unsubscribe).toHaveBeenCalledTimes(1)
+    expect([unsubscribe.mock.calls.length, unsubscribePreference.mock.calls.length]).toEqual([1, 1])
     await act(async () => {
       renderer?.update(createElement(Harness, { connected: true }))
     })
@@ -348,19 +306,28 @@ describe('useMobileStructuredAgentSession', () => {
         sendRequest.mock.calls.filter(([method]) => method === 'agentSession.hold')
       ).toHaveLength(2)
     )
-    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() =>
+      expect(
+        subscribe.mock.calls.filter(([method]) => method === 'agentSession.subscribe')
+      ).toHaveLength(2)
+    )
     const holdOrders = sendRequest.mock.calls
       .map((call, index) =>
         call[0] === 'agentSession.hold' ? sendRequest.mock.invocationCallOrder[index] : null
       )
       .filter((order): order is number => order !== null)
-    const subscribeOrders = subscribe.mock.invocationCallOrder
+    const subscribeOrders = subscribe.mock.calls.flatMap(([method], index) =>
+      method === 'agentSession.subscribe' ? [subscribe.mock.invocationCallOrder[index]] : []
+    )
     const secondHoldOrder = holdOrders[1]
     const secondSubscribeOrder = subscribeOrders[1]
     if (secondHoldOrder === undefined || secondSubscribeOrder === undefined) {
       throw new Error('reconnect calls were not recorded')
     }
     expect(secondHoldOrder).toBeLessThan(secondSubscribeOrder)
+    await act(async () => renderer?.unmount())
+    renderer = null
+    expect([unsubscribe.mock.calls.length, unsubscribePreference.mock.calls.length]).toEqual([2, 2])
   })
 
   it('sends with the shared structured mutation envelope after the stream fence lands', async () => {

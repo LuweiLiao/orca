@@ -50,12 +50,18 @@ describe('mobile structured queued messages', () => {
   let renderer: ReactTestRenderer | null = null
   let hook: ReturnType<typeof useMobileStructuredAgentSession> | null = null
   let listener: ((value: unknown) => void) | null = null
+  let _preferenceListener: ((value: unknown) => void) | null = null
   let stored: Map<string, string>
   const onSendError = vi.fn()
   const appendText = vi.fn((_text: string) => true)
   const sendRequest = vi.fn<RpcClient['sendRequest']>()
   const subscribe = vi.fn<RpcClient['subscribe']>((_method, _params, onData) => {
-    listener = onData
+    if (_method === 'agentSession.subscribe') {
+      listener = onData
+    }
+    if (_method === 'runtime.clientEvents.subscribe') {
+      _preferenceListener = onData
+    }
     return vi.fn()
   })
   const client: RpcClient = {
@@ -110,6 +116,7 @@ describe('mobile structured queued messages', () => {
     renderer = null
     hook = null
     listener = null
+    _preferenceListener = null
   }
 
   function calls(method: string) {

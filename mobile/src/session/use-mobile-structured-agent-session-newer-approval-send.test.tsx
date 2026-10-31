@@ -32,7 +32,9 @@ const sendRequest = vi.fn<RpcClient['sendRequest']>()
 const client: RpcClient = {
   sendRequest,
   subscribe: vi.fn<RpcClient['subscribe']>((_method, _params, onData) => {
-    listener = onData
+    if (_method === 'agentSession.subscribe') {
+      listener = onData
+    }
     return vi.fn()
   }),
   updateTerminalSubscriptionViewport: () => {},
@@ -103,7 +105,9 @@ beforeEach(() => {
       ? mutationOk({ clientMessageId: 'client-1' })
       : method === 'agentSession.options'
         ? ok({ models: [], current: {} })
-        : ok({})
+        : method === 'settings.get'
+          ? ok({ settings: { nativeChatQueueFollowUps: true } })
+          : ok({})
   )
 })
 
@@ -143,7 +147,9 @@ async function afterStop(items: AgentJournalRenderItem[]): Promise<unknown> {
       ? new Promise(() => undefined)
       : method === 'agentSession.options'
         ? ok({ models: [], current: {} })
-        : ok({})
+        : method === 'settings.get'
+          ? ok({ settings: { nativeChatQueueFollowUps: true } })
+          : ok({})
   )
   act(() => {
     renderer = create(createElement(Harness))

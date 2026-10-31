@@ -8,12 +8,12 @@ import {
 import { withNativeChatCutTurnNotices } from '../../../src/shared/native-chat-cut-turn-notice'
 import { agentSessionTranscriptRows } from '../../../src/shared/agent-session-context-clear'
 import { tuiAgentDisplayName } from '../../../src/shared/tui-agent-display-names'
-import { isStructuredAgentSessionMainAgentWorking } from '../../../src/shared/structured-agent-session-main-agent-working'
+import { mobileStructuredAgentSessionWorking } from './mobile-structured-agent-session-working'
+import { useMobileNativeChatQueueFollowUps } from './use-mobile-native-chat-queue-follow-ups'
 import { isFinalAgentSessionReadRefusal } from '../../../src/shared/structured-agent-session-read-refusal'
 import {
   isStructuredAgentSessionThinking,
-  runningStructuredAgentSessionTurnId,
-  structuredAgentSessionHostSaysWorking
+  runningStructuredAgentSessionTurnId
 } from '../../../src/shared/structured-agent-session-live-turn'
 import { selectStructuredAgentTurnActivity } from '../../../src/shared/native-chat-turn-activity'
 import {
@@ -44,6 +44,7 @@ import { useMobileStructuredAgentMutate } from './use-mobile-structured-agent-mu
 import { agentStopDisplayStatus } from '../../../src/shared/agent-stop-display-status'
 import {
   mobileStructuredSendQueues,
+  mobileStructuredSendFollowUp,
   useMobileStructuredSendWithOutcome
 } from './use-mobile-structured-send-with-outcome'
 import { useMobileStructuredQueuedMessageControls } from './use-mobile-structured-queued-message-controls'
@@ -67,8 +68,8 @@ export function useMobileStructuredAgentSession(
   } = args
   // Only a host that queues sends gets the delivery field; any host's published cards show.
   const queueCapable = hostSupport?.queuedMessages === true
+  const queueFollowUps = useMobileNativeChatQueueFollowUps(client, connected, sessionId)
   // A /compact waits in line only where its card renders.
-  const commandsWait = queueCapable && hostSupport?.queuedCommands === true
   const promptCancelSupported = hostSupport?.promptCancel ?? null
   const hostAnswersRepeatedStops = hostSupport?.quietRepeatedStop ?? null
   const hostStopsConversation = hostSupport?.conversationStop ?? null
@@ -161,9 +162,7 @@ export function useMobileStructuredAgentSession(
     selectStructuredAgentTurnActivity(state.items, turnId, state.activity)?.text ?? null
   const thinking = isStructuredAgentSessionThinking(state)
   // The host's answer counts only the agent running now; an older host gives none.
-  const isWorking = structuredAgentSessionHostSaysWorking(state.working, () =>
-    isStructuredAgentSessionMainAgentWorking(turnId, state.submissions, state.fence)
-  )
+  const isWorking = mobileStructuredAgentSessionWorking(state)
   const backgroundTasks = useMobileStructuredBackgroundTasks({
     sessionKey,
     state,
@@ -191,7 +190,8 @@ export function useMobileStructuredAgentSession(
     sessionId,
     enabled,
     queueCapable,
-    commandsWait,
+    queueFollowUps,
+    commandsWait: queueCapable && hostSupport?.queuedCommands === true,
     stateRef,
     stopping,
     accept: sends.accept,
@@ -209,13 +209,13 @@ export function useMobileStructuredAgentSession(
       stopRequestInFlight,
       ...(stopping
         ? {
-            afterStop: mobileStructuredSendQueues(queueCapable, state)
+            afterStop: mobileStructuredSendQueues(queueCapable, queueFollowUps, state)
               ? ('queue' as const)
               : ('send' as const)
           }
         : {})
     }),
-    [thinking, activityText, stopping, stopRequestInFlight, queueCapable, state]
+    [thinking, activityText, stopping, stopRequestInFlight, queueCapable, queueFollowUps, state]
   )
   const { items, currentRequests, actionablePromptIds, status } = state
   // The host's answer where it gives one: a prompt an agent that ended raised takes no answer.
@@ -249,8 +249,7 @@ export function useMobileStructuredAgentSession(
     onSendError,
     ...(onActionResolved ? { onActionResolved } : {})
   })
-  // Stop never touches the queue: held cards stay on the host, visible on every
-  // device, and resume only from the user's own next action.
+  // Stop leaves the queue on the host until the user's next action.
   const requestCancel = useCallback(
     (prompt?: { itemId: string; expectedRevision: number }): Promise<boolean> =>
       requestMobileStructuredAgentSessionCancel({
@@ -299,6 +298,8 @@ export function useMobileStructuredAgentSession(
       loadEarlier
     },
     isWorking,
+    canStop: turnId !== null || (hostStopsConversation === true && isWorking),
+    sendFollowUp: mobileStructuredSendFollowUp(queueCapable, queueFollowUps, state, stopping),
     turnId,
     turnIndicator,
     ...turnTiming,

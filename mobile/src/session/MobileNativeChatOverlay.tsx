@@ -106,7 +106,8 @@ export function MobileNativeChatOverlay({
       sessionKey: queued.sessionKey,
       // Nothing steers into a turn a Stop is ending; the host holds such a send until it ends.
       // The indicator's `stopping` is the display status, decided once in the session hook.
-      steerHeld: controller.nativeChatTurnIndicator?.stopping === true
+      steerHeld: controller.nativeChatTurnIndicator?.stopping === true,
+      agentWorking: controller.nativeChatAgentWorking
     },
     backgroundTasks: controller.nativeChatBackgroundTasks
   })
@@ -172,6 +173,7 @@ export function MobileNativeChatOverlay({
                 olderPages={session.olderPages}
                 onLoadEarlier={session.loadEarlier}
                 onSend={images.sendNativeChat}
+                sendFollowUp={controller.nativeChatSendFollowUp}
                 sendSurfaceId={sendSurfaceId}
                 getSendCompletionGeneration={getSendCompletionGeneration}
                 getComposerEditGeneration={controller.getChatComposerEditGeneration}

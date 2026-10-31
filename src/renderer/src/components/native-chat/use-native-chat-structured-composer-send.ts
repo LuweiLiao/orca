@@ -17,7 +17,10 @@ import {
 } from '../../../../shared/structured-agent-session-composer'
 import type { AgentType } from '../../../../shared/agent-status-types'
 import { dispatchNativeChatStructuredComposerText } from './native-chat-structured-composer-dispatch'
-import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
+import type {
+  NativeChatComposerSendIntent,
+  NativeChatStructuredComposerTransport
+} from './native-chat-composer-types'
 import type { NativeChatComposerImageAttachment } from './NativeChatComposerField'
 import { nativeChatAttachImagesAgainReason } from './native-chat-image-reattach'
 import { nativeChatNoticeFromError } from './native-chat-composer-notice'
@@ -59,7 +62,8 @@ function isNativeChatStructuredHostCommand(
 
 export type NativeChatStructuredComposerSend = (
   text: string,
-  attachments?: readonly NativeChatComposerImageAttachment[]
+  attachments?: readonly NativeChatComposerImageAttachment[],
+  intent?: NativeChatComposerSendIntent
 ) => Promise<void>
 
 /** Send through the structured journal transport, clearing the composer only
@@ -76,8 +80,8 @@ export function useNativeChatStructuredComposerSend({
   setCaret
 }: UseNativeChatStructuredComposerSendArgs): NativeChatStructuredComposerSend {
   return useCallback<NativeChatStructuredComposerSend>(
-    async (text, attachments = imageAttachments): Promise<void> => {
-      // A picked command is held like Send: it would carry attachments still uploading, pathless.
+    async (text, attachments = imageAttachments, intent): Promise<void> => {
+      // Picked commands must also wait for pending attachments to acquire paths.
       if (!structuredTransport || attachments.some((attachment) => attachment.pending)) {
         return
       }
@@ -132,6 +136,7 @@ export function useNativeChatStructuredComposerSend({
         message.cards,
         annotated?.hasAnnotations
           ? {
+              ...intent,
               onAdmitted: (messageId) => {
                 annotationMessageId = messageId
                 annotated.reserve(messageId)
@@ -142,7 +147,7 @@ export function useNativeChatStructuredComposerSend({
                 }
               }
             }
-          : undefined
+          : intent
       )
         .then(({ accepted, error, refusedWhile, revealsTranscript }) => {
           if (!hostCommand || isCurrent()) {

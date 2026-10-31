@@ -14,6 +14,7 @@ import type { ProjectFlowEvent } from './project-flow-event'
 
 export type RuntimeClientEvent =
   | { type: 'reposChanged' }
+  | { type: 'nativeChatQueueFollowUpsChanged'; queueFollowUps: boolean }
   /** The Workspace options UI state changed; a mirroring phone re-reads it. */
   | { type: 'workspaceViewChanged' }
   | {
@@ -71,6 +72,7 @@ export type RuntimeClientEvent =
 export type RuntimeClientEventStreamMessage =
   | ({ type: 'ready'; subscriptionId: string } & {
       snapshot?: {
+        nativeChatQueueFollowUps?: boolean
         repos?: unknown[]
         sshStates?: { targetId: string; state: SshConnectionState }[]
       }

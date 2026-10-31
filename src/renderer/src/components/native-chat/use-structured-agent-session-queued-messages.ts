@@ -21,7 +21,7 @@ import {
 } from './use-structured-agent-session-queued-edit'
 import type { StructuredAgentSessionPendingSend } from './structured-agent-session-pending-sends'
 import {
-  newestSteerableQueuedMessageCard,
+  headSteerableQueuedMessageCard,
   projectQueuedMessageCards,
   pendingQueueSendsOnTheirWay,
   queuedMessagesQueuePause,
@@ -63,8 +63,10 @@ export type StructuredAgentSessionQueuedMessagesController = {
   editor: QueuedMessageInlineEditor | undefined
   /** Opens the card's inline editor. */
   edit: (messageId: string) => Promise<void>
-  /** Cmd/Ctrl+Enter: Send-now the newest card. False when there is none to steer. */
-  steerNewest: () => boolean
+  /** Cmd/Ctrl+Shift+Enter: steer the head card. False when it can't steer. */
+  steerHead: () => boolean
+  /** The agent is working, so a card's send steers into its turn. */
+  isWorking: boolean
 }
 
 /** Which control is on its way, so the button that was pressed is the one that spins. */
@@ -82,7 +84,7 @@ function alreadySentNotice(): void {
 }
 
 export function useStructuredAgentSessionQueuedMessages(args: {
-  /** Host advertises `agent-session.queued-messages.v1` and the transport has a fence. */
+  /** Host advertises `agent-session.queued-messages.v2` and the transport has a fence. */
   enabled: boolean
   queuedMessages: readonly AgentSessionQueuedMessage[] | null
   queuePause: AgentSessionQueuePause | null
@@ -192,16 +194,15 @@ export function useStructuredAgentSessionQueuedMessages(args: {
     promptOpen: hasPendingPrompt
   })
 
-  const steerNewest = useCallback((): boolean => {
+  const steerHead = useCallback((): boolean => {
     if (!enabled) {
       return false
     }
-    const newest = newestSteerableQueuedMessageCard(cardsRef.current)
-    // A card already on its way leaves the chord to the composer, as with no card.
-    if (!newest || inFlightRef.current.has(newest.messageId)) {
+    const head = headSteerableQueuedMessageCard(cardsRef.current)
+    if (!head || inFlightRef.current.has(head.messageId)) {
       return false
     }
-    void steer(newest.messageId)
+    void steer(head.messageId)
     return true
   }, [enabled, steer])
 
@@ -283,6 +284,7 @@ export function useStructuredAgentSessionQueuedMessages(args: {
     edit: editing.begin,
     editCapable: editing.capable,
     editor: editing.editor,
-    steerNewest
+    steerHead,
+    isWorking
   }
 }

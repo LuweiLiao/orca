@@ -10,6 +10,7 @@ import { Card, CardContent } from '../ui/card'
 import { ChatPermissionSetting } from './ChatPermissionSetting'
 import { NativeChatShellEnvironmentSetting } from './NativeChatShellEnvironmentSetting'
 import { SearchableSetting } from './SearchableSetting'
+import { nativeChatQueueFollowUps } from '../../../../shared/native-chat-follow-up-behavior'
 import { SettingsSubsectionHeader, SettingsSwitchRow } from './SettingsFormControls'
 import { getChatBehaviorEntriesByKey, getChatBehaviorTitle } from './chat-behavior-search'
 import { getChatPermissionSearchEntry } from './chat-permission-search'
@@ -46,7 +47,7 @@ export function ChatBehaviorSetting({
     return null
   }
   const resumeOnRestartEnabled = settings.nativeChatResumeWorkOnRestart === true
-  const queueFollowUpsEnabled = settings.nativeChatQueueFollowUps !== false
+  const queueFollowUpsEnabled = nativeChatQueueFollowUps(settings)
   const queueUnavailableReason =
     queueSupport === 'unsupported'
       ? translate(
@@ -104,10 +105,7 @@ export function ChatBehaviorSetting({
                 }
                 checked={queueFollowUpsEnabled}
                 disabled={queueSupport !== 'supported'}
-                ariaLabel={translate(
-                  'components.settings.nativeChat.queueFollowUpsToggleLabel',
-                  'Toggle queue follow-ups'
-                )}
+                ariaLabel={entries.queueFollowUps.title}
                 onChange={() =>
                   updateSettings({ nativeChatQueueFollowUps: !queueFollowUpsEnabled })
                 }

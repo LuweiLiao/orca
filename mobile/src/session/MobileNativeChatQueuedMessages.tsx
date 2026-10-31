@@ -31,6 +31,7 @@ export type MobileNativeChatQueuedMessagesProps = {
   onResume?: () => Promise<boolean>
   /** The chat reads Stopping: no card steers into the turn a Stop is ending. */
   steerHeld?: boolean
+  agentWorking?: boolean
 }
 
 /** The host-held queued drafts, as one box of compact rows between transcript and
@@ -44,7 +45,8 @@ export function MobileNativeChatQueuedMessages({
   editor,
   pause,
   onResume,
-  steerHeld = false
+  steerHeld = false,
+  agentWorking = false
 }: MobileNativeChatQueuedMessagesProps): React.JSX.Element | null {
   // One in-flight action per card; a second tap must not double-consume. The ref
   // closes the same-frame double tap the disabled state cannot.
@@ -178,6 +180,7 @@ export function MobileNativeChatQueuedMessages({
                 const busy = busyIds.has(card.messageId)
                 return (
                   <MobileQueuedMessageCardRow
+                    agentWorking={agentWorking}
                     key={card.messageId}
                     card={card}
                     editor={editor?.messageId === card.messageId ? editor : undefined}

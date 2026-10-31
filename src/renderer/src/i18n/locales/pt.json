@@ -19871,7 +19871,6 @@
         "editMessage": "Editar mensagem",
         "showFullMessage": "Mostrar mensagem completa",
         "showLess": "Mostrar menos",
-        "turnOffQueueing": "Desativar fila",
         "listLabel": "Mensagens na fila",
         "alreadySent": "Esta mensagem já foi enviada.",
         "withdrawnHold": "Interrompida antes do envio",
@@ -20317,12 +20316,9 @@
         }
       },
       "nativeChat": {
-        "queueFollowUpsTitle": "Colocar mensagens de acompanhamento na fila",
         "inlineVisualsTitle": "Visualizações nas respostas",
         "inlineVisualsCopy": "Permitir que o agente mostre gráficos, diagramas e mockups nas respostas. Aplica-se a novos chats.",
         "inlineVisualsToggleLabel": "Ativar ou desativar visualizações nas respostas",
-        "queueFollowUpsCopy": "As mensagens enviadas enquanto o agente trabalha aguardam como cartões que você pode usar para orientá-lo, editar ou excluir. Mensagens com imagens são enviadas imediatamente.",
-        "queueFollowUpsToggleLabel": "Ativar ou desativar fila de mensagens de acompanhamento",
         "queueFollowUpsUnsupported": "Este host não oferece suporte à fila de mensagens de acompanhamento. Esta configuração está indisponível.",
         "queueFollowUpsUnconfirmed": "O suporte à fila não foi confirmado para este host. Esta configuração fica indisponível até a confirmação.",
         "behaviorTitle": "Comportamento",
@@ -20332,7 +20328,9 @@
         "queueSearchSteer": "orientar",
         "shellEnvSearchVariables": "variáveis de ambiente",
         "shellEnvSearchPath": "PATH",
-        "shellEnvSearchProxy": "proxy"
+        "shellEnvSearchProxy": "proxy",
+        "followUpBehaviorTitle": "Colocar mensagens de acompanhamento na fila",
+        "followUpBehaviorCopy": "Mensagens enviadas enquanto o agente trabalha aguardam como cartões até o turno terminar, em vez de entrar no turno em andamento. Cmd/Ctrl+Enter faz o contrário para uma mensagem."
       }
     },
     "jiraIssueAssigneeField": {

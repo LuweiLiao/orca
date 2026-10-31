@@ -48,8 +48,15 @@ export const CLIENT_EVENT_METHODS = [
           const state = getPublicSshState(getRegisteredSshState(target.id) ?? null)
           return state ? [{ targetId: target.id, state }] : []
         })
-        // Why: attaching the listener before snapshotting closes the reload gap without exposing HUB-private target configuration.
-        emit({ type: 'ready', subscriptionId, snapshot: { sshStates } })
+        // Listen before snapshotting to close reload gaps without exposing HUB-private target configuration.
+        emit({
+          type: 'ready',
+          subscriptionId,
+          snapshot: {
+            sshStates,
+            nativeChatQueueFollowUps: runtime.getClientSettings().nativeChatQueueFollowUps
+          }
+        })
       })
     }
   }),

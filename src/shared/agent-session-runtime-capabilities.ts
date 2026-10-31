@@ -59,26 +59,17 @@ export const AGENT_SESSION_ACCEPTED_SEND_RUNTIME_CAPABILITY =
 // holds there.
 export const AGENT_SESSION_SEND_ANSWERS_PROOF_RUNTIME_CAPABILITY =
   'agent-session.send-answers-proof.v1' as const
-// Why: `agentSession.send`'s params are strict, so an older host rejects `delivery`; and only a
-// capable client can render the `queued` result arm. It gates `delivery: 'queue-if-active'` and
-// the client's queueing setting and chord, never the published draft list or its card actions: a
-// host without it still publishes a message it kept unsent across a restart or a close, and both
-// clients show that card and call its actions. DARK ON PURPOSE — not in
-// AGENT_SESSION_RUNTIME_CAPABILITIES: advertising still requires the integrated Codex steer matrix (#21062) in the shipped host.
-// v1 includes `submission.queuedMessageId` on every draft hand-off: a client reads that link and
-// never compares a draft id with a submission id. It also publishes the queue's pause once, as
-// `queuePause` beside the list, lifted by `agentSession.queuedMessagesResume` or any turn sent
-// after it starting; while it is set every waiting card waits. `nextQueuedMessageId` beside the list
-// names the card the queue sends next once nothing runs, null while anything holds it; absent (an
-// older host) reads as null. A card carries a hold of its own when its conversion failed
-// (`send_failed`) or the host kept it unsent (`kept`). The host mechanism lands first; the constant
-// gates the rollout.
+// Older hosts reject delivery; older clients cannot render queued replies. Gate queue-if-active,
+// its setting and chords, but never kept-draft lists/actions. v2, not v1: released clients that
+// read v1 (desktop 1.4.219+, native phone builds) carry an unfinished queue UI, so they never see
+// this and keep sending immediately. The Codex steer paths it hands cards to are pinned in
+// codex-structured-turn-steer.test.ts.
+// Hand-offs link via submission.queuedMessageId, never equal draft/submission IDs. queuePause
+// holds every card until queuedMessagesResume or a later turn starts. nextQueuedMessageId names
+// the next eligible card; null/missing means none. Per-card holds: send_failed conversion or kept.
 export const AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY =
-  'agent-session.queued-messages.v1' as const
-// Why: a host advertising this edits a queued card in place (`agentSession.queuedMessageUpdate`)
-// and holds it from automatic delivery while edited (`agentSession.queuedMessageEditHold`). Apart
-// from queued-messages.v1: kept and agent-mail cards are editable with mid-turn queueing still off.
-// A client offers Edit only when the host advertises it; there is no copy-and-delete fallback.
+  'agent-session.queued-messages.v2' as const
+// Advertise in-place update/edit holds separately from mid-turn queueing: kept/mail cards remain editable while queueing is off. Never fall back to copy/delete.
 export const AGENT_SESSION_QUEUED_MESSAGE_EDIT_RUNTIME_CAPABILITY =
   'agent-session.queued-message-edit.v1' as const
 // Why: `agentSession.queuedMessageUpdate`'s params are strict, so an older host rejects `images`.
@@ -95,10 +86,7 @@ export const AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY =
 // would drop the images, so the host publishes no card holding an image to a reader without it.
 export const AGENT_SESSION_QUEUED_IMAGE_CARDS_CLIENT_CAPABILITY =
   'agent-session.queued-image-cards.v1' as const
-// Why: `agentSession.conversationCommand`'s params are strict, so an older host rejects
-// `delivery`. A host advertising this holds a /compact sent while the agent works as a queued
-// card instead of refusing it. Clients ask only when queued-messages.v1 is advertised too:
-// the card is the only place the waiting command shows.
+// Strict conversationCommand rejects unknown delivery. Offer queued /compact only with this and queued-messages.v2; its card is the sole waiting surface.
 export const AGENT_SESSION_QUEUED_COMMANDS_RUNTIME_CAPABILITY =
   'agent-session.queued-commands.v1' as const
 // Why: paired clients advertise Claude-structured support so the host can gate its agent-specific
@@ -162,6 +150,7 @@ export const AGENT_SESSION_RUNTIME_CAPABILITIES = [
   // turn starts, so a client may gate on either.
   AGENT_SESSION_ACCEPTED_SEND_RUNTIME_CAPABILITY,
   AGENT_SESSION_SEND_ANSWERS_PROOF_RUNTIME_CAPABILITY,
+  AGENT_SESSION_QUEUED_MESSAGES_RUNTIME_CAPABILITY,
   AGENT_SESSION_QUEUED_COMMANDS_RUNTIME_CAPABILITY,
   AGENT_SESSION_QUEUED_MESSAGE_EDIT_RUNTIME_CAPABILITY,
   AGENT_SESSION_QUEUED_MESSAGE_IMAGE_EDIT_RUNTIME_CAPABILITY,

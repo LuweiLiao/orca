@@ -143,11 +143,15 @@ export function queuedMessageCardSteers(card: QueuedMessageCard): boolean {
 }
 
 /** The card Cmd/Ctrl+Enter steers: the newest one, unless it is a command, which never steers. */
-export function newestSteerableQueuedMessageCard(
+export function headSteerableQueuedMessageCard(
   cards: readonly QueuedMessageCard[]
 ): QueuedMessageCard | null {
-  const newest = cards.at(-1)
-  return newest && !newest.command && newest.hold !== 'sending' ? newest : null
+  const head = cards[0]
+  return head && queuedMessageCardSteers(head) && head.hold !== 'sending' ? head : null
+}
+
+export function queuedMessageCardNeedsAttention(card: QueuedMessageCard): boolean {
+  return card.state === 'returned' || card.pausedReason === 'send_failed'
 }
 
 /** A queue send still on its way, as the card it is about to become. */

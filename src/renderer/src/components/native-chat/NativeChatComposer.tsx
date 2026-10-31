@@ -69,7 +69,7 @@ const NativeChatComposerPane = forwardRef<NativeChatComposerHandle, NativeChatCo
       readTerminalScreen,
       launchSeed,
       structuredTransport,
-      steerQueued,
+      steerHead,
       recallSource,
       inputOwnedByCard = false,
       notices: chatNotices
@@ -341,7 +341,7 @@ const NativeChatComposerPane = forwardRef<NativeChatComposerHandle, NativeChatCo
       interrupt,
       send,
       hasAttachments: imageAttachments.length > 0 || hasAnnotations,
-      ...(steerQueued ? { steerQueued } : {}),
+      ...(steerHead ? { steerHead } : {}),
       setActiveSuggestion,
       setDraft,
       setCaret

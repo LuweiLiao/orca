@@ -33,6 +33,7 @@ export type RuntimeClientSettings = Pick<
   | 'agentSkillSharingEnabled'
   | 'machineName'
   | 'nativeChatPermissionMode'
+  | 'nativeChatQueueFollowUps'
   | 'agentNativeChatPermissionModes'
 > & {
   /** Older clients still read these; neither is persisted or accepted as an update. */

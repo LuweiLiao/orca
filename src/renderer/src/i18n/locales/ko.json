@@ -19320,7 +19320,6 @@
         "editMessage": "메시지 편집",
         "showFullMessage": "전체 메시지 보기",
         "showLess": "접기",
-        "turnOffQueueing": "대기열 사용 안 함",
         "withdrawnHold": "전송 전에 중지됨",
         "pausedSendFailed": "보낼 수 없습니다. 보내기를 눌러 다시 시도하세요.",
         "paused": "일시 중지됨",
@@ -19794,9 +19793,6 @@
         }
       },
       "nativeChat": {
-        "queueFollowUpsTitle": "후속 메시지 대기열에 추가",
-        "queueFollowUpsCopy": "Agent가 작업하는 동안 보낸 메시지는 지금 보내기, 편집, 삭제할 수 있는 카드로 대기합니다. 이미지가 포함된 메시지는 바로 전송됩니다.",
-        "queueFollowUpsToggleLabel": "후속 메시지 대기열 전환",
         "queueFollowUpsUnsupported": "이 호스트는 후속 메시지 대기열을 지원하지 않습니다. 이 설정은 변경할 수 없습니다.",
         "queueFollowUpsUnconfirmed": "이 호스트의 대기열 지원 여부가 확인되지 않았습니다. 지원이 확인될 때까지 이 설정을 변경할 수 없습니다.",
         "inlineVisualsTitle": "인라인 시각 자료",
@@ -19809,7 +19805,9 @@
         "queueSearchSteer": "지금 보내기",
         "shellEnvSearchVariables": "환경 변수",
         "shellEnvSearchPath": "PATH",
-        "shellEnvSearchProxy": "프록시"
+        "shellEnvSearchProxy": "프록시",
+        "followUpBehaviorTitle": "후속 메시지를 대기열에 추가",
+        "followUpBehaviorCopy": "Agent가 작업하는 동안 보낸 메시지는 진행 중인 턴에 들어가지 않고 턴이 끝날 때까지 카드로 대기합니다. Cmd/Ctrl+Enter를 누르면 메시지 하나에 대해 반대로 동작합니다."
       }
     },
     "agentChildRow": {

@@ -35,6 +35,9 @@ type MobileNativeChatSendArgs = {
  *  draft, so it shows as a card above the composer, never a transcript echo. */
 export type MobileNativeChatSendOutcome = 'accepted' | 'rejected' | 'unknown' | 'queued'
 
+/** How one send goes: `alternate` does the other thing than the host's follow-up setting. */
+export type MobileNativeChatSendIntent = { alternate?: true }
+
 /** What a terminal write can answer: the PTY lane has no draft queue. */
 export type MobileNativeChatWriteOutcome = Exclude<MobileNativeChatSendOutcome, 'queued'>
 

@@ -19430,7 +19430,6 @@
         "editMessage": "Modifier le message",
         "showFullMessage": "Afficher le message complet",
         "showLess": "Afficher moins",
-        "turnOffQueueing": "Désactiver la file d'attente",
         "withdrawnHold": "Arrêté avant l'envoi",
         "pausedSendFailed": "Envoi impossible. Appuyez sur Envoyer pour réessayer.",
         "paused": "En pause",
@@ -19935,9 +19934,6 @@
         }
       },
       "nativeChat": {
-        "queueFollowUpsTitle": "Mettre les messages en file d’attente",
-        "queueFollowUpsCopy": "Les messages envoyés pendant que l'agent travaille attendent sous forme de cartes que vous pouvez envoyer maintenant, modifier ou supprimer. Les messages avec des images sont envoyés immédiatement.",
-        "queueFollowUpsToggleLabel": "Activer ou désactiver la file d'attente",
         "queueFollowUpsUnsupported": "Cet hôte ne prend pas en charge la file d'attente des messages. Ce réglage est indisponible.",
         "queueFollowUpsUnconfirmed": "La prise en charge de la file d'attente n'a pas été confirmée pour cet hôte. Ce réglage reste indisponible jusqu'à confirmation.",
         "inlineVisualsTitle": "Visuels intégrés",
@@ -19950,7 +19946,9 @@
         "queueSearchSteer": "orienter",
         "shellEnvSearchVariables": "variables d'environnement",
         "shellEnvSearchPath": "PATH",
-        "shellEnvSearchProxy": "proxy"
+        "shellEnvSearchProxy": "proxy",
+        "followUpBehaviorTitle": "Mettre les messages suivants en file d’attente",
+        "followUpBehaviorCopy": "Les messages envoyés pendant que l’agent travaille attendent sous forme de cartes jusqu’à la fin du tour, au lieu d’entrer dans le tour en cours. Cmd/Ctrl+Entrée fait l’inverse pour un message."
       }
     },
     "agentChildRow": {

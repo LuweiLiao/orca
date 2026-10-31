@@ -7,7 +7,7 @@ import type { AgentJournalSubmission } from '../../../../shared/agent-session-jo
 import type { AgentSessionQueuedMessage } from '../../../../shared/agent-session-wire'
 import type { StructuredAgentSessionPendingSend } from './structured-agent-session-pending-sends'
 import {
-  newestSteerableQueuedMessageCard,
+  headSteerableQueuedMessageCard,
   pendingSendsOutsideQueuedCards,
   pendingQueueSendsOnTheirWay,
   projectQueuedMessageCards,
@@ -196,10 +196,10 @@ describe('queued message cards', () => {
     expect(cards.map((card) => card.hold)).toEqual(['paused', 'turn', 'paused', 'turn'])
   })
 
-  it('steers the newest card', () => {
+  it('steers the head card', () => {
     const cards = projectQueuedMessageCards([draft('a', 1), draft('b', 2)], [], IDLE)
-    expect(newestSteerableQueuedMessageCard(cards)?.messageId).toBe('b')
-    expect(newestSteerableQueuedMessageCard([])).toBeNull()
+    expect(headSteerableQueuedMessageCard(cards)?.messageId).toBe('a')
+    expect(headSteerableQueuedMessageCard([])).toBeNull()
   })
 
   it('marks a command card, which the chord never steers', () => {
@@ -217,7 +217,8 @@ describe('queued message cards', () => {
       ['text of a', false],
       ['/compact', true]
     ])
-    expect(newestSteerableQueuedMessageCard(cards)).toBeNull()
+    // A command at the head steers nothing, and the chord never reaches past it.
+    expect(headSteerableQueuedMessageCard([cards[1]!, cards[0]!])).toBeNull()
     // While the agent works it offers no send; a message card is unaffected.
     const working = projectQueuedMessageCards([draft('a', 1), compact], [], {
       ...IDLE,

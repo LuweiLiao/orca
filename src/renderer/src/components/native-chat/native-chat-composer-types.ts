@@ -34,6 +34,9 @@ export type NativeChatOptionPickerRequest = {
   consume: () => void
 }
 
+/** How one send goes: `alternate` does the other thing than the follow-up setting. */
+export type NativeChatComposerSendIntent = Pick<StructuredAgentSessionSendRequest, 'alternate'>
+
 export type NativeChatStructuredComposerTransport = {
   capturePresentation: CaptureStructuredAgentSessionPresentation
   conversationCommands?: readonly AgentSessionConversationCommand[]
@@ -133,9 +136,8 @@ export type NativeChatComposerProps = {
   launchSeed?: NativeChatLaunchSeed
   /** Structured journal transport; absent keeps the existing PTY path unchanged. */
   structuredTransport?: NativeChatStructuredComposerTransport
-  /** Cmd/Ctrl+Enter from an empty composer: send the newest queued draft now.
-   *  False = nothing queued, and the chord falls through to a plain send. */
-  steerQueued?: () => boolean
+  /** Cmd/Ctrl+Shift+Enter steers the head queued card. */
+  steerHead?: () => boolean
   /** The chat's own notices, shown in the composer's notice card above its input. */
   notices?: readonly NativeChatComposerNotice[]
   /** The conversation Up/Down recalls prompts from. */

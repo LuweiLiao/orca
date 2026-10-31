@@ -39,6 +39,8 @@ vi.mock('react-native', async () => {
 
 vi.mock('lucide-react-native', () => ({
   ArrowUp: 'ArrowUp',
+  ListEnd: 'ListEnd',
+  CornerDownRight: 'CornerDownRight',
   Check: 'Check',
   ChevronDown: 'ChevronDown',
   ChevronLeft: 'ChevronLeft',
@@ -246,17 +248,6 @@ describe('MobileNativeChatComposer', () => {
     expect(sendButton().props).toMatchObject({ disabled: true })
     await act(async () => sendButton().props.onPress())
     expect(onSend).not.toHaveBeenCalled()
-  })
-
-  it('keeps the draft when the send is rejected', async () => {
-    const onChangeText = vi.fn()
-    const onSend = vi.fn().mockResolvedValue(false)
-    await render(onSend, onChangeText)
-
-    await act(async () => sendButton().props.onPress())
-
-    expect(onSend).toHaveBeenCalledWith(' hello ')
-    expect(onChangeText).not.toHaveBeenCalled()
   })
 
   it('disables send while an attachment path is still being injected', async () => {
@@ -638,11 +629,15 @@ describe('MobileNativeChatComposer', () => {
     // A rejected send hands the draft back for editing, so yanking the keyboard
     // would make the user re-open it to fix and retry.
     vi.mocked(Keyboard.dismiss).mockClear()
-    await render(vi.fn().mockResolvedValue(false), vi.fn())
+    const onSend = vi.fn().mockResolvedValue(false)
+    const onChangeText = vi.fn()
+    await render(onSend, onChangeText)
 
     await act(async () => sendButton().props.onPress())
 
     expect(Keyboard.dismiss).not.toHaveBeenCalled()
+    expect(onSend).toHaveBeenCalledWith(' hello ')
+    expect(onChangeText).not.toHaveBeenCalled()
   })
 
   it('does not dismiss a newly focused composer when an old accepted send settles', async () => {

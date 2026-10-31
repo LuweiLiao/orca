@@ -24,7 +24,7 @@ export async function sendMobileStructuredAgentSessionMessage(input: {
   expectedRuntimeFence: number
   text: string
   attachments: readonly StructuredAgentSessionAttachment[]
-  /** Sent only when the host advertises `agent-session.queued-messages.v1`. */
+  /** Sent only to a host that advertises queued-messages.v2. */
   delivery?: 'queue-if-active'
   /** Sent only when the host advertises `agent-session.send-options.v1`. */
   options?: Readonly<Record<string, string>>

@@ -159,7 +159,7 @@ describe('MobileNativeChatQueuedMessages', () => {
     expect(button('Edit queued message').props.editable).toBe(false)
   })
 
-  it('draws a plain waiting card as one compact row with no caption', async () => {
+  it('draws a translated idle card as one compact row with Send and no caption', async () => {
     const mounted = await mount({ cards: [card({ messageId: 'w', text: 'next' })] })
     const rows = mounted.root.findAllByProps({ testID: 'queued-card-row' })
     expect(rows).toHaveLength(1)
@@ -298,7 +298,7 @@ describe('MobileNativeChatQueuedMessages', () => {
     expect(texts(mounted).filter((text) => text === reason)).toHaveLength(1)
   })
 
-  it('reads Steer on a waiting card and plain Send on a returned one or one whose own send failed', async () => {
+  it('reads Steer during work and plain Send on a returned one or one whose own send failed', async () => {
     const mounted = await mount({
       cards: [
         card({
@@ -310,6 +310,7 @@ describe('MobileNativeChatQueuedMessages', () => {
         card({ messageId: 'waiting' }),
         card({ messageId: 'returned', state: 'returned', needsAttention: true })
       ],
+      agentWorking: true,
       onSend: vi.fn(async () => true)
     })
     expect(mounted.root.findByProps({ accessibilityLabel: 'Send this message' })).toBeTruthy()
@@ -383,7 +384,8 @@ describe('MobileNativeChatQueuedMessages', () => {
       cards: [card({ messageId: 'w' })],
       onSend,
       onDelete,
-      steerHeld: true
+      steerHeld: true,
+      agentWorking: true
     })
     const steer = mounted.root.findByProps({
       accessibilityLabel: 'Submit without interrupting the model'
@@ -683,7 +685,7 @@ describe('MobileNativeChatQueuedMessages', () => {
       'Queued messages',
       'Delete every queued message',
       'Resume sending the queued messages',
-      'Submit without interrupting the model',
+      'Send this message',
       'Delete this queued message',
       'More actions'
     ])

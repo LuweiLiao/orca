@@ -140,9 +140,8 @@ export const SendParams = z
   .object({
     envelope: MutationEnvelope,
     retryUnknown: z.literal(true).optional(),
-    /** Queue the send as a host-held draft while the main agent is working. Strict object, so an
-     *  older host refuses it: clients send it only when `agent-session.queued-messages.v1` is
-     *  advertised. Participates in the operation fingerprint, never the body fingerprint. */
+    /** Host-held draft while active; gate strict payloads on agent-session.queued-messages.v2.
+     * Operation fingerprint only, never body fingerprint. */
     delivery: z.literal('queue-if-active').optional(),
     /** The composer's choices for the turn this message starts, kept with the message until it is
      *  dispatched. Sent only when `agent-session.send-options.v1` is advertised. Operation fingerprint only. */
@@ -202,8 +201,7 @@ export const CancelParams = z
     }
   })
 
-/** `agentSession.queuedMessageSend` / `agentSession.queuedMessageDelete`. Gated on
- *  `agent-session.queued-messages.v1`; an older host lacks the methods entirely. */
+/** Queued draft actions require agent-session.queued-messages.v2; older hosts lack these methods. */
 export const QueuedMessageActionParams = z
   .object({
     envelope: MutationEnvelope,

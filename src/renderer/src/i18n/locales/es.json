@@ -19144,7 +19144,6 @@
         "editMessage": "Editar mensaje",
         "showFullMessage": "Mostrar el mensaje completo",
         "showLess": "Mostrar menos",
-        "turnOffQueueing": "Desactivar la cola",
         "withdrawnHold": "Detenido antes de enviarse",
         "pausedSendFailed": "No se pudo enviar. Pulsa Enviar para reintentar.",
         "paused": "En pausa",
@@ -19722,9 +19721,6 @@
     },
     "settings": {
       "nativeChat": {
-        "queueFollowUpsTitle": "Poner mensajes en cola",
-        "queueFollowUpsCopy": "Los mensajes que envías mientras el agente trabaja esperan como tarjetas que puedes enviar ahora, editar o eliminar. Los mensajes con imágenes se envían de inmediato.",
-        "queueFollowUpsToggleLabel": "Alternar la cola de mensajes",
         "queueFollowUpsUnsupported": "Este host no admite la cola de mensajes. Este ajuste no está disponible.",
         "queueFollowUpsUnconfirmed": "No se ha confirmado que este host admita la cola de mensajes. Este ajuste no está disponible hasta que se confirme.",
         "inlineVisualsTitle": "Elementos visuales inline",
@@ -19737,7 +19733,9 @@
         "queueSearchSteer": "dirigir",
         "shellEnvSearchVariables": "variables de entorno",
         "shellEnvSearchPath": "PATH",
-        "shellEnvSearchProxy": "proxy"
+        "shellEnvSearchProxy": "proxy",
+        "followUpBehaviorTitle": "Poner mensajes de seguimiento en cola",
+        "followUpBehaviorCopy": "Los mensajes enviados mientras el agente trabaja esperan como tarjetas hasta que termina el turno, en lugar de entrar en el turno en curso. Cmd/Ctrl+Intro hace lo contrario para un mensaje."
       },
       "TerminalInteraction": {
         "copyTrimsGutter": "Recortar margen al copiar",

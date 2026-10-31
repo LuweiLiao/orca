@@ -6,6 +6,8 @@ import { selectAgentSessionCurrentRequests } from '../../../src/shared/agent-ses
 
 import { useCallback } from 'react'
 import { runningStructuredAgentSessionTurnId } from '../../../src/shared/structured-agent-session-live-turn'
+import { mobileStructuredAgentSessionWorking } from './mobile-structured-agent-session-working'
+import { nativeChatSendFollowUp } from '../../../src/shared/native-chat-follow-up-behavior'
 import { pendingPromptsAllUnanswerableHere } from '../../../src/shared/agent-session-approval-subject'
 import {
   structuredAgentSessionSendBody,
@@ -13,8 +15,15 @@ import {
 } from '../../../src/shared/structured-agent-session-send-mutation'
 import type { StructuredAgentSessionComposerOptions } from '../../../src/shared/structured-agent-session-composer'
 import type { StructuredAgentSessionState } from '../../../src/shared/structured-agent-session-reducer'
+import {
+  structuredAgentSessionFollowUpsQueue,
+  structuredAgentSessionQueueEnabled
+} from '../../../src/shared/structured-agent-session-queued-cards'
 import type { RpcClient } from '../transport/rpc-client'
-import type { MobileNativeChatSendOutcome } from './mobile-native-chat-send'
+import type {
+  MobileNativeChatSendIntent,
+  MobileNativeChatSendOutcome
+} from './mobile-native-chat-send'
 import { dispatchMobileStructuredCommand } from './mobile-structured-composer-command'
 import type { MobileNativeChatSendErrorReporter } from './use-mobile-native-chat-send-error'
 import { sendMobileStructuredAgentSessionMessage } from './mobile-structured-agent-session-send'
@@ -27,14 +36,23 @@ import {
   actionableStructuredQuestion
 } from './mobile-structured-actionable-prompt'
 
-/** Whether a send made now asks the host to queue it. The host's queue waits on any pending prompt;
- *  one this build cannot answer would hold the send forever, so it starts a turn instead. */
+/** The desktop's rule: the alternate flips the setting first, then the queue's own rules decide. */
 export function mobileStructuredSendQueues(
   queueCapable: boolean,
-  state: Pick<StructuredAgentSessionState, 'items' | 'currentRequests'>
+  queueFollowUps: boolean,
+  state: Pick<StructuredAgentSessionState, 'items' | 'currentRequests' | 'queuedMessages'>,
+  send: { alternate?: boolean; isWorking: boolean; stopping: boolean } = {
+    isWorking: false,
+    stopping: false
+  }
 ): boolean {
   return (
-    queueCapable && !pendingPromptsAllUnanswerableHere(selectAgentSessionCurrentRequests(state))
+    queueCapable &&
+    structuredAgentSessionQueueEnabled(
+      structuredAgentSessionFollowUpsQueue(queueFollowUps, send),
+      state,
+      selectAgentSessionCurrentRequests(state)
+    )
   )
 }
 
@@ -44,12 +62,31 @@ export type StructuredMobileSendAttachment =
   | (StructuredAgentSessionAttachment & { kind?: 'image'; id?: string })
   | { kind: 'file'; id?: string; path: string }
 
+export function mobileStructuredSendFollowUp(
+  queueCapable: boolean,
+  queueFollowUps: boolean,
+  state: StructuredAgentSessionState,
+  stopping: boolean
+) {
+  const isWorking = mobileStructuredAgentSessionWorking(state)
+  return queueCapable && isWorking && !stopping
+    ? nativeChatSendFollowUp((alternate) =>
+        mobileStructuredSendQueues(queueCapable, queueFollowUps, state, {
+          alternate,
+          isWorking,
+          stopping
+        })
+      )
+    : null
+}
+
 export function useMobileStructuredSendWithOutcome(args: {
   agent: string | null
   client: RpcClient | null
   sessionId: string | null
   enabled: boolean
   queueCapable: boolean
+  queueFollowUps: boolean
   /** The host holds a /compact sent while the agent works as a card. */
   commandsWait: boolean
   stateRef: { readonly current: StructuredAgentSessionState }
@@ -69,7 +106,8 @@ export function useMobileStructuredSendWithOutcome(args: {
   text: string,
   images?: string[],
   deadline?: number,
-  attachments?: readonly StructuredMobileSendAttachment[]
+  attachments?: readonly StructuredMobileSendAttachment[],
+  intent?: MobileNativeChatSendIntent
 ) => Promise<MobileNativeChatSendOutcome> {
   const {
     accept,
@@ -82,6 +120,7 @@ export function useMobileStructuredSendWithOutcome(args: {
     hold,
     onSendError,
     queueCapable,
+    queueFollowUps,
     sendOptions,
     sessionId,
     stateRef,
@@ -92,7 +131,8 @@ export function useMobileStructuredSendWithOutcome(args: {
       text: string,
       images?: string[],
       deadline?: number,
-      attachments?: readonly StructuredMobileSendAttachment[]
+      attachments?: readonly StructuredMobileSendAttachment[],
+      intent?: MobileNativeChatSendIntent
     ): Promise<MobileNativeChatSendOutcome> => {
       const currentFence = stateRef.current.fence
       if (!client || !sessionId || !enabled || currentFence === null) {
@@ -164,7 +204,12 @@ export function useMobileStructuredSendWithOutcome(args: {
         expectedRuntimeFence: currentFence,
         text: wireText,
         attachments: imageAttachments,
-        ...(mobileStructuredSendQueues(queueCapable, stateRef.current)
+        // Resolved from the chat as it is now: a hold-menu choice made mid-turn may land after it.
+        ...(mobileStructuredSendQueues(queueCapable, queueFollowUps, stateRef.current, {
+          alternate: intent?.alternate,
+          isWorking: mobileStructuredAgentSessionWorking(stateRef.current),
+          stopping
+        })
           ? { delivery: 'queue-if-active' as const }
           : {}),
         ...(options ? { options } : {}),
@@ -190,6 +235,7 @@ export function useMobileStructuredSendWithOutcome(args: {
       hold,
       onSendError,
       queueCapable,
+      queueFollowUps,
       sendOptions,
       sessionId,
       stateRef,

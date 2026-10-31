@@ -43,6 +43,7 @@ export type StructuredAgentSessionSendRequest = Pick<
 > & {
   onAdmitted?: (clientMessageId: string) => void
   onSettled?: (outcome: StructuredAgentSessionSendOutcome) => void
+  alternate?: true
 }
 
 /** Takes the chat's one send slot, drawn as sending; null while another send of the chat is out. */
