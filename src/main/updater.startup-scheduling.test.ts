@@ -199,7 +199,7 @@ describe('updater', () => {
     })
   })
 
-  it('reschedules the next automatic check 24 hours after finding an available update', async () => {
+  it('downloads a new release automatically and keeps its feed while the download is pending', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-03T12:00:00Z'))
 
@@ -237,15 +237,15 @@ describe('updater', () => {
       version: '1.0.61',
       changelog: null
     })
+    expect(autoUpdaterMock.downloadUpdate).toHaveBeenCalledTimes(1)
+    expect(autoUpdaterMock.quitAndInstall).not.toHaveBeenCalled()
+    expect(autoUpdaterMock.autoInstallOnAppQuit).toBe(false)
 
     await vi.advanceTimersByTimeAsync(23 * 60 * 60 * 1000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
-    // Other timers fire at this boundary too; assert the schedule rather than an exact global call count.
-    await vi.waitFor(() => {
-      expect(autoUpdaterMock.checkForUpdates.mock.calls.length).toBeGreaterThanOrEqual(2)
-    })
+    expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
   })
 
   it('does not disable Windows Authenticode verification on win32', async () => {

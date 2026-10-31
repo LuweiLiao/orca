@@ -3,6 +3,8 @@ import type { OrchestrationDb } from '../../../../orchestration/db'
 import type { RunRow, TaskRow } from '../../../../orchestration/types'
 import type { WorkerStartModeReceipt } from '../../orchestration-worker-start-mode'
 import { deliverWorkerDispatchPreamble } from './deliver-worker-dispatch-preamble'
+import { delegateFlowEvent } from '../../../../orchestration/project-flow-events'
+import { publishProjectFlow } from '../../../../orchestration/project-flow-publisher'
 import { chatAssigneeSessionId } from '../../../../orchestration/chat-assignee'
 import type { OrchestrationWorkerLaunchReceipt } from './worker-launch-preferences'
 import {
@@ -147,6 +149,10 @@ export async function deliverAndSettleWorkerStartReadiness(args: {
     worker.stage === 'settled' && (worker.state === 'succeeded' || worker.state === 'failed')
       ? worker.state
       : undefined
+  // Why: a report that already settled the dispatch has flown; the delegation would trail it.
+  if (!alreadySettled) {
+    publishProjectFlow(args.runtime, delegateFlowEvent(args.dispatchId))
+  }
   return {
     runId: run.id,
     taskId: task.id,

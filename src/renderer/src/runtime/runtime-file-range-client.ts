@@ -1,6 +1,9 @@
 import type { RuntimeFileReadChunkResult } from '../../../shared/runtime-types'
 import type { RuntimeClientTarget } from '../../../shared/runtime-client-target'
-import { validateFileRangeRequest } from '../../../shared/file-range-read'
+import {
+  MAX_FILE_RANGE_READ_BYTES,
+  validateFileRangeRequest
+} from '../../../shared/file-range-read'
 import type { RuntimeFileReadArgs } from './runtime-file-client-types'
 import { assertExternalSshReadOwnership, canReadRelativeRuntimeFile } from './runtime-file-routing'
 import { callRuntimeRpc } from './runtime-rpc-client'
@@ -87,24 +90,36 @@ export async function statRuntimeReadTarget(
   return statRemoteRuntimeFile(remote)
 }
 
+/**
+ * One `files.readChunk` (or local/SSH chunk read) of the file the read args address. A local or
+ * SSH read is capped tighter than a runtime's, so it may return fewer bytes than asked.
+ */
+export function readRuntimeFileChunk(
+  args: RuntimeFileReadArgs,
+  offset: number,
+  length: number
+): Promise<RuntimeFileReadChunkResult> {
+  const remote = rangeReadTarget(args)
+  return remote
+    ? readRemoteRuntimeFileChunk(remote, offset, length)
+    : window.api.fs.readFileChunk({
+        filePath: args.filePath,
+        connectionId: args.connectionId,
+        access: args.access,
+        offset,
+        length: Math.min(length, MAX_FILE_RANGE_READ_BYTES)
+      })
+}
+
 export async function readRuntimeFileRange(
   args: RuntimeFileReadArgs,
   offset: number,
   length: number
 ): Promise<Uint8Array<ArrayBuffer>> {
   validateFileRangeRequest(offset, length)
-  const remote = rangeReadTarget(args)
   let result: RuntimeFileReadChunkResult
   try {
-    result = remote
-      ? await readRemoteRuntimeFileChunk(remote, offset, length)
-      : await window.api.fs.readFileChunk({
-          filePath: args.filePath,
-          connectionId: args.connectionId,
-          access: args.access,
-          offset,
-          length
-        })
+    result = await readRuntimeFileChunk(args, offset, length)
   } catch (error) {
     if (error instanceof RuntimeRpcCallError && error.code === 'method_not_found') {
       throw new Error(

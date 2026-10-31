@@ -24,6 +24,7 @@ type LocalGitArgs = [] | [LocalProjectGhExecOptions]
 type RuntimeGitHubReviewMutationCommandsDeps = {
   resolveRepo: (selector: string) => Promise<Repo>
   getLocalGitArgs: (repo: Repo) => LocalGitArgs
+  onMerged: (repoId: string, prNumber: number) => void
 }
 
 export class RuntimeGitHubReviewMutationCommands {
@@ -139,7 +140,7 @@ export class RuntimeGitHubReviewMutationCommands {
     prRepo?: GitHubOwnerRepo | null
   ): Promise<Awaited<ReturnType<typeof mergePR>>> {
     const repo = await this.deps.resolveRepo(repoSelector)
-    return mergePR(
+    const result = await mergePR(
       repo.path,
       prNumber,
       method,
@@ -147,6 +148,11 @@ export class RuntimeGitHubReviewMutationCommands {
       prRepo ?? null,
       ...this.deps.getLocalGitArgs(repo)
     )
+    // Why: only a merge GitHub confirmed; an enqueued stack has not merged yet.
+    if (result.ok && !result.queued) {
+      this.deps.onMerged(repo.id, prNumber)
+    }
+    return result
   }
 
   async setRepoPRAutoMerge(

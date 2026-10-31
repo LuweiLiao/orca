@@ -256,13 +256,43 @@ describe('a chat as the assignee of orchestration dispatch', () => {
 
     await vi.waitFor(() => expect(worker.turns).toHaveLength(1), WAIT)
     expect(turnText(worker.turns[0]!)).toMatch(
-      /^You have 1 orchestration message\. Run `orca(-dev)? orchestration check`\.$/
+      /^You have 1 orchestration message \(status\)\. Run `orca(-dev)? orchestration check`\.$/
     )
     expect(await queuedCardTexts(PEER_CHAT)).toEqual([])
     await settleTurn(PEER_CHAT, 0)
     expect(await call('orchestration.check', {}, { sessionId: PEER_CHAT })).toMatchObject({
       messages: [expect.objectContaining({ subject: 'also check the tests' })]
     })
+  })
+
+  it('points a busy chat worker again at a follow-up it left unread', async () => {
+    const asCoordinator = { sessionId: COORDINATOR }
+    await openChat(COORDINATOR)
+    const worker = await openChat(PEER_CHAT)
+    const { taskId } = await coordinatorRunAndTask()
+    const result = await call('orchestration.dispatch', { task: taskId, to: WORKER }, asCoordinator)
+    const mailbox = `dispatch:${idOf(result.dispatch)}`
+    await call(
+      'orchestration.send',
+      { to: mailbox, subject: 'use u6', priority: 'high' },
+      asCoordinator
+    )
+    await vi.waitFor(() => expect(worker.turns).toHaveLength(1), WAIT)
+    await settleTurn(PEER_CHAT, 0)
+
+    // Age the pointer past the first reminder.
+    db.db
+      .prepare(
+        `UPDATE messages SET delivered_at = datetime('now', '-11 minutes') WHERE to_handle = ?`
+      )
+      .run(mailbox)
+    const later = Date.now() + 120_000
+    vi.spyOn(Date, 'now').mockReturnValue(later)
+    runtime.notifyStructuredSessionJournalActivity(PEER_CHAT)
+
+    await vi.waitFor(() => expect(worker.turns).toHaveLength(2), WAIT)
+    expect(turnText(worker.turns[1]!)).toContain('(status; 1 high priority)')
+    vi.restoreAllMocks()
   })
 
   it("counts a chat worker's own Dispatch as depth 2, under the nesting cap", async () => {

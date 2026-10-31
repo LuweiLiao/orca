@@ -57,7 +57,11 @@ export function isDashboardWorkspace(value: unknown): value is DashboardWorkspac
     isOptionalString(workspace.workspaceStatusLabel, DASHBOARD_MAX_LABEL_LENGTH) &&
     isOptionalString(workspace.workspaceStatusColor, MAX_ID_LENGTH) &&
     (workspace.hasReview === undefined || typeof workspace.hasReview === 'boolean') &&
-    isReview(workspace.review)
+    isReview(workspace.review) &&
+    (workspace.createdAt === undefined ||
+      (typeof workspace.createdAt === 'number' &&
+        Number.isFinite(workspace.createdAt) &&
+        workspace.createdAt >= 0))
   )
 }
 

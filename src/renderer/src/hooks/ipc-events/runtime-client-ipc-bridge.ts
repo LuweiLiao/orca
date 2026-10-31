@@ -10,6 +10,10 @@ import {
   refreshRuntimeEnvironmentSshTargetMetadata
 } from '@/runtime/runtime-environment-ssh-state'
 import { subscribeRuntimeClientEvents } from '@/runtime/runtime-client-events'
+import {
+  acceptProjectFlowEvent,
+  retryHeldProjectFlowEvents
+} from '@/components/project-map/project-flow-app'
 import { toRemoteRuntimePtyId } from '../../../../shared/remote-runtime-pty-id'
 import { getEnvironmentSshStateGeneration } from '@/store/slices/runtime-environment-ssh'
 import { getRuntimeEnvironmentConnectionGeneration } from '@/store/slices/runtime-status'
@@ -109,6 +113,10 @@ export function registerRuntimeClientIpcBridge(
       applyNativeChatLaunchDraftResolved(useAppStore.getState(), event)
       return
     }
+    if (event.type === 'projectFlow') {
+      acceptProjectFlowEvent(event)
+      return
+    }
     // A paired desktop keeps its own Workspace options; only the host's phone mirrors them.
     if (event.type === 'workspaceViewChanged') {
       return
@@ -202,6 +210,15 @@ export function registerRuntimeClientIpcBridge(
         console.error('Failed to activate runtime-created worktree:', error)
       })
   }
+
+  // Why: this machine's own host has no environment id, so its flights come by IPC.
+  const unsubscribeLocalProjectFlow = window.api.runtime?.onProjectFlow?.((event) =>
+    acceptProjectFlowEvent(event, 'local')
+  )
+  if (unsubscribeLocalProjectFlow) {
+    unsubs.push(unsubscribeLocalProjectFlow)
+  }
+  unsubs.push(useAppStore.subscribe(retryHeldProjectFlowEvents))
 
   setRuntimeEnvironmentCatalogRefresher(async () => {
     useAppStore.getState().setRuntimeEnvironments(await window.api.runtimeEnvironments.list())

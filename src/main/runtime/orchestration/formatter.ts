@@ -109,14 +109,42 @@ export function formatMessagesForInjection(messages: MessageRow[]): string {
   return `\n--- Orchestration Messages (${messages.length}) ---\n${banners}\n---\n`
 }
 
+export type MessagePointerKind = { type: string; priority?: string }
+
+const POINTER_TYPE_PATTERN = /^[a-z_]{1,32}$/
+
+// Only Orca-owned enums: sender-written text must not reach the agent as a user-role turn.
+function formatPointerKinds(kinds: readonly MessagePointerKind[]): string {
+  if (kinds.length === 0) {
+    return ''
+  }
+  const typeCounts = new Map<string, number>()
+  for (const { type } of kinds) {
+    const label = POINTER_TYPE_PATTERN.test(type) ? type : 'other'
+    typeCounts.set(label, (typeCounts.get(label) ?? 0) + 1)
+  }
+  const types =
+    typeCounts.size === 1
+      ? [...typeCounts.keys()][0]
+      : [...typeCounts].map(([type, n]) => `${n} ${type}`).join(', ')
+  const urgent = kinds.filter((kind) => kind.priority === 'urgent').length
+  const high = kinds.filter((kind) => kind.priority === 'high').length
+  const priorities = [urgent ? `${urgent} urgent` : '', high ? `${high} high priority` : '']
+    .filter(Boolean)
+    .join(', ')
+  return ` (${types}${priorities ? `; ${priorities}` : ''})`
+}
+
 export function formatMessagePointer(
   count: number,
   mailboxHandle?: string,
-  cliCommand: OrchestrationCliCommand = 'orca'
+  cliCommand: OrchestrationCliCommand = 'orca',
+  kinds: readonly MessagePointerKind[] = []
 ): string {
   const noun = count === 1 ? 'message' : 'messages'
+  const summary = formatPointerKinds(kinds)
   const runFlag = mailboxHandle?.startsWith('run:')
     ? ` --run ${mailboxHandle.slice('run:'.length)}`
     : ''
-  return `\nYou have ${count} orchestration ${noun}. Run \`${cliCommand} orchestration check${runFlag}\`.\n`
+  return `\nYou have ${count} orchestration ${noun}${summary}. Run \`${cliCommand} orchestration check${runFlag}\`.\n`
 }

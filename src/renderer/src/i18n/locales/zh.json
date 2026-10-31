@@ -1185,6 +1185,11 @@
             }
           }
         }
+      },
+      "languageServer": {
+        "crashed": "{{server}} 反复退出。",
+        "missing": "没有安装 {{server}}，这些文件暂时不能跳转和补全。",
+        "failed": "{{server}} 启动失败。"
       }
     },
     "hooks": {
@@ -16180,7 +16185,9 @@
         "MonacoEditor": {
           "68cb83f4a7": "在选定的文本上添加注释",
           "fd68ae03b3": "在文件中搜索",
-          "largePasteTooLarge": "粘贴内容过大。"
+          "largePasteTooLarge": "粘贴内容过大。",
+          "showInPdf": "在 PDF 中显示",
+          "synctexNoPdf": "没找到由这个文件编译、带 SyncTeX 数据的 PDF。请先打开 PDF，或编译时加上 -synctex=1。"
         },
         "MonacoGutterContextMenu": {
           "7b57b1b468": "复制远程 URL",
@@ -16218,7 +16225,9 @@
           "outlineTab": "大纲",
           "pagesTab": "页面",
           "hideSidebar": "隐藏大纲和页面",
-          "showSidebar": "显示大纲和页面"
+          "showSidebar": "显示大纲和页面",
+          "synctexMissing": "这个 PDF 没有 SyncTeX 数据。编译时加上 -synctex=1。",
+          "synctexOutsideWorkspace": "源文件不在这个工作区里：{{path}}"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "新智能体",
@@ -19604,7 +19613,16 @@
       "explicitChatSsh": "无法通过 SSH 进行聊天。请改为在终端中打开智能体。",
       "explicitChatWsl": "WSL 中无法使用聊天功能。请改为在终端中打开智能体。",
       "explicitChatUnavailable": "此工作区无法运行聊天。检查智能体安装或在终端中打开它。",
-      "structuredSessionTerminalNotVisible": "Orca 已在终端中打开 {{value0}}，但启动完成后无法在此处显示。您的聊天草稿已保留。"
+      "structuredSessionTerminalNotVisible": "Orca 已在终端中打开 {{value0}}，但启动完成后无法在此处显示。您的聊天草稿已保留。",
+      "handoff": {
+        "compactedFrom": "交接自 {{from}}（已压缩）",
+        "compacted": "交接（已压缩）",
+        "from": "交接自 {{from}}",
+        "plain": "交接",
+        "summary": "交接的摘要",
+        "messagesCounted": "交接的消息：{{count}} / {{total}} 条",
+        "messages": "交接的消息"
+      }
     },
     "tab": {
       "bar": {
@@ -21480,10 +21498,6 @@
       "nativeHint": "有保存的对话就整段复制，工具调用记录也带过去；没有就把消息整理成文字交过去。",
       "handoffHint": "把消息整理成文字交过去：工具输出和图片只留摘要，不完整复制。",
       "sharedWorkspace": "「{{name}}」也在这个工作区运行，两边可能会改同一批文件。",
-      "useSummary": "用摘要交接",
-      "useSummaryNone": "还没有摘要：先在对话的菜单里生成。",
-      "useSummaryStale": "这份摘要已过时，对话之后有了新消息。",
-      "useSummaryOld": "该主机版本过旧，无法生成聊天摘要。",
       "instruction": "第一条指令（可选）",
       "instructionPlaceholder": "留空：对话打开后等你输入。",
       "sourceWorking": "这个对话还在运行，等这一轮结束再交接。",
@@ -21706,6 +21720,97 @@
       "stopTitle": "停止 {{count}} 个对话？",
       "stopDescription": "这会停止正在进行的工作并结束委派任务，已停止的委派对话无法恢复。",
       "stopDone": "已停止 {{count}} 个对话"
+    },
+    "handoff": {
+      "title": "交接内容",
+      "summary": "压缩成摘要",
+      "summaryHint": "先把对话总结成摘要，新对话只从摘要开始；需要细节时它能去读完整消息。",
+      "summaryMergeHint": "先把这些对话一起总结成摘要，新对话只从摘要开始；需要细节时它能去读完整消息。",
+      "messages": "完整历史",
+      "messagesHint": "把消息原样交过去，会占用新对话多得多的上下文。",
+      "summaryUnavailable": "该主机版本过旧，不能压缩交接。",
+      "compacting": "正在压缩对话…"
+    }
+  },
+  "growthTree": {
+    "dock": {
+      "label": "选中项详情",
+      "close": "关闭详情",
+      "status": "状态",
+      "closed": "已关闭",
+      "time": "时间",
+      "now": "现在",
+      "approx": "开始时间为估算",
+      "workspace": "工作区",
+      "kind": "类型",
+      "chats": "对话",
+      "project": "项目",
+      "relations": "关系",
+      "hidden": "已在蓝图中隐藏。",
+      "locate": "在蓝图中定位",
+      "openChat": "打开对话",
+      "openWorkspace": "打开工作区",
+      "created": "创建于"
+    },
+    "folderWorkspace": "文件夹工作区",
+    "worktree": "工作树",
+    "groupCollapsed": "{{chats}} 个对话，{{working}} 个运行中",
+    "emptyLanes": "空工作区：{{count}} 个",
+    "noChats": "这里还没有对话",
+    "jump": {
+      "hidden": "这个对话在蓝图中被隐藏了。",
+      "missing": "这个对话不在蓝图上。",
+      "unhide": "显示出来",
+      "dismiss": "知道了"
+    },
+    "filter": {
+      "label": "筛选",
+      "status": "状态",
+      "kinds": "显示的连线",
+      "window": "时间范围",
+      "active": "已筛选：{{count}} 项"
+    },
+    "empty": "项目运行过 agent 之后，对话会出现在这里。",
+    "pin": {
+      "from": "来自项目 {{project}}",
+      "to": "去往项目 {{project}}",
+      "unresolved": "来源未加载"
+    },
+    "view": {
+      "label": "地图视图",
+      "blueprint": "蓝图",
+      "growth": "生长树"
+    },
+    "allProjects": "全部项目",
+    "bucket": {
+      "working": "运行中",
+      "attention": "需要处理",
+      "done": "已完成",
+      "idle": "空闲"
+    },
+    "kind": {
+      "derive": "派生",
+      "delegate": "委派",
+      "handoff": "交接",
+      "merge": "合并交接",
+      "reference": "引用"
+    },
+    "window": {
+      "all": "全部时间",
+      "today": "今天",
+      "7d": "最近 7 天",
+      "30d": "最近 30 天"
+    },
+    "replay": {
+      "toggle": "回放",
+      "loading": "正在读取历史…",
+      "missingHosts": "{{count}} 个主机没有历史记录",
+      "partialHosts": "{{count}} 个主机的历史不完整",
+      "noEvents": "还没有可回放的记录",
+      "pause": "暂停",
+      "play": "播放",
+      "slider": "回放时刻",
+      "speed": "回放速度"
     }
   }
 }

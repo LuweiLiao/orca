@@ -189,7 +189,7 @@ export abstract class OrcaRuntimeWithGetPtyRecordForPaneKey extends OrcaRuntimeW
 
   /** The structured idle edge: any journal movement is a chance to redrive parked mail. */
   notifyStructuredSessionJournalActivity(sessionId: string): void {
-    this.orchestrationStructuredMailboxPointerDelivery.onJournalActivity(sessionId)
+    this.onStructuredSessionJournalActivity(sessionId)
   }
 
   /**

@@ -8,7 +8,7 @@ const ERROR_TEXT = 'Failed to load PDF preview'
 const STALE_TEXT = 'The latest version could not be loaded; showing the last one that did.'
 
 async function settleAndCapture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
-  // Past the editor's 75ms external-reload debounce and the pdf.js parse.
+  // Past the external-reload debounce, the PDF settle wait, and the pdf.js parse.
   await page.waitForTimeout(1500)
   await page.screenshot({ path: testInfo.outputPath(`${name}.png`) })
 }
@@ -55,17 +55,30 @@ test('PDF preview keeps the last good build through failed refreshes, then shows
   await pageInput.fill('3')
   await pageInput.press('Enter')
   await expect(pageInput).toHaveValue('3')
-  writeFileSync(filePath, halfWritten)
-  await expect(stale).toContainText(STALE_TEXT)
-  await expect(error).toBeHidden()
-  await expect(pages).toHaveCount(3)
   // pdf.js renders text only for pages near the viewport, so read the page the reader is on.
   const thirdPage = pages.nth(2).locator('.textLayer')
-  await expect(thirdPage).toContainText('PDF search fixture - page 3')
+
+  // A slow rebuild writes half the file, pauses, then finishes: the half file is never parsed.
+  writeFileSync(filePath, halfWritten)
+  await orcaPage.waitForTimeout(1500)
+  await expect(stale).toHaveCount(0)
+  await expect(pages).toHaveCount(3)
+  writeFileSync(filePath, createPdfFindFixture({ title: 'Slow build' }))
+  await expect(thirdPage).toContainText('Slow build - page 3')
+  await expect(stale).toHaveCount(0)
+  await expect(pageInput).toHaveValue('3')
+
+  // A build that stops half-written is given up on after the settle wait, keeping the last one.
+  writeFileSync(filePath, halfWritten)
+  await expect(stale).toContainText(STALE_TEXT, { timeout: 15_000 })
+  await expect(error).toBeHidden()
+  await expect(pages).toHaveCount(3)
+  await expect(thirdPage).toContainText('Slow build - page 3')
   await expect(pageInput).toHaveValue('3')
   await settleAndCapture(orcaPage, testInfo, '2-failed-refresh')
 
   writeFileSync(filePath, '')
+  await orcaPage.waitForTimeout(1000)
   await expect(stale).toBeVisible()
   await expect(pages).toHaveCount(3)
 

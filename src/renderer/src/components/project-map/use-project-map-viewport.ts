@@ -21,6 +21,33 @@ export function projectMapCenteredView(
   }
 }
 
+export type ProjectMapSpanOptions = {
+  /** Zoom never goes below this, so a long span shows its newest part rather than shrinking. */
+  minZoom?: number
+  /** When the span is wider than the viewport, keep its right end in view instead of its left. */
+  anchor?: 'start' | 'end'
+  /** Room kept right of the span's end, in content pixels. */
+  endPadding?: number
+}
+
+/** The view that shows a horizontal span of the content with the top of the content in view. */
+export function projectMapSpanView(
+  size: { width: number },
+  span: { x: number; width: number },
+  options: ProjectMapSpanOptions = {}
+): ProjectMapView {
+  const padding = options.endPadding ?? 0
+  const wide = span.width + padding
+  const fitting = (size.width - FIT_PADDING * 2) / Math.max(1, wide)
+  const zoom = clampZoom(Math.max(options.minZoom ?? MIN_ZOOM, Math.min(1, fitting)))
+  const overflow = wide * zoom > size.width - FIT_PADDING * 2
+  const x =
+    overflow && options.anchor === 'end'
+      ? size.width - FIT_PADDING - (span.x + wide) * zoom
+      : FIT_PADDING - span.x * zoom
+  return { x, y: FIT_PADDING, zoom }
+}
+
 /** Pan and zoom for the map canvas: drag the background to pan, wheel pans, Ctrl/⌘+wheel zooms. */
 export function useProjectMapViewport(content: { width: number; height: number } | null) {
   // Callback ref: the page swaps the empty state for the canvas, so the observed element can change.
@@ -59,6 +86,22 @@ export function useProjectMapViewport(content: { width: number; height: number }
     )
     setView({ x: FIT_PADDING, y: FIT_PADDING, zoom })
   }, [content, size.height, size.width])
+
+  /** Fits a horizontal span of the content, keeping the top of the content in view. */
+  const fitSpan = useCallback(
+    (span: { x: number; width: number }, options?: ProjectMapSpanOptions) => {
+      if (size.width === 0) {
+        return
+      }
+      setView(projectMapSpanView(size, span, options))
+    },
+    [size]
+  )
+
+  /** Moves the view by the least that a caller computed, leaving the zoom alone. */
+  const panBy = useCallback((dx: number, dy: number) => {
+    setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }))
+  }, [])
 
   const centerOn = useCallback(
     (box: { x: number; y: number; width: number; height: number }) => {
@@ -170,6 +213,8 @@ export function useProjectMapViewport(content: { width: number; height: number }
     size,
     view,
     fit,
+    fitSpan,
+    panBy,
     centerOn,
     zoomBy,
     contentPoint,

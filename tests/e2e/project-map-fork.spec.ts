@@ -153,7 +153,9 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     await expect(panel.getByRole('button', { name: 'Create child chat' })).toBeInViewport({
       ratio: 1
     })
-    await expect(panel.getByRole('radio')).toHaveCount(1)
+    await expect(panel.locator('input[name="project-map-fork-source"]')).toHaveCount(1)
+    // This spec checks what the messages hand-off carries; the compacted default has its own spec.
+    await panel.locator('[data-project-map-handoff-mode-option="messages"]').check()
     await panel.getByRole('textbox').fill('CHILD-ONE: try ELK layered layout')
     await screenshot('fork-panel')
     await panel.getByRole('button', { name: 'Create child chat' }).click()
@@ -198,8 +200,9 @@ test('forks a chat from its map node, then forks again from a grandparent fork p
     expect(childKey).not.toBe(paneKeyOf(parent))
     // The child's chat window may cover its handle where the child was dropped, so click it in place.
     await map.locator('[data-project-map-fork-handle]').dispatchEvent('click')
-    await expect(panel.getByRole('radio')).toHaveCount(2)
+    await expect(panel.locator('input[name="project-map-fork-source"]')).toHaveCount(2)
     await panel.getByText('Where it handed off the next chat').click()
+    await panel.locator('[data-project-map-handoff-mode-option="messages"]').check()
     await panel.getByRole('textbox').fill('CHILD-TWO: try force-directed layout')
     await panel.getByRole('button', { name: 'Create child chat' }).click()
     await expect(wires).toHaveCount(2)

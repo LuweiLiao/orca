@@ -42,6 +42,21 @@ const MODEL_DISCOVERY_ONLY_SPECS: Partial<Record<TuiAgent, AgentModelProbeSpec>>
 }
 
 export function getAgentModelProbeSpec(agentId: TuiAgent): AgentModelProbeSpec | undefined {
+  if (agentId === 'ccb') {
+    const claude = getCommitMessageAgentSpec('claude')
+    if (!claude?.modelDiscovery) {
+      return undefined
+    }
+    return {
+      ...claude,
+      id: 'ccb',
+      label: 'CCB',
+      binary: 'ccb',
+      modelDiscovery: { ...claude.modelDiscovery, binary: 'ccb' },
+      models: [],
+      defaultModelId: ''
+    }
+  }
   const spec = getCommitMessageAgentSpec(agentId) ?? MODEL_DISCOVERY_ONLY_SPECS[agentId]
   if (!spec) {
     return undefined

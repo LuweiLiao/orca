@@ -11,6 +11,12 @@ import {
   type NativeChatModelDiscoveryContext
 } from './native-chat-session-option-discovery'
 import { readNativeChatEnrichedModels } from './native-chat-session-option-enrichment'
+import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
+
+export type PickerTransport = Pick<
+  NativeChatStructuredComposerTransport,
+  'runtimeEnvironmentId' | 'worktreeId'
+>
 
 export type PickerHost = {
   target: RuntimeClientTarget
@@ -30,7 +36,7 @@ export async function discoverOrchestrationModels(
   host: PickerHost,
   agent: string
 ): Promise<OrchestrationModel[]> {
-  if (host.preferHostCatalog) {
+  if (host.preferHostCatalog && agent !== 'ccb') {
     const params = {
       agent,
       ...(host.worktreeId ? { worktree: toRuntimeWorktreeSelector(host.worktreeId) } : {})

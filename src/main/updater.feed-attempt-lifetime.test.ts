@@ -89,7 +89,7 @@ describe('updater feed preflight ownership', () => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
       expect(autoUpdaterMock.setFeedURL).toHaveBeenLastCalledWith({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/download/v3.0.0'
+        url: 'https://github.com/LuweiLiao/orca/releases/download/v3.0.0'
       })
       autoUpdaterMock.setFeedURL.mockClear()
 
@@ -104,11 +104,11 @@ describe('updater feed preflight ownership', () => {
   it.each([
     {
       result: { tags: ['v3.0.0'], state: 'ready' },
-      url: 'https://github.com/stablyai/orca/releases/download/v3.0.0'
+      url: 'https://github.com/LuweiLiao/orca/releases/download/v3.0.0'
     },
     {
       result: { tags: [], state: 'no-newer' },
-      url: 'https://github.com/stablyai/orca/releases/latest/download'
+      url: 'https://github.com/LuweiLiao/orca/releases/latest/download'
     }
   ])('keeps the active $result.state feed choice', async ({ result, url }) => {
     fetchNewerReleaseTagsMock.mockResolvedValueOnce(result)

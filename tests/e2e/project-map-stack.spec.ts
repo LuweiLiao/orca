@@ -248,6 +248,7 @@ test('stacks a busy coordinator’s workers, lists them beside it, and drags a n
     await expect(panel.locator('[data-native-chat-conversation-reference]')).toHaveCount(2)
     await panel.getByRole('textbox').fill('MERGE: compare the two workers')
     await screenshot('fork-with-references')
+    await panel.locator('[data-project-map-handoff-mode-option="messages"]').check()
     await panel.getByRole('button', { name: 'Create child chat' }).click()
     await expect(panel).toHaveCount(0, { timeout: 60_000 })
     // Named for the typed text, and drawn with a wire from each chat it was told to read.

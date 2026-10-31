@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import type { editor } from 'monaco-editor'
+import { KeyCode, KeyMod, type editor } from 'monaco-editor'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
@@ -18,10 +18,12 @@ import { handleMonacoLargeTextPaste } from './monaco-large-text-paste'
 import { beginEditorLargePaste } from './editor-large-paste-in-flight'
 import type { MarkdownCommentPopoverState } from './use-monaco-markdown-annotations'
 import type { MonacoEditorPropsRef } from './monaco-editor-mount-params'
+import { revealSourceLineInPdf } from './pdf-synctex-navigation'
 
 type MonacoEditorInputBindingsParams = {
   editorInstance: editor.IStandaloneCodeEditor
   worktreeId: string | undefined
+  fileIdRef: MutableRefObject<string>
   editorContainerRef: MutableRefObject<HTMLDivElement | null>
   propsRef: MonacoEditorPropsRef
   readOnlyRef: MutableRefObject<boolean>
@@ -42,6 +44,7 @@ export function installMonacoEditorInputBindings(params: MonacoEditorInputBindin
   const {
     editorInstance,
     worktreeId,
+    fileIdRef,
     editorContainerRef,
     propsRef,
     readOnlyRef,
@@ -103,6 +106,25 @@ export function installMonacoEditorInputBindings(params: MonacoEditorInputBindin
       state.showRightSidebarSearch({ query })
     }
   })
+  // Why a context key: the action is only offered in LaTeX sources, where SyncTeX can resolve it.
+  const isLatexSource = editorInstance.createContextKey(
+    'orcaLatexSource',
+    /\.tex$/i.test(propsRef.current.relativePath)
+  )
+  const showInPdfAction = editorInstance.addAction({
+    id: 'orca.synctex.showInPdf',
+    label: translate('auto.components.editor.MonacoEditor.showInPdf', 'Show in PDF'),
+    precondition: 'orcaLatexSource',
+    keybindings: [KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyJ],
+    contextMenuGroupId: 'navigation',
+    contextMenuOrder: 3,
+    run: () => {
+      const line = editorInstance.getPosition()?.lineNumber
+      if (line) {
+        void revealSourceLineInPdf(fileIdRef.current, line)
+      }
+    }
+  })
   const onLargeTextPaste = (event: ClipboardEvent): void => {
     let endSaveDeferral: (() => void) | null = null
     handleMonacoLargeTextPaste(editorInstance, event, {
@@ -140,6 +162,8 @@ export function installMonacoEditorInputBindings(params: MonacoEditorInputBindin
       cleanupAddReviewNoteShortcut()
       editorDomNode.removeEventListener('paste', onLargeTextPaste, { capture: true })
       searchInFilesAction.dispose()
+      showInPdfAction.dispose()
+      isLatexSource.reset()
     }
   }
 }

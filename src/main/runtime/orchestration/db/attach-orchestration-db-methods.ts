@@ -1,4 +1,5 @@
 import { attachAgentDelegationGrantStore } from './delegation-grants/agent-delegation-grant-store'
+import { attachProjectFlowLogStore } from './project-flow/project-flow-log-store'
 import { attachAttemptObservationStore } from './attempt-observation-store'
 import { attachCoordinatorRunStore } from './coordinator-runs/coordinator-run-store'
 import { attachDecisionGateStore } from './decision-gates/decision-gate-store'
@@ -29,6 +30,7 @@ import { attachLegacyRecoveryCohort } from './legacy/legacy-recovery-cohort'
 import { attachLegacyReplyOperation } from './legacy/legacy-reply-operation'
 import { attachLegacyWorkerCompletion } from './legacy/legacy-worker-completion'
 import { attachDirectMailboxRouting } from './messages/direct-mailbox-routing'
+import { attachPointedUnreadMessages } from './messages/pointed-unread-messages'
 import { attachForeignDirectMailboxRouting } from './messages/foreign-direct-mailbox-routing'
 import { attachMailboxPointerEnterState } from './messages/mailbox-pointer-enter-state'
 import { attachMessageInbox } from './messages/message-inbox'
@@ -70,6 +72,7 @@ import { attachWorkerTerminalTransfer } from './worker-terminal/worker-terminal-
 export function attachOrchestrationDbMethods(ctor: { prototype: object }): void {
   attachAttemptObservationStore(ctor)
   attachAgentDelegationGrantStore(ctor)
+  attachProjectFlowLogStore(ctor)
   attachCreateTables(ctor)
   attachSchemaMigrate(ctor)
   attachSchemaColumnProbes(ctor)
@@ -100,6 +103,7 @@ export function attachOrchestrationDbMethods(ctor: { prototype: object }): void 
   attachMessageInbox(ctor)
   attachMailboxPointerEnterState(ctor)
   attachDirectMailboxRouting(ctor)
+  attachPointedUnreadMessages(ctor)
   attachForeignDirectMailboxRouting(ctor)
   attachQuestionThreads(ctor)
   attachTaskStore(ctor)

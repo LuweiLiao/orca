@@ -141,6 +141,7 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     await expect(panel.getByText('Through turn 1: FIRST-TURN: sketch the lanes')).toBeVisible()
     await panel.getByRole('textbox').fill('FROM-TURN-ONE: try a grid')
     await screenshot('fork-at-turn')
+    await panel.locator('[data-project-map-handoff-mode-option="messages"]').check()
     await panel.getByRole('button', { name: 'Create child chat' }).click()
     await expect(panel).toHaveCount(0)
     await expect
@@ -209,7 +210,8 @@ test('forks from a picked turn on the timeline, then merges two picked chats int
     await expect(mergePanel).toBeVisible()
     // Both are equal sources: listed, with nothing to choose between them.
     await expect(mergePanel.locator('[data-project-map-merge-source]')).toHaveCount(2)
-    await expect(mergePanel.getByRole('radio')).toHaveCount(0)
+    await expect(mergePanel.locator('input[name="project-map-merge-workspace"]')).toHaveCount(0)
+    await mergePanel.locator('[data-project-map-handoff-mode-option="messages"]').check()
     await mergePanel.getByRole('textbox').fill('MERGED: compare the two')
     await screenshot('merge-panel')
     await mergePanel.getByRole('button', { name: 'Create merged handoff' }).click()

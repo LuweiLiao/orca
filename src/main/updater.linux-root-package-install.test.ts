@@ -102,11 +102,11 @@ describe('updater Linux root packages', () => {
   }
 
   it.each(['deb', 'rpm'] as const)(
-    'hands off %s installs without invoking the native updater',
+    'hands off headless %s installs without invoking the native updater',
     async (packageType) => {
       const openWindow = { removeAllListeners: vi.fn() }
       browserWindowMock.getAllWindows.mockReturnValue([openWindow] as never)
-      const { send, updater } = await startUpdater(packageType)
+      const { send, updater } = await startUpdater(packageType, 'supervised-headless-serve')
 
       await reachDownloaded(updater, downloadedEvent(packageType))
 
@@ -135,6 +135,19 @@ describe('updater Linux root packages', () => {
       )
     }
   )
+
+  it('downloads a desktop deb and waits for an explicit restart request', async () => {
+    const { send, updater } = await startUpdater('deb')
+    updater.checkForUpdates()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(autoUpdaterMock.downloadUpdate).toHaveBeenCalledTimes(1)
+    autoUpdaterMock.emit('update-downloaded', downloadedEvent('deb'))
+    expect(lastStatus(send)).toMatchObject({ state: 'downloaded', version: '1.0.61' })
+    expect(autoUpdaterMock.quitAndInstall).not.toHaveBeenCalled()
+    updater.quitAndInstall()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(autoUpdaterMock.quitAndInstall).toHaveBeenCalledTimes(1)
+  })
 
   it('guards the native boundary even when no package artifact was retained', async () => {
     const { send, updater } = await startUpdater('deb')
@@ -194,11 +207,11 @@ describe('updater Linux root packages', () => {
     }
   )
 
-  it('keeps interactive install-on-quit and remote control for non-root packages', async () => {
+  it('waits for a restart click and keeps remote control for non-root packages', async () => {
     autoUpdaterMock.autoInstallOnAppQuit = false
     const { updater } = await startUpdater(null)
 
-    expect(autoUpdaterMock.autoInstallOnAppQuit).toBe(true)
+    expect(autoUpdaterMock.autoInstallOnAppQuit).toBe(false)
     expect(updater.getRemoteServerUpdateSupport()).toEqual({
       installMode: 'interactive',
       automatic: true,

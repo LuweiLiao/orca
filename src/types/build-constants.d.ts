@@ -24,7 +24,7 @@ declare const ORCA_DIAGNOSTICS_TOKEN_URL: string | null
 // Full commit the build was made from (`git rev-parse HEAD`); official skill installs pin to it.
 declare const ORCA_BUILD_COMMIT: string
 
-// True unless ORCA_ENABLE_AUTO_UPDATE=1 at build time; read only in src/main/updater/updater-build-switch.ts.
+// True when ORCA_ENABLE_AUTO_UPDATE=0 at build time; read only in src/main/updater/updater-build-switch.ts.
 declare const ORCA_AUTO_UPDATE_DISABLED: boolean
 
 // ORCA_LAYOUT_OWNER is declared and read in one place: src/shared/layout-owner-switch.ts.

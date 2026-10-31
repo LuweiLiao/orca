@@ -89,6 +89,7 @@ test('right-clicks, renames, searches and opens map nodes, closed history chats 
     const panel = map.locator('[data-project-map-fork-panel]')
     await expect(panel).toBeVisible()
     await panel.getByRole('textbox').fill('CHILD-ONE: try the menu')
+    await panel.locator('[data-project-map-handoff-mode-option="messages"]').check()
     await panel.getByRole('button', { name: 'Create child chat' }).click()
     const childNode = map.getByRole('button', { name: 'CHILD-ONE: try the menu', exact: true })
     await expect(childNode).toBeVisible({ timeout: 30_000 })

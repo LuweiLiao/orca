@@ -23,7 +23,10 @@ import {
   type ProjectMapForkAt
 } from './project-map-fork-sources'
 import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
-import { ProjectMapForkSummaryOption } from './ProjectMapForkSummaryOption'
+import {
+  ProjectMapHandoffModeOption,
+  useProjectMapHandoffMode
+} from './ProjectMapHandoffModeOption'
 import { projectMapHandoffInstruction } from './project-map-summary'
 import {
   ProjectMapForkAgentPicker,
@@ -84,7 +87,6 @@ export function ProjectMapForkPanel({
     agent: origin.chat?.agent ?? origin.card.agentType
   })
   const [instruction, setInstruction] = useState('')
-  const [summary, setSummary] = useState<string | null>(null)
   // Other chats this child should read too, beside the one it inherits.
   const [references, setReferences] = useState<ConversationReference[]>([])
   const [dropping, setDropping] = useState(false)
@@ -116,6 +118,7 @@ export function ProjectMapForkPanel({
   }, [sourceIndex, choice.agent])
 
   const target = structuredAgentSessionTargetForHost(origin.chat?.executionHostId)
+  const handoff = useProjectMapHandoffMode(target)
   const addReference = async (event: React.DragEvent<HTMLElement>): Promise<void> => {
     setDropping(false)
     const dropped = readConversationReferenceDrag(event.dataTransfer)
@@ -144,7 +147,7 @@ export function ProjectMapForkPanel({
     }
   }
   // Typed text first so the child is named for it; references after, with how to read them.
-  const firstInstruction = projectMapHandoffInstruction({ summary, instruction, references })
+  const firstInstruction = projectMapHandoffInstruction({ summary: null, instruction, references })
 
   const create = async (): Promise<void> => {
     setPending(true)
@@ -158,6 +161,7 @@ export function ProjectMapForkPanel({
             ...(choice.model ? { model: choice.model } : {}),
             ...(choice.effort ? { effort: choice.effort } : {}),
             instruction: firstInstruction,
+            handoff: handoff.mode,
             randomUuid: createBrowserUuid
           })
         : null
@@ -295,19 +299,25 @@ export function ProjectMapForkPanel({
             )
           })}
         </fieldset>
-        <ProjectMapForkSummaryOption source={source?.agent} onChange={setSummary} />
+        <ProjectMapHandoffModeOption
+          mode={handoff.mode}
+          onChange={handoff.setMode}
+          summaryAvailable={handoff.summaryAvailable}
+        />
         <ProjectMapForkAgentPicker origin={origin} choice={choice} onChange={setChoice} />
-        <p className="-mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          {native
-            ? translate(
-                'projectMap.fork.nativeHint',
-                'Copies the saved conversation, tool calls included; without one, hands over its messages as text.'
-              )
-            : translate(
-                'projectMap.fork.handoffHint',
-                'Hands over the messages as text: tool output and images are summarised, not copied.'
-              )}
-        </p>
+        {handoff.mode === 'messages' ? (
+          <p className="-mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            {native
+              ? translate(
+                  'projectMap.fork.nativeHint',
+                  'Copies the saved conversation, tool calls included; without one, hands over its messages as text.'
+                )
+              : translate(
+                  'projectMap.fork.handoffHint',
+                  'Hands over the messages as text: tool output and images are summarised, not copied.'
+                )}
+          </p>
+        ) : null}
         {busyNeighbours.length > 0 ? (
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             {translate(
@@ -378,7 +388,9 @@ export function ProjectMapForkPanel({
           onClick={() => void create()}
         >
           {pending
-            ? translate('projectMap.fork.creating', 'Creating…')
+            ? handoff.mode === 'summary'
+              ? translate('projectMap.handoff.compacting', 'Compacting the chat…')
+              : translate('projectMap.fork.creating', 'Creating…')
             : translate('projectMap.fork.create', 'Create child chat')}
         </Button>
       </footer>

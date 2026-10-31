@@ -73,6 +73,8 @@ export function projectMapForkRequest(input: {
   mergeWith?: readonly ProjectMapAgent[]
   /** Where the child goes when not the origin's workspace: a merge has no chat it follows. */
   worktreeId?: string
+  /** `summary`: the host hands over a summary instead of the messages. */
+  handoff?: 'summary' | 'messages'
 }): AgentSessionForkParams | null {
   const sourceChat = input.source.agent.chat
   const originChat = input.origin.chat
@@ -96,7 +98,9 @@ export function projectMapForkRequest(input: {
     agent: input.agent,
     ...(Object.keys(options).length > 0 ? { options } : {}),
     ...(instruction ? { instruction } : {}),
-    ...(mergeSources.length > 0 ? { mergeSources } : {})
+    ...(mergeSources.length > 0 ? { mergeSources } : {}),
+    // Only `summary` is sent: an older host refuses the field, and full history is its default.
+    ...(input.handoff === 'summary' ? { handoff: 'summary' as const } : {})
   }
   const sessionId = createStructuredAgentSessionId(input.agent, input.randomUuid)
   return {

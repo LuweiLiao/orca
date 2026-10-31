@@ -86,6 +86,8 @@ export type RuntimeApi = {
       callback: (event: ClientHostedBrowserRowsEvent) => void
     ) => () => void
     onSidebarInputsChanged: (callback: (event: SidebarInputsChangedEvent) => void) => () => void
+    // Untrusted until parsed with parseProjectFlowEvent. Older preloads lack this signal.
+    onProjectFlow?: (callback: (event: unknown) => void) => () => void
   }
   runtimeEnvironments: {
     getStatusSnapshots: () => Promise<RuntimeHostStatusSnapshot[]>

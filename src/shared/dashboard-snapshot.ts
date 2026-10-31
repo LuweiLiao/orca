@@ -77,6 +77,8 @@ export type DashboardWorkspace = {
   workspaceStatusColor?: string
   hasReview?: boolean
   review?: DashboardCardReview
+  /** When Orca made the workspace; absent for checkouts found on disk and from older hosts. */
+  createdAt?: number
 }
 
 export type DashboardCard = {

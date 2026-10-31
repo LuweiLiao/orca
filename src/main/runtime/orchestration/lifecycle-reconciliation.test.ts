@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { OrchestrationDb } from './db'
 import { reconcileLifecycleMessage } from './lifecycle-reconciliation'
+import { selectOrchestrationPointerBatch } from './mailbox-pointer-eligibility'
 import { createRootDispatch } from './db/root-dispatch-test-fixture'
 
 describe('lifecycle reconciliation', () => {
@@ -539,6 +540,35 @@ describe('lifecycle reconciliation', () => {
       dispatchId: dispatch.id
     })
     expect(db.getDispatchContextById(dispatch.id)?.last_heartbeat_at).not.toBeNull()
+  })
+
+  it('keeps a recorded heartbeat out of the coordinator pointer but readable by check', () => {
+    db = new OrchestrationDb(':memory:')
+    const task = db.createTask({ runId: 'run_legacy_local', spec: 'work' })
+    const dispatch = createRootDispatch(db, task.id, 'term_owner', `tab_w1:${LEAF_A}`)
+    const send = (paneKey: string) =>
+      db.insertMessage({
+        runId: 'run_legacy_local',
+        from: 'term_owner',
+        to: 'term_coordinator',
+        subject: 'alive',
+        type: 'heartbeat',
+        payload: JSON.stringify({ dispatchId: dispatch.id }),
+        senderPaneKey: paneKey
+      })
+    const recorded = send(`tab_w1:${LEAF_A}`)
+    const foreign = send(`tab_w2:${LEAF_B}`)
+    expect(reconcileLifecycleMessage(db, recorded).action).toBe('heartbeat_recorded')
+    expect(reconcileLifecycleMessage(db, foreign).action).toBe('rejected')
+
+    const pointer = selectOrchestrationPointerBatch({
+      db,
+      mailboxHandle: 'term_coordinator',
+      waiters: new Set([{ typeFilter: ['worker_done', 'escalation', 'question'] }]),
+      reservedTypes: undefined
+    })
+    expect(pointer.map((m) => m.id)).toEqual([foreign.id])
+    expect(db.getUnreadMessages('term_coordinator').map((m) => m.id)).toContain(recorded.id)
   })
 
   it('suppresses same-dispatch heartbeats once worker_done is reconciled', () => {

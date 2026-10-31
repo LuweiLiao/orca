@@ -56,10 +56,11 @@ const ssh: Repo = { ...local, id: 'ssh', connectionId: 'ssh-1' }
 const otherSsh: Repo = { ...local, id: 'other-ssh', connectionId: 'ssh-2' }
 // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: handlers only call getRepos.
 const store = { getRepos: () => [local, ssh, otherSsh] } as unknown as Store
-registerGitHubPRMutationHandlers(store)
+registerGitHubPRMutationHandlers(store, () => {})
 const runtime = new RuntimeGitHubReviewMutationCommands({
   resolveRepo: async (selector) => [local, ssh, otherSsh].find((repo) => repo.id === selector)!,
-  getLocalGitArgs: () => []
+  getLocalGitArgs: () => [],
+  onMerged: () => {}
 })
 
 function ipc(channel: string, repo: Repo, args: Record<string, unknown>): Promise<unknown> {

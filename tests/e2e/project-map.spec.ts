@@ -67,8 +67,10 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
         setup: 'skip'
       }
     ]
+    // Started only after the map is open, so its delegation is a live event.
+    const lateWorker = { displayName: 'Docs', worktree: 'current' }
     // Only an assignment card the user sends authorizes the coordinator to start workers.
-    const cards = placements
+    const cards = [...placements, lateWorker]
       .map(({ displayName }) =>
         orchestrationReferenceToken(
           {
@@ -94,7 +96,7 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
         new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true })
       )
     }, cards)
-    await expect(composer.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(2)
+    await expect(composer.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(3)
     await chat.getByRole('button', { name: 'Send', exact: true }).click()
     await expect(chat.getByText('Stub reply.', { exact: true })).toBeVisible()
 
@@ -105,8 +107,13 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       objective: 'Export work',
       from
     })
-    const workers: { dispatchId: string; taskId: string; sessionId: string; handle: string }[] = []
-    for (const placement of placements) {
+    type StartedWorker = { dispatchId: string; taskId: string; sessionId: string; handle: string }
+    const startWorker = async (placement: {
+      displayName: string
+      worktree: string
+      name?: string
+      setup?: string
+    }): Promise<StartedWorker> => {
       const started = await client.call<{ dispatchId: string; taskId: string; state: string }>(
         'orchestration.workerStart',
         {
@@ -124,11 +131,15 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       const dispatch = await client.call<{
         dispatch: { assignee_orca_session_id: string; assignee_handle: string }
       }>('orchestration.dispatchShow', { task: started.result.taskId })
-      workers.push({
+      return {
         ...started.result,
         sessionId: dispatch.result.dispatch.assignee_orca_session_id,
         handle: dispatch.result.dispatch.assignee_handle
-      })
+      }
+    }
+    const workers: StartedWorker[] = []
+    for (const placement of placements) {
+      workers.push(await startWorker(placement))
     }
 
     await page.evaluate(() => window.__store!.getState().openProjectMapPage())
@@ -158,6 +169,83 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       await page.screenshot({ path: file, animations: 'disabled' })
       await testInfo.attach(name, { path: file, contentType: 'image/png' })
     }
+
+    // Flights are display only and last under a second, so the page records each one it draws.
+    // Each entry reads `tone:direction:wire:state`, kept on the root element between evaluations.
+    await page.evaluate(() => {
+      const flights = new Map<Element, string[]>()
+      const particlesIn = (node: Node): Element[] =>
+        node instanceof Element
+          ? [
+              ...(node.matches('[data-project-flow-particle]') ? [node] : []),
+              ...node.querySelectorAll('[data-project-flow-particle]')
+            ]
+          : []
+      const publish = (): void => {
+        document.documentElement.dataset.flowFlights = [...flights.values()]
+          .map((parts) => parts.join(':'))
+          .join(',')
+      }
+      new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            for (const element of particlesIn(node)) {
+              const numbers = (text: string): string =>
+                (text.match(/-?\d+(\.\d+)?/g) ?? []).join(' ')
+              const ridden = numbers(element instanceof HTMLElement ? element.style.offsetPath : '')
+              const onWire = [...document.querySelectorAll('.project-map-wire')].some(
+                (wire) => ridden !== '' && numbers(wire.getAttribute('d') ?? '') === ridden
+              )
+              flights.set(element, [
+                element.getAttribute('data-tone') ?? '',
+                element.getAttribute('data-reverse') === 'true' ? 'back' : 'forward',
+                onWire ? 'wire' : 'free',
+                'live'
+              ])
+            }
+          }
+          for (const node of record.removedNodes) {
+            for (const element of particlesIn(node)) {
+              const parts = flights.get(element)
+              if (parts) {
+                parts[3] = 'gone'
+              }
+            }
+          }
+        }
+        publish()
+      }).observe(document.body, { childList: true, subtree: true })
+    })
+    const flights = (): Promise<string[]> =>
+      page.evaluate(() =>
+        (document.documentElement.dataset.flowFlights ?? '').split(',').filter(Boolean)
+      )
+    // Freezes the dot mid-wire so the screenshot shows it; the unmount timer still removes it.
+    const screenshotFlight = async (name: string): Promise<void> => {
+      await page.evaluate(() => {
+        for (const animation of document.getAnimations()) {
+          if (
+            animation instanceof CSSAnimation &&
+            animation.animationName === 'project-flow-ride'
+          ) {
+            animation.pause()
+            animation.currentTime = 450
+          }
+        }
+      })
+      const file = path.join(artifacts, `${name}.png`)
+      await page.screenshot({ path: file, animations: 'allow' })
+      await testInfo.attach(name, { path: file, contentType: 'image/png' })
+    }
+    expect(await flights()).toEqual([])
+
+    // A delegation from the open map: the dot runs from the coordinator to the new worker, once.
+    const started = await startWorker(lateWorker)
+    await expect(node(paneKeyOf(started.sessionId))).toBeVisible({ timeout: 30_000 })
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(1)
+    await screenshotFlight('flow-delegate')
+    await expect.poll(flights).toEqual(['delegate:forward:wire:gone'])
+    await expect(map.locator('.project-map-wire[data-kind="delegate"]')).toHaveCount(3)
 
     const derived = workers[1]
     if (!derived) {
@@ -220,21 +308,118 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
         outcome: 'succeeded'
       })
     })
+    // The report runs back up the same wire, in the success colour, and is not drawn twice.
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(2)
+    await screenshotFlight('flow-report')
+    await expect.poll(flights).toEqual(['delegate:forward:wire:gone', 'success:back:wire:gone'])
+
+    // A hand-off note from the still running worker flies back to its coordinator, once.
+    await sessionClient(userDataDir, started.sessionId).call('orchestration.send', {
+      from: started.handle,
+      to: `run:${run.result.run.id}`,
+      subject: 'Handing over the docs',
+      type: 'handoff'
+    })
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(3)
+    await screenshotFlight('flow-handoff')
+    await expect
+      .poll(flights)
+      .toEqual(['delegate:forward:wire:gone', 'success:back:wire:gone', 'handoff:back:wire:gone'])
     const released = await client.call<{ state: string }>('orchestration.workerRelease', {
       dispatch: derived.dispatchId
     })
     expect(['released', 'already_released']).toContain(released.result.state)
+
+    // With reduced motion the report still lands in the store, but no dot is ever drawn.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await sessionClient(userDataDir, started.sessionId).call('orchestration.send', {
+      from: started.handle,
+      to: `run:${run.result.run.id}`,
+      subject: 'Documented',
+      type: 'worker_done',
+      payload: JSON.stringify({
+        taskId: started.taskId,
+        dispatchId: started.dispatchId,
+        outcome: 'succeeded'
+      })
+    })
     await expect
       .poll(() =>
         page.evaluate(
-          (tabId) =>
-            Object.values(window.__store!.getState().unifiedTabsByWorktree).some((tabs) =>
-              tabs.some((tab) => tab.id === tabId)
-            ),
-          structuredAgentSessionTabId(derived.sessionId)
+          (id) =>
+            Object.values(window.__store!.getState().runtimeAgentOrchestrationByPaneKey).find(
+              (context) => context.dispatchId === id
+            )?.dispatchStatus,
+          started.dispatchId
         )
       )
+      .toBe('completed')
+    await page.waitForTimeout(1_500)
+    expect(await flights()).toHaveLength(3)
+    await expect(map.locator('[data-project-flow-particle]')).toHaveCount(0)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+      )
       .toBe(false)
+    // A finished chat given a second task: its map context only changes when the host next tells
+    // the window, so the flight must not wait for the chat's turn to start.
+    const reused = workers[0]
+    if (!reused) {
+      throw new Error('the first worker must have started')
+    }
+    await sessionClient(userDataDir, reused.sessionId).call('orchestration.send', {
+      from: reused.handle,
+      to: `run:${run.result.run.id}`,
+      subject: 'CSV done',
+      type: 'worker_done',
+      payload: JSON.stringify({
+        taskId: reused.taskId,
+        dispatchId: reused.dispatchId,
+        outcome: 'succeeded'
+      })
+    })
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(4)
+    // Let the host's own follow-up updates after that report finish, so nothing else tells the
+    // window about the next task.
+    await page.waitForTimeout(3_000)
+    const dispatchAgain = async (target: StartedWorker) => {
+      const task = await client.call<{ task: { id: string } }>('orchestration.taskCreate', {
+        spec: `Once more for ${target.handle.slice(-4)}`,
+        run: run.result.run.id,
+        from
+      })
+      const dispatched = await client.call<{ dispatch: { id: string } }>('orchestration.dispatch', {
+        task: task.result.task.id,
+        to: target.handle,
+        from,
+        returnPreamble: true,
+        run: run.result.run.id
+      })
+      return { taskId: task.result.task.id, dispatchId: dispatched.result.dispatch.id }
+    }
+    const reportAgain = (target: StartedWorker, again: { taskId: string; dispatchId: string }) =>
+      sessionClient(userDataDir, target.sessionId).call('orchestration.send', {
+        from: target.handle,
+        to: `run:${run.result.run.id}`,
+        subject: 'Done again',
+        type: 'worker_done',
+        payload: JSON.stringify({ ...again, outcome: 'succeeded' })
+      })
+    const firstAgain = await dispatchAgain(reused)
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(5)
+    const secondAgain = await dispatchAgain(started)
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(6)
+    await expect
+      .poll(async () => (await flights()).slice(4))
+      .toEqual(['delegate:forward:wire:gone', 'delegate:forward:wire:gone'])
+    await reportAgain(reused, firstAgain)
+    await reportAgain(started, secondAgain)
+    await expect.poll(async () => (await flights()).length, { timeout: 15_000 }).toBe(8)
+    await expect
+      .poll(async () => (await flights()).slice(6))
+      .toEqual(['success:back:wire:gone', 'success:back:wire:gone'])
     await worker.click()
     await expect(chatWindow.getByText('Stub reply.', { exact: true }).first()).toBeVisible({
       timeout: 30_000
@@ -249,7 +434,7 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     const workerWindow = nodeWindows.filter({ hasNot: page.getByRole('tablist') })
     const workspaceWindow = nodeWindows.filter({ has: page.getByRole('tablist') })
     await node(worktreeId).click()
-    await expect(workspaceWindow.getByRole('tab')).toHaveCount(2)
+    await expect(workspaceWindow.getByRole('tab')).toHaveCount(3)
     await expect(nodeWindows).toHaveCount(2)
     const zOf = (locator: typeof chatWindow): Promise<number> =>
       locator.first().evaluate((element) => Number(getComputedStyle(element).zIndex))

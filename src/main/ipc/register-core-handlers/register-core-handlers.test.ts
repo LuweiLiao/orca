@@ -304,6 +304,10 @@ vi.mock('../emulator-video-stream', () => ({
   registerEmulatorVideoStreamHandlers: registerEmulatorVideoStreamHandlersMock
 }))
 
+vi.mock('../../language-server/language-server-ipc', () => ({
+  registerLanguageServerHandlers: vi.fn()
+}))
+
 vi.mock('../filesystem', () => ({
   registerFilesystemHandlers: registerFilesystemHandlersMock
 }))

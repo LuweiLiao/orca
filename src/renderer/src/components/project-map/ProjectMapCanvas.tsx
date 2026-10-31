@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
 import { selectWorktreesByRepo } from '@/store/workspace-record-selectors'
 import type { ProjectMapAgent, ProjectMapGraph, ProjectMapWorkspace } from './project-map-graph'
@@ -9,6 +9,10 @@ import { ProjectMapCanvasMenu } from './ProjectMapCanvasMenu'
 import { ProjectMapSearch } from './ProjectMapSearch'
 import { ProjectMapNodeOverlays } from './ProjectMapNodeOverlays'
 import { ProjectMapBackdrop } from './ProjectMapBackdrop'
+import { ProjectFlowOverlay } from './ProjectFlowOverlay'
+import type { FlowSignal, FlowSignalBus } from './project-flow-signal'
+import type { FlowRoute } from './project-flow-particles'
+import { resolveFlowRoute } from './project-flow-wire-route'
 import { projectMapNodeIdOf } from './project-map-node-target'
 import { useProjectMapLocate } from './use-project-map-locate'
 import type { Worktree } from '../../../../shared/worktree/types'
@@ -47,6 +51,8 @@ type Props = {
   /** What is drawn: `graph` with busy parents' delegated chats folded into stacks. */
   collapsed: ProjectMapCollapsedView
   layout: ProjectMapLayout
+  /** Real delegations and reports, flown once along the wire between their two chats. */
+  flowBus: FlowSignalBus
   viewport: ReturnType<typeof useProjectMapViewport>
   activeWorktreeId: string | null
   onOpenAgent: (agent: ProjectMapAgent) => void
@@ -59,6 +65,11 @@ type Props = {
   onForked: () => void
   searchOpen: boolean
   onSearchOpenChange: (open: boolean) => void
+  /** Selected when the canvas mounts, so a view switch keeps the selection. */
+  initialSelectedId?: string | null
+  onSelectionChange?: (id: string | null) => void
+  /** Centers and selects a node once, as the growth tree's jump asks. */
+  locateRequest?: { id: string; nonce: number } | null
 }
 
 const EMPTY_WORKTREES: readonly Worktree[] = []
@@ -69,6 +80,7 @@ export function ProjectMapCanvas({
   graph,
   collapsed,
   layout,
+  flowBus,
   viewport,
   activeWorktreeId,
   onOpenAgent,
@@ -77,10 +89,13 @@ export function ProjectMapCanvas({
   onToggleCollapse,
   onForked,
   searchOpen,
-  onSearchOpenChange
+  onSearchOpenChange,
+  initialSelectedId = null,
+  onSelectionChange,
+  locateRequest
 }: Props): React.JSX.Element {
   const { view } = viewport
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId)
   const windows = useProjectMapOpenWindows(viewport.element, setSelectedId)
   const { open: openWindow } = windows
   // The chat a new child is being made from: one chat, a turn on its timeline, or a merge.
@@ -103,6 +118,12 @@ export function ProjectMapCanvas({
   // A chat folded into a stack is shown, and wired, through the stack.
   const shownAs = (id: string): string | null =>
     layout.nodes.has(id) ? id : (collapsed.groupOf.get(id) ?? null)
+  const resolveFlow = (signal: FlowSignal): FlowRoute | null => {
+    const [from, to] = [shownAs(signal.from), shownAs(signal.to)]
+    return from && to
+      ? resolveFlowRoute(layout.wires, from, to, { handoff: signal.tone === 'handoff' })
+      : null
+  }
   // A window goes with its node, adjusted in render so it never outlives it by a frame.
   windows.keepShown((id) => shownAs(id) !== null)
   // A node that vanished (agent closed, project switched) drops out of the selection.
@@ -198,6 +219,21 @@ export function ProjectMapCanvas({
     shownAs,
     select: windows.open
   })
+  const handledLocate = useRef(0)
+  const viewportWidth = viewport.size.width
+  useEffect(() => {
+    if (locateRequest && locateRequest.nonce !== handledLocate.current && viewportWidth > 0) {
+      handledLocate.current = locateRequest.nonce
+      locate(locateRequest.id)
+    }
+  }, [locate, locateRequest, viewportWidth])
+  const reported = useRef(selected)
+  useEffect(() => {
+    if (reported.current !== selected) {
+      reported.current = selected
+      onSelectionChange?.(selected)
+    }
+  }, [onSelectionChange, selected])
   const openNodeAt = (event: React.MouseEvent): void => {
     const id = projectMapNodeIdOf(event.target) ?? ''
     const [agent, workspace] = [graph.agents.get(id), graph.workspaces.get(id)]
@@ -280,6 +316,7 @@ export function ProjectMapCanvas({
               activeWorktreeId={activeWorktreeId}
               selectedShown={selectedShown}
             />
+            <ProjectFlowOverlay bus={flowBus} resolve={resolveFlow} />
             <ProjectMapNodeLayer
               graph={graph}
               collapsed={collapsed}

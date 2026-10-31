@@ -10,6 +10,7 @@ import type { RuntimeNativeChatLaunchDraftResolution } from './runtime-types'
 import type { RuntimeNavigationTarget } from './runtime-navigation'
 import type { WorktreeSortOrderUpdate } from './worktree/sort-order-update'
 import type { SidebarInputsChangedEvent } from './sidebar-list/sidebar-inputs-feed-contract'
+import type { ProjectFlowEvent } from './project-flow-event'
 
 export type RuntimeClientEvent =
   | { type: 'reposChanged' }
@@ -47,6 +48,8 @@ export type RuntimeClientEvent =
     }
   // Why: browser profiles live on the host; old clients drop the unknown type and refetch on their old triggers.
   | { type: 'browserProfilesChanged' }
+  // Why: only a host that announces PROJECT_FLOW_RUNTIME_CAPABILITY sends it; older ones drop it.
+  | ProjectFlowEvent
   | {
       type: 'linearLinkedIssueUpdated'
       worktreeId: string

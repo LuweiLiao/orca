@@ -16,7 +16,7 @@ export async function mergePR(
   connectionId?: string | null,
   prRepo?: GitHubApiRepository | null,
   localGitOptions: LocalGitExecOptions = {}
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; queued?: true } | { ok: false; error: string }> {
   const { ownerRepo, ghOptions } = await resolveGitHubRepoExecution(
     repoPath,
     prRepo,

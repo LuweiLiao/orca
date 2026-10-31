@@ -47,7 +47,8 @@ function createSingleLineEditor(initial: string) {
       return true
     },
     pushUndoStop: () => true,
-    addAction: () => ({ dispose: () => undefined })
+    addAction: () => ({ dispose: () => undefined }),
+    createContextKey: () => ({ set: () => undefined, reset: () => undefined })
   }
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the bindings and chunked paste call only the methods stubbed above.
   return { container, editorInstance: editorStub as unknown as editor.IStandaloneCodeEditor }
@@ -92,6 +93,7 @@ function pasteIntoGuardedTab(pasted: string) {
   installMonacoEditorInputBindings({
     editorInstance,
     worktreeId: undefined,
+    fileIdRef: { current: PATH },
     editorContainerRef: { current: container },
     propsRef: {
       current: { relativePath: 'file.ts', language: 'typescript', onSave: vi.fn(), onContentChange }

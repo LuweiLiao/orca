@@ -21,6 +21,23 @@ import type {
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client-types'
 import { useNativeChatWorkRun } from './use-native-chat-work-run'
 import { useNativeChatRowNavigation } from './use-native-chat-row-navigation'
+import { NativeChatHandoffRow } from './NativeChatHandoffRow'
+import {
+  parseAgentSessionHandoffMessage,
+  type ParsedHandoffMessage
+} from '../../../../shared/agent-session-handoff-text'
+
+// Why cached by blocks: a settled row keeps its block identity, and a hand-off can be 60k chars.
+const handoffs = new WeakMap<readonly unknown[], ParsedHandoffMessage | null>()
+
+function handoffOf(blocks: readonly unknown[], markdown: string): ParsedHandoffMessage | null {
+  let parsed = handoffs.get(blocks)
+  if (parsed === undefined) {
+    parsed = parseAgentSessionHandoffMessage(markdown)
+    handoffs.set(blocks, parsed)
+  }
+  return parsed
+}
 
 /** What a user message says about its delivery: that nothing has confirmed it yet, quietly in
  *  place of its time, or that it did not go through, with its own Retry when the surface can send
@@ -135,6 +152,36 @@ export const MessageRow = memo(function MessageRow(
       <div ref={rowRef}>
         <ProviderFrameRow block={providerFrame} />
       </div>
+    )
+  }
+
+  const handoff = isUser && !message.from ? handoffOf(blocks, markdown) : null
+  if (handoff) {
+    const said = handoff.instruction
+    const own = said ? [{ type: 'text' as const, text: said }] : null
+    return (
+      <NativeChatHandoffRow
+        handoff={handoff}
+        messageId={message.id}
+        instruction={
+          own && said ? (
+            <NativeChatUserMessageRow
+              message={{ ...message, blocks: own }}
+              markdown={said}
+              prose={deriveNativeChatRowContent(own).prose}
+              rowRef={rowRef}
+              onRefolded={returnToView}
+              onLinkClick={onLinkClick}
+              allowFileUriLinks={allowFileUriLinks}
+              runtimeContext={runtimeContext}
+              rewind={rewind}
+              deliveryNotice={deliveryNotice}
+            />
+          ) : (
+            <div ref={rowRef} />
+          )
+        }
+      />
     )
   }
 

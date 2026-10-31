@@ -26,6 +26,8 @@ import { useDocumentDarkTheme } from '@/hooks/use-document-dark-theme'
 import { snapshotMonacoViewState } from './monaco-view-state-persistence'
 import { MonacoMarkdownAnnotationOverlay } from './MonacoMarkdownAnnotationOverlay'
 import { useEditorModelRekeyCarry } from './editor-model-rekey-carry'
+import { useLanguageServerDocument } from './language-server/use-language-server-document'
+import { ensureLanguageServerProviders } from './language-server/language-server-provider-registration'
 
 type MonacoEditorProps = {
   fileId: string
@@ -196,6 +198,16 @@ export default function MonacoEditor({
     conflictDecorationsEnabled
   })
 
+  ensureLanguageServerProviders()
+  const editorLanguage = useLanguageServerDocument(
+    mountedEditor,
+    fileId,
+    modelUri,
+    language,
+    // Why: a mirror, a live log tail and an inline excerpt are read surfaces, not documents.
+    !passiveMirror && !liveTail && !autoHeight
+  )
+
   const handleMount = useMonacoEditorMount({
     fileId,
     filePath,
@@ -277,7 +289,7 @@ export default function MonacoEditor({
       <Editor
         key={modelUri}
         height={renderedEditorHeight === null ? '100%' : `${renderedEditorHeight}px`}
-        language={language}
+        language={editorLanguage}
         // Why: defaultValue, not controlled value — Orca owns post-mount content sync; a controlled path would double setValue.
         defaultValue={content}
         theme={isDark ? 'vs-dark' : 'vs'}

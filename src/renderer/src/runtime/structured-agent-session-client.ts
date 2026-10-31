@@ -135,8 +135,9 @@ const STRUCTURED_AGENT_SESSION_METHOD_TIMEOUT_MS: ReadonlyMap<string, number> = 
   // for an account switch to settle and 5 s of login-shell environment.
   ['agentSession.modelCatalog', 90_000],
   ['agentSession.sleepWorkspace', 120_000],
-  // A Claude copy reads and rewrites the whole source transcript before the chat is created.
-  ['agentSession.fork', 120_000]
+  // A Claude copy rewrites the whole source transcript, and a compacted hand-off first waits on a
+  // summary model call, before the chat is created.
+  ['agentSession.fork', 300_000]
 ])
 
 export async function callStructuredAgentSession<TResult>(

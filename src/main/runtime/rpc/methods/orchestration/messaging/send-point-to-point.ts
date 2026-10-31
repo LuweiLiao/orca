@@ -6,6 +6,7 @@ import { isDispatchMutationMessageType, parseMessageTaskId } from '../schemas'
 import type { SendParams } from '../schemas'
 import { legacyWorkerDeliveryContract } from '../routing'
 import { exposeMessage } from './mailbox-message-receipt'
+import { publishMessageFlow, type FlowSender } from './project-flow-publish'
 import { recordReceiptForPostCommitNudge } from './mutation-replay-nudge'
 import type { SendRecipientWarning } from './recipient-routing'
 import {
@@ -26,6 +27,7 @@ export function sendPointToPointMessage(args: {
   dispatchId: string | undefined
   messageRunId: string | undefined
   senderPaneKey: string | undefined
+  flowSender: FlowSender
   legacyCoordinatorRunId: string | undefined
   resolveProcessIncarnation: () => string | undefined
   revalidateLegacyCoordinator: (() => string) | undefined
@@ -42,6 +44,7 @@ export function sendPointToPointMessage(args: {
     dispatchId,
     messageRunId,
     senderPaneKey,
+    flowSender,
     legacyCoordinatorRunId,
     resolveProcessIncarnation,
     revalidateLegacyCoordinator,
@@ -130,14 +133,22 @@ export function sendPointToPointMessage(args: {
           ? { message: exposeMessage(msg), lifecycle: reconciled }
           : { message: exposeMessage(msg) }
       )
-      return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () =>
+      return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () => {
         runtime.notifyMessageArrived(msg.to_handle, msg.type)
-      )
+        publishMessageFlow({
+          runtime,
+          db,
+          message: msg,
+          sender: flowSender,
+          reconciled
+        })
+      })
     }
     const receipt = withSendWarnings({ message: exposeMessage(msg) })
-    return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () =>
+    return recordReceiptForPostCommitNudge(recordMutationReceipt, receipt, () => {
       runtime.notifyMessageArrived(msg.to_handle, msg.type)
-    )
+      publishMessageFlow({ runtime, db, message: msg, sender: flowSender })
+    })
   }
   // Why: worker_done wakes the Run only after its mailbox row, settlement, and replay receipt commit together.
   if (messageType === 'worker_done') {

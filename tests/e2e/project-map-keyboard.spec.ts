@@ -74,6 +74,7 @@ test('walks the map with the keyboard, reorders rows and tidies them', async ({
       const panel = map.locator('[data-project-map-fork-panel]')
       await expect(panel).toBeVisible()
       await panel.getByRole('textbox').fill(title)
+      await panel.locator('[data-project-map-handoff-mode-option="messages"]').check()
       await panel.getByRole('button', { name: 'Create child chat' }).click()
       const child = map.getByRole('button', { name: title, exact: true })
       await expect(child).toBeVisible({ timeout: 30_000 })

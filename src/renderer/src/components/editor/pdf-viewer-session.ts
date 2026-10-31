@@ -11,6 +11,13 @@ import {
   type PdfScalePreference
 } from './pdf-scale-preference'
 import type { PdfViewPositionStore } from './pdf-view-position-storage'
+import type { SynctexRect } from './pdf-synctex-parser'
+import { flashPdfRect, pdfPageGeometry, pdfPointAt } from './pdf-page-geometry'
+
+// Why ~1s: a tab switch can take several frames before its pane has a height.
+const REVEAL_LAYOUT_ATTEMPTS = 60
+// Why: keep a line of context above the revealed line instead of pinning it to the edge.
+const REVEAL_MARGIN_PT = 36
 import {
   buildPdfScrollDestination,
   clampPdfViewPosition,
@@ -59,6 +66,10 @@ export function createPdfViewerSession({
   goToPage: (pageNumber: number) => void
   /** Jumps to an outline destination, the same way. */
   goToDestination: (dest: string | unknown[]) => void
+  /** Scrolls a SyncTeX rect into view and flashes it, once pages are laid out. */
+  revealRect: (rect: SynctexRect) => void
+  /** The page and SyncTeX coordinates (PDF points from the top-left) under a pointer. */
+  pointAt: (event: MouseEvent) => { page: number; x: number; y: number } | null
   dispose: () => void
 } {
   let cancelled = false
@@ -236,5 +247,46 @@ export function createPdfViewerSession({
     markUserMoved()
     void linkService.goToDestination(dest).catch(() => {})
   }
-  return { viewer, eventBus, findController, goToPage, goToDestination, dispose }
+  const revealRect = (rect: SynctexRect): void => {
+    let attempts = 0
+    const run = (): void => {
+      if (cancelled) {
+        return
+      }
+      const page = pdfPageGeometry(viewer, rect.page)
+      // Why: a just-activated tab lays out a frame later; pdf.js needs real sizes to scroll.
+      if (!page || container.clientHeight === 0) {
+        if (++attempts < REVEAL_LAYOUT_ATTEMPTS) {
+          requestAnimationFrame(run)
+        }
+        return
+      }
+      markUserMoved()
+      const [, pdfTop] = page.toPdf(0, 0)
+      const top = pdfTop - rect.top + REVEAL_MARGIN_PT
+      viewer.scrollPageIntoView({
+        pageNumber: rect.page,
+        destArray: [null, { name: 'XYZ' }, null, top, null],
+        allowNegativeOffset: true
+      })
+      flashPdfRect(viewer, eventBus, rect)
+    }
+    if (viewer.pagesCount > 0) {
+      run()
+    } else {
+      eventBus.on('pagesinit', run, { once: true })
+    }
+  }
+  const pointAt = (event: MouseEvent): { page: number; x: number; y: number } | null =>
+    pdfPointAt(viewer, container, event)
+  return {
+    viewer,
+    eventBus,
+    findController,
+    goToPage,
+    goToDestination,
+    revealRect,
+    pointAt,
+    dispose
+  }
 }

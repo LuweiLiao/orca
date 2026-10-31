@@ -1,4 +1,5 @@
 import type { AgentDelegationGrantStoreMethods } from './delegation-grants/agent-delegation-grant-store'
+import type { ProjectFlowLogStoreMethods } from './project-flow/project-flow-log-store'
 import type { AttemptObservationStoreMethods } from './attempt-observation-store'
 import type { CoordinatorRunStoreMethods } from './coordinator-runs/coordinator-run-store'
 import type { DecisionGateStoreMethods } from './decision-gates/decision-gate-store'
@@ -29,6 +30,7 @@ import type { LegacyRecoveryCohortMethods } from './legacy/legacy-recovery-cohor
 import type { LegacyReplyOperationMethods } from './legacy/legacy-reply-operation'
 import type { LegacyWorkerCompletionMethods } from './legacy/legacy-worker-completion'
 import type { DirectMailboxRoutingMethods } from './messages/direct-mailbox-routing'
+import type { PointedUnreadMessageMethods } from './messages/pointed-unread-messages'
 import type { ForeignDirectMailboxRoutingMethods } from './messages/foreign-direct-mailbox-routing'
 import type { MailboxPointerEnterStateMethods } from './messages/mailbox-pointer-enter-state'
 import type { MessageInboxMethods } from './messages/message-inbox'
@@ -69,6 +71,7 @@ import type { WorkerTerminalTransferMethods } from './worker-terminal/worker-ter
 
 export type OrchestrationDbMethods = AttemptObservationStoreMethods &
   AgentDelegationGrantStoreMethods &
+  ProjectFlowLogStoreMethods &
   CreateTablesMethods &
   SchemaMigrateMethods &
   SchemaColumnProbesMethods &
@@ -98,6 +101,7 @@ export type OrchestrationDbMethods = AttemptObservationStoreMethods &
   MessageInboxMethods &
   MailboxPointerEnterStateMethods &
   DirectMailboxRoutingMethods &
+  PointedUnreadMessageMethods &
   ForeignDirectMailboxRoutingMethods &
   QuestionThreadsMethods &
   TaskStoreMethods &

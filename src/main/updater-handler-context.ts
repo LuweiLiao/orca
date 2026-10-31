@@ -3,6 +3,8 @@ import type { ElectronAutoUpdater } from './electron-updater-loader'
 
 export type UpdaterHandlerContext = {
   autoUpdater: ElectronAutoUpdater
+  downloadAvailableUpdate: () => void
+  canInstallDebUpdate: () => boolean
   clearBackgroundCheckLaunchPending: () => void
   clearAvailableUpdateContext: () => void
   consumeMissingManifestPrereleaseFallbackResult: () => { userInitiated: boolean } | null

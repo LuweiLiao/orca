@@ -31,8 +31,13 @@ export function createLinuxPackageManualInstallStatus(
   }
 }
 
-export function getRetainedLinuxPackageManualInstallStatus(): UpdateStatus | null {
+export function getRetainedLinuxPackageManualInstallStatus(
+  allowDebInstall = false
+): UpdateStatus | null {
   const artifact = getTrackedLinuxPackageArtifact()
+  if (allowDebInstall && artifact?.packageType === 'deb') {
+    return null
+  }
   return artifact ? createLinuxPackageManualInstallStatus(artifact) : null
 }
 
@@ -59,9 +64,12 @@ export function shouldIgnoreDownloadedUpdateEvent(
   )
 }
 
-export function resolveLinuxPackageDownloadedStatus(info: {
-  version: string
-}): UpdateStatus | null {
+export function resolveLinuxPackageDownloadedStatus(
+  info: {
+    version: string
+  },
+  allowDebInstall = false
+): UpdateStatus | null {
   const packageType = getLinuxPackageType()
   if (packageType === 'non-root') {
     return null
@@ -83,6 +91,9 @@ export function resolveLinuxPackageDownloadedStatus(info: {
       version: info.version,
       retryable: false
     }
+  }
+  if (packageType === 'deb' && allowDebInstall) {
+    return null
   }
   return createLinuxPackageManualInstallStatus(artifact)
 }

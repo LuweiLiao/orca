@@ -7,6 +7,7 @@ import type {
   CatalogOptionApply
 } from './agent-session-option-catalog-types'
 import type { SessionOptionValue } from './native-chat-session-options'
+import { isClaudeLauncherAgent } from './claude-cli-launch-agents'
 
 export type ResolvedSessionOptionLaunch = {
   args: string[]
@@ -25,7 +26,7 @@ export function getAgentSessionOptionLaunchCatalog(
     ? OPENCODE_LAUNCH_OPTION_CATALOG
     : agent === 'pi'
       ? PI_LAUNCH_OPTION_CATALOG
-      : getAgentSessionOptionCatalog(agent)
+      : getAgentSessionOptionCatalog(isClaudeLauncherAgent(agent) ? 'claude' : agent)
 }
 
 export function removeOverriddenAgentSessionArgs(

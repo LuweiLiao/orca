@@ -148,6 +148,7 @@ export function EditorEditFileSurface({
           mimeType={fileContent.mimeType}
           preferenceKey={pdfPreferenceKey}
           scrollCacheKey={pdfViewStateKey}
+          synctexFileId={activeFile.id}
         />
       )
     }

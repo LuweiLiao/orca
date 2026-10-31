@@ -1428,6 +1428,11 @@
             }
           }
         }
+      },
+      "languageServer": {
+        "crashed": "{{server}} keeps stopping.",
+        "missing": "{{server}} is not installed, so code navigation is off for these files.",
+        "failed": "{{server}} could not start."
       }
     },
     "hooks": {
@@ -16540,7 +16545,9 @@
         "MonacoEditor": {
           "68cb83f4a7": "Add note on selected text",
           "fd68ae03b3": "Search in Files",
-          "largePasteTooLarge": "Paste is too large."
+          "largePasteTooLarge": "Paste is too large.",
+          "showInPdf": "Show in PDF",
+          "synctexNoPdf": "No PDF with SyncTeX data was built from this file. Open the PDF, or build it with -synctex=1."
         },
         "MonacoGutterContextMenu": {
           "7b57b1b468": "Copy Remote URL",
@@ -16578,7 +16585,9 @@
           "outlineTab": "Outline",
           "pagesTab": "Pages",
           "hideSidebar": "Hide outline and pages",
-          "showSidebar": "Show outline and pages"
+          "showSidebar": "Show outline and pages",
+          "synctexMissing": "No SyncTeX data for this PDF. Build it with -synctex=1.",
+          "synctexOutsideWorkspace": "The source is outside this workspace: {{path}}"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "New agent",
@@ -19960,6 +19969,15 @@
       "imagePreview": {
         "fileActions": "File actions",
         "linkActions": "Link actions"
+      },
+      "handoff": {
+        "compactedFrom": "Handed off from {{from}}, compacted",
+        "compacted": "Handed off, compacted",
+        "from": "Handed off from {{from}}",
+        "plain": "Handed off",
+        "summary": "Summary handed over",
+        "messagesCounted": "{{count}} of {{total}} messages handed over",
+        "messages": "Messages handed over"
       }
     },
     "tab": {
@@ -21601,10 +21619,6 @@
       "nativeHint": "Copies the saved conversation, tool calls included; without one, hands over its messages as text.",
       "handoffHint": "Hands over the messages as text: tool output and images are summarised, not copied.",
       "sharedWorkspace": "{{name}} is also working in this workspace; both may edit the same files.",
-      "useSummary": "Hand off with its summary",
-      "useSummaryNone": "No summary yet: generate one from the chat's menu.",
-      "useSummaryStale": "This summary is out of date; the chat has new messages.",
-      "useSummaryOld": "This host is too old to summarize chats.",
       "instruction": "First instruction (optional)",
       "instructionPlaceholder": "Empty: the chat opens and waits for you.",
       "sourceWorking": "That chat is still working; hand it off once its turn ends.",
@@ -21831,6 +21845,97 @@
       "stopTitle": "Stop {{count}} conversations?",
       "stopDescription": "This stops the work in progress and ends any worker assignment. A stopped worker cannot be resumed.",
       "stopDone": "Stopped {{count}} conversations"
+    },
+    "handoff": {
+      "title": "Hand over",
+      "summary": "Compact into a summary",
+      "summaryHint": "Summarizes the chat first; the new chat starts from that summary and can read the full messages when it needs them.",
+      "summaryMergeHint": "Summarizes the chats first; the new chat starts from that summary and can read the full messages when it needs them.",
+      "messages": "Full history",
+      "messagesHint": "Hands over the messages themselves; uses much more of the new chat’s context.",
+      "summaryUnavailable": "This host is too old to compact a hand-off.",
+      "compacting": "Compacting the chat…"
+    }
+  },
+  "growthTree": {
+    "dock": {
+      "label": "Selection details",
+      "close": "Close details",
+      "status": "Status",
+      "closed": "Closed",
+      "time": "Time",
+      "now": "now",
+      "approx": "start estimated",
+      "workspace": "Workspace",
+      "kind": "Kind",
+      "chats": "Conversations",
+      "project": "Project",
+      "relations": "Relations",
+      "hidden": "Hidden in the blueprint.",
+      "locate": "Locate in blueprint",
+      "openChat": "Open conversation",
+      "openWorkspace": "Open workspace",
+      "created": "Began"
+    },
+    "folderWorkspace": "Folder workspace",
+    "worktree": "Worktree",
+    "groupCollapsed": "{{chats}} chats, {{working}} working",
+    "emptyLanes": "Empty workspaces: {{count}}",
+    "noChats": "No conversations here yet",
+    "jump": {
+      "hidden": "This conversation is hidden in the blueprint.",
+      "missing": "This conversation is not on the blueprint.",
+      "unhide": "Show it",
+      "dismiss": "Dismiss"
+    },
+    "filter": {
+      "label": "Filter",
+      "status": "Status",
+      "kinds": "Lines drawn",
+      "window": "Time window",
+      "active": "Filtered: {{count}}"
+    },
+    "empty": "Conversations appear here once a project has run an agent.",
+    "pin": {
+      "from": "From project {{project}}",
+      "to": "To project {{project}}",
+      "unresolved": "Source not loaded"
+    },
+    "view": {
+      "label": "Map view",
+      "blueprint": "Blueprint",
+      "growth": "Growth tree"
+    },
+    "allProjects": "All projects",
+    "bucket": {
+      "working": "Working",
+      "attention": "Needs attention",
+      "done": "Done",
+      "idle": "Idle"
+    },
+    "kind": {
+      "derive": "Derived",
+      "delegate": "Delegated",
+      "handoff": "Handed off",
+      "merge": "Merged",
+      "reference": "Referenced"
+    },
+    "window": {
+      "all": "All time",
+      "today": "Today",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days"
+    },
+    "replay": {
+      "loading": "Reading history…",
+      "missingHosts": "Hosts with no history: {{count}}",
+      "partialHosts": "Hosts with partial history: {{count}}",
+      "noEvents": "No recorded events to fly yet",
+      "pause": "Pause",
+      "play": "Play",
+      "slider": "Replay time",
+      "speed": "Replay speed",
+      "toggle": "Replay"
     }
   }
 }

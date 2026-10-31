@@ -306,11 +306,11 @@ afterEach(async () => {
 export const WAIT = { timeout: 10_000, interval: 10 }
 
 export const POINTER =
-  /You have 1 orchestration message\. Run `orca(-dev)? orchestration check --run run_\w+`\./
+  /You have 1 orchestration message \([a-z_]+\)\. Run `orca(-dev)? orchestration check --run run_\w+`\./
 
-/** The text the PTY lane types into a local terminal for this mailbox, byte for byte. */
-export function ptyPointer(mailboxHandle: string): string {
-  return formatMessagePointer(1, mailboxHandle, localOrchestrationCliCommand()).trim()
+/** The text the PTY lane types into a local terminal for one message, byte for byte. */
+export function ptyPointer(mailboxHandle: string, type = 'worker_done'): string {
+  return formatMessagePointer(1, mailboxHandle, localOrchestrationCliCommand(), [{ type }]).trim()
 }
 
 /** The text of a turn the fake provider received. */
