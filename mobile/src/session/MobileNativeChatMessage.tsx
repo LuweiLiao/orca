@@ -3,6 +3,7 @@ import { Text, View } from 'react-native'
 import { INLINE_TEXT_SELECTION } from '../components/inline-text-selection'
 import { MobileNativeChatLongPressContent as Content } from './MobileNativeChatLongPressContent'
 import { splitNativeChatBlocks } from '../../../src/shared/native-chat-tool-fold'
+import { nativeChatToolImagePreviews } from '../../../src/shared/native-chat-tool-image-previews'
 import { selectActiveToolCall } from '../../../src/shared/native-chat-tool-activity'
 import {
   isImageRefBlock,
@@ -141,7 +142,8 @@ function MobileNativeChatMessageImpl({
   // Separate the agent's words from its tool activity: prose renders first, the
   // tool calls fold into a collapsible run beneath. The user's own messages get
   // an inverted (filled accent) bubble so they stand apart from agent prose.
-  const { prose, tools: blocksOfTools } = splitNativeChatBlocks(message.blocks)
+  const { prose: messageProse, tools: blocksOfTools } = splitNativeChatBlocks(message.blocks)
+  const prose = [...messageProse, ...nativeChatToolImagePreviews(message.blocks)]
   const { asks, unansweredAsks, work: ownTools } = nativeChatAskRunBlocks(blocksOfTools)
   const { openActions: openSheet } = useContext(MobileNativeChatRowOverlaysContext)
   // A work run draws every member's calls as this row's one run, its thoughts among them.

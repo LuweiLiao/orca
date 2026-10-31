@@ -1,3 +1,4 @@
+import { useContext } from 'react'
 import { cn } from '@/lib/utils'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
 import type { deriveNativeChatRowContent } from '../../../../shared/native-chat-row-content'
@@ -9,6 +10,7 @@ import { NativeChatCodeBlock, NativeChatPlainCodeBlock } from './NativeChatCodeB
 import { NativeChatAgentControls, NativeChatImageAttachments } from './NativeChatTranscriptChrome'
 import { NativeChatOrchestrationProposalActions } from './NativeChatOrchestrationProposal'
 import type { useNativeChatWorkRun } from './use-native-chat-work-run'
+import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
 
 function messageIsStreaming(
   message: NativeChatMessage,
@@ -47,6 +49,9 @@ export function NativeChatAssistantMessageRow({
     runtimeContext
   } = props
   const { markdown, prose } = content
+  const imageOwner = useContext(NativeChatMarkdownImageOwnerContext)
+  const imageRuntimeContext =
+    runtimeContext === undefined ? imageOwner?.runtimeContext : runtimeContext
   const toolRun = toolRunProps(props, content, run)
   const isSystem = message.role === 'system'
   // A thought heading a run reads inside it, so the row has no words of its own.
@@ -71,8 +76,8 @@ export function NativeChatAssistantMessageRow({
     >
       <NativeChatImageAttachments
         blocks={prose}
-        runtimeContext={runtimeContext}
-        enablePreview={runtimeContext !== undefined}
+        runtimeContext={imageRuntimeContext}
+        enablePreview={imageRuntimeContext !== undefined}
       />
       {words ? (
         <NativeChatPacedMarkdown

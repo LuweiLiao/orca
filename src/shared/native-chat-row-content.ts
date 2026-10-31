@@ -17,6 +17,7 @@ import {
 import { splitNativeChatBlocks } from './native-chat-tool-fold'
 import { nativeChatProseToMarkdown } from './native-chat-prose'
 import { withoutConversationReferenceInstructions } from './conversation-reference'
+import { nativeChatToolImagePreviews } from './native-chat-tool-image-previews'
 
 /** Inferred from `derive` so the shape cannot drift from what it returns. */
 export type NativeChatRowContent = ReturnType<typeof derive>
@@ -27,6 +28,7 @@ function derive(blocks: readonly NativeChatBlock[]) {
   const split = splitNativeChatBlocks(
     blocks.filter((block) => !isWordlessProviderFrameBlock(block))
   )
+  split.prose.push(...nativeChatToolImagePreviews(blocks))
   const groups = subagentGroupBlocks(split.prose)
   const tasks = backgroundTaskBlocks(split.prose)
   // Both row kinds carry a plain-text twin so a client without the block type
