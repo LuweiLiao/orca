@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useRef } from 'react'
 import { scrollTopCache, setWithLRU } from '@/lib/scroll-cache'
 import MermaidBlock from './MermaidBlock'
+import { useMermaidDiagramExpand } from './use-mermaid-diagram-expand'
 import { useDocumentDarkTheme } from '@/hooks/use-document-dark-theme'
 
 type MermaidViewerProps = {
@@ -18,6 +19,7 @@ export default function MermaidViewer({
 }: MermaidViewerProps): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
   const isDark = useDocumentDarkTheme()
+  const expandDiagram = useMermaidDiagramExpand()
 
   // Why: Each viewing mode (source vs diagram) produces different DOM heights.
   // Mode-scoped keys prevent restoring a source-mode scroll position in diagram
@@ -94,7 +96,12 @@ export default function MermaidViewer({
         {/* Why: DOMPurify's SVG profile strips <foreignObject> elements that
            mermaid uses for HTML labels. Force SVG-native <text> labels so
            they survive sanitization — same fix as the markdown preview path. */}
-        <MermaidBlock content={content.trim()} isDark={isDark} htmlLabels={false} />
+        <MermaidBlock
+          content={content.trim()}
+          isDark={isDark}
+          htmlLabels={false}
+          onExpand={expandDiagram}
+        />
       </div>
     </div>
   )

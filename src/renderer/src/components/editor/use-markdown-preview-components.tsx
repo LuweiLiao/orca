@@ -3,6 +3,7 @@ import type { Components } from 'react-markdown'
 import type { MarkdownDocument } from '../../../../shared/filesystem-entry-types'
 import CodeBlockCopyButton from './CodeBlockCopyButton'
 import MermaidBlock from './MermaidBlock'
+import { useMermaidDiagramExpand } from './use-mermaid-diagram-expand'
 import {
   getMarkdownDocLinkAnchor,
   parseMarkdownDocLinkHref,
@@ -62,6 +63,7 @@ export function useMarkdownPreviewComponents({
   const { scrollToAnchor } = viewport
   const { getMarkdownCommentsForRange, handleAnnotatedMarkdownBlockClick } = reviewActions
   const { renderAnnotationControls, wrapAnnotatedBlock } = annotationRenderers
+  const expandDiagram = useMermaidDiagramExpand()
 
   return useMemo(() => {
     // Why: preview images come from document text, so main limits them to the document's roots.
@@ -161,7 +163,12 @@ export function useMarkdownPreviewComponents({
       code: ({ className, children, ...props }) => {
         if (/language-mermaid/.test(className || '')) {
           return (
-            <MermaidBlock content={String(children).trimEnd()} isDark={isDark} htmlLabels={false} />
+            <MermaidBlock
+              content={String(children).trimEnd()}
+              isDark={isDark}
+              htmlLabels={false}
+              onExpand={expandDiagram}
+            />
           )
         }
         return (
@@ -286,6 +293,7 @@ export function useMarkdownPreviewComponents({
   }, [
     filePath,
     activateMarkdownLink,
+    expandDiagram,
     isDark,
     isMac,
     imageRuntimeContext,

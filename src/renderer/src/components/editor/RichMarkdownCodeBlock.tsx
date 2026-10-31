@@ -5,6 +5,7 @@ import { NodeViewContent, NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import { Copy, Check } from 'lucide-react'
 import MermaidBlock from './MermaidBlock'
+import { useMermaidDiagramExpand } from './use-mermaid-diagram-expand'
 import { useDocumentDarkTheme } from '@/hooks/use-document-dark-theme'
 import { translate } from '@/i18n/i18n'
 import {
@@ -29,6 +30,7 @@ export function RichMarkdownCodeBlock({
   // starting a reset timer that will outlive the component.
   const isMountedRef = useRef(false)
   const isDark = useDocumentDarkTheme()
+  const expandDiagram = useMermaidDiagramExpand()
 
   const isMermaid = language === 'mermaid'
 
@@ -148,7 +150,12 @@ export function RichMarkdownCodeBlock({
           Mermaid HTML labels just like markdown preview to keep labels visible. */}
       {isMermaid && node.textContent.trim() && (
         <div contentEditable={false} className="mermaid-preview">
-          <MermaidBlock content={node.textContent.trim()} isDark={isDark} htmlLabels={false} />
+          <MermaidBlock
+            content={node.textContent.trim()}
+            isDark={isDark}
+            htmlLabels={false}
+            onExpand={expandDiagram}
+          />
         </div>
       )}
     </NodeViewWrapper>
