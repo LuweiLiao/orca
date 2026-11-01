@@ -261,7 +261,7 @@ export function NativeChatPromptEditor({
               })
             },
             get disabled() {
-              return !editor.isEditable
+              return editor.isDestroyed || !editor.isEditable
             },
             set disabled(value: boolean) {
               editor.setEditable(!value)
@@ -273,6 +273,9 @@ export function NativeChatPromptEditor({
               return promptTextOffset(editor.state.doc, editor.state.selection.to)
             },
             focus: () => {
+              if (editor.isDestroyed) {
+                return
+              }
               // Why: a blurred editor never writes its caret to the page, so focusing the element
               // alone would bring back the stale one and undo a caret moved by an insertion.
               editor.view.focus()
@@ -280,7 +283,7 @@ export function NativeChatPromptEditor({
                 editor.view.dom.focus()
               }
             },
-            contains: (node) => editor.view.dom.contains(node),
+            contains: (node) => !editor.isDestroyed && editor.view.dom.contains(node),
             isCaretOnVisualEdge: (edge) => {
               const { selection, doc } = editor.state
               if (!selection.empty) {

@@ -40,6 +40,14 @@ function setup(value = '') {
 }
 
 describe('native chat skill editor', () => {
+  it('keeps an unmounted editor unavailable to composer focus requests', () => {
+    const { input, editor } = setup()
+    act(() => editor.unmount())
+    expect(() => input.focus()).not.toThrow()
+    expect(input.disabled).toBe(true)
+    expect(input.contains?.(document.body)).toBe(false)
+  })
+
   it('inserts orchestration as editable document atoms and restores them from the draft', async () => {
     const scopeKey = 'orchestration-pane'
     const inputRef = createRef<NativeChatComposerInput>()
