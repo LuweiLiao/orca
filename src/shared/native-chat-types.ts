@@ -1,4 +1,5 @@
 import type { AgentSessionProviderContextBoundary } from './agent-session-provider-context'
+import type { AgentImageDisplay } from './agent-image-display'
 // ─── Native chat conversation model (cross-process, IPC-serializable) ────────
 // The single renderer-facing conversation contract for the native chat view.
 // Assembled from layered sources in priority order: on-disk JSONL transcripts,
@@ -125,6 +126,7 @@ export type NativeChatImageRefBlock = {
   path?: string
   url?: string
   alt?: string
+  display?: AgentImageDisplay
 }
 
 /** Lifecycle of one spawned child agent, as the display collapses it.

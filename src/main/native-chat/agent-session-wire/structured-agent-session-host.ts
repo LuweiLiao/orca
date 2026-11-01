@@ -320,9 +320,9 @@ export class StructuredAgentSessionHost {
   history: StructuredAgentSessionBackgroundTaskChannel['history'] = (...args) =>
     this.backgroundTasks.history(...args)
 
+  images = conversation.sessionImages(this, (id) => this.lifetime.conversation(id))
   /** Full reduction: absence from a bounded page cannot prove a revised/tombstoned item is absent. */
-  journalSnapshot = async (sessionId: string) =>
-    (await this.lifetime.conversation(sessionId)).journal.snapshot()
+  journalSnapshot = this.images.snapshot
 
   currentWork = this.clientDelivery.readCurrentWork
   readCurrentRequests: StructuredAgentSessionBackgroundTaskChannel['currentRequests'] = (...args) =>

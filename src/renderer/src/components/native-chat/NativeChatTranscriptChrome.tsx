@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { ArrowUp, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
@@ -20,6 +20,8 @@ import { copyableNativeChatImageSrc, keepPreviewOpenForChatMenu } from './native
 import { isNativeChatPastedImagePath } from './native-chat-image-paste'
 import { nativeChatImageLabel } from './native-chat-image-label'
 import { chatImageAccess } from '@/lib/local-file-access'
+import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
+import { reportNativeChatImageDisplay } from './native-chat-image-display-report'
 
 type VisibilityListener = (isVisible: boolean) => void
 
@@ -103,12 +105,15 @@ function transcriptImageReleaseKey(
 
 function TranscriptImagePreview({
   block,
-  runtimeContext
+  runtimeContext,
+  fullSize = false
 }: {
   block: Extract<NativeChatBlock, { type: 'image-ref' }>
   runtimeContext: RuntimeFileOperationArgs | null | undefined
+  fullSize?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  const owner = useContext(NativeChatMarkdownImageOwnerContext)
   const [near, setNear] = useState(false)
   const [thumbnailErrorSrc, setThumbnailErrorSrc] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -166,21 +171,33 @@ function TranscriptImagePreview({
     return <div ref={ref}>{fallback}</div>
   }
   return (
-    <div ref={ref} className="relative size-20 shrink-0">
+    <div
+      ref={ref}
+      className={fullSize ? 'relative w-full max-w-xl shrink-0' : 'relative size-20 shrink-0'}
+    >
       <button
         type="button"
         aria-label={`${viewImageLabel}: ${label}`}
         title={label}
         data-native-chat-copy-image-src={copySrc}
         onClick={() => setOpen(true)}
-        className="flex size-full items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          'flex items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          fullSize ? 'w-full' : 'size-full'
+        )}
       >
         <img
           src={displaySrc}
           alt={label}
           loading="lazy"
-          onError={() => setThumbnailErrorSrc(displaySrc ?? null)}
-          className="size-full object-cover"
+          onLoad={() =>
+            reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'loaded')
+          }
+          onError={() => {
+            setThumbnailErrorSrc(displaySrc ?? null)
+            reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'failed')
+          }}
+          className={fullSize ? 'max-h-96 max-w-full object-contain' : 'size-full object-cover'}
         />
       </button>
       <PanZoomImageDialog
@@ -200,12 +217,14 @@ function TranscriptImagePreview({
 export function NativeChatImageAttachments({
   blocks,
   runtimeContext,
-  enablePreview = runtimeContext !== undefined
+  enablePreview = runtimeContext !== undefined,
+  fullSize = false
 }: {
   blocks: NativeChatBlock[]
   runtimeContext?: RuntimeFileOperationArgs | null
   /** Keep legacy terminal chips unchanged until that lane opts into previews. */
   enablePreview?: boolean
+  fullSize?: boolean
 }): React.JSX.Element | null {
   const images = blocks.filter((block) => block.type === 'image-ref')
   if (images.length === 0) {
@@ -241,7 +260,7 @@ export function NativeChatImageAttachments({
     )
   }
   return (
-    <div className="mb-2 flex flex-wrap gap-1.5">
+    <div className={cn('mb-2 flex gap-1.5', fullSize ? 'flex-col' : 'flex-wrap')}>
       {images.map((image) => {
         const label = image.alt ?? image.path ?? image.url ?? 'Image'
         const imageKeyBase = `${label}-${image.url ?? ''}-${image.path ?? ''}`
@@ -252,6 +271,7 @@ export function NativeChatImageAttachments({
           <TranscriptImagePreview
             key={`${imageKeyBase}-${identity}-${occurrence}`}
             block={image}
+            fullSize={fullSize}
             runtimeContext={runtimeContext}
           />
         )

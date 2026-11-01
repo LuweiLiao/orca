@@ -61,6 +61,7 @@ import { AGENT_SESSION_METHODS } from './agent-session'
 import { STRUCTURED_AGENT_SESSION_METHODS } from './structured-agent-session'
 import { STRUCTURED_AGENT_SESSION_ATTACHMENT_METHODS } from './structured-agent-session-attachments'
 import { STRUCTURED_AGENT_SESSION_VISUAL_METHODS } from './structured-agent-session-visual'
+import { STRUCTURED_AGENT_SESSION_IMAGE_METHODS } from './structured-agent-session-images'
 import { STRUCTURED_AGENT_SESSION_AGENTS_METHODS } from './structured-agent-session-agents'
 import { MANAGED_RUNTIME_INSTALL_METHODS } from './managed-runtime-install'
 import { ARTIFACT_METHODS } from './artifacts'
@@ -95,6 +96,7 @@ export const ALL_RPC_METHODS = [
   ...STRUCTURED_AGENT_SESSION_METHODS,
   ...STRUCTURED_AGENT_SESSION_ATTACHMENT_METHODS,
   ...STRUCTURED_AGENT_SESSION_VISUAL_METHODS,
+  ...STRUCTURED_AGENT_SESSION_IMAGE_METHODS,
   ...STRUCTURED_AGENT_SESSION_AGENTS_METHODS,
   ...MANAGED_RUNTIME_INSTALL_METHODS,
   ...AGENT_LAUNCH_METHODS,

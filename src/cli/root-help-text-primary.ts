@@ -92,6 +92,8 @@ export const ROOT_HELP_TEXT_PRIMARY = [
   '  file open                 Open a file as a tab, view stays put (--focus brings you to it)',
   '  file diff                 Open a file diff as a tab, view stays put (--focus brings you to it)',
   '  file open-changed         Open changed files as tabs, view stays put (--focus brings you there)',
+  '  image show                Display an image inside the current conversation',
+  '  image status              Check whether a viewer loaded a published image',
   '',
   'Terminals:',
   '  terminal list             List live Orca-managed terminals',

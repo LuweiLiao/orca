@@ -76,6 +76,11 @@ import {
   AgentDelegationSettleTerminalParams
 } from './agent-delegation-params'
 import { PrepareCodexForWslPaneParams } from './agent-hooks-params'
+import {
+  ImageDisplayTarget,
+  ReportImageDisplayParams,
+  ShowImageParams
+} from './agent-image-display-params'
 import { AgentLaunch, AgentLaunchReplay } from './agent-launch-params'
 import { AgentLaunchSettingsMutation } from './agent-launch-settings-params'
 import {
@@ -757,6 +762,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.handoffStatus': HandoffStatusParams,
   'agentSession.history': HistoryParams,
   'agentSession.hold': HoldParams,
+  'agentSession.imageRendered': ReportImageDisplayParams,
+  'agentSession.imageStatus': ImageDisplayTarget,
   'agentSession.item': ItemParams,
   'agentSession.lineage': LineageParams,
   'agentSession.modelCatalog': ModelCatalogParams,
@@ -780,6 +787,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.rewind': RewindParams,
   'agentSession.send': SendParams,
   'agentSession.setOption': SetOptionParams,
+  'agentSession.showImage': ShowImageParams,
   'agentSession.sleepWorkspace': SleepWorkspaceParams,
   'agentSession.subscribe': SubscribeParams,
   'agentSession.subscribeAvailability': AvailabilityParams,

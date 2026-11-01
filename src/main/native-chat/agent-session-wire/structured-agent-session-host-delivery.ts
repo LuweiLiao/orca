@@ -1,4 +1,5 @@
 import { selectableStructuredSubmission } from './structured-agent-session-input-selection'
+export { sessionImages } from './structured-agent-session-images'
 // Open conversations with queued sends always need delivery; opening also wakes leftover recovery.
 
 import { isQueuedAgentJournalSubmission } from '../../../shared/agent-session-queued-submission'

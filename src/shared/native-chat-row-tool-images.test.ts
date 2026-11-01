@@ -3,6 +3,130 @@ import { deriveNativeChatRowContent } from './native-chat-row-content'
 import type { NativeChatBlock } from './native-chat-types'
 
 describe('image reads in chat rows', () => {
+  it('does not duplicate an image explicitly published by the image CLI', () => {
+    const content = deriveNativeChatRowContent([
+      {
+        type: 'tool-call',
+        name: 'Bash',
+        input: { command: 'orca image show result.png --json' },
+        callId: 'show',
+        state: 'completed'
+      },
+      {
+        type: 'tool-result',
+        callId: 'show',
+        output: JSON.stringify({
+          ok: true,
+          result: {
+            sessionId: 'claude_here',
+            id: 'plot',
+            itemId: 'orca:plot',
+            path: '/repo/result.png',
+            state: 'pending'
+          }
+        })
+      }
+    ])
+    expect(content.prose).toEqual([])
+  })
+  it.each([
+    '/home/ubuntu/project/figs/generated.png',
+    'Saved plot: `/home/ubuntu/project/figs/plot with spaces.svg`',
+    'Saved plot: figs/generated.png',
+    JSON.stringify({
+      content: [{ type: 'text', text: JSON.stringify({ path: 'D:\\project\\figs\\result.png' }) }]
+    })
+  ])('shows an image reported by a successful command or MCP tool: %s', (output) => {
+    const content = deriveNativeChatRowContent([
+      {
+        type: 'tool-call',
+        name: 'Bash',
+        callId: 'generate',
+        input: { command: 'python plot.py' },
+        state: 'completed'
+      },
+      { type: 'tool-result', callId: 'generate', output }
+    ])
+    expect(content.hasImages).toBe(true)
+    expect(content.prose.filter((block) => block.type === 'image-ref')).toHaveLength(1)
+    expect(content.tools).toHaveLength(2)
+  })
+
+  it('shows successful SVG writes but not command input, errors or unfinished calls', () => {
+    const content = deriveNativeChatRowContent([
+      {
+        type: 'tool-call',
+        name: 'Write',
+        input: { file_path: '/repo/diagram.svg', content: '<svg/>' },
+        state: 'completed'
+      },
+      {
+        type: 'tool-call',
+        name: 'Bash',
+        input: { command: 'python plot.py --output /repo/pending.png' },
+        state: 'running',
+        callId: 'pending'
+      },
+      { type: 'tool-result', callId: 'pending', output: '/repo/pending.png' },
+      { type: 'tool-call', name: 'Bash', input: {}, state: 'failed', callId: 'failed' },
+      { type: 'tool-result', callId: 'failed', output: '/repo/failed.png', isError: true },
+      {
+        type: 'tool-call',
+        name: 'Bash',
+        input: {},
+        state: 'completed',
+        exitCode: 1,
+        callId: 'exit'
+      },
+      { type: 'tool-result', callId: 'exit', output: '/repo/exit.png' }
+    ])
+    expect(content.prose).toEqual([{ type: 'image-ref', path: '/repo/diagram.svg' }])
+  })
+
+  it('deduplicates returned image paths against an existing image block and repeated output', () => {
+    const image: NativeChatBlock = { type: 'image-ref', path: '/repo/plot.png' }
+    expect(
+      deriveNativeChatRowContent([
+        image,
+        {
+          type: 'tool-call',
+          name: 'mcp__plot__render',
+          input: {},
+          state: 'completed',
+          callId: 'plot'
+        },
+        {
+          type: 'tool-result',
+          callId: 'plot',
+          output: JSON.stringify({ path: '/repo/plot.png', images: ['/repo/plot.png'] })
+        }
+      ]).prose
+    ).toEqual([image])
+  })
+
+  it('shows multiple image output lines in order, including HTTP images, without including ordinary files', () => {
+    const content = deriveNativeChatRowContent([
+      {
+        type: 'tool-call',
+        name: 'mcp__plot__render',
+        input: {},
+        state: 'completed',
+        callId: 'plot'
+      },
+      {
+        type: 'tool-result',
+        callId: 'plot',
+        output:
+          '/repo/first.png\n/repo/second.webp\nhttps://example.test/result.jpg\n/repo/data.csv'
+      }
+    ])
+    expect(content.prose).toEqual([
+      { type: 'image-ref', path: '/repo/first.png' },
+      { type: 'image-ref', path: '/repo/second.webp' },
+      { type: 'image-ref', url: 'https://example.test/result.jpg' }
+    ])
+  })
+
   it.each(['D:\\project\\shot\\iomcu-1s.png', '/home/me/project/shot/image.PNG'])(
     'shows the successful image read %s even when the stored output is empty',
     (path) => {
@@ -60,12 +184,6 @@ describe('image reads in chat rows', () => {
         type: 'tool-call',
         name: 'Read',
         input: { file_path: '/repo/file.ts' },
-        state: 'completed'
-      },
-      {
-        type: 'tool-call',
-        name: 'Write',
-        input: { file_path: '/repo/written.png' },
         state: 'completed'
       }
     ])

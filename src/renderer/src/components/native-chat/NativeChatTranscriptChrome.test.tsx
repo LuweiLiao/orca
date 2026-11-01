@@ -12,12 +12,17 @@ import {
 } from '@/components/editor/useLocalImageSrc'
 import { chatImageAccess } from '@/lib/local-file-access'
 import { NativeChatImageAttachments } from './NativeChatTranscriptChrome'
+import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
 
 // Chat images carry their runtime owner without resolving an editor connection.
 const mocks = vi.hoisted(() => ({
+  callStructured: vi.fn(async () => ({})),
   getConnectionIdForFile: vi.fn(() => {
     throw new Error('Chat image fixtures must not resolve editor file connections')
   })
+}))
+vi.mock('@/runtime/structured-agent-session-client', () => ({
+  callStructuredAgentSession: mocks.callStructured
 }))
 
 vi.mock('@/lib/connection-context', () => ({
@@ -41,6 +46,7 @@ async function flushPromises(): Promise<void> {
 }
 
 beforeEach(() => {
+  mocks.callStructured.mockClear()
   resetLocalImageSrcStateForTests()
   vi.stubGlobal('IntersectionObserver', undefined)
   let urlSequence = 0
@@ -55,6 +61,58 @@ beforeEach(() => {
       })
     }
   } as unknown as Window['api']
+})
+
+it('reports image decoding to its owning conversation only after the img loads', async () => {
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  const runtime = runtimeContext('wt-1')
+  await act(async () => {
+    root.render(
+      createElement(
+        NativeChatMarkdownImageOwnerContext.Provider,
+        {
+          value: {
+            sessionId: 'claude_here',
+            isVisible: true,
+            fileLinkContext: null,
+            runtimeContext: runtime
+          }
+        },
+        createElement(NativeChatImageAttachments, {
+          blocks: [
+            {
+              type: 'image-ref',
+              path: '/repo/image.png',
+              display: { id: 'display-1', state: 'pending' }
+            }
+          ],
+          runtimeContext: runtime,
+          fullSize: true
+        })
+      )
+    )
+    await flushPromises()
+  })
+  expect(mocks.callStructured).not.toHaveBeenCalled()
+  const image = container.querySelector('img')
+  if (!image) {
+    throw new Error('Image did not mount')
+  }
+  await act(async () => {
+    fireEvent.load(image)
+    await flushPromises()
+  })
+  expect(mocks.callStructured).toHaveBeenCalledExactlyOnceWith(
+    { kind: 'local' },
+    'agentSession.imageRendered',
+    {
+      sessionId: 'claude_here',
+      id: 'display-1',
+      state: 'loaded'
+    }
+  )
+  root.unmount()
 })
 
 afterEach(() => {

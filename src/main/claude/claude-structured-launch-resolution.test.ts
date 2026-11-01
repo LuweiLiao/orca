@@ -14,7 +14,7 @@ import {
 } from './claude-structured-launch-resolution'
 import { CLAUDE_THINKING_DISPLAY_FLAG, type ClaudeCliFlag } from './claude-cli-flag-support'
 import { claudeProviderHandle } from '../../shared/agent-session-provider-handle-encoding'
-import { ORCA_AGENT_DELEGATION_INSTRUCTIONS } from '../native-chat/agent-reply-instructions'
+import { agentReplyInstructions } from '../native-chat/agent-reply-instructions'
 
 const SESSION_ID = 'orca-session-1'
 const IDENTITY = { sessionId: SESSION_ID } as Parameters<
@@ -95,7 +95,7 @@ describe('claude structured launch resolution', () => {
       })
       expect(launch.options.disallowedTools).toEqual(['Agent', 'Task'])
       expect(launch.options.systemPrompt).toMatchObject({
-        append: ORCA_AGENT_DELEGATION_INSTRUCTIONS
+        append: agentReplyInstructions('claude', {})
       })
       expect(launch.options.extraArgs).toMatchObject({ 'dangerously-skip-permissions': null })
     }
@@ -136,7 +136,7 @@ describe('claude structured launch resolution', () => {
       systemPrompt: {
         type: 'preset',
         preset: 'claude_code',
-        append: ORCA_AGENT_DELEGATION_INSTRUCTIONS
+        append: agentReplyInstructions('claude', {})
       },
       permissionMode: 'default',
       sessionId: first.providerSessionId
@@ -220,7 +220,11 @@ describe('claude structured launch resolution', () => {
 
     expect(launch.env).toMatchObject({
       ORCA_AGENT_SESSION_ID: SESSION_ID,
-      ORCA_CLI_COMMAND: expect.stringMatching(/^[^:;]*[\\/]cli[\\/]bin[\\/]orca-dev$/)
+      ORCA_CLI_COMMAND: expect.stringMatching(
+        process.platform === 'win32'
+          ? /^[^;]*[\\/]cli[\\/]bin[\\/]orca-dev\.cmd$/
+          : /^[^:;]*[\\/]cli[\\/]bin[\\/]orca-dev$/
+      )
     })
     expect(launch.env?.ORCA_AGENT_SESSION_ID).not.toBe(launch.providerSessionId)
   })

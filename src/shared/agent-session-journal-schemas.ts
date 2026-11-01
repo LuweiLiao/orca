@@ -103,7 +103,8 @@ const Block = openDiscriminatedUnion(
       type: z.literal('image-ref'),
       path: z.string().optional(),
       url: z.string().optional(),
-      alt: z.string().optional()
+      alt: z.string().optional(),
+      display: z.object({ id: z.string(), state: z.string() }).optional()
     }),
     z.object({
       type: z.literal('subagent-group'),

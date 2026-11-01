@@ -30,6 +30,7 @@ import {
 import { NativeChatConversationReference } from './NativeChatConversationReference'
 import { parseOrchestrationReferenceUri } from '../../../../shared/native-chat-orchestration-reference'
 import { NativeChatOrchestrationProposal } from './NativeChatOrchestrationProposal'
+import { remarkNativeChatImageFileLinks } from './native-chat-image-file-links'
 
 /** Existing words stay opaque when a reply first starts growing. */
 function useWordFadeArmed(fadeWords: boolean): boolean {
@@ -72,7 +73,7 @@ function createNativeChatImageExtension(
 ): CommentMarkdownExtension {
   const Anchor = createDocumentCommentMarkdownComponents(onLinkClick).a
   return {
-    remarkPlugins: visualExtension?.remarkPlugins ?? [],
+    remarkPlugins: [...(visualExtension?.remarkPlugins ?? []), remarkNativeChatImageFileLinks],
     sanitizeAttributes: visualExtension?.sanitizeAttributes ?? {},
     components: {
       ...visualExtension?.components,

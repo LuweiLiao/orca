@@ -157,6 +157,54 @@ afterEach(() => {
 
 describe('native chat Markdown image preview', () => {
   it.each([
+    '[Generated plot](/repo/worktree/result.png)',
+    '[`/repo/worktree/result.png`](#orca-native-chat-file=%2Frepo%2Fworktree%2Fresult.png)',
+    'Saved to `/repo/worktree/result.png`.',
+    'Saved to /repo/worktree/result.png.',
+    '[Generated plot](result%23v2.png)'
+  ])('automatically displays an image file link without image Markdown: %s', async (content) => {
+    render(<Transcript content={content} />)
+    await waitFor(() => expect(mocks.readRuntimeFilePreview).toHaveBeenCalled())
+    expect(screen.getByRole('button', { name: /View image/ })).toBeDefined()
+    expect(screen.getByRole('img')).toBeDefined()
+  })
+
+  it('does not duplicate explicit image Markdown or repeated image file links in one paragraph', async () => {
+    render(<Transcript content="[result](chart.png) ![Chart](chart.png) [again](chart.png)" />)
+    await waitFor(() => expect(mocks.readRuntimeFilePreview).toHaveBeenCalled())
+    expect(screen.getAllByRole('img')).toHaveLength(1)
+  })
+
+  it('uses the conversation host for automatic image previews and leaves code examples alone', async () => {
+    const owner: ImageOwner = {
+      ...localOwner,
+      runtimeContext: {
+        ...localOwner.runtimeContext,
+        target: { kind: 'environment', environmentId: 'remote-images' },
+        worktreePath: '/remote/project'
+      }
+    }
+    render(
+      <Transcript
+        owner={owner}
+        content={
+          'Generated `/remote/project/plot.png`.\n\n```python\nsavefig("/remote/example.png")\n```'
+        }
+      />
+    )
+    await waitFor(() =>
+      expect(mocks.readRuntimeFilePreview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { kind: 'environment', environmentId: 'remote-images' }
+        }),
+        '/remote/project/plot.png',
+        { kind: 'chat-image' }
+      )
+    )
+    expect(screen.getAllByRole('img')).toHaveLength(1)
+  })
+
+  it.each([
     ['chart%23v2.png', '/repo/worktree/chart#v2.png'],
     ['chart%3Fv2.png', '/repo/worktree/chart?v2.png'],
     ['chart%2520v2.png', '/repo/worktree/chart%20v2.png']
