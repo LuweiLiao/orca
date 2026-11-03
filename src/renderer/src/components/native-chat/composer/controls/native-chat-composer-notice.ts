@@ -13,22 +13,29 @@ export type NativeChatComposerNoticeContent = {
   errorText?: string
 }
 
+type NativeChatComposerNoticeAction = {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  primary?: boolean
+  /** Shown before the button, e.g. a failed run's chip. */
+  status?: React.ReactNode
+}
+
 export type NativeChatComposerNotice = NativeChatComposerNoticeContent & {
   key: string
-  action?: {
-    label: string
-    onClick: () => void
-    disabled?: boolean
-    primary?: boolean
-    /** Shown before the button, e.g. a failed run's chip. */
-    status?: React.ReactNode
-  }
+  action?: NativeChatComposerNoticeAction
+  /** Shown after `action`, for a notice that offers two ways out. */
+  secondaryAction?: NativeChatComposerNoticeAction
   onDismiss?: () => void
   /** A not-signed-in notice: one neutral line whose own button signs in. */
   signIn?: NativeChatSignInNoticeView
   /** The host's fuller words under a sign-in notice, collapsed so the notice stays one line. */
   signInDetails?: string
-} & ({ kind: 'error' | 'attachment' | 'device' } | { kind: 'host'; tone: 'warning' | 'muted' })
+} & (
+    | { kind: 'error' | 'attachment' | 'device' | 'context' }
+    | { kind: 'host'; tone: 'warning' | 'muted' }
+  )
 
 /** Keep external errors apart from headline; localErrorIsOrcaWords identifies already-worded renderer errors. */
 export function nativeChatNoticeFromError(

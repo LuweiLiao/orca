@@ -66,6 +66,7 @@ import { useStructuredAgentSessionDeliveryNotices } from '@/components/native-ch
 import { dispatchWasWithdrawn } from '../../../../shared/agent-session/requests/structured-agent-session-dispatch-rejection'
 import { useNativeChatHostOutage } from '@/components/native-chat/host-access/use-native-chat-host-outage'
 import { useNativeChatHostOutageNotice } from '@/components/native-chat/host-access/use-native-chat-host-outage-notice'
+import { useNativeChatNoticesWithLongContext } from '@/components/native-chat/usage/use-native-chat-long-context-notice'
 import { useBotForWorkspace } from '@/components/bots/bot-workspace'
 import { BotServerOutageCard } from '@/components/bots/BotServerOutageCard'
 import { useNativeChatHostSendGate } from '@/components/native-chat/host-access/use-native-chat-host-send-gate'
@@ -255,6 +256,7 @@ export function NativeChatStructuredSession(props: Omit<NativeChatStructuredView
     hostNotice: botServerDown ? null : hostNotice,
     kickoffSignIn: bot.signInOwed
   })
+  const composerNotices = useNativeChatNoticesWithLongContext(notices, transport, props)
   return (
     <NativeChatAntigravityAuthProvider target={install.antigravityAuth}>
       <NativeChatSlackMirrorContext.Provider value={slackMirror}>
@@ -401,7 +403,7 @@ export function NativeChatStructuredSession(props: Omit<NativeChatStructuredView
                       bot.stopControls.stopping ? undefined : submits.queuedMessages.steerHead
                     }
                     structuredTransport={transport}
-                    notices={notices}
+                    notices={composerNotices}
                     recallSource={{ messages: session.messages, withoutImageMarkers: true }}
                   />
                 ) : null}

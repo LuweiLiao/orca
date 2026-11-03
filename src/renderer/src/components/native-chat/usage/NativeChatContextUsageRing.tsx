@@ -100,6 +100,8 @@ export function NativeChatContextUsageRing({
 }): React.JSX.Element {
   const t = useTranslate()
   const { filled, critical, used, window } = contextUsageRingReadout(usage)
+  const longContext = usage.longContext
+  const longContextWarning = !critical && longContext?.stage != null
   const label = t(
     'components.native-chat.contextUsage.label',
     'Context {{used}} of {{window}} tokens, {{percent}}% used',
@@ -135,7 +137,8 @@ export function NativeChatContextUsageRing({
             data-native-chat-context-usage-estimated={usage.estimated ? 'true' : undefined}
             className={cn(
               'flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:size-11',
-              critical && 'text-destructive'
+              critical && 'text-destructive',
+              longContextWarning && 'text-chat-warning'
             )}
             // A read-only readout: clicking it must not pull focus out of the composer.
             onMouseDown={(event) => event.preventDefault()}
@@ -206,6 +209,20 @@ export function NativeChatContextUsageRing({
                 </p>
                 <ContextUsageRowList rows={deferred} className="mt-2" />
               </div>
+            ) : null}
+            {longContext ? (
+              <p
+                className={cn(
+                  'mt-3 text-2xs text-muted-foreground',
+                  longContext.stage && 'text-chat-warning'
+                )}
+              >
+                {t(
+                  'components.native-chat.contextUsage.longContextTier',
+                  'Billed at long-context API rates past {{threshold}} tokens.',
+                  { threshold: formatContextTokenCount(longContext.thresholdTokens) }
+                )}
+              </p>
             ) : null}
             {usage.estimated ? (
               <p className="mt-3 text-2xs text-muted-foreground">

@@ -21761,7 +21761,8 @@
         "label": "Context {{used}} of {{window}} tokens, {{percent}}% used",
         "title": "Context",
         "estimated": "Estimated from the last response.",
-        "deferredNote": "Loaded on demand. Not counted in the used total."
+        "deferredNote": "Loaded on demand. Not counted in the used total.",
+        "longContextTier": "Billed at long-context API rates past {{threshold}} tokens."
       },
       "contextMenu": {
         "copyOrcaSessionId": "Copy Orca Session ID",
@@ -22599,6 +22600,12 @@
         "agyItem": "agy's own login",
         "agyHint": "This chat runs the Antigravity CLI on this host. Another method applies to new chats.",
         "confirmSignIn": "Sign in with Google?"
+      },
+      "longContextNotice": {
+        "over": "Context is past {{threshold}} tokens, so each request is billed at long-context API rates. Compact it or start a new chat to bring the cost down.",
+        "approaching": "Context is {{used}} tokens. Past {{threshold}}, each request is billed at long-context API rates.",
+        "compact": "Compact",
+        "newChat": "New chat"
       }
     },
     "tab": {

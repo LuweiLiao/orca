@@ -1,4 +1,4 @@
-import { AlertCircle, Paperclip, ServerOff, Smartphone, X } from 'lucide-react'
+import { AlertCircle, Gauge, Paperclip, ServerOff, Smartphone, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTranslate } from '@/i18n/use-translate'
 import { cn } from '@/lib/class-names'
@@ -98,9 +98,11 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
       ? ServerOff
       : notice.kind === 'device'
         ? Smartphone
-        : isError
-          ? AlertCircle
-          : Paperclip
+        : notice.kind === 'context'
+          ? Gauge
+          : isError
+            ? AlertCircle
+            : Paperclip
   const dismissLabel = t('components.native-chat.notices.dismiss', 'Dismiss')
   return (
     <li data-notice-kind={notice.kind} className={cn(isError && 'bg-destructive/5')}>
@@ -111,7 +113,8 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
             'mt-0.5 size-3.5 shrink-0',
             'text-muted-foreground',
             isError && 'text-destructive',
-            isHostWarning && 'text-destructive'
+            isHostWarning && 'text-destructive',
+            notice.kind === 'context' && 'text-chat-warning'
           )}
         />
         <p
@@ -125,6 +128,7 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
           {notice.content ?? notice.text}
         </p>
         {notice.action ? <NoticeAction {...notice.action} /> : null}
+        {notice.secondaryAction ? <NoticeAction {...notice.secondaryAction} /> : null}
         {notice.onDismiss ? (
           <Button
             type="button"
