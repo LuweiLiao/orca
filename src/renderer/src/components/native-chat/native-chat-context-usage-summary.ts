@@ -1,4 +1,5 @@
 import type { StructuredAgentContextUsage } from '../../../../shared/structured-agent-session-context-usage'
+import type { NativeChatLongContextPricing } from './native-chat-long-context-pricing'
 
 /** What the composer ring renders: the session's context usage with the
  *  provider's breakdown reduced to the rows worth showing. */
@@ -9,6 +10,8 @@ export type NativeChatContextUsageSummary = {
   estimated: boolean
   /** Largest first, as a share of the window; empty rows are dropped. */
   rows: readonly { name: string; tokens: number; percentage: number }[]
+  /** Present when the model bills a long context at a higher rate. */
+  longContext?: NativeChatLongContextPricing
 }
 
 function rowPercentage(tokens: number, windowTokens: number): number {

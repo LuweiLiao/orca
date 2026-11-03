@@ -19513,7 +19513,8 @@
       "contextUsage": {
         "label": "上下文 {{used}}/{{window}} token，已用 {{percent}}%",
         "title": "上下文",
-        "estimated": "根据上一次响应的估算值。"
+        "estimated": "根据上一次响应的估算值。",
+        "longContextTier": "超过 {{threshold}} token 后按长上下文 API 费率计费。"
       },
       "dismissDeliveryNotice": "关闭",
       "addSelectionToChat": "添加到聊天",
@@ -19637,6 +19638,12 @@
         "summary": "交接的摘要",
         "messagesCounted": "交接的消息：{{count}} / {{total}} 条",
         "messages": "交接的消息"
+      },
+      "longContextNotice": {
+        "over": "上下文已超过 {{threshold}} token，每次请求都按长上下文 API 费率计费。压缩上下文或新开会话可以降低费用。",
+        "approaching": "上下文已有 {{used}} token。超过 {{threshold}} 后，每次请求都按长上下文 API 费率计费。",
+        "compact": "压缩上下文",
+        "newChat": "新开会话"
       }
     },
     "tab": {

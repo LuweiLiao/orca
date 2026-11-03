@@ -1,9 +1,11 @@
-import { AlertCircle, ListTree, Paperclip, ServerOff, Smartphone, X } from 'lucide-react'
+import { AlertCircle, Gauge, ListTree, Paperclip, ServerOff, Smartphone, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { NativeChatCopyButton } from './NativeChatCopyButton'
 import type { NativeChatComposerNotice } from './native-chat-composer-notice'
+
+type NoticeAction = NonNullable<NativeChatComposerNotice['action']>
 
 /** One card above the composer, one row per notice, errors first. The live region stays mounted so
  *  a screen reader hears the first notice too. */
@@ -63,9 +65,11 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
         ? Smartphone
         : notice.kind === 'delegation'
           ? ListTree
-          : isError
-            ? AlertCircle
-            : Paperclip
+          : notice.kind === 'context'
+            ? Gauge
+            : isError
+              ? AlertCircle
+              : Paperclip
   const dismissLabel =
     notice.dismissLabel ?? translate('components.native-chat.notices.dismiss', 'Dismiss')
   return (
@@ -77,7 +81,8 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
             'mt-0.5 size-3.5 shrink-0',
             'text-muted-foreground',
             isError && 'text-destructive',
-            isHostWarning && 'text-destructive'
+            isHostWarning && 'text-destructive',
+            notice.kind === 'context' && 'text-chat-warning'
           )}
         />
         <p
@@ -90,17 +95,8 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
         >
           {notice.content ?? notice.text}
         </p>
-        {notice.action ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            disabled={notice.action.disabled}
-            onClick={notice.action.onClick}
-          >
-            {notice.action.label}
-          </Button>
-        ) : null}
+        {notice.action ? <NoticeActionButton action={notice.action} /> : null}
+        {notice.secondaryAction ? <NoticeActionButton action={notice.secondaryAction} /> : null}
         {notice.onDismiss ? (
           <Button
             type="button"
@@ -127,5 +123,19 @@ function NoticeRow({ notice }: { notice: NativeChatComposerNotice }): React.JSX.
         </div>
       ) : null}
     </li>
+  )
+}
+
+function NoticeActionButton({ action }: { action: NoticeAction }): React.JSX.Element {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="xs"
+      disabled={action.disabled}
+      onClick={action.onClick}
+    >
+      {action.label}
+    </Button>
   )
 }

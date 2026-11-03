@@ -5,7 +5,7 @@ import {
   resolveCodexUsageDelta,
   type CodexUsageRawUsage
 } from './codex-usage-token-delta'
-import { LONG_CONTEXT_THRESHOLD_TOKENS } from './codex-model-pricing'
+import { LONG_CONTEXT_THRESHOLD_TOKENS } from '../../shared/codex-model-pricing'
 import type { CodexUsageParsedEvent } from './types'
 
 type CodexUsageRawRecord = {

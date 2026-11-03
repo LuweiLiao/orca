@@ -29,6 +29,7 @@ import { translate } from '@/i18n/i18n'
 import { useNativeChatComposerDraftUnsaved } from './use-native-chat-draft-unsaved'
 import type { OrchestrationAgentSelection } from './native-chat-orchestration-instruction'
 import { useNativeChatTextDelegationNotice } from './native-chat-text-delegation-notice'
+import { useNativeChatLongContextNotice } from './use-native-chat-long-context-notice'
 import type { NativeChatFollowUpBehavior } from '../../../../shared/native-chat-follow-up-behavior'
 
 export type NativeChatComposerFieldProps = {
@@ -198,6 +199,11 @@ export function NativeChatComposerField({
     enabled:
       Boolean(terminalTabId && onInsertOrchestrationInstruction) && !goalMode?.active && !disabled
   })
+  const longContextNotice = useNativeChatLongContextNotice({
+    transport: structuredTransport,
+    tabId: terminalTabId,
+    agent
+  })
   const conversationDrop = useConversationReferenceDrop({
     scope: draftScopeKey,
     input: textareaRef,
@@ -273,18 +279,20 @@ export function NativeChatComposerField({
             />
           ) : null}
           <NativeChatComposerNotices
-            notices={(delegationNotice ? [...notices, delegationNotice] : notices).map((notice) =>
-              // A dismissed row takes its focused × with it; the message box gets focus back.
-              notice.onDismiss
-                ? {
-                    ...notice,
-                    onDismiss: () => {
-                      notice.onDismiss?.()
-                      textareaRef.current?.focus()
+            notices={[...notices, delegationNotice ?? [], longContextNotice ?? []]
+              .flat()
+              .map((notice) =>
+                // A dismissed row takes its focused × with it; the message box gets focus back.
+                notice.onDismiss
+                  ? {
+                      ...notice,
+                      onDismiss: () => {
+                        notice.onDismiss?.()
+                        textareaRef.current?.focus()
+                      }
                     }
-                  }
-                : notice
-            )}
+                  : notice
+              )}
             className="mb-1.5"
           />
           <div

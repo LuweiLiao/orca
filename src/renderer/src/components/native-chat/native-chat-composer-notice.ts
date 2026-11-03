@@ -13,14 +13,18 @@ export type NativeChatComposerNoticeContent = {
   errorText?: string
 }
 
+type NativeChatComposerNoticeAction = { label: string; onClick: () => void; disabled?: boolean }
+
 export type NativeChatComposerNotice = NativeChatComposerNoticeContent & {
   key: string
-  action?: { label: string; onClick: () => void; disabled?: boolean }
+  action?: NativeChatComposerNoticeAction
+  /** Shown after `action`, for a notice that offers two ways out. */
+  secondaryAction?: NativeChatComposerNoticeAction
   onDismiss?: () => void
   /** What the × does, when more than hiding the row. */
   dismissLabel?: string
 } & (
-    | { kind: 'error' | 'attachment' | 'device' | 'delegation' }
+    | { kind: 'error' | 'attachment' | 'device' | 'delegation' | 'context' }
     | { kind: 'host'; tone: 'warning' | 'muted' }
   )
 
