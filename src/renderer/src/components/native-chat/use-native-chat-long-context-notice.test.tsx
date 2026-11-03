@@ -3,12 +3,14 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionOptionDescriptor } from '../../../../shared/native-chat-session-options'
-import type { NativeChatStructuredComposerTransport } from './native-chat-composer-types'
 
 const launch = vi.hoisted(() => vi.fn(() => ({ surface: { kind: 'host-published' } })))
 vi.mock('@/lib/launch-agent-in-new-tab', () => ({ launchAgentInNewTab: launch }))
 
-import { useNativeChatLongContextNotice } from './use-native-chat-long-context-notice'
+import {
+  useNativeChatLongContextNotice,
+  type NativeChatLongContextNoticeTransport
+} from './use-native-chat-long-context-notice'
 
 const MODEL: SessionOptionDescriptor = {
   id: 'model',
@@ -23,9 +25,8 @@ const MODEL: SessionOptionDescriptor = {
 function transport(
   sessionId: string,
   usedTokens: number,
-  overrides: Partial<NativeChatStructuredComposerTransport> = {}
-): NativeChatStructuredComposerTransport {
-  // SAFETY: the hook reads only the fields set here.
+  overrides: Partial<NativeChatLongContextNoticeTransport> = {}
+): NativeChatLongContextNoticeTransport {
   return {
     sessionId,
     worktreeId: 'wt',
@@ -41,10 +42,10 @@ function transport(
     dispatchCommand: vi.fn(async () => ({ handled: true, accepted: true, error: null })),
     onError: vi.fn(),
     ...overrides
-  } as unknown as NativeChatStructuredComposerTransport
+  }
 }
 
-function render(initial: NativeChatStructuredComposerTransport) {
+function render(initial: NativeChatLongContextNoticeTransport) {
   return renderHook(
     ({ value }) =>
       useNativeChatLongContextNotice({ transport: value, tabId: 'tab', agent: 'codex' }),

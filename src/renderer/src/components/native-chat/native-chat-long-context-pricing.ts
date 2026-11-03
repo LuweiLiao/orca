@@ -40,7 +40,9 @@ export function nativeChatLongContextPricing(
 }
 
 export function useNativeChatLongContextPricing(
-  transport: NativeChatStructuredComposerTransport | undefined
+  transport:
+    | Pick<NativeChatStructuredComposerTransport, 'contextUsage' | 'optionSnapshot'>
+    | undefined
 ): NativeChatLongContextPricing | null {
   const contextUsage = transport?.contextUsage
   const optionSnapshot = transport?.optionSnapshot

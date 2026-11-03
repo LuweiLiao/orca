@@ -61,13 +61,25 @@ function launchNewChat(tabId: string, worktreeId: string, agent: TuiAgent): void
   }
 }
 
+export type NativeChatLongContextNoticeTransport = Pick<
+  NativeChatStructuredComposerTransport,
+  | 'sessionId'
+  | 'worktreeId'
+  | 'contextUsage'
+  | 'optionSnapshot'
+  | 'conversationCommands'
+  | 'dispatchCommand'
+  | 'onError'
+  | 'sendOut'
+>
+
 /** Warns when the chat nears or passes its model's long-context price tier, offering /compact and a new chat. */
 export function useNativeChatLongContextNotice({
   transport,
   tabId,
   agent
 }: {
-  transport: NativeChatStructuredComposerTransport | undefined
+  transport: NativeChatLongContextNoticeTransport | undefined
   tabId: string | undefined
   agent: string | undefined
 }): NativeChatComposerNotice | null {
