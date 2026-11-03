@@ -75,6 +75,7 @@ export function NativeChatAssistantMessageRow({
       )}
     >
       <NativeChatImageAttachments
+        messageId={message.id}
         blocks={prose}
         runtimeContext={imageRuntimeContext}
         enablePreview={imageRuntimeContext !== undefined}

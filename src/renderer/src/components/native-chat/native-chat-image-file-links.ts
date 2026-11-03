@@ -8,7 +8,7 @@ import { remarkNativeChatFileLinks } from '@/components/sidebar/comment-markdown
 type MarkdownNode = {
   type: string
   url?: string
-  alt?: string
+  alt?: string | null
   children?: MarkdownNode[]
 }
 

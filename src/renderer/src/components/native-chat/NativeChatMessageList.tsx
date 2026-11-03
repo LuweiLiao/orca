@@ -3,6 +3,7 @@ import {
   NATIVE_CHAT_TRANSCRIPT_COLUMN_CLASS
 } from './native-chat-appearance-style'
 import { NativeChatJumpToLatest } from './NativeChatJumpToLatest'
+import { NativeChatTranscriptProviders } from './NativeChatTranscriptProviders'
 import { NativeChatNewRowsAnnouncement } from './NativeChatNewRowsMarker'
 import { useNativeChatRowTypography } from './use-native-chat-row-typography'
 import { useCallback, useMemo, useRef, useState } from 'react'
@@ -18,10 +19,7 @@ import { NativeChatAwaitingInputRow } from './NativeChatAwaitingInputRow'
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client-types'
 import type { NativeChatTurnActivity } from '../../../../shared/native-chat-turn-activity'
 import { NativeChatTurnActivityLine } from './NativeChatTurnActivityLine'
-import {
-  NativeChatDisclosureContext,
-  useNativeChatDisclosures
-} from './native-chat-disclosure-store'
+import { useNativeChatDisclosures } from './native-chat-disclosure-store'
 import {
   NativeChatTranscriptItems,
   NativeChatWaitingTranscriptItems
@@ -374,7 +372,7 @@ export function NativeChatMessageList({
   })
 
   return (
-    <NativeChatDisclosureContext.Provider value={disclosures}>
+    <NativeChatTranscriptProviders {...{ disclosures, messages, isVisible }}>
       <div className="relative flex min-h-0 flex-1 flex-col bg-chat-canvas">
         <div className="relative min-h-0 flex-1">
           <div
@@ -434,6 +432,6 @@ export function NativeChatMessageList({
         </div>
         <NativeChatDockedTaskList key={session.sessionId} messages={messages} />
       </div>
-    </NativeChatDisclosureContext.Provider>
+    </NativeChatTranscriptProviders>
   )
 }

@@ -18,6 +18,7 @@ type ExpandableMarkdownImageProps = {
   triggerAttributes?: Record<`data-${string}`, string | undefined>
   triggerRef?: React.Ref<HTMLButtonElement>
   triggerStyle?: React.CSSProperties
+  hideTrigger?: boolean
   dialogProps?: Omit<
     React.ComponentProps<typeof PanZoomImageDialog>,
     'open' | 'onOpenChange' | 'src' | 'title' | 'showTitle'
@@ -43,6 +44,7 @@ export function ExpandableMarkdownImage({
   triggerAttributes,
   triggerRef,
   triggerStyle,
+  hideTrigger = false,
   dialogProps
 }: ExpandableMarkdownImageProps): React.JSX.Element {
   const [internalOpen, setInternalOpen] = React.useState(false)
@@ -58,41 +60,43 @@ export function ExpandableMarkdownImage({
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        style={triggerStyle}
-        type="button"
-        {...triggerAttributes}
-        className={cn(
-          'my-3 block max-w-full cursor-zoom-in border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          triggerClassName
-        )}
-        onClick={(event) => {
-          event.stopPropagation()
-          onClick?.(event)
-          if (!event.defaultPrevented) {
-            event.preventDefault()
-            setOpen(true)
+      {!hideTrigger && (
+        <button
+          ref={triggerRef}
+          style={triggerStyle}
+          type="button"
+          {...triggerAttributes}
+          className={cn(
+            'my-3 block max-w-full cursor-zoom-in border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            triggerClassName
+          )}
+          onClick={(event) => {
+            event.stopPropagation()
+            onClick?.(event)
+            if (!event.defaultPrevented) {
+              event.preventDefault()
+              setOpen(true)
+            }
+          }}
+          onAuxClick={onAuxClick}
+          aria-label={
+            triggerLabel ??
+            translate('auto.components.sidebar.MarkdownImageLightbox.expand', 'Expand image')
           }
-        }}
-        onAuxClick={onAuxClick}
-        aria-label={
-          triggerLabel ??
-          translate('auto.components.sidebar.MarkdownImageLightbox.expand', 'Expand image')
-        }
-      >
-        {src ? (
-          <img
-            src={src}
-            alt={alt ?? ''}
-            className={cn(className, 'pointer-events-none')}
-            onError={onError}
-            onLoad={onLoad}
-          />
-        ) : (
-          <span className="text-sm text-muted-foreground">{label}</span>
-        )}
-      </button>
+        >
+          {src ? (
+            <img
+              src={src}
+              alt={alt ?? ''}
+              className={cn(className, 'pointer-events-none')}
+              onError={onError}
+              onLoad={onLoad}
+            />
+          ) : (
+            <span className="text-sm text-muted-foreground">{label}</span>
+          )}
+        </button>
+      )}
       <PanZoomImageDialog
         {...dialogProps}
         open={open}

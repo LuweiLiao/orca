@@ -19,8 +19,12 @@ test('image CLI publishes without an agent turn and receives a real renderer ack
   const stopCapture = await startHiddenRendererFrameCapture(page)
   const file = path.join(testRepoPath, 'cli-result.png')
   const corrupt = path.join(testRepoPath, 'cli-corrupt.png')
+  const second = path.join(testRepoPath, 'cli-second.png')
+  const third = path.join(testRepoPath, 'cli-third.png')
   copyFileSync(path.resolve('docs/site/public/docs/ways-to-run-run-on.png'), file)
   copyFileSync(path.resolve('package.json'), corrupt)
+  copyFileSync(file, second)
+  copyFileSync(file, third)
   try {
     await page.evaluate(async () => {
       await window
@@ -73,6 +77,42 @@ test('image CLI publishes without an agent turn and receives a real renderer ack
       .getByRole('dialog', { name: 'CLI plot' })
       .getByRole('button', { name: 'Close', exact: true })
       .click()
+    await cli(['show', second, '--title', 'Second plot', '--id', 'second'])
+    await cli(['show', third, '--title', 'Third plot', '--id', 'third'])
+    await preview.click()
+    const gallery = page.getByRole('dialog')
+    await expect(gallery.getByRole('button', { name: 'Previous image' })).toBeDisabled()
+    await gallery.getByRole('button', { name: 'Next image' }).click()
+    await expect(page.getByRole('dialog', { name: 'Second plot' })).toBeVisible()
+    await expect(gallery.getByRole('img', { name: 'Second plot' })).toHaveJSProperty(
+      'complete',
+      true
+    )
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByRole('dialog', { name: 'Third plot' })).toBeVisible()
+    await expect(gallery.getByRole('button', { name: 'Next image' })).toBeDisabled()
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.getByRole('dialog', { name: 'Second plot' })).toBeVisible()
+    await gallery.getByRole('button', { name: 'Zoom in' }).click()
+    await gallery.getByRole('button', { name: 'Previous image' }).click()
+    await expect(page.getByRole('dialog', { name: 'CLI plot' })).toBeVisible()
+    await expect(gallery.getByRole('button', { name: 'Fit to screen' })).toBeDisabled()
+    await page.screenshot({
+      path: testInfo.outputPath('image-gallery-arrows.png'),
+      animations: 'disabled'
+    })
+    await page.evaluate(() => window.__store!.getState().updateSettingsOrThrow({ theme: 'dark' }))
+    await electronApp.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0]?.setContentSize(720, 900)
+    )
+    await expect(gallery.getByRole('button', { name: 'Next image' })).toBeInViewport()
+    await expect(gallery.getByRole('button', { name: 'Previous image' })).toBeInViewport()
+    await page.screenshot({
+      path: testInfo.outputPath('image-gallery-dark-narrow.png'),
+      animations: 'disabled'
+    })
+    await page.keyboard.press('Escape')
+    await expect(gallery).toHaveCount(0)
     await cli(['show', corrupt, '--id', 'bad-image'])
     await expect.poll(async () => (await cli(['status', 'bad-image'])).state).toBe('failed')
     await page.reload()
@@ -89,5 +129,7 @@ test('image CLI publishes without an agent turn and receives a real renderer ack
     await stopCapture()
     rmSync(file, { force: true })
     rmSync(corrupt, { force: true })
+    rmSync(second, { force: true })
+    rmSync(third, { force: true })
   }
 })

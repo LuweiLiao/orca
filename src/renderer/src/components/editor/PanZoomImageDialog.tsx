@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import { useAppStore } from '@/store'
+import { ImageViewerNavigationButtons, type ImageViewerNavigation } from './ImageViewerNavigation'
 import {
   IMAGE_VIEWER_ZOOM_STEP,
   MIN_IMAGE_VIEWER_ZOOM,
@@ -40,6 +41,9 @@ type PanZoomImageDialogProps = Omit<
   /** Shown instead of the image while it has no source or after it fails to load. */
   fallback?: React.ReactNode
   toolbarActions?: React.ReactNode
+  navigation?: ImageViewerNavigation
+  onImageLoad?: () => void
+  onImageError?: () => void
 }
 
 function ToolbarButton({
@@ -72,6 +76,10 @@ export function PanZoomImageDialog({
   background,
   fallback,
   toolbarActions,
+  navigation,
+  onImageLoad,
+  onImageError,
+  onKeyDown,
   onCloseAutoFocus,
   ...contentProps
 }: PanZoomImageDialogProps): React.JSX.Element {
@@ -82,6 +90,34 @@ export function PanZoomImageDialog({
         aria-describedby={undefined}
         {...contentProps}
         showCloseButton={false}
+        onKeyDown={(event) => {
+          onKeyDown?.(event)
+          if (
+            event.defaultPrevented ||
+            !navigation ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            (event.target instanceof HTMLElement &&
+              event.target.closest(
+                'input, textarea, select, [contenteditable="true"], [role="menu"]'
+              ))
+          ) {
+            return
+          }
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault()
+            event.stopPropagation()
+            event.currentTarget.focus({ preventScroll: true })
+            if (event.key === 'ArrowLeft' && navigation.hasPrevious) {
+              navigation.onPrevious()
+            }
+            if (event.key === 'ArrowRight' && navigation.hasNext) {
+              navigation.onNext()
+            }
+          }
+        }}
         className="h-[90dvh] w-[90vw] max-w-[90vw] overflow-hidden sm:max-w-[90vw]"
         onOpenAutoFocus={(event) => {
           // Why: a dialog opened without a trigger has nothing to return to, so remember the opener.
@@ -119,8 +155,11 @@ export function PanZoomImageDialog({
           background={background}
           fallback={fallback}
           toolbarActions={toolbarActions}
+          onImageLoad={onImageLoad}
+          onImageError={onImageError}
           onClose={() => onOpenChange(false)}
         />
+        {navigation ? <ImageViewerNavigationButtons navigation={navigation} /> : null}
       </DialogContent>
     </Dialog>
   )
@@ -134,10 +173,20 @@ function PanZoomImageCanvas({
   background,
   fallback,
   toolbarActions,
+  onImageLoad,
+  onImageError,
   onClose
 }: Pick<
   PanZoomImageDialogProps,
-  'src' | 'size' | 'title' | 'showTitle' | 'background' | 'fallback' | 'toolbarActions'
+  | 'src'
+  | 'size'
+  | 'title'
+  | 'showTitle'
+  | 'background'
+  | 'fallback'
+  | 'toolbarActions'
+  | 'onImageLoad'
+  | 'onImageError'
 > & { onClose: () => void }): React.JSX.Element {
   // Why: state, not a ref — the dialog portal mounts the canvas after this component's first effects.
   const [canvas, setCanvas] = useState<HTMLDivElement | null>(null)
@@ -291,12 +340,16 @@ function PanZoomImageCanvas({
             alt={title}
             draggable={false}
             onLoad={(event) => {
+              onImageLoad?.()
               const { naturalWidth: width, naturalHeight: height } = event.currentTarget
               if (width > 0 && height > 0) {
                 setLoaded({ src: imageSrc, size: { width, height } })
               }
             }}
-            onError={() => setFailedSrc(imageSrc)}
+            onError={() => {
+              setFailedSrc(imageSrc)
+              onImageError?.()
+            }}
             className={cn(
               'pointer-events-none absolute top-0 left-0 max-w-none select-none',
               !offset && 'invisible'

@@ -1,4 +1,8 @@
 {
+  "imageViewerNavigation": {
+    "previousImage": "이전 이미지",
+    "nextImage": "다음 이미지"
+  },
   "multiWindow": {
     "newWindow": "새 창",
     "openInNewWindow": "새 창에서 열기",

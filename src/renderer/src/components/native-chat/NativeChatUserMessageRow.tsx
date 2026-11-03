@@ -113,6 +113,7 @@ export function NativeChatUserMessageRow({
         {markdown ? (
           <>
             <NativeChatImageAttachments
+              messageId={message.id}
               blocks={prose}
               runtimeContext={runtimeContext}
               enablePreview={runtimeContext !== undefined}
@@ -135,6 +136,7 @@ export function NativeChatUserMessageRow({
           </>
         ) : (
           <NativeChatImageAttachments
+            messageId={message.id}
             blocks={prose}
             runtimeContext={runtimeContext}
             enablePreview={runtimeContext !== undefined}

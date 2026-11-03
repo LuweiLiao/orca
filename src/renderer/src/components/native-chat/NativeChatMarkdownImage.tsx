@@ -38,6 +38,9 @@ import { copyableNativeChatImageSrc, keepPreviewOpenForChatMenu } from './native
 import { resolveNativeChatFileLink } from './native-chat-file-link'
 import { useNativeChatFileLinkClick } from './use-native-chat-file-link-click'
 import { observeTranscriptVisibility } from './NativeChatTranscriptChrome'
+import type { PanZoomImageDialog } from '@/components/editor/PanZoomImageDialog'
+import { NativeChatImageGalleryContext } from './native-chat-image-gallery-context'
+import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
 
 export const NativeChatMarkdownImageLinkContext = createContext<string | undefined>(undefined)
 const IMAGE_ACCESS = chatImageAccess()
@@ -46,6 +49,10 @@ type MarkdownImageProps = {
   src?: string
   alt?: string
   onLinkClick?: CommentMarkdownLinkClickHandler
+  dialog?: Pick<
+    React.ComponentProps<typeof PanZoomImageDialog>,
+    'onOpenChange' | 'navigation' | 'onImageLoad' | 'onImageError'
+  >
 }
 
 export function NativeChatMarkdownImage(props: MarkdownImageProps): React.JSX.Element | null {
@@ -57,12 +64,12 @@ export function NativeChatMarkdownImage(props: MarkdownImageProps): React.JSX.El
     props.src.startsWith('//') && /^https?:$/.test(window.location.protocol)
       ? `${window.location.protocol}${props.src}`
       : props.src
-  if (isGitHubUserAttachmentUrl(props.src)) {
+  if (!props.dialog && isGitHubUserAttachmentUrl(props.src)) {
     return <GitHubUserAttachmentImage src={props.src} alt={props.alt} />
   }
   const identity = owner?.runtimeContext
     ? getLocalImageCacheKey(
-        props.src,
+        props.dialog ? 'gallery' : props.src,
         owner.runtimeContext.connectionId,
         owner.runtimeContext,
         IMAGE_ACCESS
@@ -70,7 +77,7 @@ export function NativeChatMarkdownImage(props: MarkdownImageProps): React.JSX.El
     : 'unresolved'
   return (
     <NativeChatMarkdownImagePreview
-      key={[owner?.sessionId, identity, src].join('\0')}
+      key={[owner?.sessionId, identity, props.dialog ? 'gallery' : src].join('\0')}
       {...props}
       src={src}
     />
@@ -80,11 +87,16 @@ export function NativeChatMarkdownImage(props: MarkdownImageProps): React.JSX.El
 function NativeChatMarkdownImagePreview({
   src,
   alt,
-  onLinkClick
+  onLinkClick,
+  dialog
 }: MarkdownImageProps): React.JSX.Element {
   const owner = useContext(NativeChatMarkdownImageOwnerContext)
   const linkedHref = useContext(NativeChatMarkdownImageLinkContext)
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = dialog ? true : ownOpen
+  const setOpen = dialog?.onOpenChange ?? setOwnOpen
+  const openGallery = useContext(NativeChatImageGalleryContext)
+  const messageId = useContext(NativeChatMarkdownRowKeyContext)
   const [near, setNear] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
   const [footprint, setFootprint] = useState<{ width: number; aspectRatio: string }>()
@@ -190,11 +202,15 @@ function NativeChatMarkdownImagePreview({
 
   return (
     <ExpandableMarkdownImage
+      hideTrigger={Boolean(dialog)}
       src={displaySrc}
       alt={title}
       open={open && visible}
       onOpenChange={(nextOpen) => {
         if (nextOpen) {
+          if (!dialog && src && openGallery?.({ source: src, messageId })) {
+            return
+          }
           handingOff.current = false
           setRetryKey((key) => key + 1)
         }
@@ -244,6 +260,9 @@ function NativeChatMarkdownImagePreview({
         }
       }}
       dialogProps={{
+        navigation: dialog?.navigation,
+        onImageLoad: dialog?.onImageLoad,
+        onImageError: dialog?.onImageError,
         fallback,
         onCloseAutoFocus: (event) => {
           if (handingOff.current) {

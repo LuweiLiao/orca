@@ -22,6 +22,8 @@ import { nativeChatImageLabel } from './native-chat-image-label'
 import { chatImageAccess } from '@/lib/local-file-access'
 import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
 import { reportNativeChatImageDisplay } from './native-chat-image-display-report'
+import { NativeChatImageGalleryContext } from './native-chat-image-gallery-context'
+import { createNativeChatFileHref } from '../../../../shared/native-chat-href-routing'
 
 type VisibilityListener = (isVisible: boolean) => void
 
@@ -106,13 +108,16 @@ function transcriptImageReleaseKey(
 function TranscriptImagePreview({
   block,
   runtimeContext,
+  messageId,
   fullSize = false
 }: {
   block: Extract<NativeChatBlock, { type: 'image-ref' }>
   runtimeContext: RuntimeFileOperationArgs | null | undefined
+  messageId?: string
   fullSize?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  const openGallery = useContext(NativeChatImageGalleryContext)
   const owner = useContext(NativeChatMarkdownImageOwnerContext)
   const [near, setNear] = useState(false)
   const [thumbnailErrorSrc, setThumbnailErrorSrc] = useState<string | null>(null)
@@ -180,7 +185,14 @@ function TranscriptImagePreview({
         aria-label={`${viewImageLabel}: ${label}`}
         title={label}
         data-native-chat-copy-image-src={copySrc}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          const gallerySource = block.path
+            ? createNativeChatFileHref(block.path, 'literal')
+            : source
+          if (!gallerySource || !openGallery?.({ source: gallerySource, messageId })) {
+            setOpen(true)
+          }
+        }}
         className={cn(
           'flex items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           fullSize ? 'w-full' : 'size-full'
@@ -216,11 +228,13 @@ function TranscriptImagePreview({
 
 export function NativeChatImageAttachments({
   blocks,
+  messageId,
   runtimeContext,
   enablePreview = runtimeContext !== undefined,
   fullSize = false
 }: {
   blocks: NativeChatBlock[]
+  messageId?: string
   runtimeContext?: RuntimeFileOperationArgs | null
   /** Keep legacy terminal chips unchanged until that lane opts into previews. */
   enablePreview?: boolean
@@ -271,6 +285,7 @@ export function NativeChatImageAttachments({
           <TranscriptImagePreview
             key={`${imageKeyBase}-${identity}-${occurrence}`}
             block={image}
+            messageId={messageId}
             fullSize={fullSize}
             runtimeContext={runtimeContext}
           />

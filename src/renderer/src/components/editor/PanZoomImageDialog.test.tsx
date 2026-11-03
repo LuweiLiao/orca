@@ -41,6 +41,43 @@ function sizeCanvas(): HTMLElement {
 }
 
 describe('PanZoomImageDialog', () => {
+  it('navigates by arrows or keys, keeps boundaries and leaves inputs alone', async () => {
+    const navigation = { hasPrevious: false, hasNext: true, onPrevious: vi.fn(), onNext: vi.fn() }
+    const { rerender } = render(
+      <PanZoomImageDialog
+        open
+        onOpenChange={() => {}}
+        src="blob:first"
+        title="First"
+        navigation={navigation}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Previous image' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Next image' }))
+    expect(navigation.onNext).toHaveBeenCalledOnce()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowLeft' })
+    expect(navigation.onPrevious).not.toHaveBeenCalled()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowRight' })
+    expect(navigation.onNext).toHaveBeenCalledTimes(2)
+    const input = document.createElement('input')
+    screen.getByRole('dialog').append(input)
+    fireEvent.keyDown(input, { key: 'ArrowRight' })
+    expect(navigation.onNext).toHaveBeenCalledTimes(2)
+    input.remove()
+    rerender(
+      <PanZoomImageDialog
+        open
+        onOpenChange={() => {}}
+        src="blob:last"
+        title="Last"
+        navigation={{ ...navigation, hasPrevious: true, hasNext: false }}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Next image' })).toBeDisabled()
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowLeft' })
+    expect(navigation.onPrevious).toHaveBeenCalledOnce()
+  })
+
   it('fits a photo by the size it reports on load, then zooms it', async () => {
     const user = userEvent.setup()
     render(

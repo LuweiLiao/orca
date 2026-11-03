@@ -1,4 +1,8 @@
 {
+  "imageViewerNavigation": {
+    "previousImage": "Imagem anterior",
+    "nextImage": "Próxima imagem"
+  },
   "multiWindow": {
     "newWindow": "Nova janela",
     "openInNewWindow": "Abrir em uma nova janela",

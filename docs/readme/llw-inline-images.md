@@ -6,6 +6,15 @@ the agent does not have to write image Markdown. Existing workspace and runtime
 ownership decides which host supplies the bytes. Assistant result images use a
 large preview with the existing full-size viewer on click.
 
+The full-size viewer has previous/next buttons and Left/Right arrow shortcuts.
+It follows image order across the currently loaded conversation, including image
+attachments, successful tool outputs, Markdown images and automatic image-path
+previews. Images in rows outside the rendered scroll window remain reachable.
+The viewer reads each selected image through the conversation's existing runtime
+owner, fits it to the screen on every change, and retains copy/file actions.
+The first and last images disable the corresponding button; a single image has
+no navigation buttons. Switching away from the chat closes its viewer.
+
 ## Agent CLI
 
 ```sh
