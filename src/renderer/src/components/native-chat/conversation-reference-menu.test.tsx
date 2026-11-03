@@ -30,6 +30,8 @@ import {
 } from './native-chat-composer-draft-storage'
 import { promptValue } from './native-chat-prompt-editor.test-support'
 import { ConversationReferenceChatPane } from './conversation-reference-chat-pane.test-support'
+import { useAppStore } from '@/store'
+import { agentSessionTabFixture } from './native-chat-workspace-test-fixtures'
 
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
@@ -243,6 +245,80 @@ const rowKinds = [
 ] as const
 
 describe.each(rowKinds)('Reference conversation on a %s', (_kind, renderAgentRow) => {
+  it('drags a finished structured chat into a composer without live provider metadata', async () => {
+    const originalTabs = useAppStore.getState().unifiedTabsByWorktree
+    useAppStore.setState({
+      unifiedTabsByWorktree: {
+        'wt-1': [
+          agentSessionTabFixture('tab-1', 'wt-1', {
+            entityId: 'claude_finished',
+            agentSessionAgent: 'claude',
+            executionHostId: 'local'
+          })
+        ]
+      }
+    })
+    try {
+      writeNativeChatDraftCache('a', 'Keep this draft ')
+      const row = agentRow({ providerSession: undefined })
+      row.rowSource = 'retained'
+      render(
+        <TooltipProvider>
+          <ChatPane id="a" visible focused />
+          {renderAgentRow(row, () => {})}
+        </TooltipProvider>
+      )
+      const source = screen.getByText('Earlier conversation').closest('[draggable]')
+      expect(source).not.toBeNull()
+      expect(source?.getAttribute('draggable')).toBe('true')
+      const values = new Map<string, string>()
+      const types: string[] = []
+      const transfer = {
+        effectAllowed: 'none',
+        dropEffect: 'none',
+        types,
+        setData: (type: string, value: string) => {
+          values.set(type, value)
+          types.push(type)
+        },
+        getData: (type: string) => values.get(type) ?? ''
+      }
+      if (!source) {
+        throw new Error('Conversation row missing')
+      }
+      const drag = new Event('dragstart', { bubbles: true, cancelable: true })
+      Object.defineProperty(drag, 'dataTransfer', { value: transfer })
+      fireEvent(source, drag)
+      expect(transfer.effectAllowed).toBe('copy')
+      expect(types).toHaveLength(1)
+      const target = screen
+        .getByTestId('chat-a')
+        .querySelector('[data-conversation-reference-drop]')
+      if (!target) {
+        throw new Error('Composer drop target missing')
+      }
+      const over = new Event('dragover', { bubbles: true, cancelable: true })
+      Object.defineProperty(over, 'dataTransfer', { value: transfer })
+      fireEvent(target, over)
+      expect(transfer.dropEffect).toBe('copy')
+      const drop = new Event('drop', { bubbles: true, cancelable: true })
+      Object.defineProperty(drop, 'dataTransfer', { value: transfer })
+      fireEvent(target, drop)
+      await waitFor(() =>
+        expect(pillIn('a')?.querySelector('.truncate')?.textContent).toBe(reference.title)
+      )
+      expect(create).toHaveBeenCalledWith({
+        source: { kind: 'structured', sessionId: 'claude_finished', workspaceId: 'wt-1' },
+        executionHostId: 'local',
+        title: 'Earlier conversation'
+      })
+      expect(promptValue(editorIn('a'))).toContain('Keep this draft')
+      expect(sent).not.toHaveBeenCalled()
+    } finally {
+      useAppStore.setState({ unifiedTabsByWorktree: originalTabs })
+    }
+  })
+
   it('opens its own menu inside the workspace card and adds a pill to the focused chat', async () => {
     const parentMenu = vi.fn()
     const parentClick = vi.fn()
@@ -267,7 +343,9 @@ describe.each(rowKinds)('Reference conversation on a %s', (_kind, renderAgentRow
       title: 'Earlier conversation',
       executionHostId: 'local'
     })
-    await waitFor(() => expect(pillIn('a')?.textContent).toBe(reference.title))
+    await waitFor(() =>
+      expect(pillIn('a')?.querySelector('.truncate')?.textContent).toBe(reference.title)
+    )
     expect(promptValue(editorIn('a'))).toContain('Keep this draft')
     expect(promptValue(editorIn('a'))).toContain(token)
     expect(sent).not.toHaveBeenCalled()
@@ -544,7 +622,7 @@ describe('Reference conversation answered late', () => {
     )
 
     view.rerender(<Panes active="a" />)
-    expect(pillIn('a')?.textContent).toBe(reference.title)
+    expect(pillIn('a')?.querySelector('.truncate')?.textContent).toBe(reference.title)
     expect(promptValue(editorIn('a'))).toContain('Keep this draft')
     expect(sendIn('a').hasAttribute('disabled')).toBe(false)
     expect(sent).not.toHaveBeenCalled()

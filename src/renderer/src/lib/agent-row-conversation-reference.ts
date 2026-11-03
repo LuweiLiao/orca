@@ -11,13 +11,9 @@ import { structuredAgentSessionOwnerForTab } from '@/runtime/structured-agent-se
 import { runtimeEnvironmentIdOrLocalUnlessTwin } from './worktree-runtime-owner'
 import { useAppStore } from '@/store'
 
-/** Whether the row names a conversation a reference could be made from, read without the store. */
+/** Finished chats retain their conversation identity after live execution ownership ends. */
 export function canReferenceAgentRow(row: DashboardAgentRow): boolean {
-  return (
-    row.rowSource !== 'subagent' &&
-    (row.entry.structuredHostOwned === true ||
-      (Boolean(row.entry.providerSession) && isAiVaultAgent(row.agentType)))
-  )
+  return agentRowConversationReference(row) !== null
 }
 
 export function agentRowConversationReference(
@@ -39,6 +35,14 @@ export function agentRowConversationReference(
       source: { kind: 'structured', sessionId: tab.entityId, workspaceId: tab.worktreeId },
       title: label,
       executionHostId: owner
+    }
+  }
+  if (row.structuredSession) {
+    const session = row.structuredSession
+    return {
+      source: { kind: 'structured', sessionId: session.sessionId, workspaceId: session.worktreeId },
+      title: label,
+      executionHostId: session.executionHostId
     }
   }
   const provider = row.entry.providerSession

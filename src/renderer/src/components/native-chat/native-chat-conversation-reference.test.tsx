@@ -87,7 +87,8 @@ describe('conversation references in the editor', () => {
       )
     )
     expect(
-      screen.container.querySelector('[data-native-chat-conversation-reference]')?.textContent
+      screen.container.querySelector('[data-native-chat-conversation-reference] .truncate')
+        ?.textContent
     ).toBe(reference.title)
     expect(create).toHaveBeenCalledWith(source)
   })
@@ -106,7 +107,8 @@ describe('conversation references in the editor', () => {
     )
     await waitFor(() => expect(field.current).not.toBeNull())
     expect(
-      screen.container.querySelector('[data-native-chat-conversation-reference]')?.textContent
+      screen.container.querySelector('[data-native-chat-conversation-reference] .truncate')
+        ?.textContent
     ).toBe(reference.title)
     expect(field.current!.value).toBe(`Compare ${conversationReferenceToken(reference)}`)
   })
