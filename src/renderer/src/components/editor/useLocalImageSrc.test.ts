@@ -126,6 +126,40 @@ describe('getLocalImageCacheKey', () => {
 })
 
 describe('loadLocalImageSrc', () => {
+  it('never exposes the previous image while a different image is still loading', async () => {
+    const next = deferred<PreviewResult>()
+    setReadFile(vi.fn().mockResolvedValueOnce(binaryPreview()).mockReturnValue(next.promise))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:first')
+    const container = document.createElement('div')
+    const root = createRoot(container)
+    const renders: (string | undefined)[] = []
+    const render = (src: string) =>
+      root.render(
+        createElement(HookProbe, {
+          src,
+          filePath: '/repo/docs/readme.md',
+          onRender: (value) => renders.push(value)
+        })
+      )
+    await act(async () => {
+      render('first.png')
+      await flushPromises()
+    })
+    expect(renders.at(-1)).toBe('blob:first')
+    renders.length = 0
+    await act(async () => {
+      render('second.png')
+      await flushPromises()
+    })
+    expect(renders.length).toBeGreaterThan(0)
+    expect(renders.every((value) => value === undefined)).toBe(true)
+    await act(async () => {
+      next.resolve(binaryPreview())
+      await flushPromises()
+    })
+    act(() => root.unmount())
+  })
+
   it('shares one pending read and one blob URL for duplicate local image loads', async () => {
     const read = deferred<PreviewResult>()
     const readFile = vi.fn().mockReturnValue(read.promise)

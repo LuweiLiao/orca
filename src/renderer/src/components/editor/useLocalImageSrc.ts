@@ -124,18 +124,20 @@ export function useLocalImageSrc(
     return onImageCacheInvalidated(() => setGeneration(getLocalImageCacheGeneration()))
   }, [])
 
-  const [displaySrc, setDisplaySrc] = useState<string | undefined>(
-    () => externalSrc ?? (cacheKey ? blobUrlCache.get(cacheKey) : undefined)
-  )
+  const sourceKey = externalSrc ?? cacheKey
+  const [display, setDisplay] = useState(() => ({
+    key: sourceKey,
+    src: externalSrc ?? (cacheKey ? blobUrlCache.get(cacheKey) : undefined)
+  }))
 
   useEffect(() => {
     if (externalSrc || !cacheKey) {
-      setDisplaySrc(externalSrc)
+      setDisplay({ key: sourceKey, src: externalSrc })
       return
     }
     const cached = blobUrlCache.get(cacheKey)
     if (cached) {
-      setDisplaySrc(cached)
+      setDisplay({ key: sourceKey, src: cached })
       return
     }
 
@@ -146,20 +148,23 @@ export function useLocalImageSrc(
         if (cancelled) {
           return
         }
-        setDisplaySrc(getLocalImageCacheGeneration() === effectGeneration && url ? url : undefined)
+        setDisplay({
+          key: sourceKey,
+          src: getLocalImageCacheGeneration() === effectGeneration && url ? url : undefined
+        })
       })
       .catch(() => {
         if (!cancelled) {
-          setDisplaySrc(undefined)
+          setDisplay({ key: sourceKey, src: undefined })
         }
       })
 
     return () => {
       cancelled = true
     }
-  }, [cacheKey, externalSrc, generation, retryKey])
+  }, [cacheKey, externalSrc, generation, retryKey, sourceKey])
 
-  return displaySrc
+  return display.key === sourceKey ? display.src : undefined
 }
 
 /**
