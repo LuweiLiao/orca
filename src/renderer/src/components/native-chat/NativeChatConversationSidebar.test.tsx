@@ -74,7 +74,6 @@ describe('conversation capability sidebar', () => {
         disabledMcpServers: ['zotero']
       })
     )
-    await waitFor(() => expect(menu().hasAttribute('disabled')).toBe(false))
     fireEvent.pointerDown(menu(), { button: 0 })
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Enable all' }))
     expect(onChange).toHaveBeenLastCalledWith({ disabledSkills: [], disabledMcpServers: [] })

@@ -80,14 +80,13 @@ export function NativeChatConversationSidebar({
           {translate('components.native-chat.capabilitiesTitle', 'Skill / MCP')}
         </span>
         {capabilities ? (
-          <DropdownMenu modal={false}>
+          <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    disabled={pending}
                     aria-label={translate(
                       'components.native-chat.capabilitiesMore',
                       'More actions'
@@ -103,11 +102,13 @@ export function NativeChatConversationSidebar({
             </Tooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
+                disabled={pending}
                 onSelect={() => void change({ disabledSkills: [], disabledMcpServers: [] })}
               >
                 {translate('components.native-chat.capabilitiesEnableAll', 'Enable all')}
               </DropdownMenuItem>
               <DropdownMenuItem
+                disabled={pending}
                 onSelect={() =>
                   void change({
                     disabledSkills: switchableNames(groups.skills),
