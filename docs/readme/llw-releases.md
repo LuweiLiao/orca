@@ -5,7 +5,11 @@ LLW publishes Windows x64 NSIS installers and Linux x64 Debian packages to
 commit and use the same increasing `ORCA_LOCAL_BUILD_VERSION`, for example
 `1.4.215-llw.20261031.3`.
 
-Packaged LLW builds check for updates automatically, download a complete newer
+Packaged LLW builds check for updates every minute, including checks due when
+the window regains focus or the computer wakes. Failed checks retry after two
+minutes, backing off to twelve minutes. Detection depends on connectivity and
+GitHub publishing/cache propagation; it is polling, not instant server push.
+They download a complete newer
 release in the background, and wait for the user to choose Restart to Update.
 Closing Orca does not install the update. Debian desktop installs use the system
 authentication dialog when applying the downloaded package. Headless servers

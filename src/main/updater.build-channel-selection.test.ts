@@ -25,7 +25,7 @@ vi.mock('./local-builds/local-build-switch', () => moduleFactories.localBuildSwi
 vi.mock('./local-builds/local-build-feed-server', () => moduleFactories.localBuildFeedServer())
 
 // Matches updater/updater-state.ts.
-const AUTO_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
+const AUTO_UPDATE_CHECK_INTERVAL_MS = 60_000
 
 warmUpdaterModule()
 
@@ -556,7 +556,7 @@ describe('updater', () => {
       })
     })
 
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(120_000)
 
     await vi.waitFor(() => {
       expect(fetchNewerReleaseTagsMock).toHaveBeenNthCalledWith(2, '1.4.120', 1, {

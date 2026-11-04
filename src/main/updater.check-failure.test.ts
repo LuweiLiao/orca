@@ -107,7 +107,7 @@ vi.mock('./updater-nudge', () => ({
   shouldApplyNudge: vi.fn().mockReturnValue(false)
 }))
 
-const ONE_HOUR_MS = 60 * 60 * 1000
+const RETRY_INTERVAL_MS = 120_000
 const THIRTY_SECONDS_MS = 30 * 1000
 const FRIENDLY_MESSAGE = "Couldn't reach the update server. Try again in a few minutes."
 const RELEASE_NOT_READY_MESSAGE =
@@ -314,7 +314,7 @@ describe('updater check failure handling', () => {
     await vi.advanceTimersByTimeAsync(THIRTY_SECONDS_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(ONE_HOUR_MS - THIRTY_SECONDS_MS)
+    await vi.advanceTimersByTimeAsync(RETRY_INTERVAL_MS - THIRTY_SECONDS_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
   })
 
@@ -342,12 +342,12 @@ describe('updater check failure handling', () => {
     expect(getUpdateStatus()).toEqual({ state: 'idle' })
     expect(statuses).not.toContainEqual(expect.objectContaining({ state: 'error' }))
 
-    await vi.advanceTimersByTimeAsync(ONE_HOUR_MS)
+    await vi.advanceTimersByTimeAsync(RETRY_INTERVAL_MS)
     expect(netFetchMock).toHaveBeenCalledTimes(4)
     expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled()
   })
 
-  it('backs off consecutive failing background retries instead of re-checking hourly forever', async () => {
+  it('backs off consecutive failing background retries and resets after a successful check', async () => {
     vi.useFakeTimers()
     makeBenignCheckFailure('Unable to find latest version on GitHub')
 
@@ -361,17 +361,17 @@ describe('updater check failure handling', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(ONE_HOUR_MS)
+    await vi.advanceTimersByTimeAsync(RETRY_INTERVAL_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(ONE_HOUR_MS)
+    await vi.advanceTimersByTimeAsync(RETRY_INTERVAL_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
-    await vi.advanceTimersByTimeAsync(ONE_HOUR_MS)
+    await vi.advanceTimersByTimeAsync(RETRY_INTERVAL_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
 
-    await vi.advanceTimersByTimeAsync(2 * ONE_HOUR_MS)
+    await vi.advanceTimersByTimeAsync(2 * RETRY_INTERVAL_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
-    await vi.advanceTimersByTimeAsync(2 * ONE_HOUR_MS)
+    await vi.advanceTimersByTimeAsync(2 * RETRY_INTERVAL_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(4)
 
     autoUpdaterMock.checkForUpdates.mockImplementation(() => {
@@ -389,7 +389,7 @@ describe('updater check failure handling', () => {
     checkForUpdates()
     await vi.advanceTimersByTimeAsync(0)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(6)
-    await vi.advanceTimersByTimeAsync(ONE_HOUR_MS)
+    await vi.advanceTimersByTimeAsync(RETRY_INTERVAL_MS)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(7)
   })
 })

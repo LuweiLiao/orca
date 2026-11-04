@@ -90,6 +90,58 @@ function claudeTranscript(rowCount: number, sessionId: string): string {
 }
 
 test.describe('Native chat message rail', () => {
+  test('centers the composer within the transcript when the capability sidebar changes', async ({
+    orcaPage
+  }) => {
+    await waitForSessionReady(orcaPage)
+    const worktreeId = await waitForActiveWorktree(orcaPage)
+    await ensureTerminalVisible(orcaPage)
+    await waitForActiveTerminalManager(orcaPage, 30_000)
+    const descriptor = await waitForActivePaneHookDescriptor(orcaPage)
+    const [tabId] = descriptor.paneKey.split(':')
+    const sessionId = `e2e-composer-center-${randomUUID()}`
+    const scratchDir = mkdtempSync(path.join(os.tmpdir(), 'orca-e2e-composer-center-'))
+    const transcriptPath = path.join(scratchDir, `${sessionId}.jsonl`)
+    writeFileSync(transcriptPath, claudeTranscript(6, sessionId))
+    await enableNativeChatSetting(orcaPage)
+    await seedClaudeProviderSession(orcaPage, {
+      paneKey: descriptor.paneKey,
+      worktreeId,
+      sessionId,
+      transcriptPath
+    })
+    await toggleTerminalTabToChatView(orcaPage, { tabId, worktreeId })
+    await orcaPage.evaluate(() => {
+      window.__store?.getState().setSidebarOpen(false)
+      window.__store?.getState().setRightSidebarOpen(false)
+    })
+    const chat = orcaPage.locator('[data-native-chat-root]')
+    const toggle = chat.getByRole('button', { name: /Skill.*MCP/ })
+    const difference = () =>
+      chat.evaluate((root) => {
+        const input = root
+          .querySelector('[data-conversation-reference-drop]')
+          ?.getBoundingClientRect()
+        const transcript = root.querySelector('[data-native-chat-scroll]')?.getBoundingClientRect()
+        return input && transcript
+          ? Math.abs(input.x + input.width / 2 - transcript.x - transcript.width / 2)
+          : Infinity
+      })
+    await orcaPage.setViewportSize({ width: 1920, height: 900 })
+    await toggle.click()
+    await expect(chat.getByText('Skill / MCP', { exact: true })).toHaveCount(1)
+    await expect.poll(() => chat.evaluate((root) => root.clientWidth)).toBeGreaterThan(768)
+    await expect.poll(difference).toBeLessThan(2)
+    mkdirSync(SHOT_DIR, { recursive: true })
+    await orcaPage.screenshot({ path: path.join(SHOT_DIR, 'composer-centered-wide.png') })
+    await toggle.click()
+    await expect.poll(difference).toBeLessThan(2)
+    await orcaPage.setViewportSize({ width: 540, height: 760 })
+    await toggle.click()
+    await expect.poll(difference).toBeLessThan(2)
+    await orcaPage.screenshot({ path: path.join(SHOT_DIR, 'composer-centered-narrow.png') })
+  })
+
   test('previews prompts and jumps without following later output', async ({ orcaPage }) => {
     await waitForSessionReady(orcaPage)
     await waitForActiveWorktree(orcaPage)

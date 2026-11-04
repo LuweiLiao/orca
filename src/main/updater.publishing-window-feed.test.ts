@@ -295,10 +295,10 @@ describe('updater', () => {
     })
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
     })
@@ -345,10 +345,10 @@ describe('updater', () => {
     )
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
     })
@@ -386,7 +386,7 @@ describe('updater', () => {
     expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled()
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(120_000)
 
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
@@ -464,7 +464,7 @@ describe('updater', () => {
       expect(setDismissedUpdateNudgeId).not.toHaveBeenCalled()
       expect(pendingNudgeId).toBe('campaign-1')
 
-      await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+      await vi.advanceTimersByTimeAsync(120_000)
 
       await vi.waitFor(() => {
         expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
@@ -532,7 +532,7 @@ describe('updater', () => {
     expect(setDismissedUpdateNudgeId).not.toHaveBeenCalled()
     expect(pendingNudgeId).toBe('campaign-1')
 
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(120_000)
 
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates.mock.calls.length).toBeGreaterThanOrEqual(2)
@@ -611,7 +611,7 @@ describe('updater', () => {
     expect(setDismissedUpdateNudgeId).not.toHaveBeenCalled()
     expect(pendingNudgeId).toBe('campaign-1')
 
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(120_000)
 
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates.mock.calls.length).toBeGreaterThanOrEqual(2)

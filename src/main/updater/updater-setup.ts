@@ -239,12 +239,13 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     void this.checkForUpdateNudge()
     this.scheduleUpdateNudgeCheck()
 
-    const checkDailyOnWake = () => {
+    const checkOnWake = () => {
       void this.checkForUpdateNudge()
       if (
         this.backgroundCheckLaunchPending ||
         this.currentStatus.state === 'checking' ||
-        this.currentStatus.state === 'downloading'
+        this.currentStatus.state === 'downloading' ||
+        this.currentStatus.state === 'downloaded'
       ) {
         return
       }
@@ -255,8 +256,8 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
         this.scheduleAutomaticUpdateCheck(AUTO_UPDATE_CHECK_INTERVAL_MS)
       }
     }
-    powerMonitor.on('resume', checkDailyOnWake)
-    app.on('browser-window-focus', checkDailyOnWake)
+    powerMonitor.on('resume', checkOnWake)
+    app.on('browser-window-focus', checkOnWake)
 
     const lastUpdateCheckAt = opts?.getLastUpdateCheckAt?.() ?? null
     const msSinceLastCheck =

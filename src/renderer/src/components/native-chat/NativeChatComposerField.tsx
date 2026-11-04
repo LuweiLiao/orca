@@ -257,7 +257,7 @@ export function NativeChatComposerField({
   const focusComposer = useCallback(() => textareaRef.current?.focus(), [textareaRef])
 
   return (
-    <div className="shrink-0 bg-chat-canvas">
+    <div data-native-chat-composer className="shrink-0 bg-chat-canvas">
       {/* Extra bottom padding keeps the input box off the window rim. */}
       <div className="px-3 pt-2 pb-4 sm:px-4">
         <div className="relative mx-auto w-full max-w-(--chat-content-max-width)">

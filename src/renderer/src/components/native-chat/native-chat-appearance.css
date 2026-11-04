@@ -12,6 +12,13 @@
   /* Icons, gaps and row heights follow the text: 4px at the default 14px. */
   --spacing: calc(var(--chat-ui-size) / 3.5);
   font-family: var(--chat-font-family, var(--font-sans));
+  container: native-chat / inline-size;
+}
+
+@container native-chat (min-width: 48rem) {
+  .native-chat-appearance:has([data-native-chat-sidebar-open='true']) [data-native-chat-composer] {
+    padding-right: calc(var(--spacing) * 72);
+  }
 }
 
 .native-chat-markdown pre {

@@ -93,23 +93,44 @@ describe('updater', () => {
     const { setupAutoUpdater } = await loadUpdaterModule()
 
     setupAutoUpdater(mainWindow as never, {
-      getLastUpdateCheckAt: () => Date.now() - 23 * 60 * 60 * 1000,
+      getLastUpdateCheckAt: () => Date.now() - 30_000,
       setLastUpdateCheckAt
     })
 
     expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(29_999)
     expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1)
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
     })
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
   })
 
-  it('deduplicates rapid focus-triggered daily checks before checking status arrives', async () => {
+  it('discovers a newly published release on the next minute without focus or restart', async () => {
+    let checks = 0
+    autoUpdaterMock.checkForUpdates.mockImplementation(() => {
+      autoUpdaterMock.emit('checking-for-update')
+      checks += 1
+      autoUpdaterMock.emit(checks === 1 ? 'update-not-available' : 'update-available', {
+        version: '1.0.61'
+      })
+      return Promise.resolve(null)
+    })
+    const { setupAutoUpdater } = await loadUpdaterModule()
+    setupAutoUpdater(null)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(59_000)
+    expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
+    expect(autoUpdaterMock.downloadUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('deduplicates rapid focus-triggered checks after one minute before checking status arrives', async () => {
     let lastUpdateCheckAt = Date.now()
     const mainWindow = { webContents: { send: vi.fn() } }
 
@@ -121,7 +142,7 @@ describe('updater', () => {
       getLastUpdateCheckAt: () => lastUpdateCheckAt
     })
 
-    lastUpdateCheckAt = Date.now() - 25 * 60 * 60 * 1000
+    lastUpdateCheckAt = Date.now() - 60_000
     appMock.emit('browser-window-focus')
     appMock.emit('browser-window-focus')
 
@@ -164,7 +185,7 @@ describe('updater', () => {
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
   })
 
-  it('retries background checks sooner after a failed automatic check', async () => {
+  it('retries a failed automatic check after two minutes', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-03T12:00:00Z'))
 
@@ -190,10 +211,10 @@ describe('updater', () => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
     })
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
     })
@@ -217,15 +238,15 @@ describe('updater', () => {
 
     const { setupAutoUpdater } = await loadUpdaterModule()
 
-    // Start 23h in to distinguish the result handler's re-arm from the initial startup timer.
+    // Start midway through the interval to distinguish result-handler scheduling from startup.
     setupAutoUpdater(mainWindow as never, {
-      getLastUpdateCheckAt: () => Date.now() - 23 * 60 * 60 * 1000,
+      getLastUpdateCheckAt: () => Date.now() - 30_000,
       setLastUpdateCheckAt
     })
 
     expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(30_000)
     await vi.waitFor(() => {
       expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
     })
@@ -241,11 +262,13 @@ describe('updater', () => {
     expect(autoUpdaterMock.quitAndInstall).not.toHaveBeenCalled()
     expect(autoUpdaterMock.autoInstallOnAppQuit).toBe(false)
 
-    await vi.advanceTimersByTimeAsync(23 * 60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(60_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
 
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    autoUpdaterMock.emit('update-downloaded', { version: '1.0.61' })
+    await vi.advanceTimersByTimeAsync(60_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(1)
+    expect(autoUpdaterMock.downloadUpdate).toHaveBeenCalledTimes(1)
   })
 
   it('does not disable Windows Authenticode verification on win32', async () => {

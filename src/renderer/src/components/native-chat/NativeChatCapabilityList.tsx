@@ -78,36 +78,31 @@ export function NativeChatCapabilityList({
   ]
   return (
     <section className="flex min-h-0 flex-col gap-2 border-b p-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium">
-          {translate('components.native-chat.capabilitiesTitle', 'Skill / MCP')}
-        </span>
-        {capabilities ? (
-          <div className="flex gap-1">
-            <Button
-              size="xs"
-              variant="ghost"
-              disabled={pending}
-              onClick={() => void change({ disabledSkills: [], disabledMcpServers: [] })}
-            >
-              {translate('components.native-chat.capabilitiesEnableAll', 'Enable all')}
-            </Button>
-            <Button
-              size="xs"
-              variant="ghost"
-              disabled={pending}
-              onClick={() =>
-                void change({
-                  disabledSkills: [...skills.keys()],
-                  disabledMcpServers: [...servers.keys()]
-                })
-              }
-            >
-              {translate('components.native-chat.capabilitiesDisableAll', 'Disable all')}
-            </Button>
-          </div>
-        ) : null}
-      </div>
+      {capabilities ? (
+        <div className="flex justify-end gap-1">
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => void change({ disabledSkills: [], disabledMcpServers: [] })}
+          >
+            {translate('components.native-chat.capabilitiesEnableAll', 'Enable all')}
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={pending}
+            onClick={() =>
+              void change({
+                disabledSkills: [...skills.keys()],
+                disabledMcpServers: [...servers.keys()]
+              })
+            }
+          >
+            {translate('components.native-chat.capabilitiesDisableAll', 'Disable all')}
+          </Button>
+        </div>
+      ) : null}
       <Input
         aria-label={translate('components.native-chat.capabilitiesSearch', 'Search skills and MCP')}
         placeholder={translate(

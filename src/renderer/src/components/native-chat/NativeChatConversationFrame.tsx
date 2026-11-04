@@ -32,7 +32,7 @@ export function NativeChatConversationFrame({
 }) {
   const [open, setOpen] = useState(controls !== undefined)
   return (
-    <div className="@container/chat relative min-h-0 flex-1">
+    <div data-native-chat-sidebar-open={open} className="@container/chat relative min-h-0 flex-1">
       <div className={`relative h-full ${open ? '@min-[48rem]/chat:pr-72' : ''}`}>
         <div className="absolute top-8 right-2 z-30">
           <Button

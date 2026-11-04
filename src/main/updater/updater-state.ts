@@ -9,10 +9,11 @@ import type { UpdateSource, UpdateStatus } from '../../shared/update-status-type
 import type { ReleaseChannel } from '../../shared/release-channel'
 import type { PrimaryEventSuppression, UpdateCheckVariant } from './updater-types'
 
-export const AUTO_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
-export const AUTO_UPDATE_RETRY_INTERVAL_MS = 60 * 60 * 1000
-// Why: a persistently-failing feed used to re-arm the retry at a fixed 1h cadence forever (issue #7576); backoff doubles per failure up to this cap, any completed check resets.
-export const MAX_AUTO_UPDATE_RETRY_INTERVAL_MS = 6 * 60 * 60 * 1000
+export {
+  AUTO_UPDATE_CHECK_INTERVAL_MS,
+  AUTO_UPDATE_RETRY_INTERVAL_MS,
+  MAX_AUTO_UPDATE_RETRY_INTERVAL_MS
+} from '../updater-check-intervals'
 export const NUDGE_POLL_INTERVAL_MS = 30 * 60 * 1000
 export const NUDGE_ACTIVATION_COOLDOWN_MS = 5 * 60 * 1000
 export const QUIT_AND_INSTALL_DELAY_MS = 100

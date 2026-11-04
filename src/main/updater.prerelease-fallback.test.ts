@@ -147,10 +147,10 @@ describe('updater', () => {
       expect(statuses).toContainEqual({ state: 'idle' })
     })
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
   })
 
@@ -304,10 +304,10 @@ describe('updater', () => {
     expect(statuses).not.toContainEqual(expect.objectContaining({ state: 'error' }))
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
   })
 
@@ -402,10 +402,10 @@ describe('updater', () => {
       expect.objectContaining({ state: 'error', message: missingManifest.message })
     )
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
   })
 
@@ -507,10 +507,10 @@ describe('updater', () => {
 
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
   })
 
@@ -562,10 +562,10 @@ describe('updater', () => {
 
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
   })
 
@@ -621,10 +621,10 @@ describe('updater', () => {
 
     expect(setLastUpdateCheckAt).not.toHaveBeenCalled()
 
-    await vi.advanceTimersByTimeAsync(59 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(119_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(2)
 
-    await vi.advanceTimersByTimeAsync(60 * 1000)
+    await vi.advanceTimersByTimeAsync(1_000)
     expect(autoUpdaterMock.checkForUpdates).toHaveBeenCalledTimes(3)
   })
 
