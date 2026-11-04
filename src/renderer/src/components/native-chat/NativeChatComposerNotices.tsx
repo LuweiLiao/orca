@@ -45,12 +45,14 @@ export function NativeChatPromptSlotNotices({
   notices: readonly NativeChatComposerNotice[]
 }): React.JSX.Element {
   return (
-    <div
-      className={cn(
-        notices.length > 0 && 'mx-auto w-full max-w-(--chat-content-max-width) px-3 pt-2 sm:px-4'
-      )}
-    >
-      <NativeChatComposerNotices notices={notices} />
+    <div data-native-chat-dock>
+      <div
+        className={cn(
+          notices.length > 0 && 'mx-auto w-full max-w-(--chat-content-max-width) px-3 pt-2 sm:px-4'
+        )}
+      >
+        <NativeChatComposerNotices notices={notices} />
+      </div>
     </div>
   )
 }

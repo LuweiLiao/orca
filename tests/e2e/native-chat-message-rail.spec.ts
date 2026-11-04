@@ -103,6 +103,33 @@ test.describe('Native chat message rail', () => {
     const scratchDir = mkdtempSync(path.join(os.tmpdir(), 'orca-e2e-composer-center-'))
     const transcriptPath = path.join(scratchDir, `${sessionId}.jsonl`)
     writeFileSync(transcriptPath, claudeTranscript(6, sessionId))
+    // A task list docks above the composer, so it must follow the composer's column.
+    appendFileSync(
+      transcriptPath,
+      `${JSON.stringify({
+        sessionId,
+        uuid: `${sessionId}-todos`,
+        type: 'assistant',
+        timestamp: new Date().toISOString(),
+        message: {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool_use',
+              id: 'todo-write',
+              name: 'TodoWrite',
+              input: {
+                todos: [
+                  { content: 'Center the docks', status: 'in_progress', activeForm: 'Centering' },
+                  { content: 'Check the composer', status: 'pending', activeForm: 'Checking' }
+                ]
+              }
+            }
+          ]
+        }
+      })}
+`
+    )
     await enableNativeChatSetting(orcaPage)
     await seedClaudeProviderSession(orcaPage, {
       paneKey: descriptor.paneKey,
@@ -117,15 +144,22 @@ test.describe('Native chat message rail', () => {
     })
     const chat = orcaPage.locator('[data-native-chat-root]')
     const toggle = chat.getByRole('button', { name: /Skill.*MCP/ })
+    await expect(
+      chat.locator('[data-native-chat-dock]:not([data-native-chat-composer])')
+    ).toHaveCount(1)
+    // The input box and every dock above it share the transcript's centre line.
     const difference = () =>
       chat.evaluate((root) => {
-        const input = root
-          .querySelector('[data-conversation-reference-drop]')
-          ?.getBoundingClientRect()
         const transcript = root.querySelector('[data-native-chat-scroll]')?.getBoundingClientRect()
-        return input && transcript
-          ? Math.abs(input.x + input.width / 2 - transcript.x - transcript.width / 2)
-          : Infinity
+        const boxes = [
+          root.querySelector('[data-conversation-reference-drop]'),
+          ...root.querySelectorAll('[data-native-chat-dock]:not([data-native-chat-composer])')
+        ].map((element) => element?.getBoundingClientRect())
+        if (!transcript || boxes.length < 2 || boxes.some((box) => !box)) {
+          return Infinity
+        }
+        const centre = transcript.x + transcript.width / 2
+        return Math.max(...boxes.map((box) => (box ? Math.abs(box.x + box.width / 2 - centre) : 0)))
       })
     await orcaPage.setViewportSize({ width: 1920, height: 900 })
     await toggle.click()

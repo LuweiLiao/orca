@@ -78,6 +78,7 @@ export function NativeChatThreadGoalBanner(props: {
     <div
       className="group/goal relative -mb-2 shrink-0 px-3 sm:px-4"
       data-native-chat-thread-goal={goal.status}
+      data-native-chat-dock
     >
       <div className="mx-auto w-full max-w-(--chat-content-max-width) px-2">
         {/* Right after the task strip, that strip's bottom border is this tab's top edge. */}

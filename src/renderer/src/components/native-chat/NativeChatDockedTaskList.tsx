@@ -14,7 +14,7 @@ export function NativeChatDockedTaskList({
     return null
   }
   return (
-    <div className="shrink-0 px-3 pb-2 sm:px-4">
+    <div data-native-chat-dock className="shrink-0 px-3 pb-2 sm:px-4">
       <div className="mx-auto w-full max-w-(--chat-content-max-width)">
         <NativeChatTaskList list={list} presentation="composer" />
       </div>

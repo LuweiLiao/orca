@@ -15,9 +15,14 @@
   container: native-chat / inline-size;
 }
 
+/* Every dock below the transcript centres in the same column the open sidebar leaves free. */
 @container native-chat (min-width: 48rem) {
-  .native-chat-appearance:has([data-native-chat-sidebar-open='true']) [data-native-chat-composer] {
-    padding-right: calc(var(--spacing) * 72);
+  .native-chat-appearance:has([data-native-chat-sidebar-open='true']) [data-native-chat-dock] {
+    margin-right: calc(var(--spacing) * 72);
+  }
+
+  .native-chat-appearance:has([data-native-chat-sidebar-open='true']) [data-native-chat-find-bar] {
+    right: calc(var(--spacing) * 76);
   }
 }
 

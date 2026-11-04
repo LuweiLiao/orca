@@ -214,6 +214,7 @@ export function NativeChatQuestionCard({
     <div
       ref={cardRef}
       data-native-chat-prompt-card-focus={shouldFocus || undefined}
+      data-native-chat-dock
       role="group"
       aria-label={q.question}
       tabIndex={-1}

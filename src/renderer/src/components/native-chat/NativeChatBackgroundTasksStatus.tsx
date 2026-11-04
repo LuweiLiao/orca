@@ -183,6 +183,7 @@ export function NativeChatBackgroundTasksStatus(props: {
   return (
     <div
       data-native-chat-background-tasks="true"
+      data-native-chat-dock
       className="group/tasks shrink-0 bg-chat-canvas px-3 pt-2 sm:px-4"
     >
       {/* When the goal tab is the next sibling, take its width and share its top edge. */}

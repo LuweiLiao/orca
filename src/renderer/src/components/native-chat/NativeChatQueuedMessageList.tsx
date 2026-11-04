@@ -100,7 +100,7 @@ export function NativeChatQueuedMessageList({
     }
   })
   return (
-    <div ref={regionRef} aria-live="polite">
+    <div ref={regionRef} data-native-chat-dock aria-live="polite">
       {cards.length > 0 ? (
         <div ref={queueRef} className="mx-auto w-full max-w-(--chat-content-max-width) px-4 py-1">
           {/* One box: the header is its first row, and each card a row below it. */}
