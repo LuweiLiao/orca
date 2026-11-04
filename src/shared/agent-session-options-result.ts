@@ -2,6 +2,7 @@ import type { AgentJournalCursor, AgentJournalThreadGoal } from './agent-session
 import type { AgentSessionConversationCommand } from './agent-session-conversation-command'
 import type { AgentSessionContextUsage } from './agent-session-context-usage'
 import type { AgentSessionRewindSupport } from './agent-session-rewind'
+import type { AgentSessionChatCapabilities } from './agent-session-chat-capabilities'
 import type {
   AgentSessionFastModeState,
   AgentSessionFastModeSupport,
@@ -11,6 +12,7 @@ import type {
 /** Provider-reported choices and effective next-turn values. Additive read-only
  *  surface so older hosts can reject it without changing structured v1 writes. */
 export type AgentSessionOptionsResult = {
+  chatCapabilities?: AgentSessionChatCapabilities
   rewind?: AgentSessionRewindSupport
   conversationCommands?: readonly AgentSessionConversationCommand[]
   /** Present only where this session can change its goal, so a host without

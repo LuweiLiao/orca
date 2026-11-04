@@ -22,6 +22,7 @@ import {
 import { structuredAgentSessionLaunchPermission } from './structured-agent-session-launch-permission'
 import type { StructuredAgentSessionMutationContext } from './structured-agent-session-host-mutations'
 import { structuredAgentSessionNeverSent } from './structured-agent-session-never-sent'
+import { chatCapabilitiesReport } from '../../../shared/agent-session-chat-capabilities'
 
 export {
   recordStructuredAgentSessionOptionIntent,
@@ -283,6 +284,7 @@ export async function readStructuredAgentSessionOptions(
   }
   return {
     ...options,
+    ...chatCapabilitiesReport(agent, saved.chatCapabilities, options.chatCapabilities),
     current: {
       ...current,
       defaulted,

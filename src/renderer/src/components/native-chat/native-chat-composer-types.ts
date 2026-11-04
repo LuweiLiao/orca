@@ -158,6 +158,7 @@ export type NativeChatLaunchSeed = {
 }
 
 export type NativeChatComposerHandle = {
+  insertSkill?: (name: string, path?: string) => boolean
   focus: () => boolean
   insertTypedText: (text: string) => boolean
   /** Whether the input is there and enabled, so text given to it lands. */

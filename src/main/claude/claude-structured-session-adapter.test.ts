@@ -27,6 +27,27 @@ import { invokeCanUseTool } from './claude-can-use-tool-test-support'
 import { claudeProviderHandle } from '../../shared/agent-session-provider-handle-encoding'
 
 describe('ClaudeStructuredSessionAdapter.acquire', () => {
+  it('restarts once for a changed conversation tool selection and preserves a matching launch', async () => {
+    const claude = fakeClaude()
+    const adapter = adapterFor(claude)
+    const selection = { disabledSkills: ['review', 'writing'], disabledMcpServers: ['zotero'] }
+    const options = { chatCapabilities: JSON.stringify(selection) }
+    await adapter.acquire({ identity: identityFor(), fence: 7, spawnToken: 'spawn-tools', options })
+    expect(adapter.requiresRestartForOptions('session-1', options)).toBe(false)
+    expect(
+      adapter.requiresRestartForOptions('session-1', {
+        chatCapabilities: JSON.stringify({ ...selection, disabledSkills: ['writing', 'review'] })
+      })
+    ).toBe(false)
+    expect(adapter.requiresRestartForOptions('session-1', undefined)).toBe(true)
+    expect(adapter.requiresRestartForOptions('other-conversation', options)).toBe(false)
+    expect(claude.connections[0].launch.options.settings).toMatchObject({
+      skillOverrides: { review: 'off', writing: 'off' },
+      deniedMcpServers: [{ serverName: 'zotero' }]
+    })
+    await adapter.closeSession('session-1')
+  })
+
   it('pins the account and proves init without treating the system-frame uuid as a chain leaf', async () => {
     const claude = fakeClaude()
     const events: ClaudeStructuredSessionEvent[] = []

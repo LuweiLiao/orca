@@ -87,6 +87,7 @@ export async function retireOutgrownStructuredAgentSessionChild(
       childWork: () => readonly AgentChildWorkView[] | undefined
     }
     launchPermission?: () => Promise<AgentChatPermissionMode | null>
+    optionsChanged?: () => boolean
     stopAgent: (sessionId: string) => Promise<void>
     logger: StructuredAgentSessionLogger
   }
@@ -95,6 +96,7 @@ export async function retireOutgrownStructuredAgentSessionChild(
     !session ||
     !(
       structuredAgentSessionChildReportedSignedOut(session) ||
+      deps.optionsChanged?.() === true ||
       (await launchedWithOtherPermissionMode(session.child, deps.launchPermission))
     ) ||
     structuredAgentSessionChildHasOpenWork(deps.work) ||

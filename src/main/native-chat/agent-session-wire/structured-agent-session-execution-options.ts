@@ -18,6 +18,7 @@ export function captureStructuredExecutionOptions(
     ...(saved.personality ? { personality: saved.personality } : {}),
     ...(saved.fastMode ? { fastMode: saved.fastMode } : {}),
     ...(saved.serviceTier ? { serviceTier: saved.serviceTier } : {}),
+    ...(saved.chatCapabilities ? { chatCapabilities: saved.chatCapabilities } : {}),
     ...supplied
   }
   const options = readAgentSessionExecutionOptions(candidate)

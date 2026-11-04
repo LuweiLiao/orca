@@ -15,6 +15,7 @@ import {
 } from './claude-structured-catalog-listing'
 import type { StructuredAgentSessionLiveOptions } from '../native-chat/agent-session-wire/structured-agent-session-adapter'
 import { decodeStructuredAgentSessionOptionValue } from '../../shared/structured-agent-session-option-codec'
+import { readChatSelection } from '../../shared/agent-session-chat-capabilities'
 
 /** Effort comes from settings; system/init omits it. */
 export function readClaudeSettingsEffort(settings: unknown): string | null {
@@ -123,7 +124,17 @@ export async function readClaudeStructuredSessionOptions(
   const readMutationSequence = session.optionMutationSequence
   const settings = await session.connection.getSettings({ timeoutMs }).catch(() => null)
   observeClaudeSettingsReadback(session, settings, readMutationSequence)
-  return claudeStructuredSessionOptionsFrom(session, null)
+  const mcpServers = await session.connection
+    .mcpServerStatus?.({ timeoutMs })
+    .catch(() => undefined)
+  return {
+    ...claudeStructuredSessionOptionsFrom(session, null),
+    chatCapabilities: {
+      selection: readChatSelection(session.options.get('chatCapabilities')),
+      skills: (session.commands.commands ?? []).filter((command) => command.kind === 'skill'),
+      mcpServers: (mcpServers ?? []).map(({ name, status }) => ({ name, status }))
+    }
+  }
 }
 
 function observeClaudeSettingsReadback(

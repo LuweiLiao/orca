@@ -25,13 +25,13 @@ export function useNativeChatComposerHandle(
   ref: ForwardedRef<NativeChatComposerHandle>,
   args: UseNativeChatComposerHandleArgs
 ): (event: ClipboardEventLike) => void {
-  const { textareaRef, isComposing, setDraft, setActiveSuggestion, ...pasteArgs } = args
+  const { textareaRef, isComposing, setDraft, setCaret, setActiveSuggestion, ...pasteArgs } = args
   const { insertTypedText, appendText, acceptsText, insertPastedText, focus, contains } =
     useNativeChatTypedInsertion({
       textareaRef,
       isComposing,
       setDraft,
-      setCaret: args.setCaret,
+      setCaret,
       setActiveSuggestion
     })
 
@@ -46,6 +46,7 @@ export function useNativeChatComposerHandle(
   })
   const { handlePaste: handlePasteEvent, pasteFromClipboard } = useNativeChatComposerPaste({
     ...pasteArgs,
+    setCaret,
     insertTypedText: insertPastedTextOrFile
   })
 
@@ -74,6 +75,18 @@ export function useNativeChatComposerHandle(
   useImperativeHandle(
     ref,
     () => ({
+      insertSkill: (token, path) => {
+        const input = textareaRef.current
+        if (!input || input.disabled || isComposing() || !input.insertSkill) {
+          return false
+        }
+        const at = input.selectionStart ?? input.value.length
+        input.insertSkill(at, input.selectionEnd ?? at, token, path)
+        setDraft(input.value)
+        setCaret(input.selectionStart ?? input.value.length)
+        input.focus()
+        return true
+      },
       focus,
       insertTypedText,
       acceptsText,
@@ -85,6 +98,10 @@ export function useNativeChatComposerHandle(
       contains
     }),
     [
+      isComposing,
+      setDraft,
+      setCaret,
+      textareaRef,
       focus,
       insertTypedText,
       acceptsText,

@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import type { AgentSessionOptionResult } from '../../../../shared/agent-session-wire'
 import type { AgentType } from '../../../../shared/agent-status-types'
+import { structuredChatCapabilitySelection } from './structured-chat-capability-selection'
 import { structuredAgentSessionSeedCatalog } from '../../../../shared/structured-agent-session-seed-catalog'
 import type { SessionOptionsSurface } from '../../../../shared/native-chat-session-options'
 import { AGENT_CHAT_PERMISSION_MODE_OPTION_ID } from '../../../../shared/agent-chat-permission-mode'
@@ -72,7 +73,8 @@ export function useStructuredAgentSessionOptions(args: {
     receiveCatalog,
     beginOptionWrite,
     isCurrentContext,
-    conversationSupport
+    conversationSupport,
+    setConversationSupport
   } = useStructuredAgentSessionOptionState({
     agent,
     optionCatalog,
@@ -288,6 +290,15 @@ export function useStructuredAgentSessionOptions(args: {
   const support =
     transportEnabled && conversationSupport?.sessionId === sessionId ? conversationSupport : null
   return {
+    chatCapabilities: support?.chatCapabilities,
+    setChatCapabilities: structuredChatCapabilitySelection({
+      sessionId,
+      mutate,
+      beginOptionWrite,
+      optionMutationGeneration,
+      isCurrentContext,
+      setConversationSupport
+    }),
     conversationCommands: support?.commands ?? [],
     /** Absent unless this host and session can change the goal. */
     threadGoal: support?.threadGoal,

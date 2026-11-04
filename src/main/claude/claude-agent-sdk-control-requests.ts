@@ -96,6 +96,7 @@ export type ClaudeControlSurface = {
   getSettings: (options?: ClaudeControlOptions) => Promise<unknown>
   /** The `/context` breakdown; older CLIs reject the request and the caller shows nothing. */
   getContextUsage: (options?: ClaudeControlOptions) => Promise<unknown>
+  mcpServerStatus?: (options?: ClaudeControlOptions) => Promise<{ name: string; status: string }[]>
 }
 
 type InterruptingQuery = {
@@ -147,6 +148,8 @@ export function createClaudeControlSurface(query: Query): ClaudeControlSurface {
       runClaudeControl('initialize', () => query.initializationResult(), null),
     getContextUsage: (options) =>
       runClaudeControl('get_context_usage', () => query.getContextUsage(), options?.timeoutMs),
+    mcpServerStatus: (options) =>
+      runClaudeControl('mcp_status', () => query.mcpServerStatus(), options?.timeoutMs),
     getSettings: (options) => {
       const read = claudeQuerySettingsReader(query)
       return read

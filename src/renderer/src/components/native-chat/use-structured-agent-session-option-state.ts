@@ -88,6 +88,7 @@ export function useStructuredAgentSessionOptionState(args: {
     threadGoal: AgentSessionOptionsResult['threadGoal']
     reportedThreadGoal: AgentSessionOptionsResult['reportedThreadGoal']
     contextUsage: AgentSessionOptionsResult['contextUsage']
+    chatCapabilities: AgentSessionOptionsResult['chatCapabilities']
     acceptsImages: boolean | undefined
     rewind: AgentSessionRewindSupport
     /** The fence the read answered for; rewind support is only that runtime's. */
@@ -198,6 +199,7 @@ export function useStructuredAgentSessionOptionState(args: {
           threadGoal: result.threadGoal,
           reportedThreadGoal: result.reportedThreadGoal,
           contextUsage: result.contextUsage,
+          chatCapabilities: result.chatCapabilities,
           acceptsImages: result.acceptsImages,
           // A host that predates rewind does not name it.
           rewind: result.rewind ?? { supported: false, reason: 'unsupported' },
@@ -292,6 +294,7 @@ export function useStructuredAgentSessionOptionState(args: {
     },
     takesSendOptions,
     conversationSupport,
+    setConversationSupport,
     receiveCatalog,
     beginOptionWrite,
     isCurrentContext,

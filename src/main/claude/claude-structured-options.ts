@@ -10,8 +10,9 @@ import type { ClaudeSession } from './claude-structured-session-state'
 import { decodeStructuredAgentSessionOptionValue } from '../../shared/structured-agent-session-option-codec'
 
 import { beginClaudeOptionMutation } from './claude-structured-execution-observations'
+import { CHAT_CAPABILITIES_OPTION } from '../../shared/agent-session-chat-capabilities'
 
-const OPTION_ORDER = ['model', 'effort', 'fastMode'] as const
+const OPTION_ORDER = ['model', 'effort', 'fastMode', CHAT_CAPABILITIES_OPTION] as const
 
 export function restoredClaudeStructuredSessionOptions(
   options: Readonly<Record<string, string>> | undefined
@@ -24,7 +25,7 @@ export function restoredClaudeStructuredSessionOptions(
   )
 }
 
-const CLAUDE_STRUCTURED_OPTION_KEYS = new Set(['model', 'effort', 'fastMode'])
+const CLAUDE_STRUCTURED_OPTION_KEYS = new Set<string>(OPTION_ORDER)
 
 export function isClaudeStructuredOptionKey(key: string): boolean {
   return CLAUDE_STRUCTURED_OPTION_KEYS.has(key)

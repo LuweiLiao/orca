@@ -104,16 +104,14 @@ export function useStructuredAgentSession(args: {
   const journalItems = transportState.journalItems
   const {
     conversationCommands,
-    optionSnapshot,
-    optionSurface,
-    setStructuredOption,
     sendSource,
     unavailable,
     threadGoal: threadGoalSupport,
     reportedThreadGoal,
     contextUsage: usageSupport,
     rewind: rewindSupport,
-    acceptsImages
+    acceptsImages,
+    ...optionControls
   } = useStructuredAgentSessionOptions({
     agent,
     sessionId,
@@ -322,11 +320,9 @@ export function useStructuredAgentSession(args: {
       }),
     respond: (item: StructuredPromptItem, response: AgentSessionPromptResponse) =>
       respondToStructuredAgentSessionPrompt({ item, response, action: admit() }),
-    optionSnapshot,
-    optionSurface,
+    ...optionControls,
     sessionCommands: transportEnabled ? (state.commands ?? undefined) : undefined,
     refreshCommands: () => refreshStructuredAgentSessionCommands(target, sessionId),
-    setStructuredOption,
     /** Why the host's catalog probe says no chat can start here; the chat shows it as a notice. */
     unavailable,
     threadGoal,

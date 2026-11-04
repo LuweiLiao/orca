@@ -129,6 +129,10 @@ export class StructuredAgentSessionAdapterRouter implements StructuredAgentSessi
 
   readCommands: NonNullable<StructuredAgentSessionAdapter['readCommands']> = (sessionId) =>
     this.liveOwnerOrNull(sessionId)?.readCommands?.(sessionId)
+  requiresRestartForOptions: NonNullable<
+    StructuredAgentSessionAdapter['requiresRestartForOptions']
+  > = (sessionId, options) =>
+    this.liveOwnerOrNull(sessionId)?.requiresRestartForOptions?.(sessionId, options) ?? false
 
   atRestCommands: StructuredAgentSessionAtRestCommands = {
     read: (record) =>

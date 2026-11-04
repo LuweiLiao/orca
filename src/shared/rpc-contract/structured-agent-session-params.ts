@@ -22,6 +22,10 @@ export {
   SessionId
 } from './structured-agent-session-identifiers'
 import { z } from 'zod'
+import {
+  CHAT_CAPABILITIES_MAX_LENGTH,
+  CHAT_CAPABILITIES_OPTION
+} from '../agent-session-chat-capabilities'
 import { CREATE_TAB_FIELDS } from './structured-agent-session-create-tab-params'
 import { isAgentSessionOptions } from '../agent-session-record'
 import { isStructuredAgentId } from '../agent-session-provider-handle-encoding'
@@ -46,17 +50,8 @@ const MAX_QUESTION_ANSWER_OPTIONS = 64
 /** One relaunch cannot offer more chats than a profile plausibly holds. */
 export const MAX_RESTART_RESUME_SESSIONS = 512
 
-export const MutationEnvelope = z
-  .object({
-    sessionId: SessionId,
-    clientOperationId: Identifier('Invalid client operation id'),
-    /** Null is the "must not exist yet" case; every other call fences. */
-    expectedRuntimeFence: z.number().int().positive().nullable(),
-    payloadFingerprint: z
-      .string()
-      .regex(/^[0-9a-f]{64}$/, 'Payload fingerprint must be a sha256 hex digest')
-  })
-  .strict()
+import { MutationEnvelope } from './structured-agent-session-envelope-params'
+export { MutationEnvelope } from './structured-agent-session-envelope-params'
 
 export const ProviderHandle = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('codex'), threadId: Identifier('Invalid thread id') }).strict(),
@@ -81,21 +76,17 @@ export const ExecutionHostId = z
     message: 'Invalid execution host id'
   })
 
-export const ExecutionLocation = z
-  .object({
-    executionHostId: ExecutionHostId,
-    wslDistro: Identifier('Invalid WSL distro').nullable(),
-    workspaceId: Identifier('Invalid workspace id'),
-    workspaceKind: z.enum(['git-worktree', 'folder'])
-  })
-  .strict()
+export const ExecutionLocation = z.strictObject({
+  executionHostId: ExecutionHostId,
+  wslDistro: Identifier('Invalid WSL distro').nullable(),
+  workspaceId: Identifier('Invalid workspace id'),
+  workspaceKind: z.enum(['git-worktree', 'folder'])
+})
 
-export const AccountHome = z
-  .object({
-    variable: z.enum(['CLAUDE_CONFIG_DIR', 'CODEX_HOME']),
-    path: z.string().min(1).max(4096)
-  })
-  .strict()
+export const AccountHome = z.strictObject({
+  variable: z.enum(['CLAUDE_CONFIG_DIR', 'CODEX_HOME']),
+  path: z.string().min(1).max(4096)
+})
 
 /** Attaching by a client-supplied handle stays Claude/Codex: only their handles have a wire form, and
  *  every client creates other agents by intent, which the host resolves. */
@@ -267,11 +258,19 @@ export const RespondToQuestionParams = z
     }
   })
 
-export const SetOptionParams = z.strictObject({
-  envelope: MutationEnvelope,
-  key: Identifier('Invalid option key'),
-  value: z.string().max(MAX_OPTION_LABEL)
-})
+export const SetOptionParams = z
+  .strictObject({
+    envelope: MutationEnvelope,
+    key: Identifier('Invalid option key'),
+    value: z.string().max(CHAT_CAPABILITIES_MAX_LENGTH)
+  })
+  .refine(
+    ({ key, value }) => key === CHAT_CAPABILITIES_OPTION || value.length <= MAX_OPTION_LABEL,
+    {
+      message: 'Option value is too long',
+      path: ['value']
+    }
+  )
 
 export const OptionsParams = z.object({ sessionId: SessionId }).strict()
 export const ItemParams = OptionsParams.extend({ itemId: z.string().min(1) }).strict()

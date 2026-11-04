@@ -102,6 +102,20 @@ export function createStructuredAgentSessionConversationDelivery(input: {
           const record = deps.store.getRecord(sessionId)
           return record ? structuredAgentSessionLaunchPermission(deps, record) : null
         },
+        optionsChanged: () => {
+          if (!session?.child || session.child.phase === 'starting' || session.child.close) {
+            return false
+          }
+          const work = hostStructuredAgentSessionCurrentWork(
+            { store: deps.store, sessions },
+            sessionId
+          )
+          const next = selectableStructuredSubmission(session.journal, work)
+          return (
+            next !== undefined &&
+            deps.adapter.requiresRestartForOptions?.(sessionId, next.options) === true
+          )
+        },
         stopAgent: input.stopOutgrownAgent,
         logger: deps.logger
       })

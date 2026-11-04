@@ -241,6 +241,10 @@ export type StructuredAgentSessionAdapter = StructuredAgentSessionAdapterStop & 
   holdsLiveProviderProcess?(sessionId: string, acquisitionGeneration: string): boolean
   /** Undefined preserves the client catalog when the provider reports none. */
   readCommands?(sessionId: string): AgentSessionSlashCommand[] | undefined
+  requiresRestartForOptions?(
+    sessionId: string,
+    options: Readonly<Record<string, string>> | undefined
+  ): boolean
   atRestCommands?: StructuredAgentSessionAtRestCommands
   /** Claim the live callback, build reply, commit journal CAS, then answer; reject unbuildable replies before commit. */
   answerPrompt(input: {

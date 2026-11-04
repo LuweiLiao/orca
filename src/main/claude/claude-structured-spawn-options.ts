@@ -6,6 +6,8 @@ import type {
 } from './claude-structured-launch-resolution'
 import type { ClaudeSession } from './claude-structured-session-state'
 import { restoredClaudeStructuredSessionOptions } from './claude-structured-options'
+import { claudeChatCapabilitySettings } from './claude-chat-capabilities'
+import { CHAT_CAPABILITIES_OPTION } from '../../shared/agent-session-chat-capabilities'
 
 const EFFORT_LEVELS: ReadonlySet<string> = new Set<EffortLevel>([
   'low',
@@ -71,6 +73,26 @@ export function claudeStructuredSpawnOptions(input: {
         sdkOptions.settings = { fastMode: decoded }
       } else {
         fastModeAtStart = true
+      }
+    }
+  }
+  const capabilities = saved.get(CHAT_CAPABILITIES_OPTION)
+  if (capabilities !== undefined) {
+    options.set(CHAT_CAPABILITIES_OPTION, capabilities)
+    if (
+      typeof sdkOptions.settings !== 'string' &&
+      !Object.hasOwn(sdkOptions.extraArgs ?? {}, 'settings')
+    ) {
+      sdkOptions.settings = {
+        ...sdkOptions.settings,
+        ...claudeChatCapabilitySettings(capabilities)
+      }
+    } else {
+      const selected = claudeChatCapabilitySettings(capabilities)
+      if (Object.keys(selected.skillOverrides ?? {}).length || selected.deniedMcpServers?.length) {
+        throw new Error(
+          'Conversation Skill/MCP selection cannot override an explicit --settings file. Remove the --settings argument or enable all capabilities for this conversation.'
+        )
       }
     }
   }

@@ -188,12 +188,14 @@ describe('retireOutgrownStructuredAgentSessionChild', () => {
     input: Parameters<typeof conversation>[0],
     work: Partial<typeof idle> = {},
     stopAgent = vi.fn(async () => undefined),
-    launchPermission?: () => Promise<AgentChatPermissionMode | null>
+    launchPermission?: () => Promise<AgentChatPermissionMode | null>,
+    optionsChanged?: () => boolean
   ) => {
     const warn = vi.fn()
     await retireOutgrownStructuredAgentSessionChild('session', conversation(input), {
       work: { ...idle, ...work },
       ...(launchPermission ? { launchPermission } : {}),
+      ...(optionsChanged ? { optionsChanged } : {}),
       stopAgent,
       logger: { warn, error: vi.fn() }
     })
@@ -202,6 +204,22 @@ describe('retireOutgrownStructuredAgentSessionChild', () => {
 
   it('stops a signed-out child that owes nothing', async () => {
     expect((await retire(signedOut)).stopAgent).toHaveBeenCalledWith('session')
+  })
+
+  it('restarts for a changed tool selection only after the current work settles', async () => {
+    const changed = () => true
+    expect((await retire({}, {}, undefined, undefined, changed)).stopAgent).toHaveBeenCalledWith(
+      'session'
+    )
+    expect(
+      (await retire({}, owing('active-turn', false), undefined, undefined, changed)).stopAgent
+    ).not.toHaveBeenCalled()
+    expect(
+      (await retire({}, { childWorkOpen: () => true }, undefined, undefined, changed)).stopAgent
+    ).not.toHaveBeenCalled()
+    expect(
+      (await retire({}, {}, undefined, undefined, () => false)).stopAgent
+    ).not.toHaveBeenCalled()
   })
 
   it('keeps it while it owes work the idle sweep also protects', async () => {

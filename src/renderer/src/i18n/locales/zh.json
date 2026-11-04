@@ -19644,7 +19644,21 @@
         "approaching": "上下文已有 {{used}} token。超过 {{threshold}} 后，每次请求都按长上下文 API 费率计费。",
         "compact": "压缩上下文",
         "newChat": "新开会话"
-      }
+      },
+      "capabilitiesEnableAll": "全部开启",
+      "capabilitiesDisableAll": "全部关闭",
+      "capabilitiesSearch": "搜索 Skill 和 MCP",
+      "capabilitiesUsed": "已使用",
+      "capabilitiesUseThisTurn": "本轮使用",
+      "capabilitiesNotReported": "尚未获取到列表",
+      "capabilitiesNextTurn": "更改在下一条消息生效。更换工具可能刷新提示缓存。",
+      "capabilitiesReadOnly": "当前主机或模型仅支持查看使用记录。",
+      "capabilitiesLoadedUsage": "使用次数仅统计已加载的消息。",
+      "conversationSidebar": "Skill、MCP 和时间线",
+      "messageTimeline": "消息时间线",
+      "capabilitiesSkills": "Skill",
+      "capabilitiesMcp": "MCP",
+      "capabilitiesTitle": "Skill / MCP"
     },
     "tab": {
       "bar": {

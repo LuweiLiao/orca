@@ -28,6 +28,37 @@ const FULL_ACCESS_LAUNCH: ClaudeStructuredSdkOptions = {
 }
 
 describe('a Claude chat launched with its saved options', () => {
+  it('refuses an unmerged settings file rather than claiming its tools were disabled', () => {
+    const chatCapabilities = JSON.stringify({ disabledSkills: [], disabledMcpServers: ['zotero'] })
+    expect(() =>
+      launched(
+        { chatCapabilities },
+        {
+          base: {
+            ...CLAUDE_STRUCTURED_BASE_OPTIONS,
+            extraArgs: { settings: '/custom/settings.json' }
+          }
+        }
+      )
+    ).toThrow('explicit --settings')
+  })
+  it("applies only this conversation's skill and MCP selection without changing launch defaults", () => {
+    const chatCapabilities = JSON.stringify({
+      disabledSkills: ['review'],
+      disabledMcpServers: ['zotero']
+    })
+    const base = { ...CLAUDE_STRUCTURED_BASE_OPTIONS, settings: { fastMode: false } }
+    const spawn = launched({ chatCapabilities }, { base })
+    expect(spawn.sdkOptions.settings).toEqual({
+      fastMode: false,
+      skillOverrides: { review: 'off' },
+      deniedMcpServers: [{ serverName: 'zotero' }]
+    })
+    expect(spawn.options.get('chatCapabilities')).toBe(chatCapabilities)
+    expect(base.settings).toEqual({ fastMode: false })
+    expect(launched({}).sdkOptions.settings).toBeUndefined()
+  })
+
   it('passes the saved model, effort and Fast as launch options', () => {
     const spawn = launched({ model: 'opus', effort: 'high', fastMode: 'true' })
 

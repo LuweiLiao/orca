@@ -20000,7 +20000,21 @@
         "approaching": "Context is {{used}} tokens. Past {{threshold}}, each request is billed at long-context API rates.",
         "compact": "Compact",
         "newChat": "New chat"
-      }
+      },
+      "capabilitiesEnableAll": "Enable all",
+      "capabilitiesDisableAll": "Disable all",
+      "capabilitiesSearch": "Search skills and MCP",
+      "capabilitiesUsed": "Used",
+      "capabilitiesUseThisTurn": "Use this turn",
+      "capabilitiesNotReported": "No entries reported yet",
+      "capabilitiesNextTurn": "Changes apply to the next message. Tool changes may refresh the prompt cache.",
+      "capabilitiesReadOnly": "This host or provider reports usage only.",
+      "capabilitiesLoadedUsage": "Usage counts cover loaded messages.",
+      "conversationSidebar": "Skills, MCP and timeline",
+      "messageTimeline": "Message timeline",
+      "capabilitiesSkills": "Skill",
+      "capabilitiesMcp": "MCP",
+      "capabilitiesTitle": "Skill / MCP"
     },
     "tab": {
       "bar": {

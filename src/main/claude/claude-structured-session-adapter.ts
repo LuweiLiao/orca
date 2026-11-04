@@ -11,6 +11,7 @@ import { releaseClaudeAcquisition } from './claude-structured-acquisition-releas
 import { acquireClaudeSession } from './claude-structured-session-acquisition'
 import { supportsClaudeStructuredLocation } from './claude-structured-location-support'
 import { setClaudeStructuredSessionOption } from './claude-structured-options'
+import { claudeChatSelectionRequiresRestart } from './claude-chat-capabilities'
 import { dispatchClaudeMessage } from './claude-structured-message-options'
 import { readClaudeStructuredSessionOptions } from './claude-structured-session-options'
 import {
@@ -188,6 +189,10 @@ export class ClaudeStructuredSessionAdapter implements StructuredAgentSessionAda
     this.sessions.has(sessionId) ? { supportsTaskStop: true, supportsStopAll: true } : undefined
   readCommands: NonNullable<StructuredAgentSessionAdapter['readCommands']> = (sessionId) =>
     this.sessions.get(sessionId)?.commands.commands
+  requiresRestartForOptions: NonNullable<
+    StructuredAgentSessionAdapter['requiresRestartForOptions']
+  > = (sessionId, options) =>
+    claudeChatSelectionRequiresRestart(this.sessions.get(sessionId), options)
   readonly atRestCommands: ClaudeStructuredSessionAdapterDeps['atRestCommands']
   holdsDispatch = (sessionId: string): boolean => claudeHoldsDispatch(this.sessions.get(sessionId))
   heldSends = (sessionId: string): ReadonlySet<string> | undefined => {

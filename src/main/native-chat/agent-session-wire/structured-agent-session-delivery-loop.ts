@@ -271,7 +271,8 @@ export class StructuredAgentSessionDeliveryLoop {
       }
     }
     if (
-      waitsForCodexTurnOptions(this.deps.record(sessionId), session.journal, next, awaitedChild)
+      waitsForCodexTurnOptions(this.deps.record(sessionId), session.journal, next, awaitedChild) ||
+      this.deps.adapter.requiresRestartForOptions?.(sessionId, next.options) === true
     ) {
       return this.stop(sessionId)
     }

@@ -14,6 +14,10 @@ import type { StructuredAgentSessionAdapter } from './structured-agent-session-a
 import { pickAgentSessionOption } from '../../runtime/agent-session-record-options'
 import { isAgentSessionRefusalError } from '../../../shared/agent-session-wire-refusals'
 import { withoutCreateOnlyOptions } from '../../../shared/claude-cli-launch-agents'
+import {
+  CHAT_CAPABILITIES_OPTION,
+  readChatSelection
+} from '../../../shared/agent-session-chat-capabilities'
 
 function acceptsOptionPick(
   agents: Pick<StructuredAgentRegistry, 'definition'>,
@@ -22,6 +26,13 @@ function acceptsOptionPick(
   value: string
 ): boolean {
   const definition = agents.definition(provider)
+  if (key === CHAT_CAPABILITIES_OPTION && provider === 'claude') {
+    try {
+      readChatSelection(value)
+    } catch {
+      return false
+    }
+  }
   return key === AGENT_CHAT_PERMISSION_MODE_OPTION_ID
     ? definition !== null &&
         agentChatPermissionModes(provider)?.modes.some((mode) => mode === value) === true

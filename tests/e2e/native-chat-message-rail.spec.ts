@@ -182,6 +182,70 @@ test.describe('Native chat message rail', () => {
       await expect.poll(targetOffset).toBeLessThan(4)
     }
 
+    appendFileSync(
+      transcriptPath,
+      `${JSON.stringify({
+        sessionId,
+        uuid: `${sessionId}-tool-usage`,
+        type: 'assistant',
+        timestamp: new Date().toISOString(),
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 'skill-use', name: 'Skill', input: { skill: 'humanizer' } },
+            {
+              type: 'tool_use',
+              id: 'mcp-use',
+              name: 'mcp__zotero__search',
+              input: { query: 'controls' }
+            }
+          ]
+        }
+      })}\n`
+    )
+    await orcaPage.evaluate(() => {
+      window.__store?.getState().setSidebarOpen(false)
+      window.__store?.getState().setRightSidebarOpen(false)
+    })
+    await orcaPage.setViewportSize({ width: 1280, height: 800 })
+    const sidebarToggle = orcaPage.getByRole('button', { name: /Skill.*MCP/ })
+    await sidebarToggle.click()
+    const sidebar = orcaPage.getByRole('complementary', { name: /Skill.*MCP/ })
+    const timeline = sidebar.getByRole('navigation')
+    await expect(sidebar.getByText('humanizer', { exact: true })).toBeVisible()
+    await expect(sidebar.getByText('zotero', { exact: true })).toBeVisible()
+    await expect(timeline.getByRole('button')).toHaveCount(30)
+    await timeline.getByRole('button', { name: /Question 12:/ }).click()
+    await expect.poll(offsetOf(transcriptWindow.locator('[data-index="24"]'))).toBeLessThan(4)
+    await orcaPage.screenshot({
+      path: path.join(SHOT_DIR, 'sidebar-wide.png'),
+      animations: 'disabled'
+    })
+    await orcaPage.setViewportSize({ width: 540, height: 760 })
+    await expect(timeline).toBeVisible()
+    await expect(sidebarToggle).toBeVisible()
+    await orcaPage.screenshot({
+      path: path.join(SHOT_DIR, 'sidebar-narrow.png'),
+      animations: 'disabled'
+    })
+    await sidebarToggle.click()
+    await expect(timeline).toHaveCount(0)
+    await sidebarToggle.click()
+    const lightSidebarBackground = await sidebar.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    )
+    await orcaPage.evaluate(async () => {
+      await window.__store?.getState().updateSettings({ theme: 'dark' })
+    })
+    await expect
+      .poll(() => sidebar.evaluate((element) => getComputedStyle(element).backgroundColor))
+      .not.toBe(lightSidebarBackground)
+    await orcaPage.setViewportSize({ width: 1280, height: 800 })
+    await orcaPage.screenshot({
+      path: path.join(SHOT_DIR, 'sidebar-dark.png'),
+      animations: 'disabled'
+    })
+
     console.log(`[rail] shots=${SHOT_DIR}`)
   })
 })

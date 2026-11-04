@@ -12,7 +12,7 @@ import { structuredAgentSessionDraftScopeKey } from './native-chat-composer-draf
 import { NativeChatEmptyState } from './NativeChatEmptyState'
 import { NativeChatEmptyPane } from './NativeChatEmptyPane'
 import { NativeChatLoadingCue } from './NativeChatLoadingCue'
-import { NativeChatComposerMessageList } from './NativeChatComposerMessageList'
+import { NativeChatStructuredTranscript } from './NativeChatStructuredTranscript'
 import { NativeChatContextClearFade } from './NativeChatContextClearFade'
 import { useStructuredNativeChatSubmitReveal } from './use-structured-native-chat-submit-reveal'
 import { useStructuredPromptResponseHold } from './use-structured-prompt-response-hold'
@@ -299,30 +299,24 @@ export function NativeChatStructuredSession(
             retrying={!readFailure?.final}
             {...(readFailure?.named ? { headline: readFailure.text } : {})}
           />
-        ) : viewState.kind === 'empty' ? (
-          <NativeChatEmptyPane slot={install.slot} agent={props.agent} />
         ) : (
           <NativeChatRewindContext.Provider value={controller.rewind.surface}>
             <NativeChatOrcaStopContext.Provider value={continuation.view}>
               <NativeChatClaudeSignInContext.Provider value={claudeSignIn}>
-                <NativeChatComposerMessageList
+                <NativeChatStructuredTranscript
                   // A rewind or a /clear replaces the conversation; nothing the old one held carries over.
                   key={`${controller.epoch}:${controller.contextClear.clears}`}
                   ref={submits.messageListRef}
                   composerRef={composerShown && !hostHeld ? composerRef : null}
                   session={session}
-                  journalItems={controller.journalItems}
-                  journalSubmissions={controller.submissions}
-                  journalLatestTurn={controller.latestTurn}
-                  journalHostWork={controller.hostWork}
-                  subagentRoster={controller.subagentRoster}
-                  railOutline={controller.railOutline}
-                  isVisible={props.isVisible}
-                  isWorking={controller.isWorking}
-                  workingStartedAt={controller.workingStartedAt}
-                  settledTurns={controller.settledTurns}
+                  emptyState={
+                    viewState.kind === 'empty' ? (
+                      <NativeChatEmptyPane slot={install.slot} agent={props.agent} />
+                    ) : undefined
+                  }
+                  controller={controller}
+                  view={props}
                   awaitingInput={prompt === null ? null : 'shown'}
-                  turnActivity={controller.turnActivity}
                   stopping={stopControls.stopping}
                   {...fileLinkProps}
                   runtimeContext={imageRuntimeContext}
