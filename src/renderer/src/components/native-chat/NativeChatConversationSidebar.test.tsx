@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { NativeChatConversationSidebar } from './NativeChatConversationSidebar'
 import { nativeChatCapabilityUsage } from './native-chat-capability-usage'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
@@ -27,24 +28,29 @@ function draw() {
   const onSelect = vi.fn()
   const onReveal = vi.fn()
   render(
-    <NativeChatConversationSidebar
-      messages={messages}
-      items={[{ id: 'old-user', slotIndex: null, text: 'Earlier question', hasImages: false }]}
-      activeId="old-user"
-      pendingId={null}
-      onSelect={onSelect}
-      onReveal={onReveal}
-      controls={{
-        capabilities: {
-          selection: { disabledSkills: [], disabledMcpServers: [] },
-          skills: [{ kind: 'skill', name: 'review', path: '/skills/review/SKILL.md' }],
-          mcpServers: [{ name: 'zotero', status: 'connected' }]
-        },
-        onChange,
-        onUseSkill,
-        canUseSkill: true
-      }}
-    />
+    <TooltipProvider>
+      <NativeChatConversationSidebar
+        messages={messages}
+        items={[{ id: 'old-user', slotIndex: null, text: 'Earlier question', hasImages: false }]}
+        activeId="old-user"
+        pendingId={null}
+        onSelect={onSelect}
+        onReveal={onReveal}
+        controls={{
+          capabilities: {
+            selection: { disabledSkills: [], disabledMcpServers: [] },
+            skills: [{ kind: 'skill', name: 'review', path: '/skills/review/SKILL.md' }],
+            mcpServers: [
+              { name: 'zotero', status: 'connected' },
+              { name: 'cua_repl', status: 'connected', locked: 'plugin' }
+            ]
+          },
+          onChange,
+          onUseSkill,
+          canUseSkill: true
+        }}
+      />
+    </TooltipProvider>
   )
   return { onChange, onUseSkill, onSelect, onReveal }
 }
@@ -57,22 +63,22 @@ describe('conversation capability sidebar', () => {
     expect(usage.skills.size).toBe(1)
   })
 
-  it('disables all groups in one conversation mutation and restores the defaults', async () => {
+  it('disables every switchable entry in one mutation and restores the defaults', async () => {
     const { onChange } = draw()
-    fireEvent.click(screen.getByRole('button', { name: 'Disable all' }))
+    const menu = () => screen.getByRole('button', { name: 'More actions' })
+    fireEvent.pointerDown(menu(), { button: 0 })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Disable all' }))
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith({
         disabledSkills: ['review'],
         disabledMcpServers: ['zotero']
       })
     )
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Enable all' }).hasAttribute('disabled')).toBe(
-        false
-      )
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Enable all' }))
+    await waitFor(() => expect(menu().hasAttribute('disabled')).toBe(false))
+    fireEvent.pointerDown(menu(), { button: 0 })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Enable all' }))
     expect(onChange).toHaveBeenLastCalledWith({ disabledSkills: [], disabledMcpServers: [] })
+    expect(screen.queryByRole('switch', { name: 'MCP: cua_repl' })).toBeNull()
   })
 
   it('inserts a skill through the composer callback and reveals recorded usage', () => {

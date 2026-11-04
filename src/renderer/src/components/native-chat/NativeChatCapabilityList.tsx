@@ -1,15 +1,22 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { CornerDownLeft, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import type {
   AgentSessionChatCapabilities,
+  AgentSessionChatEntryLock,
   AgentSessionChatSelection
 } from '../../../../shared/agent-session-chat-capabilities'
 import type { AgentSessionSlashCommand } from '../../../../shared/agent-session-wire'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
-import { nativeChatCapabilityUsage } from './native-chat-capability-usage'
+import {
+  nativeChatCapabilityUsage,
+  type NativeChatCapabilityUse
+} from './native-chat-capability-usage'
+import { NativeChatSidebarSection } from './NativeChatSidebarSection'
 
 export type NativeChatCapabilityControls = {
   capabilities?: AgentSessionChatCapabilities
@@ -19,190 +26,274 @@ export type NativeChatCapabilityControls = {
   canUseSkill: boolean
 }
 
-export function NativeChatCapabilityList({
-  messages,
-  controls,
-  onReveal
-}: {
-  messages: readonly NativeChatMessage[]
-  controls?: NativeChatCapabilityControls
-  onReveal: (messageId: string) => void
-}) {
-  const [query, setQuery] = useState('')
-  const [pending, setPending] = useState(false)
+type SelectionKey = keyof AgentSessionChatSelection
+
+type CapabilityRow = {
+  name: string
+  detail?: string
+  status?: string
+  locked?: AgentSessionChatEntryLock
+  path?: string
+  used?: NativeChatCapabilityUse
+}
+
+export type NativeChatCapabilityGroups = {
+  skills: CapabilityRow[]
+  mcpServers: CapabilityRow[]
+}
+
+const EMPTY_SELECTION: AgentSessionChatSelection = { disabledSkills: [], disabledMcpServers: [] }
+
+/** Every entry the provider reported, one the selection names, or one the transcript used. */
+export function useNativeChatCapabilityGroups(
+  messages: readonly NativeChatMessage[],
+  controls: NativeChatCapabilityControls | undefined
+): NativeChatCapabilityGroups {
   const usage = useMemo(() => nativeChatCapabilityUsage(messages), [messages])
   const capabilities = controls?.capabilities
-  const selection = capabilities?.selection ?? { disabledSkills: [], disabledMcpServers: [] }
-  const skills = new Map(
-    [...(controls?.commands ?? []), ...(capabilities?.skills ?? [])]
-      .filter((command) => command.kind === 'skill')
-      .map((skill) => [skill.name, skill])
+  const selection = capabilities?.selection ?? EMPTY_SELECTION
+  const skills = new Map<string, CapabilityRow>()
+  for (const command of [...(controls?.commands ?? []), ...(capabilities?.skills ?? [])]) {
+    if (command.kind === 'skill') {
+      skills.set(command.name, {
+        name: command.name,
+        ...(command.description ? { detail: command.description } : {}),
+        ...(command.path ? { path: command.path } : {})
+      })
+    }
+  }
+  const servers = new Map<string, CapabilityRow>(
+    (capabilities?.mcpServers ?? []).map((server) => [
+      server.name,
+      {
+        name: server.name,
+        ...(server.status ? { status: server.status } : {}),
+        ...(server.locked ? { locked: server.locked } : {})
+      }
+    ])
   )
-  for (const name of [...selection.disabledSkills, ...usage.skills.keys()]) {
-    if (!skills.has(name)) {
-      skills.set(name, { name, kind: 'skill' })
+  const complete = (rows: Map<string, CapabilityRow>, names: Iterable<string>) => {
+    for (const name of names) {
+      if (!rows.has(name)) {
+        rows.set(name, { name })
+      }
     }
   }
-  const servers = new Map(
-    (capabilities?.mcpServers ?? []).map((server) => [server.name, server.status])
-  )
-  for (const name of [...selection.disabledMcpServers, ...usage.mcpServers.keys()]) {
-    if (!servers.has(name)) {
-      servers.set(name, '')
-    }
+  complete(skills, [...selection.disabledSkills, ...usage.skills.keys()])
+  complete(servers, [...selection.disabledMcpServers, ...usage.mcpServers.keys()])
+  const withUse = (rows: Map<string, CapabilityRow>, uses: Map<string, NativeChatCapabilityUse>) =>
+    [...rows.values()].map((row) => {
+      const used = uses.get(row.name)
+      return used ? { ...row, used } : row
+    })
+  return {
+    skills: withUse(skills, usage.skills),
+    mcpServers: withUse(servers, usage.mcpServers)
   }
-  const change = async (next: AgentSessionChatSelection) => {
-    if (!controls || pending) {
-      return
-    }
-    setPending(true)
-    try {
-      await controls.onChange(next)
-    } finally {
-      setPending(false)
-    }
+}
+
+/** The names "Disable all" turns off: every entry that can be switched. */
+export function switchableNames(rows: readonly CapabilityRow[]): string[] {
+  return rows.filter((row) => !row.locked).map((row) => row.name)
+}
+
+function mcpStatusLabel(status: string): string {
+  switch (status) {
+    case 'connected':
+      return translate('components.native-chat.capabilitiesStatusConnected', 'Connected')
+    case 'pending':
+      return translate('components.native-chat.capabilitiesStatusPending', 'Starting')
+    case 'failed':
+      return translate('components.native-chat.capabilitiesStatusFailed', 'Failed')
+    case 'needs-auth':
+      return translate('components.native-chat.capabilitiesStatusNeedsAuth', 'Sign-in required')
+    case 'disabled':
+      return translate('components.native-chat.capabilitiesStatusDisabled', 'Off')
+    default:
+      return status
   }
-  const groups = [
-    {
-      title: translate('components.native-chat.capabilitiesSkills', 'Skill'),
-      key: 'disabledSkills' as const,
-      rows: [...skills.keys()],
-      uses: usage.skills
-    },
-    {
-      title: translate('components.native-chat.capabilitiesMcp', 'MCP'),
-      key: 'disabledMcpServers' as const,
-      rows: [...servers.keys()],
-      uses: usage.mcpServers
-    }
-  ]
+}
+
+function lockLabel(lock: AgentSessionChatEntryLock): string {
+  switch (lock) {
+    case 'plugin':
+      return translate(
+        'components.native-chat.capabilitiesLockedPlugin',
+        'Provided by a plugin; switch it in the plugin settings'
+      )
+    case 'config-disabled':
+      return translate(
+        'components.native-chat.capabilitiesLockedConfig',
+        'Turned off in the agent configuration'
+      )
+    default:
+      return translate(
+        'components.native-chat.capabilitiesLockedUnsupported',
+        'This entry cannot be switched for one conversation'
+      )
+  }
+}
+
+function matches(row: CapabilityRow, query: string): boolean {
+  const needle = query.trim().toLowerCase()
   return (
-    <section className="flex min-h-0 flex-col gap-2 border-b p-3">
-      {capabilities ? (
-        <div className="flex justify-end gap-1">
-          <Button
-            size="xs"
-            variant="ghost"
-            disabled={pending}
-            onClick={() => void change({ disabledSkills: [], disabledMcpServers: [] })}
-          >
-            {translate('components.native-chat.capabilitiesEnableAll', 'Enable all')}
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
-            disabled={pending}
-            onClick={() =>
-              void change({
-                disabledSkills: [...skills.keys()],
-                disabledMcpServers: [...servers.keys()]
-              })
-            }
-          >
-            {translate('components.native-chat.capabilitiesDisableAll', 'Disable all')}
-          </Button>
-        </div>
-      ) : null}
-      <Input
-        aria-label={translate('components.native-chat.capabilitiesSearch', 'Search skills and MCP')}
-        placeholder={translate(
-          'components.native-chat.capabilitiesSearch',
-          'Search skills and MCP'
-        )}
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      <div className="scrollbar-sleek min-h-0 overflow-y-auto">
-        {groups.map((group) => (
-          <div key={group.key} className="space-y-1 py-2">
-            <div className="text-xs font-medium text-muted-foreground">
-              {group.title} · {group.rows.length}
-            </div>
-            {group.rows
-              .filter((name) => name.toLowerCase().includes(query.toLowerCase()))
-              .map((name) => {
-                const enabled = !selection[group.key].includes(name)
-                const used = group.uses.get(name)
-                const skill = group.key === 'disabledSkills' ? skills.get(name) : undefined
-                return (
-                  <div key={name} className="flex items-center gap-2 py-1">
-                    {capabilities ? (
-                      <Switch
-                        aria-label={`${group.title}: ${name}`}
-                        checked={enabled}
-                        disabled={pending}
-                        onCheckedChange={(checked) =>
-                          void change({
-                            ...selection,
-                            [group.key]: checked
-                              ? selection[group.key].filter((item) => item !== name)
-                              : [...selection[group.key], name]
-                          })
-                        }
-                      />
-                    ) : null}
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs" title={skill?.description ?? name}>
-                        {name}
-                      </div>
-                      {group.key === 'disabledMcpServers' && servers.get(name) ? (
-                        <div className="text-xs text-muted-foreground">{servers.get(name)}</div>
-                      ) : null}
+    needle.length === 0 ||
+    row.name.toLowerCase().includes(needle) ||
+    (row.detail?.toLowerCase().includes(needle) ?? false)
+  )
+}
+
+export function NativeChatCapabilitySection({
+  title,
+  selectionKey,
+  rows,
+  query,
+  controls,
+  pending,
+  onChange,
+  onReveal
+}: {
+  title: string
+  selectionKey: SelectionKey
+  rows: readonly CapabilityRow[]
+  query: string
+  controls?: NativeChatCapabilityControls
+  pending: boolean
+  onChange: (selection: AgentSessionChatSelection) => void
+  onReveal: (messageId: string) => void
+}) {
+  const capabilities = controls?.capabilities
+  const selection = capabilities?.selection ?? EMPTY_SELECTION
+  const disabled = new Set(selection[selectionKey])
+  const enabledCount = rows.filter((row) => !row.locked && !disabled.has(row.name)).length
+  const switchable = rows.filter((row) => !row.locked).length
+  const visible = rows.filter((row) => matches(row, query))
+  return (
+    <NativeChatSidebarSection
+      title={title}
+      count={capabilities && switchable > 0 ? `${enabledCount}/${rows.length}` : `${rows.length}`}
+    >
+      {visible.length === 0 ? (
+        <p className="px-3 py-1.5 text-xs text-muted-foreground">
+          {rows.length === 0
+            ? translate('components.native-chat.capabilitiesNotReported', 'No entries reported yet')
+            : translate('components.native-chat.capabilitiesNoMatch', 'No matches')}
+        </p>
+      ) : (
+        <ul className="px-1.5 pb-1">
+          {visible.map((row) => {
+            const enabled = !row.locked && !disabled.has(row.name)
+            const isSkill = selectionKey === 'disabledSkills'
+            const secondary = row.status ? mcpStatusLabel(row.status) : row.detail
+            return (
+              <li
+                key={row.name}
+                className="group/capability flex min-h-8 items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-accent"
+              >
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={cn(
+                      'truncate text-xs',
+                      capabilities && !enabled ? 'text-muted-foreground' : 'text-foreground'
+                    )}
+                    title={row.detail ? `${row.name}\n${row.detail}` : row.name}
+                  >
+                    {row.name}
+                  </div>
+                  {secondary ? (
+                    <div
+                      className={cn(
+                        'truncate text-2xs text-muted-foreground',
+                        row.status === 'failed' && 'text-chat-warning'
+                      )}
+                    >
+                      {secondary}
                     </div>
-                    {used ? (
+                  ) : null}
+                </div>
+                {row.used ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
                       <Button
                         size="xs"
                         variant="ghost"
-                        onClick={() => onReveal(used.messageId)}
-                        aria-label={`${name}: ${translate('components.native-chat.capabilitiesUsed', 'Used')} ${used.count}`}
+                        className="h-5 shrink-0 px-1.5 text-2xs text-muted-foreground tabular-nums"
+                        aria-label={`${row.name}: ${translate('components.native-chat.capabilitiesUsed', 'Used')} ${row.used.count}`}
+                        onClick={() => row.used && onReveal(row.used.messageId)}
                       >
-                        {used.count}×
+                        {row.used.count}×
                       </Button>
-                    ) : null}
-                    {skill && controls?.canUseSkill ? (
+                    </TooltipTrigger>
+                    <TooltipContent side="top" sideOffset={4}>
+                      {translate(
+                        'components.native-chat.capabilitiesUsedHint',
+                        'Used {{count}} times in loaded messages. Show the latest',
+                        { count: row.used.count }
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+                {isSkill && controls?.canUseSkill ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
                       <Button
-                        size="xs"
+                        size="icon-xs"
                         variant="ghost"
-                        disabled={!enabled || pending}
-                        onClick={() => controls.onUseSkill(name, skill.path)}
-                      >
-                        {translate(
+                        className="shrink-0 text-muted-foreground opacity-0 group-hover/capability:opacity-100 focus-visible:opacity-100 disabled:opacity-0"
+                        aria-label={translate(
                           'components.native-chat.capabilitiesUseThisTurn',
                           'Use this turn'
                         )}
+                        disabled={(capabilities !== undefined && !enabled) || pending}
+                        onClick={() => controls.onUseSkill(row.name, row.path)}
+                      >
+                        <CornerDownLeft className="size-3.5" />
                       </Button>
-                    ) : null}
-                  </div>
-                )
-              })}
-            {group.rows.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                {translate(
-                  'components.native-chat.capabilitiesNotReported',
-                  'No entries reported yet'
-                )}
-              </p>
-            ) : null}
-          </div>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {capabilities
-          ? translate(
-              'components.native-chat.capabilitiesNextTurn',
-              'Changes apply to the next message. Tool changes may refresh the prompt cache.'
+                    </TooltipTrigger>
+                    <TooltipContent side="top" sideOffset={4}>
+                      {translate('components.native-chat.capabilitiesUseThisTurn', 'Use this turn')}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null}
+                {capabilities ? (
+                  row.locked ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          tabIndex={0}
+                          aria-label={`${row.name}: ${lockLabel(row.locked)}`}
+                          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Lock className="size-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={4}>
+                        {lockLabel(row.locked)}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Switch
+                      size="compact"
+                      className="mx-0.5"
+                      aria-label={`${title}: ${row.name}`}
+                      checked={enabled}
+                      disabled={pending}
+                      onCheckedChange={(checked) =>
+                        onChange({
+                          ...selection,
+                          [selectionKey]: checked
+                            ? selection[selectionKey].filter((item) => item !== row.name)
+                            : [...selection[selectionKey], row.name]
+                        })
+                      }
+                    />
+                  )
+                ) : null}
+              </li>
             )
-          : translate(
-              'components.native-chat.capabilitiesReadOnly',
-              'This host or provider reports usage only.'
-            )}
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {translate(
-          'components.native-chat.capabilitiesLoadedUsage',
-          'Usage counts cover loaded messages.'
-        )}
-      </p>
-    </section>
+          })}
+        </ul>
+      )}
+    </NativeChatSidebarSection>
   )
 }

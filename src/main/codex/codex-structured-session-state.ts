@@ -21,6 +21,7 @@ import {
 import type { CodexDispatchEchoes } from './codex-structured-dispatch-echo'
 import type { AgentChildWorkEvidence } from '../../shared/agent-status-child-work-evidence'
 import type { CodexBackgroundTaskTracker } from './codex-background-task-tracker'
+import type { CodexChatCapabilityState } from './codex-chat-capabilities'
 import type { CodexSkillReport } from './codex-structured-skill-report'
 import type { CodexJournalTranslator } from './codex-structured-journal-translation'
 import type { StructuredAgentSessionLifecycleEvent } from '../native-chat/agent-session-wire/structured-agent-session-adapter'
@@ -172,6 +173,7 @@ export type CodexSession = {
   /** Ephemeral compatibility roster; durable child records own runtime state. */
   backgroundTasks: CodexBackgroundTaskTracker
   skillReport?: CodexSkillReport
+  chatCapabilities?: CodexChatCapabilityState
   unbindReadingControl?: () => void
   /** Terminates this exact child as an unexpected death and enters host recovery. */
   forceCloseUnexpected?: (reason: Error) => Promise<boolean>

@@ -20,6 +20,7 @@ import {
   codexAcquireCatalogListing,
   codexSessionCapabilities
 } from './codex-structured-catalog-entry'
+import { codexChatCapabilityReport } from './codex-chat-capabilities'
 export { codexAcquireCatalogListing } from './codex-structured-catalog-entry'
 
 export function restoredCodexSessionOptions(
@@ -94,7 +95,16 @@ export async function prepareLiveCodexSessionOptions(
   _timeoutMs: number | undefined
 ): Promise<() => StructuredAgentSessionLiveOptions> {
   await session.catalogAccess?.demand?.()
-  return () => composeLiveCodexCatalog(session, codexSessionCapabilities(session))
+  return () => {
+    const chatCapabilities = codexChatCapabilityReport(
+      session.chatCapabilities,
+      session.skillReport?.read()
+    )
+    return {
+      ...composeLiveCodexCatalog(session, codexSessionCapabilities(session)),
+      ...(chatCapabilities ? { chatCapabilities } : {})
+    }
+  }
 }
 
 export async function applyCodexStructuredSessionOption(

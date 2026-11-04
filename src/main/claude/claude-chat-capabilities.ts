@@ -1,5 +1,9 @@
 import type { Settings } from '@anthropic-ai/claude-agent-sdk'
-import { readChatSelection } from '../../shared/agent-session-chat-capabilities'
+import {
+  CHAT_CAPABILITIES_OPTION,
+  chatSelectionChanged,
+  readChatSelection
+} from '../../shared/agent-session-chat-capabilities'
 import type { ClaudeSession } from './claude-structured-session-state'
 
 export function claudeChatCapabilitySettings(
@@ -16,15 +20,10 @@ export function claudeChatSelectionRequiresRestart(
   session: Pick<ClaudeSession, 'options'> | undefined,
   options: Readonly<Record<string, string>> | undefined
 ): boolean {
-  if (!session) {
-    return false
-  }
-  const canonical = (encoded: string | undefined) => {
-    const selection = readChatSelection(encoded)
-    return JSON.stringify([
-      selection.disabledSkills.toSorted(),
-      selection.disabledMcpServers.toSorted()
-    ])
-  }
-  return canonical(session.options.get('chatCapabilities')) !== canonical(options?.chatCapabilities)
+  return session
+    ? chatSelectionChanged(
+        session.options.get(CHAT_CAPABILITIES_OPTION),
+        options?.[CHAT_CAPABILITIES_OPTION]
+      )
+    : false
 }

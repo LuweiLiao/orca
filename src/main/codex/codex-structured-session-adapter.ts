@@ -2,7 +2,6 @@ import { projectCodexSessionOptions } from './codex-structured-service-tier'
 import * as codexRewind from './codex-structured-rewind'
 import { waitForPromiseWithSignal } from '../../shared/abort-signal-reason'
 import type { AgentSessionBackgroundTaskState } from '../../shared/agent-session-wire'
-import { isCodexAppServerRequestError } from './codex-app-server-connection'
 import type {
   AgentSessionAcquisition,
   AgentSessionDispatchOutcome,
@@ -13,7 +12,6 @@ import type {
 import type { StructuredAgentSessionProviderOpenInput } from '../native-chat/agent-session-wire/structured-agent-session-provider-open-contract'
 import type { CodexJournalTranslationAdmission } from './codex-structured-journal-translation'
 import { dispatchCodexTurn, isCodexTurnOptionKey } from './codex-structured-turn-start'
-import { agentSessionFailureFact, providerDiagnosticOf } from '../../shared/agent-session-failure'
 import { supportsCodexStructuredLocation } from './codex-structured-location-support'
 import { CodexStructuredSessionTeardown } from './codex-structured-session-teardown'
 import {
@@ -22,6 +20,11 @@ import {
   readLiveCodexSessionOptions
 } from './codex-structured-session-options'
 import { resolvedCodexMessageOptions } from './codex-structured-message-options'
+import { compactCodexThread } from './codex-structured-compact'
+import {
+  codexChatSelectionRequiresRestart,
+  observeCodexMcpStartup
+} from './codex-chat-capabilities'
 import {
   CodexAcquisitionRegistry,
   requireLiveCodexSession,
@@ -87,6 +90,10 @@ export class CodexStructuredSessionAdapter implements StructuredAgentSessionAdap
 
   readCommands: NonNullable<StructuredAgentSessionAdapter['readCommands']> = (sessionId) =>
     this.sessions.get(sessionId)?.skillReport?.read()
+  requiresRestartForOptions: NonNullable<
+    StructuredAgentSessionAdapter['requiresRestartForOptions']
+  > = (sessionId, options) =>
+    codexChatSelectionRequiresRestart(this.sessions.get(sessionId)?.chatCapabilities, options)
 
   readonly atRestCommands: CodexStructuredSessionAdapterDeps['atRestCommands']
 
@@ -141,6 +148,16 @@ export class CodexStructuredSessionAdapter implements StructuredAgentSessionAdap
       turnEnd.noteCodexTurnOpened(session, event.method, event.params)
       if (event.method === 'skills/changed') {
         session.skillReport?.refresh(true)
+      }
+      if (
+        observeCodexMcpStartup(
+          session.chatCapabilities,
+          event.method,
+          event.params,
+          session.threadId
+        )
+      ) {
+        session.events?.publish()
       }
     }
     const admission = session.translator?.handle(event) ?? { accepted: true }
@@ -268,30 +285,8 @@ export class CodexStructuredSessionAdapter implements StructuredAgentSessionAdap
   recoverRewind: NonNullable<StructuredAgentSessionAdapter['recoverRewind']> = (input) =>
     codexRewind.recoverCodexRewind(this.session(input.sessionId), input, this.deps.requestTimeoutMs)
 
-  /** The reply acknowledges receipt; the translator observes turn completion separately. */
-  compact: NonNullable<StructuredAgentSessionAdapter['compact']> = async (input) => {
-    const session = this.session(input.sessionId)
-    session.translator?.beginCommand(input.command)
-    try {
-      await session.connection.request(
-        'thread/compact/start',
-        { threadId: session.threadId },
-        { timeoutMs: this.deps.requestTimeoutMs }
-      )
-      return { state: 'accepted', providerIdentity: null }
-    } catch (error) {
-      session.translator?.forgetCommand(input.command.turnId)
-      if (isCodexAppServerRequestError(error)) {
-        return {
-          state: 'rejected',
-          ...turnEnd.codexDispatchRejection(
-            agentSessionFailureFact('providerRejected', { detail: providerDiagnosticOf(error) })
-          )
-        }
-      }
-      throw error
-    }
-  }
+  compact: NonNullable<StructuredAgentSessionAdapter['compact']> = (input) =>
+    compactCodexThread(this.session(input.sessionId), input, this.deps.requestTimeoutMs)
 
   changeThreadGoal: NonNullable<StructuredAgentSessionAdapter['changeThreadGoal']> = (input) =>
     changeCodexThreadGoal(

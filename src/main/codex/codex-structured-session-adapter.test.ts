@@ -46,7 +46,8 @@ describe('CodexStructuredSessionAdapter.acquire', () => {
     expect(codex.connections[0].calls.map((call) => call.method)).toEqual([
       'initialize',
       'thread/start',
-      'skills/list'
+      'skills/list',
+      'config/read'
     ])
   })
 
@@ -120,7 +121,12 @@ describe('CodexStructuredSessionAdapter.acquire', () => {
           efforts: [],
           effortsKnown: false
         }
-      ]
+      ],
+      chatCapabilities: {
+        selection: { disabledSkills: [], disabledMcpServers: [] },
+        skills: [],
+        mcpServers: []
+      }
     })
     codex.routes['turn/start'] = answerWithOpenedTurn(codex, 'turn-1')
     await expect(

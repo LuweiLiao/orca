@@ -16,7 +16,8 @@ import { isAgentSessionRefusalError } from '../../../shared/agent-session-wire-r
 import { withoutCreateOnlyOptions } from '../../../shared/claude-cli-launch-agents'
 import {
   CHAT_CAPABILITIES_OPTION,
-  readChatSelection
+  readChatSelection,
+  supportsChatCapabilities
 } from '../../../shared/agent-session-chat-capabilities'
 
 function acceptsOptionPick(
@@ -26,7 +27,10 @@ function acceptsOptionPick(
   value: string
 ): boolean {
   const definition = agents.definition(provider)
-  if (key === CHAT_CAPABILITIES_OPTION && provider === 'claude') {
+  if (key === CHAT_CAPABILITIES_OPTION) {
+    if (!supportsChatCapabilities(provider)) {
+      return false
+    }
     try {
       readChatSelection(value)
     } catch {
