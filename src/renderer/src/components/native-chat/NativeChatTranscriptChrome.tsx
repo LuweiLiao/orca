@@ -3,6 +3,8 @@ import { ArrowUp, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import { basename } from '@/lib/path'
+import { resolveExplicitFileLinkTargetPath } from '@/lib/explicit-file-link-target'
+import { filesystemPathToFileUri } from '../../../../shared/file-uri-path'
 import type { NativeChatBlock } from '../../../../shared/native-chat-types'
 import { NativeChatCopyButton } from './NativeChatCopyButton'
 import { NativeChatMessageTimestamp } from './NativeChatMessageTimestamp'
@@ -68,7 +70,7 @@ function transcriptImageIdentity(
   block: Extract<NativeChatBlock, { type: 'image-ref' }>,
   runtimeContext: RuntimeFileOperationArgs | null | undefined
 ): string {
-  const source = block.url?.trim() || block.path
+  const source = transcriptImageSource(block, runtimeContext)
   const filePath = block.path ?? source ?? ''
   if (renderableImageSource(source)) {
     return `external\0${source ?? ''}`
@@ -85,6 +87,19 @@ function transcriptImageIdentity(
 // Why one access kind for every role: a turn's role says who sent it, not who chose the path, and these
 // load on scroll with no click, so main only serves local image files by their real type.
 const TRANSCRIPT_IMAGE_ACCESS = chatImageAccess()
+
+function transcriptImageSource(
+  block: Extract<NativeChatBlock, { type: 'image-ref' }>,
+  runtimeContext: RuntimeFileOperationArgs | null | undefined
+): string | undefined {
+  const source = block.url?.trim() || block.path
+  if (!source || renderableImageSource(source) || !runtimeContext?.worktreePath) {
+    return source
+  }
+  return block.path
+    ? (resolveExplicitFileLinkTargetPath(source, runtimeContext.worktreePath) ?? undefined)
+    : source
+}
 
 // Why the cache key, not the context object: the owner hook rebuilds an equal context on
 // unrelated store updates, and releasing on each one revoked the URL the <img> was showing.
@@ -122,12 +137,13 @@ function TranscriptImagePreview({
   const [near, setNear] = useState(false)
   const [thumbnailErrorSrc, setThumbnailErrorSrc] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
-  const source = block.url?.trim() || block.path
-  const filePath = block.path ?? source ?? ''
+  const source = transcriptImageSource(block, runtimeContext)
+  const filePath = source ?? ''
   const external = renderableImageSource(source)
   const leaseActive = near || open
+  const localSource = source && block.path ? filesystemPathToFileUri(source) : source
   const localSrc = useLocalImageSrc(
-    leaseActive && !external && runtimeContext !== undefined ? source : undefined,
+    leaseActive && !external && runtimeContext !== undefined ? localSource : undefined,
     filePath,
     runtimeContext?.connectionId,
     runtimeContext,
@@ -154,7 +170,7 @@ function TranscriptImagePreview({
     }
     return observeTranscriptVisibility(element, setNear)
   }, [])
-  const releaseKey = transcriptImageReleaseKey(source, filePath, runtimeContext)
+  const releaseKey = transcriptImageReleaseKey(localSource, filePath, runtimeContext)
   useEffect(() => {
     if (!releaseKey) {
       return

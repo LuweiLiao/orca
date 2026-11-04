@@ -127,6 +127,36 @@ afterEach(() => {
 })
 
 describe('NativeChatImageAttachments', () => {
+  it.each([
+    ['/repo/wt-1', 'ds/usb/core.png', '/repo/wt-1/ds/usb/core.png'],
+    ['D:/project', './figs/result.png', 'D:/project/figs/result.png'],
+    ['D:/project', './figs/result #1% done.png', 'D:/project/figs/result #1% done.png'],
+    ['//server/share/project', 'figs/result.png', '//server/share/project/figs/result.png']
+  ])(
+    'resolves %s image paths once against the session directory',
+    async (worktreePath, path, expected) => {
+      const container = document.createElement('div')
+      const root = createRoot(container)
+      try {
+        await act(async () => {
+          root.render(
+            createElement(NativeChatImageAttachments, {
+              blocks: [{ type: 'image-ref', path }],
+              runtimeContext: { ...runtimeContext('wt-1'), worktreePath }
+            })
+          )
+          await flushPromises()
+        })
+        expect(vi.mocked(window.api.fs.readFile).mock.calls[0]?.[0]).toMatchObject({
+          filePath: expected
+        })
+        expect(container.querySelector('img')).not.toBeNull()
+      } finally {
+        await act(async () => root.unmount())
+      }
+    }
+  )
+
   it('pools visibility observation across image refs', async () => {
     class FakeIntersectionObserver {
       static instances: FakeIntersectionObserver[] = []

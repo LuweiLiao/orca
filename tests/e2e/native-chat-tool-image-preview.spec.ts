@@ -16,7 +16,7 @@ import {
 const providerLog = path.join(tmpdir(), `orca-image-provider-${randomUUID()}.jsonl`)
 test.use({ orcaAppExtraEnv: { ORCA_BACKGROUND_LAUNCH: '1', ORCA_E2E_QUEUE_LOG: providerLog } })
 
-for (const source of ['read', 'command', 'mcp', 'reply-path'] as const) {
+for (const source of ['read', 'command', 'relative-command', 'mcp', 'reply-path'] as const) {
   test(`shows a ${source} image without image Markdown or expanding the tool run`, async ({
     orcaPage: page,
     electronApp,
@@ -69,11 +69,13 @@ for (const source of ['read', 'command', 'mcp', 'reply-path'] as const) {
                   name:
                     source === 'read'
                       ? 'Read'
-                      : source === 'command'
+                      : source === 'command' || source === 'relative-command'
                         ? 'Bash'
                         : 'mcp__plot__render',
                   input:
-                    source === 'read' ? { file_path: imagePath } : { command: 'python plot.py' }
+                    source === 'read'
+                      ? { file_path: imagePath }
+                      : { command: 'python plot.py', cwd: testRepoPath }
                 }
               ]
             },
@@ -89,7 +91,12 @@ for (const source of ['read', 'command', 'mcp', 'reply-path'] as const) {
                       : [
                           {
                             type: 'text',
-                            text: source === 'mcp' ? JSON.stringify({ path: imagePath }) : imagePath
+                            text:
+                              source === 'mcp'
+                                ? JSON.stringify({ path: imagePath })
+                                : source === 'relative-command'
+                                  ? name
+                                  : imagePath
                           }
                         ]
                 }

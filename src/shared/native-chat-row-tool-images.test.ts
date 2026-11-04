@@ -3,6 +3,88 @@ import { deriveNativeChatRowContent } from './native-chat-row-content'
 import type { NativeChatBlock } from './native-chat-types'
 
 describe('image reads in chat rows', () => {
+  it('resolves returned relative images against the command working directory', () => {
+    const content = deriveNativeChatRowContent([
+      {
+        type: 'tool-call',
+        name: 'Bash',
+        callId: 'list',
+        state: 'completed',
+        input: { command: 'cd "D:/project/review"; find ds -maxdepth 2' }
+      },
+      { type: 'tool-result', callId: 'list', output: 'ds/usb/core.png\nds/usb/pins.png' }
+    ])
+    expect(content.prose).toEqual([
+      { type: 'image-ref', path: 'D:/project/review/ds/usb/core.png' },
+      { type: 'image-ref', path: 'D:/project/review/ds/usb/pins.png' }
+    ])
+  })
+
+  it.each(['/remote/project', 'D:/project', '//server/share/project'])(
+    'uses an explicit tool directory %s for returned images',
+    (cwd) => {
+      const content = deriveNativeChatRowContent([
+        {
+          type: 'tool-call',
+          name: 'exec_command',
+          callId: 'plot',
+          state: 'completed',
+          input: { cmd: 'plot', workdir: cwd }
+        },
+        { type: 'tool-result', callId: 'plot', output: 'Saved plot: figs/result.png' }
+      ])
+      expect(content.prose).toEqual([{ type: 'image-ref', path: `${cwd}/figs/result.png` }])
+    }
+  )
+
+  it.each([
+    { command: 'cd figs; plot', workdir: '/repo' },
+    { command: 'cd /repo/figs; plot' },
+    { command: 'Set-Location -LiteralPath "/repo/figs"; plot' }
+  ])('resolves a leading directory change in $command', (input) => {
+    expect(
+      deriveNativeChatRowContent([
+        { type: 'tool-call', name: 'Bash', input, state: 'completed', callId: 'plot' },
+        { type: 'tool-result', callId: 'plot', output: 'result.png' }
+      ]).prose
+    ).toEqual([{ type: 'image-ref', path: '/repo/figs/result.png' }])
+  })
+
+  it('does not guess the directory of relative command output', () => {
+    expect(
+      deriveNativeChatRowContent([
+        {
+          type: 'tool-call',
+          name: 'Bash',
+          input: { command: 'plot' },
+          state: 'completed',
+          callId: 'plot'
+        },
+        { type: 'tool-result', callId: 'plot', output: 'ds/usb/core.png' }
+      ]).prose
+    ).toEqual([])
+  })
+
+  it('does not turn source code, document image tags or quoted conversation input into images', () => {
+    const output = [
+      "('shot', 'app_screenshot', {'path': adc.HERE + r'\\shot\\usb3-1.png'})",
+      '<img src="./Images/micro.png" />',
+      JSON.stringify({ messages: [{ text: 'Read', input: { file_path: '/old/core.png' } }] })
+    ].join('\n')
+    expect(
+      deriveNativeChatRowContent([
+        {
+          type: 'tool-call',
+          name: 'Bash',
+          input: { command: 'cat script.py' },
+          state: 'completed',
+          callId: 'read'
+        },
+        { type: 'tool-result', callId: 'read', output }
+      ]).prose
+    ).toEqual([])
+  })
+
   it('does not duplicate an image explicitly published by the image CLI', () => {
     const content = deriveNativeChatRowContent([
       {
@@ -33,6 +115,8 @@ describe('image reads in chat rows', () => {
     '/home/ubuntu/project/figs/generated.png',
     'Saved plot: `/home/ubuntu/project/figs/plot with spaces.svg`',
     'Saved plot: figs/generated.png',
+    '/repo/figs/result #1% done.png',
+    "/repo/figs/author's-result.png",
     JSON.stringify({
       content: [{ type: 'text', text: JSON.stringify({ path: 'D:\\project\\figs\\result.png' }) }]
     })
@@ -42,7 +126,7 @@ describe('image reads in chat rows', () => {
         type: 'tool-call',
         name: 'Bash',
         callId: 'generate',
-        input: { command: 'python plot.py' },
+        input: { command: 'python plot.py', workdir: '/repo' },
         state: 'completed'
       },
       { type: 'tool-result', callId: 'generate', output }

@@ -8,6 +8,7 @@ import { resetLocalImageSrcStateForTests } from '@/components/editor/useLocalIma
 import { useAppStore } from '@/store'
 import type { NativeChatMessage } from '../../../../shared/native-chat-types'
 import { NativeChatImageGallery } from './NativeChatImageGallery'
+import { NativeChatImageAttachments } from './NativeChatTranscriptChrome'
 import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
 import { NativeChatImageGalleryContext } from './native-chat-image-gallery-context'
 
@@ -71,6 +72,29 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+})
+
+it('reads relative thumbnails and gallery images from the same remote session directory', async () => {
+  const blocks = [{ type: 'image-ref' as const, path: 'figs/result.png' }]
+  render(
+    <TooltipProvider>
+      <NativeChatMarkdownImageOwnerContext.Provider value={owner}>
+        <NativeChatImageGallery messages={[{ ...messages[0], blocks }]} isVisible>
+          <NativeChatImageAttachments blocks={blocks} runtimeContext={owner.runtimeContext} />
+        </NativeChatImageGallery>
+      </NativeChatMarkdownImageOwnerContext.Provider>
+    </TooltipProvider>
+  )
+  fireEvent.click(await screen.findByRole('button', { name: 'View image: result.png' }))
+  await screen.findByRole('dialog', { name: 'result.png' })
+  await waitFor(() => expect(mocks.read).toHaveBeenCalled())
+  for (const call of mocks.read.mock.calls) {
+    expect(call).toEqual([
+      expect.objectContaining({ target: owner.runtimeContext.target }),
+      '/remote/figs/result.png',
+      { kind: 'chat-image' }
+    ])
+  }
 })
 
 it('navigates unmounted transcript images on the owning remote host and closes with its chat', async () => {
