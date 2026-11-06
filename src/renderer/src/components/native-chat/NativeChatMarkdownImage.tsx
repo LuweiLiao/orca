@@ -41,6 +41,11 @@ import { observeTranscriptVisibility } from './NativeChatTranscriptChrome'
 import type { PanZoomImageDialog } from '@/components/editor/PanZoomImageDialog'
 import { NativeChatImageGalleryContext } from './native-chat-image-gallery-context'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
+import {
+  nativeChatImageFootprint,
+  rememberNativeChatImageFootprint,
+  type NativeChatImageFootprint
+} from './native-chat-image-footprint'
 
 export const NativeChatMarkdownImageLinkContext = createContext<string | undefined>(undefined)
 const IMAGE_ACCESS = chatImageAccess()
@@ -75,11 +80,13 @@ export function NativeChatMarkdownImage(props: MarkdownImageProps): React.JSX.El
         IMAGE_ACCESS
       )
     : 'unresolved'
+  const previewKey = [owner?.sessionId, identity, props.dialog ? 'gallery' : src].join('\0')
   return (
     <NativeChatMarkdownImagePreview
-      key={[owner?.sessionId, identity, props.dialog ? 'gallery' : src].join('\0')}
+      key={previewKey}
       {...props}
       src={src}
+      footprintKey={`markdown\0${previewKey}`}
     />
   )
 }
@@ -88,8 +95,9 @@ function NativeChatMarkdownImagePreview({
   src,
   alt,
   onLinkClick,
-  dialog
-}: MarkdownImageProps): React.JSX.Element {
+  dialog,
+  footprintKey
+}: MarkdownImageProps & { footprintKey: string }): React.JSX.Element {
   const owner = useContext(NativeChatMarkdownImageOwnerContext)
   const linkedHref = useContext(NativeChatMarkdownImageLinkContext)
   const [ownOpen, setOwnOpen] = useState(false)
@@ -99,7 +107,10 @@ function NativeChatMarkdownImagePreview({
   const messageId = useContext(NativeChatMarkdownRowKeyContext)
   const [near, setNear] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
-  const [footprint, setFootprint] = useState<{ width: number; aspectRatio: string }>()
+  // Why remembered past unmount: a windowed row remounting at its unloaded size jumps the transcript.
+  const [footprint, setFootprint] = useState<NativeChatImageFootprint | undefined>(() =>
+    nativeChatImageFootprint(footprintKey)
+  )
   const [loadedImageSrc, setLoadedImageSrc] = useState<string>()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -145,25 +156,16 @@ function NativeChatMarkdownImagePreview({
     if (!element) {
       return
     }
-    return observeTranscriptVisibility(element, (nextNear) => {
-      if (!nextNear) {
-        const { width, height } = element.getBoundingClientRect()
-        if (width > 0 && height > 0) {
-          setFootprint({ width, aspectRatio: `${width} / ${height}` })
-        }
-      }
-      setNear(nextNear)
-    })
+    return observeTranscriptVisibility(element, setNear)
   }, [])
+  // Why only on unmount: releasing each time it left the margin re-read it on every return, so it
+  // blanked; the bounded cache evicts an unpinned image once its budget needs the room.
   useEffect(() => {
     if (!releaseKey) {
       return
     }
-    if (!leaseActive) {
-      releaseLocalImageSrcByKey(releaseKey)
-    }
     return () => releaseLocalImageSrcByKey(releaseKey)
-  }, [leaseActive, releaseKey])
+  }, [releaseKey])
   const imageSrc = external || attachment ? src : leaseActive ? loadedSrc : undefined
   const displaySrc = imageSrc === failedSrc ? undefined : imageSrc
   const onFileLinkClick = useNativeChatFileLinkClick(fileLinkContext)
@@ -225,13 +227,22 @@ function NativeChatMarkdownImagePreview({
       onLoad={() => {
         const bounds = triggerRef.current?.getBoundingClientRect()
         if (bounds && bounds.width > 0 && bounds.height > 0) {
-          setFootprint({ width: bounds.width, aspectRatio: `${bounds.width} / ${bounds.height}` })
+          const next = { width: bounds.width, height: bounds.height }
+          rememberNativeChatImageFootprint(footprintKey, next)
+          setFootprint(next)
         }
         setLoadedImageSrc(displaySrc)
       }}
       triggerAttributes={copyAttributes}
       triggerRef={triggerRef}
-      triggerStyle={displaySrc && displaySrc === loadedImageSrc ? undefined : footprint}
+      triggerStyle={
+        displaySrc && displaySrc === loadedImageSrc
+          ? undefined
+          : footprint && {
+              width: footprint.width,
+              aspectRatio: `${footprint.width} / ${footprint.height}`
+            }
+      }
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
           if (route.kind === 'file') {

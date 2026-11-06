@@ -13,6 +13,7 @@ import {
 import { useAppStore } from '@/store'
 import { NativeChatMarkdown } from './NativeChatMarkdown'
 import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
+import { resetNativeChatImageFootprintsForTests } from './native-chat-image-footprint'
 import { useNativeChatLinkActions } from './use-native-chat-link-actions'
 import { repoFixture, worktreeFixture } from './native-chat-workspace-test-fixtures'
 import type * as TerminalFileOpenRouting from '@/components/terminal-pane/terminal-file-open-routing'
@@ -128,6 +129,7 @@ function Transcript({
 
 beforeEach(() => {
   resetLocalImageSrcStateForTests()
+  resetNativeChatImageFootprintsForTests()
   vi.stubGlobal('IntersectionObserver', undefined)
   const worktree = worktreeFixture('wt-1', '/repo/worktree', { hostId: 'local' })
   useAppStore.setState({
@@ -226,33 +228,36 @@ describe('native chat Markdown image preview', () => {
     }
   )
 
-  it('loads only visible nearby images and releases their bytes when they leave the viewport', async () => {
+  it('loads only visible nearby images and keeps their size and bytes while scrolled away', async () => {
     vi.stubGlobal('IntersectionObserver', ImageVisibilityObserver)
-    const { rerender } = render(<Transcript owner={{ ...localOwner, isVisible: false }} />)
+    const { rerender, unmount } = render(<Transcript owner={{ ...localOwner, isVisible: false }} />)
     const trigger = screen.getByRole('button', { name: 'View image: Chart' })
     act(() => ImageVisibilityObserver.current.emit(trigger, true))
     expect(mocks.readRuntimeFilePreview).not.toHaveBeenCalled()
     rerender(<Transcript />)
-    expect(await screen.findByRole('img')).toHaveAttribute('src', 'blob:image-1')
+    const image = await screen.findByRole('img')
+    expect(image).toHaveAttribute('src', 'blob:image-1')
     vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 640, 360))
+    fireEvent.load(image)
     act(() => ImageVisibilityObserver.current.emit(trigger, false))
     expect(screen.queryByRole('img')).toBeNull()
     expect(trigger).toHaveStyle({ width: '640px', aspectRatio: '640 / 360' })
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image-1')
     act(() => ImageVisibilityObserver.current.emit(trigger, true))
-    const reloaded = await screen.findByRole('img')
-    expect(reloaded).toHaveAttribute('src', 'blob:image-2')
-    expect(trigger).toHaveStyle({ aspectRatio: '640 / 360' })
-    fireEvent.load(reloaded)
-    expect(trigger.style.width).toBe('')
-    expect(trigger.style.aspectRatio).toBe('')
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:image-1')
     rerender(<Transcript owner={{ ...localOwner, isVisible: false }} />)
-    expect(screen.queryByRole('img')).toBeNull()
-    expect(trigger).toHaveStyle({ width: '640px', aspectRatio: '640 / 360' })
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image-2')
     rerender(<Transcript />)
-    expect(await screen.findByRole('img')).toHaveAttribute('src', 'blob:image-3')
-    expect(trigger).toHaveStyle({ aspectRatio: '640 / 360' })
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:image-1')
+    expect(mocks.readRuntimeFilePreview).toHaveBeenCalledOnce()
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+
+    // A windowed row that remounts reserves the size its image last drew at.
+    unmount()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image-1')
+    render(<Transcript />)
+    expect(screen.getByRole('button', { name: 'View image: Chart' })).toHaveStyle({
+      width: '640px',
+      aspectRatio: '640 / 360'
+    })
   })
 
   it('retries a cache-budget rejection on open after another image releases its lease', async () => {
@@ -283,7 +288,8 @@ describe('native chat Markdown image preview', () => {
       }
     })
     expect(container.querySelectorAll('img')).toHaveLength(0)
-    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(102)
+    // Only the rejected read and the image evicted for it; the rest stay cached for their return.
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2)
   })
 
   it.each([false, true])(

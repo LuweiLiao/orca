@@ -26,6 +26,11 @@ import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-imag
 import { reportNativeChatImageDisplay } from './native-chat-image-display-report'
 import { NativeChatImageGalleryContext } from './native-chat-image-gallery-context'
 import { createNativeChatFileHref } from '../../../../shared/native-chat-href-routing'
+import {
+  NativeChatReservedImageBox,
+  nativeChatImageFootprint,
+  rememberNativeChatImageFootprint
+} from './native-chat-image-footprint'
 
 type VisibilityListener = (isVisible: boolean) => void
 
@@ -124,11 +129,14 @@ function TranscriptImagePreview({
   block,
   runtimeContext,
   messageId,
+  footprintKey,
   fullSize = false
 }: {
   block: Extract<NativeChatBlock, { type: 'image-ref' }>
   runtimeContext: RuntimeFileOperationArgs | null | undefined
   messageId?: string
+  /** Where its natural size is remembered, so an unloaded full-size image keeps its height. */
+  footprintKey: string
   fullSize?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
@@ -171,15 +179,14 @@ function TranscriptImagePreview({
     return observeTranscriptVisibility(element, setNear)
   }, [])
   const releaseKey = transcriptImageReleaseKey(localSource, filePath, runtimeContext)
+  // Why only on unmount: releasing each time it left the margin re-read it on every return, so it
+  // blanked; the bounded cache evicts an unpinned image once its budget needs the room.
   useEffect(() => {
     if (!releaseKey) {
       return
     }
-    if (!leaseActive) {
-      releaseLocalImageSrcByKey(releaseKey)
-    }
     return () => releaseLocalImageSrcByKey(releaseKey)
-  }, [leaseActive, releaseKey])
+  }, [releaseKey])
 
   const previewable = Boolean(source) && (external || runtimeContext !== null)
   const showPreview =
@@ -187,6 +194,15 @@ function TranscriptImagePreview({
 
   if (!previewable) {
     return <div ref={ref}>{fallback}</div>
+  }
+  const footprint = fullSize ? nativeChatImageFootprint(footprintKey) : undefined
+  // A full-size image drawn before keeps its box; growing and shrinking at the window's edge fed back.
+  if (!showPreview && footprint) {
+    return (
+      <div ref={ref} className="relative w-full max-w-xl shrink-0" title={label}>
+        <NativeChatReservedImageBox footprint={footprint} />
+      </div>
+    )
   }
   // Offscreen or loading keeps the thumbnail's square so scrolling never rewraps the row.
   if (!showPreview) {
@@ -228,9 +244,13 @@ function TranscriptImagePreview({
           src={displaySrc}
           alt={label}
           loading="lazy"
-          onLoad={() =>
+          onLoad={(event) => {
+            if (fullSize) {
+              const { naturalWidth: width, naturalHeight: height } = event.currentTarget
+              rememberNativeChatImageFootprint(footprintKey, { width, height })
+            }
             reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'loaded')
-          }
+          }}
           onError={() => {
             setThumbnailErrorSrc(displaySrc ?? null)
             reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'failed')
@@ -312,6 +332,7 @@ export function NativeChatImageAttachments({
             key={`${imageKeyBase}-${identity}-${occurrence}`}
             block={image}
             messageId={messageId}
+            footprintKey={`transcript\0${identity}`}
             fullSize={fullSize}
             runtimeContext={runtimeContext}
           />
