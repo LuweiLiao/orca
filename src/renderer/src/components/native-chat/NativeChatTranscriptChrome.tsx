@@ -26,11 +26,6 @@ import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-imag
 import { reportNativeChatImageDisplay } from './native-chat-image-display-report'
 import { NativeChatImageGalleryContext } from './native-chat-image-gallery-context'
 import { createNativeChatFileHref } from '../../../../shared/native-chat-href-routing'
-import {
-  NativeChatReservedImageBox,
-  nativeChatImageFootprint,
-  rememberNativeChatImageFootprint
-} from './native-chat-image-footprint'
 
 type VisibilityListener = (isVisible: boolean) => void
 
@@ -128,16 +123,11 @@ function transcriptImageReleaseKey(
 function TranscriptImagePreview({
   block,
   runtimeContext,
-  messageId,
-  footprintKey,
-  fullSize = false
+  messageId
 }: {
   block: Extract<NativeChatBlock, { type: 'image-ref' }>
   runtimeContext: RuntimeFileOperationArgs | null | undefined
   messageId?: string
-  /** Where its natural size is remembered, so an unloaded full-size image keeps its height. */
-  footprintKey: string
-  fullSize?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const openGallery = useContext(NativeChatImageGalleryContext)
@@ -195,15 +185,6 @@ function TranscriptImagePreview({
   if (!previewable) {
     return <div ref={ref}>{fallback}</div>
   }
-  const footprint = fullSize ? nativeChatImageFootprint(footprintKey) : undefined
-  // A full-size image drawn before keeps its box; growing and shrinking at the window's edge fed back.
-  if (!showPreview && footprint) {
-    return (
-      <div ref={ref} className="relative w-full max-w-xl shrink-0" title={label}>
-        <NativeChatReservedImageBox footprint={footprint} />
-      </div>
-    )
-  }
   // Offscreen or loading keeps the thumbnail's square so scrolling never rewraps the row.
   if (!showPreview) {
     return (
@@ -218,10 +199,7 @@ function TranscriptImagePreview({
     )
   }
   return (
-    <div
-      ref={ref}
-      className={fullSize ? 'relative w-full max-w-xl shrink-0' : 'relative size-20 shrink-0'}
-    >
+    <div ref={ref} className="relative size-20 shrink-0">
       <button
         type="button"
         aria-label={`${viewImageLabel}: ${label}`}
@@ -235,27 +213,20 @@ function TranscriptImagePreview({
             setOpen(true)
           }
         }}
-        className={cn(
-          'flex items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          fullSize ? 'w-full' : 'size-full'
-        )}
+        className="flex size-full items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <img
           src={displaySrc}
           alt={label}
           loading="lazy"
-          onLoad={(event) => {
-            if (fullSize) {
-              const { naturalWidth: width, naturalHeight: height } = event.currentTarget
-              rememberNativeChatImageFootprint(footprintKey, { width, height })
-            }
+          onLoad={() =>
             reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'loaded')
-          }}
+          }
           onError={() => {
             setThumbnailErrorSrc(displaySrc ?? null)
             reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'failed')
           }}
-          className={fullSize ? 'max-h-96 max-w-full object-contain' : 'size-full object-cover'}
+          className="size-full object-cover"
         />
       </button>
       <PanZoomImageDialog
@@ -276,15 +247,13 @@ export function NativeChatImageAttachments({
   blocks,
   messageId,
   runtimeContext,
-  enablePreview = runtimeContext !== undefined,
-  fullSize = false
+  enablePreview = runtimeContext !== undefined
 }: {
   blocks: NativeChatBlock[]
   messageId?: string
   runtimeContext?: RuntimeFileOperationArgs | null
   /** Keep legacy terminal chips unchanged until that lane opts into previews. */
   enablePreview?: boolean
-  fullSize?: boolean
 }): React.JSX.Element | null {
   const images = blocks.filter((block) => block.type === 'image-ref')
   if (images.length === 0) {
@@ -320,7 +289,7 @@ export function NativeChatImageAttachments({
     )
   }
   return (
-    <div className={cn('mb-2 flex gap-1.5', fullSize ? 'flex-col' : 'flex-wrap')}>
+    <div className="mb-2 flex flex-wrap gap-1.5">
       {images.map((image) => {
         const label = image.alt ?? image.path ?? image.url ?? 'Image'
         const imageKeyBase = `${label}-${image.url ?? ''}-${image.path ?? ''}`
@@ -332,8 +301,6 @@ export function NativeChatImageAttachments({
             key={`${imageKeyBase}-${identity}-${occurrence}`}
             block={image}
             messageId={messageId}
-            footprintKey={`transcript\0${identity}`}
-            fullSize={fullSize}
             runtimeContext={runtimeContext}
           />
         )

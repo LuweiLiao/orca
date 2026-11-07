@@ -79,7 +79,6 @@ export function NativeChatAssistantMessageRow({
         blocks={prose}
         runtimeContext={imageRuntimeContext}
         enablePreview={imageRuntimeContext !== undefined}
-        fullSize
       />
       {words ? (
         <NativeChatPacedMarkdown

@@ -13,7 +13,6 @@ import {
 import { chatImageAccess } from '@/lib/local-file-access'
 import { NativeChatImageAttachments } from './NativeChatTranscriptChrome'
 import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
-import { resetNativeChatImageFootprintsForTests } from './native-chat-image-footprint'
 
 // Chat images carry their runtime owner without resolving an editor connection.
 const mocks = vi.hoisted(() => ({
@@ -49,7 +48,6 @@ async function flushPromises(): Promise<void> {
 beforeEach(() => {
   mocks.callStructured.mockClear()
   resetLocalImageSrcStateForTests()
-  resetNativeChatImageFootprintsForTests()
   vi.stubGlobal('IntersectionObserver', undefined)
   let urlSequence = 0
   vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:owner-${++urlSequence}`)
@@ -89,8 +87,7 @@ it('reports image decoding to its owning conversation only after the img loads',
               display: { id: 'display-1', state: 'pending' }
             }
           ],
-          runtimeContext: runtime,
-          fullSize: true
+          runtimeContext: runtime
         })
       )
     )
@@ -456,81 +453,6 @@ describe('NativeChatImageAttachments', () => {
 
     expect(container.firstElementChild).toBe(observedElement)
     root.unmount()
-  })
-
-  it('keeps a full-size image box and bytes while it is scrolled away or remounted', async () => {
-    let callback: IntersectionObserverCallback | undefined
-    class FakeIntersectionObserver {
-      readonly observe = vi.fn()
-      readonly unobserve = vi.fn()
-      readonly disconnect = vi.fn()
-
-      constructor(nextCallback: IntersectionObserverCallback) {
-        callback = nextCallback
-      }
-    }
-    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
-    const container = document.createElement('div')
-    let root = createRoot(container)
-    const renderImage = (): void =>
-      root.render(
-        createElement(NativeChatImageAttachments, {
-          blocks: [{ type: 'image-ref' as const, path: '/repo/plot.png' }],
-          runtimeContext: runtimeContext('wt-1'),
-          fullSize: true
-        })
-      )
-    const setNear = async (isIntersecting: boolean): Promise<void> => {
-      const target = container.firstElementChild?.firstElementChild
-      if (!target || !callback) {
-        throw new Error('image preview did not register visibility observation')
-      }
-      const notify = callback
-      await act(async () => {
-        notify(
-          [{ target, isIntersecting } as IntersectionObserverEntry],
-          {} as IntersectionObserver
-        )
-        await flushPromises()
-      })
-    }
-    const reservedBox = (): HTMLElement | null => container.querySelector('[style*="aspect-ratio"]')
-
-    try {
-      await act(async () => {
-        renderImage()
-        await flushPromises()
-      })
-      await setNear(true)
-      const image = container.querySelector('img')
-      if (!image) {
-        throw new Error('full-size image did not render')
-      }
-      Object.defineProperty(image, 'naturalWidth', { value: 800 })
-      Object.defineProperty(image, 'naturalHeight', { value: 600 })
-      await act(async () => {
-        image.dispatchEvent(new Event('load'))
-      })
-
-      await setNear(false)
-      expect(container.querySelector('img')).toBeNull()
-      expect(reservedBox()?.style.width).toBe('800px')
-      expect(reservedBox()?.style.aspectRatio).toBe('800 / 600')
-      await setNear(true)
-      expect(container.querySelector('img')?.getAttribute('src')).toBe('blob:owner-1')
-      expect(window.api.fs.readFile).toHaveBeenCalledOnce()
-      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
-
-      root.unmount()
-      root = createRoot(container)
-      await act(async () => {
-        renderImage()
-        await flushPromises()
-      })
-      expect(reservedBox()?.style.aspectRatio).toBe('800 / 600')
-    } finally {
-      root.unmount()
-    }
   })
 
   it.each([

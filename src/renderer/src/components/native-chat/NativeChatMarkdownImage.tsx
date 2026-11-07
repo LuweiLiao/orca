@@ -41,11 +41,6 @@ import { observeTranscriptVisibility } from './NativeChatTranscriptChrome'
 import type { PanZoomImageDialog } from '@/components/editor/PanZoomImageDialog'
 import { NativeChatImageGalleryContext } from './native-chat-image-gallery-context'
 import { NativeChatMarkdownRowKeyContext } from './native-chat-disclosure-store'
-import {
-  nativeChatImageFootprint,
-  rememberNativeChatImageFootprint,
-  type NativeChatImageFootprint
-} from './native-chat-image-footprint'
 
 export const NativeChatMarkdownImageLinkContext = createContext<string | undefined>(undefined)
 const IMAGE_ACCESS = chatImageAccess()
@@ -80,13 +75,11 @@ export function NativeChatMarkdownImage(props: MarkdownImageProps): React.JSX.El
         IMAGE_ACCESS
       )
     : 'unresolved'
-  const previewKey = [owner?.sessionId, identity, props.dialog ? 'gallery' : src].join('\0')
   return (
     <NativeChatMarkdownImagePreview
-      key={previewKey}
+      key={[owner?.sessionId, identity, props.dialog ? 'gallery' : src].join('\0')}
       {...props}
       src={src}
-      footprintKey={`markdown\0${previewKey}`}
     />
   )
 }
@@ -95,9 +88,8 @@ function NativeChatMarkdownImagePreview({
   src,
   alt,
   onLinkClick,
-  dialog,
-  footprintKey
-}: MarkdownImageProps & { footprintKey: string }): React.JSX.Element {
+  dialog
+}: MarkdownImageProps): React.JSX.Element {
   const owner = useContext(NativeChatMarkdownImageOwnerContext)
   const linkedHref = useContext(NativeChatMarkdownImageLinkContext)
   const [ownOpen, setOwnOpen] = useState(false)
@@ -107,11 +99,6 @@ function NativeChatMarkdownImagePreview({
   const messageId = useContext(NativeChatMarkdownRowKeyContext)
   const [near, setNear] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
-  // Why remembered past unmount: a windowed row remounting at its unloaded size jumps the transcript.
-  const [footprint, setFootprint] = useState<NativeChatImageFootprint | undefined>(() =>
-    nativeChatImageFootprint(footprintKey)
-  )
-  const [loadedImageSrc, setLoadedImageSrc] = useState<string>()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [failedSrc, setFailedSrc] = useState<string>()
@@ -222,27 +209,12 @@ function NativeChatMarkdownImagePreview({
         }
       }}
       triggerLabel={`${translate('components.native-chat.composer.viewAttachment', 'View image')}: ${title}`}
-      className="max-h-96 max-w-full rounded-md object-contain outline outline-1 outline-border/70"
+      // A fixed square, so loading or scrolling away never resizes the row it sits in.
+      triggerClassName="my-1 mr-1.5 inline-flex size-20 items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas align-top transition-colors hover:border-ring [&>span]:line-clamp-3 [&>span]:break-all [&>span]:px-1 [&>span]:text-center [&>span]:text-xs"
+      className="size-full object-cover"
       onError={() => setFailedSrc(imageSrc)}
-      onLoad={() => {
-        const bounds = triggerRef.current?.getBoundingClientRect()
-        if (bounds && bounds.width > 0 && bounds.height > 0) {
-          const next = { width: bounds.width, height: bounds.height }
-          rememberNativeChatImageFootprint(footprintKey, next)
-          setFootprint(next)
-        }
-        setLoadedImageSrc(displaySrc)
-      }}
       triggerAttributes={copyAttributes}
       triggerRef={triggerRef}
-      triggerStyle={
-        displaySrc && displaySrc === loadedImageSrc
-          ? undefined
-          : footprint && {
-              width: footprint.width,
-              aspectRatio: `${footprint.width} / ${footprint.height}`
-            }
-      }
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
           if (route.kind === 'file') {

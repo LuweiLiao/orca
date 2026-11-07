@@ -145,9 +145,13 @@ for (const source of ['read', 'command', 'relative-command', 'mcp', 'reply-path'
       expect(
         await preview.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)
       ).toBeGreaterThan(0)
+      // Drawn as a small square thumbnail; the full image opens in the viewer.
       await expect
-        .poll(async () => (await preview.locator('img').boundingBox())?.width ?? 0)
-        .toBeGreaterThan(200)
+        .poll(async () => {
+          const box = await preview.locator('img').boundingBox()
+          return box ? [Math.round(box.width), Math.round(box.height)] : null
+        })
+        .toEqual([78, 78])
       await preview.click()
       const dialog = page.getByRole('dialog', { name })
       await expect(dialog).toBeVisible()
