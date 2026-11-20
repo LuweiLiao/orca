@@ -101,7 +101,9 @@ export function useStructuredAgentSession(args: StructuredAgentSessionViewArgs) 
     contextUsage: usageSupport,
     rewind: rewindSupport,
     forkSupport,
-    sessionSupport
+    sessionSupport,
+    chatCapabilities,
+    setChatCapabilities
   } = useStructuredAgentSessionOptions({
     agent,
     sessionId,
@@ -312,6 +314,8 @@ export function useStructuredAgentSession(args: StructuredAgentSessionViewArgs) 
     sessionCommands: transportEnabled ? (state.commands ?? undefined) : undefined,
     ...commandMenu,
     setStructuredOption,
+    chatCapabilities,
+    setChatCapabilities,
     /** Why the host's catalog probe says no chat can start here; the chat shows it as a notice. */
     unavailable,
     threadGoal,

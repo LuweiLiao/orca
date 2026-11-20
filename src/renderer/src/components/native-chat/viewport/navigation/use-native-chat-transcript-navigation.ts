@@ -162,6 +162,15 @@ export function useNativeChatNavigation({
     },
     [beginNavigation, readerLeavesEnd, requestRailJump, startHistoryJump]
   )
+  // Pages in older history when the message is not loaded, as a linked item does.
+  const revealMessage = useCallback(
+    (messageId: string) => {
+      beginNavigation()
+      readerLeavesEnd()
+      startHistoryJump({ kind: 'item', id: messageId })
+    },
+    [beginNavigation, readerLeavesEnd, startHistoryJump]
+  )
   const revealDiff = useCallback(
     (target: NativeChatDiffTarget) => {
       beginNavigation()
@@ -223,6 +232,7 @@ export function useNativeChatNavigation({
   return {
     beginNavigation,
     selectRailItem,
+    revealMessage,
     revealDiff,
     jumpToLatest,
     pendingRailId: historyJump.pending?.kind === 'rail' ? historyJump.pending.id : null

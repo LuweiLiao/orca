@@ -1,8 +1,5 @@
 import type { BotChatIdentity } from '../bots/use-bot-chat-identity'
-import { nativeChatTranscriptOuterClass } from './appearance/native-chat-appearance-style'
-import { NativeChatTranscriptViewport } from './NativeChatTranscriptViewport'
 import { NativeChatTranscriptColumn } from './NativeChatTranscriptColumn'
-import { NativeChatNewRowsAnnouncement } from './viewport/new-rows/NativeChatNewRowsMarker'
 import { useNativeChatNewRowsMarker } from './viewport/new-rows/native-chat-new-rows-marker'
 import { useNativeChatRowTypography } from './viewport/virtualization/use-native-chat-row-typography'
 import { withoutPullRequestEventRows } from '../../../../shared/native-chat/transcript/notices/native-chat-pull-request-event'
@@ -18,10 +15,9 @@ import { useNativeChatQuestionReceipts } from './conversation/projection/use-nat
 import { nativeChatTaskListPredecessors } from '../../../../shared/native-chat/input/task-lists/native-chat-task-list-history'
 import { NativeChatDockedTaskList } from './tools/tasks/NativeChatDockedTaskList'
 import { useNativeChatTurnStatus } from './conversation/turns/use-native-chat-turn-status'
-import { NativeChatAwaitingInputRow } from './prompts/NativeChatAwaitingInputRow'
 import type { RuntimeFileOperationArgs } from '@/runtime/files/runtime-file-client-types'
 import type { NativeChatTurnActivity } from '../../../../shared/native-chat/transcript/turns/native-chat-turn-activity'
-import { NativeChatTurnActivityLine } from './messages/reasoning/NativeChatTurnActivityLine'
+import { NativeChatTranscriptTail } from './NativeChatTranscriptTail'
 import {
   NativeChatTranscriptItems,
   NativeChatWaitingTranscriptItems
@@ -47,7 +43,6 @@ import { useNativeChatTranscriptScroll } from './viewport/scroll/use-native-chat
 import { useNativeChatOlderHistoryAutoload } from './viewport/history/use-native-chat-older-history-autoload'
 import { NativeChatOlderHistoryRow } from './viewport/history/NativeChatOlderHistoryRow'
 import { useNativeChatMessageRail } from './viewport/rail/use-native-chat-message-rail'
-import { NativeChatMessageRail } from './viewport/rail/NativeChatMessageRail'
 import { useNativeChatRailWake } from './viewport/rail/use-native-chat-rail-wake'
 import type { NativeChatRailOutlineEntry } from './viewport/rail/native-chat-message-rail-items'
 import {
@@ -72,6 +67,8 @@ import { useRereadWorkersOnNewRows } from './native-chat-workers-context'
 import type { NativeChatAwaitingInput } from '../../../../shared/native-chat/transcript/turns/native-chat-terminal-turn'
 import { NativeChatBotHomeScope } from './NativeChatBotHomeScope'
 import type { NativeChatBotKickoffView } from './native-chat-bot-kickoff-view'
+import { NativeChatConversationViewport } from './capabilities/NativeChatConversationViewport'
+import type { NativeChatCapabilityControls } from './capabilities/NativeChatCapabilityList'
 
 const NO_SLOTS: readonly NativeChatTranscriptSlot[] = []
 
@@ -98,8 +95,11 @@ export function NativeChatMessageList({
   runtimeContext,
   botHome,
   turnBot,
-  structuredAttachments = false
+  structuredAttachments = false,
+  capabilityControls
 }: {
+  /** The conversation's Skill/MCP list and switches; absent leaves only the usage it made. */
+  capabilityControls?: NativeChatCapabilityControls
   turnBot?: BotChatIdentity | null
   ref?: Parameters<typeof useNativeChatMessageListHandle>[0]
   session: NativeChatLiveSession
@@ -372,53 +372,51 @@ export function NativeChatMessageList({
       <NativeChatPullRequestChangeContext.Provider value={openedPullRequests.latestChangeKey}>
         <div className="relative flex min-h-0 flex-1 flex-col bg-chat-pane">
           {scope.bar}
-          <NativeChatTranscriptViewport
-            scrollRef={scrollRef}
-            scrollerProps={{ onScroll: onTranscriptScroll, ...readerInput.scrollerProps }}
-            forwardedGesture={readerInput.forwardedGesture}
-            showJump={showJump}
-            onJump={jumpToLatest}
-            label={scope.regionLabel}
-            overlays={
-              <>
-                <NativeChatMessageRail
-                  rail={rail}
-                  railRef={railRef}
-                  scrollRef={scrollRef}
-                  onSelect={navigation.selectRailItem}
-                  onReaderScroll={readerInput.railWheel}
-                  pendingId={navigation.pendingRailId}
+          <NativeChatConversationViewport
+            frame={{
+              // A subagent's own rows have no sidebar of their own.
+              shown: subagentId === null,
+              controls: capabilityControls,
+              messages,
+              rail,
+              pendingId: navigation.pendingRailId,
+              onSelect: navigation.selectRailItem,
+              onReveal: navigation.revealMessage
+            }}
+            viewport={{
+              scrollRef,
+              scrollerProps: { onScroll: onTranscriptScroll, ...readerInput.scrollerProps },
+              forwardedGesture: readerInput.forwardedGesture,
+              showJump,
+              onJump: jumpToLatest,
+              label: scope.regionLabel
+            }}
+            railRef={railRef}
+            onRailWheel={readerInput.railWheel}
+            newRowsMarked={newRows.marker !== undefined}
+            olderHistory={
+              showOlderHistory ? (
+                <NativeChatOlderHistoryRow
+                  olderHistory={olderHistory}
+                  loadingEarlier={loadingEarlier}
                 />
-                <NativeChatNewRowsAnnouncement marked={newRows.marker !== undefined} />
-              </>
+              ) : null
             }
           >
-            {showOlderHistory ? (
-              <NativeChatOlderHistoryRow
-                olderHistory={olderHistory}
-                loadingEarlier={loadingEarlier}
+            <NativeChatTranscriptColumn ref={measureContent}>
+              {scope.lead}
+              <NativeChatTranscriptItems
+                slots={slots}
+                timedRows={timedRows}
+                loadedMessageIds={loadedMessageIds}
+                context={rowContext}
+                window={transcriptWindow}
+                newRowsMarker={newRows.marker}
               />
-            ) : null}
-            <div className={nativeChatTranscriptOuterClass(rail.visible)}>
-              <NativeChatTranscriptColumn ref={measureContent}>
-                {scope.lead}
-                <NativeChatTranscriptItems
-                  slots={slots}
-                  timedRows={timedRows}
-                  loadedMessageIds={loadedMessageIds}
-                  context={rowContext}
-                  window={transcriptWindow}
-                  newRowsMarker={newRows.marker}
-                />
-                {liveLine ? (
-                  <NativeChatTurnActivityLine line={liveLine} />
-                ) : tailRow === 'awaiting-input' ? (
-                  <NativeChatAwaitingInputRow subject={null} pending />
-                ) : null}
-                <NativeChatWaitingTranscriptItems slots={waitingSlots} context={rowContext} />
-              </NativeChatTranscriptColumn>
-            </div>
-          </NativeChatTranscriptViewport>
+              <NativeChatTranscriptTail liveLine={liveLine} tailRow={tailRow} />
+              <NativeChatWaitingTranscriptItems slots={waitingSlots} context={rowContext} />
+            </NativeChatTranscriptColumn>
+          </NativeChatConversationViewport>
           <NativeChatDockedTaskList key={session.sessionId} messages={messages} />
         </div>
       </NativeChatPullRequestChangeContext.Provider>

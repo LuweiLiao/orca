@@ -29,6 +29,11 @@ import {
   reportedCodexSessionOptions
 } from '../catalog/codex-structured-session-options'
 import { CodexSkillReport } from '../catalog/codex-structured-skill-report'
+import {
+  codexChatCapabilityLaunch,
+  readCodexConfiguredMcp
+} from '../catalog/codex-chat-capabilities'
+import { CHAT_CAPABILITIES_OPTION } from '../../../../shared/agent-session/options/protocol/agent-session-chat-capabilities'
 import { codexMessageInputOptions } from '../../../../shared/agent-session/options/codex-message-compiler'
 import { codexAcquireCatalogAccess } from '../catalog/codex-structured-acquire-catalog'
 import {
@@ -111,6 +116,16 @@ export async function openCodexStructuredSession(
     openInput.signal
   )
   current()
+  const capabilities = await waitForPromiseWithSignal(
+    codexChatCapabilityLaunch(
+      connection,
+      launch.cwd,
+      input.options?.[CHAT_CAPABILITIES_OPTION],
+      deps.requestTimeoutMs
+    ),
+    openInput.signal
+  )
+  current()
   const commandEnv = {
     ...launch.commandEnv,
     ...(launch.visuals ? { [NATIVE_CHAT_SCRATCH_DIR_ENV]: launch.visuals.folder } : {})
@@ -118,7 +133,11 @@ export async function openCodexStructuredSession(
   const opened = await waitForPromiseWithSignal(
     openCodexThread(
       connection,
-      { ...threadLaunch, commandEnv },
+      {
+        ...threadLaunch,
+        threadConfig: { ...threadLaunch.threadConfig, ...capabilities.threadConfig },
+        commandEnv
+      },
       // Long rollout/MCP setup relies on the host ceiling and cancellation unless a timeout is supplied.
       deps.requestTimeoutMs ?? null,
       openInput.signal
@@ -207,6 +226,7 @@ export async function openCodexStructuredSession(
     ...(catalogAccess ? { catalogAccess } : {}),
     dispatchEchoes: start.dispatchEchoes,
     translator,
+    chatCapabilities: capabilities.state,
     backgroundTasks: new CodexBackgroundTaskTracker(
       opened.threadId,
       start.subagentExecutions,
@@ -233,6 +253,16 @@ export async function openCodexStructuredSession(
     ...(deps.logger ? { logger: deps.logger } : {})
   })
   session.skillReport.refresh()
+  void readCodexConfiguredMcp(
+    connection,
+    launch.cwd,
+    capabilities.state,
+    deps.requestTimeoutMs
+  ).then((read) => {
+    if (read && sessions.get(sessionId) === session && !session.ended) {
+      input.events?.publish()
+    }
+  })
   return {
     link: codexProviderHandleLink({
       threadId: opened.threadId,

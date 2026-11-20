@@ -23,6 +23,7 @@ export function captureStructuredExecutionOptions(
       : {
           ...(saved.personality ? { personality: saved.personality } : {}),
           ...(saved.interactionMode ? { interactionMode: saved.interactionMode } : {}),
+          ...(saved.chatCapabilities ? { chatCapabilities: saved.chatCapabilities } : {}),
           ...selection
         }
   // A missing Fast pick has a definite baseline on hosts that offer it.

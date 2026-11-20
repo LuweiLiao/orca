@@ -10,6 +10,8 @@ import {
   restoredClaudeStructuredSessionOptions
 } from './claude-structured-options'
 import type { ClaudeCliFlagFact } from '../../cli-capabilities/claude-cli-flag-support'
+import { claudeChatCapabilitySettings } from './claude-chat-capabilities'
+import { CHAT_CAPABILITIES_OPTION } from '../../../../shared/agent-session/options/protocol/agent-session-chat-capabilities'
 
 /** Saved choices replace configured flags so the CLI receives each flag once. */
 function withoutConfiguredFlag(
@@ -69,6 +71,26 @@ export function claudeStructuredSpawnOptions(input: {
       } else if (input.flagSettingsControl !== 'unsupported') {
         options.set('fastMode', fastMode)
         fastModeAtStart = true
+      }
+    }
+  }
+  const capabilities = saved.get(CHAT_CAPABILITIES_OPTION)
+  if (capabilities !== undefined) {
+    options.set(CHAT_CAPABILITIES_OPTION, capabilities)
+    if (
+      typeof sdkOptions.settings !== 'string' &&
+      !Object.hasOwn(sdkOptions.extraArgs ?? {}, 'settings')
+    ) {
+      sdkOptions.settings = {
+        ...sdkOptions.settings,
+        ...claudeChatCapabilitySettings(capabilities)
+      }
+    } else {
+      const selected = claudeChatCapabilitySettings(capabilities)
+      if (Object.keys(selected.skillOverrides ?? {}).length || selected.deniedMcpServers?.length) {
+        throw new Error(
+          'Conversation Skill/MCP selection cannot override an explicit --settings file. Remove the --settings argument or enable all capabilities for this conversation.'
+        )
       }
     }
   }

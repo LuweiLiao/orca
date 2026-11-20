@@ -15,6 +15,7 @@ import { NativeChatEmptyState } from './host-access/NativeChatEmptyState'
 import { NativeChatEmptyPane } from './host-access/NativeChatEmptyPane'
 import { NativeChatLoadingCue } from './host-access/NativeChatLoadingCue'
 import { NativeChatSubagentTranscripts } from './subagents/NativeChatSubagentTranscripts'
+import { useChatCapabilityControls } from './capabilities/use-chat-capability-controls'
 import { useStructuredNativeChatSubagents } from './subagents/use-structured-native-chat-subagents'
 import { NativeChatContextClearFade } from './conversation/projection/NativeChatContextClearFade'
 import { useStructuredNativeChatSubmitReveal } from './pane/actions/use-structured-native-chat-submit-reveal'
@@ -187,6 +188,7 @@ export function NativeChatStructuredSession(props: Omit<NativeChatStructuredView
   const installLayout = viewState.kind === 'empty' ? 'hero' : 'strip'
   const install = useNativeChatInstallSlot(props, agentLabel, installLayout)
   const canMention = composerShown && install.unavailableHint === undefined
+  const capabilityControls = useChatCapabilityControls(props, controller, composerRef, canMention)
   const crew = useNativeChatCrewSource({
     target: props.target,
     sessionId: props.sessionId,
@@ -324,6 +326,7 @@ export function NativeChatStructuredSession(props: Omit<NativeChatStructuredView
                               deliveryNotices={deliveryNotices}
                               {...{ turnBot, botHome: bot.kickoff }}
                               timedRows={timedRows}
+                              capabilityControls={capabilityControls}
                             />
                           )}
                         </NativeChatWorkerApprovalTimeline>

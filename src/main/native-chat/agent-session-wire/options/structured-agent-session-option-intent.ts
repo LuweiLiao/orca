@@ -18,6 +18,11 @@ import {
   structuredAgentSessionPickReply
 } from './structured-agent-session-pick-reply'
 import type { StructuredAgentSessionAdapter } from '../providers/structured-agent-session-adapter'
+import {
+  CHAT_CAPABILITIES_OPTION,
+  readChatSelection,
+  supportsChatCapabilities
+} from '../../../../shared/agent-session/options/protocol/agent-session-chat-capabilities'
 
 function acceptsOptionPick(
   agents: Pick<StructuredAgentRegistry, 'definition'>,
@@ -26,6 +31,16 @@ function acceptsOptionPick(
   value: string
 ): boolean {
   const definition = agents.definition(provider)
+  if (key === CHAT_CAPABILITIES_OPTION) {
+    if (!supportsChatCapabilities(provider)) {
+      return false
+    }
+    try {
+      readChatSelection(value)
+    } catch {
+      return false
+    }
+  }
   return key === AGENT_CHAT_PERMISSION_MODE_OPTION_ID
     ? definition !== null &&
         agentChatPermissionModes(provider) !== null &&

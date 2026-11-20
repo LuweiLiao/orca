@@ -2,6 +2,7 @@ import type { DirectoryAccountAgentDefinition } from '../../../native-chat/agent
 import { CODEX_STRUCTURED_HANDLE_NAMESPACE } from '../../../../shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle-encoding'
 import { isCodexTurnOptionKey } from '../turns/codex-turn-option-keys'
 import { managedAgentCli } from '../../../managed-agent-cli/managed-agent-cli-registry'
+import { CHAT_CAPABILITIES_OPTION } from '../../../../shared/agent-session/options/protocol/agent-session-chat-capabilities'
 
 export const CODEX_STRUCTURED_AGENT: DirectoryAccountAgentDefinition = {
   agent: 'codex',
@@ -23,7 +24,8 @@ export const CODEX_STRUCTURED_AGENT: DirectoryAccountAgentDefinition = {
     approvalEnforcement: 'provider'
   },
   restingOptions: {
-    acceptsKey: isCodexTurnOptionKey,
+    // The tool selection is a launch setting, never a turn override.
+    acceptsKey: (key) => isCodexTurnOptionKey(key) || key === CHAT_CAPABILITIES_OPTION,
     // No built-in list: the client fills the current model from its own unknown-model defaults.
     fallbackModels: () => null,
     // A running child answers only the effort its thread reported, never the model's default.

@@ -7,7 +7,8 @@ export const AgentSessionExecutionOptionsSchema = z.object({
   personality: z.string().min(1).max(64).optional(),
   fastMode: z.enum(['true', 'false']).optional(),
   serviceTier: z.string().min(1).max(64).optional(),
-  interactionMode: z.enum(['default', 'plan']).optional()
+  interactionMode: z.enum(['default', 'plan']).optional(),
+  chatCapabilities: z.string().optional()
 })
 
 export type AgentSessionExecutionOptions = z.infer<typeof AgentSessionExecutionOptionsSchema>

@@ -4,6 +4,7 @@ import { isAgentSessionRewindRecord } from './rewind/agent-session-rewind'
 import type { AgentSessionRewindRecord } from './rewind/agent-session-rewind'
 import { isAgentSessionLaunchArgs } from './records/agent-session-launch-args'
 import { isAgentSessionConversationName } from '../conversation-naming/agent-session-conversation-name'
+import { agentSessionOptionValueLimit } from '../options/protocol/agent-session-chat-capabilities'
 import {
   isPersistedAgentSessionHandoffStage,
   isPersistedAgentSessionRuntimeKind,
@@ -224,7 +225,8 @@ export function isAgentSessionOptions(value: unknown): value is Record<string, s
     entries.length <= 32 &&
     entries.every(
       ([key, option]) =>
-        isBoundedString(key, MAX_ID_LENGTH) && isBoundedString(option, MAX_ID_LENGTH)
+        isBoundedString(key, MAX_ID_LENGTH) &&
+        isBoundedString(option, agentSessionOptionValueLimit(key, MAX_ID_LENGTH))
     )
   )
 }

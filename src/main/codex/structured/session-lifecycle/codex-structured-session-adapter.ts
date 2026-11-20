@@ -51,6 +51,7 @@ import * as codexRewind from '../threads/codex-structured-rewind'
 import * as turnEnd from '../turns/codex-structured-turn-end-settlement'
 import { codexAcquireFailure } from '../../app-server/codex-startup-outcome'
 import { openCodexStart, recoverCodexRewindAtStart } from './codex-structured-start-verdict'
+import * as chatCapabilities from '../catalog/codex-chat-capabilities'
 
 export class CodexStructuredSessionAdapter implements SessionAdapter {
   private readonly sessions = new Map<string, CodexSession>()
@@ -87,6 +88,7 @@ export class CodexStructuredSessionAdapter implements SessionAdapter {
   readAccountUsage = readCodexSessionAccountUsage(this.sessions, () => this.deps.providerInvocation)
   manageMcp = manageCodexSessionMcp(this.sessions, () => this.deps.providerInvocation)
   approveAutoReviewDenial = approveCodexAutoReviewDenial(this.sessions)
+  requiresRestartForOptions = chatCapabilities.codexChatSelectionRestart(this.sessions)
 
   supportsLocation = supportsCodexStructuredLocation
 
@@ -152,9 +154,7 @@ export class CodexStructuredSessionAdapter implements SessionAdapter {
   ): CodexJournalTranslationAdmission {
     if (event.type === 'notification') {
       turnEnd.noteCodexTurnOpened(session, event.method, event.params)
-      if (event.method === 'skills/changed') {
-        session.skillReport?.refresh(true)
-      }
+      chatCapabilities.observeCodexToolNotification(session, event.method, event.params)
     }
     const admission = session.translator?.handle(event) ?? { accepted: true }
     if (!admission.accepted) {

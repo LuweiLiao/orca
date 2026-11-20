@@ -109,6 +109,8 @@ export type NativeChatComposerProps = {
 export type NativeChatComposerHandle = {
   resend?: (text: string, imagePaths?: string[]) => boolean
   insertAgentReferences: (references: OrchestrationAgentReference[]) => boolean
+  /** Places a skill token at the caret, as picking it from the menu does. */
+  insertSkill?: (token: string, path?: string) => boolean
   isComposing?: () => boolean
   /** `caretAtEnd` puts the caret after text already in the box; `glow` flashes the box once. */
   focus: (options?: { caretAtEnd?: boolean; glow?: boolean }) => boolean

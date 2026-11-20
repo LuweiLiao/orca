@@ -51,7 +51,12 @@ describe('CodexStructuredSessionAdapter.acquire', () => {
           efforts: [],
           effortsKnown: false
         }
-      ]
+      ],
+      chatCapabilities: {
+        selection: { disabledSkills: [], disabledMcpServers: [] },
+        skills: [],
+        mcpServers: []
+      }
     })
     codex.routes['turn/start'] = answerWithOpenedTurn(codex, 'turn-1')
     await expect(

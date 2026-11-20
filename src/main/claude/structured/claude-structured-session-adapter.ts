@@ -1,6 +1,6 @@
 import { dispatchClaudeCommand } from './turns/claude-structured-command-dispatch'
 import { isKillDeliveredExitReceipt } from './lifecycle/claude-kill-delivered-exit-receipt'
-import { manageClaudeMcp } from './lifecycle/claude-structured-mcp'
+import { claudeMcpManager } from './lifecycle/claude-structured-mcp'
 import { claudeAcquireFailure } from '../sdk-transport/claude-startup-failure'
 import { claudeStartPublication, openClaudeStart } from './startup/claude-structured-start-ending'
 import { AgentSessionStartEndings } from '../../native-chat/agent-session-wire/startup/structured-agent-session-start-failure'
@@ -210,8 +210,8 @@ export class ClaudeStructuredSessionAdapter implements StructuredAgentSessionAda
     this.sessions.has(sessionId) ? { supportsTaskStop: true, supportsStopAll: true } : undefined
   readCommands: NonNullable<StructuredAgentSessionAdapter['readCommands']> = (sessionId) =>
     this.sessions.get(sessionId)?.commands.commands
-  manageMcp: NonNullable<StructuredAgentSessionAdapter['manageMcp']> = (record, operation) =>
-    manageClaudeMcp(this.sessions, record.sessionId, operation)
+  manageMcp = claudeMcpManager(this.sessions)
+  requiresRestartForOptions = claudeOptions.claudeChatSelectionRestart(this.sessions)
   readonly atRestCommands: ClaudeStructuredSessionAdapterDeps['atRestCommands']
   holdsDispatch = (sessionId: string): boolean => claudeHoldsDispatch(this.sessions.get(sessionId))
   requiresModelTransitionRestart = claudeOptions.claudeModelTransitionRestart(this.sessions)

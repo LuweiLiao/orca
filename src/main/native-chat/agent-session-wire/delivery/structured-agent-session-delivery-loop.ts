@@ -267,13 +267,14 @@ export class StructuredAgentSessionDeliveryLoop {
       }
     }
     if (
-      await waitsForCodexTurnOptions(
+      (await waitsForCodexTurnOptions(
         this.deps.record(sessionId),
         session.journal,
         next,
         awaitedChild,
         this.deps.adapter
-      )
+      )) ||
+      this.deps.adapter.requiresRestartForOptions?.(sessionId, next.options) === true
     ) {
       return this.stop(sessionId)
     }

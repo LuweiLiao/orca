@@ -17,6 +17,7 @@ import { structuredAgentSessionShownSnapshot } from '../../../../../../../shared
 import { useHostModelCatalogUpgrade } from '../catalog/use-host-model-catalog-upgrade'
 import { useNativeChatCliUpdate } from '../../../host-access/native-chat-cli-update'
 import { useStructuredAgentSessionOptionState } from './use-structured-agent-session-option-state'
+import { useStructuredChatCapabilitySelection } from './structured-chat-capability-selection'
 import { agentSessionWriteFailureText } from '../../../messages/notices/agent-session-write-notice-text'
 import {
   flushStructuredSessionSelectionOptions,
@@ -204,7 +205,11 @@ export function useStructuredAgentSessionOptions(args: StructuredAgentSessionOpt
     ]
   )
 
+  const setChatCapabilities = useStructuredChatCapabilitySelection(args.mutate, rereadOptions)
   return {
+    /** Absent from a host or provider that cannot switch Skill/MCP per conversation. */
+    chatCapabilities: support?.chatCapabilities,
+    setChatCapabilities,
     conversationCommands: support?.commands ?? [],
     compactInstructions: support?.compactInstructions === true,
     /** Absent unless this host and session can change the goal. */

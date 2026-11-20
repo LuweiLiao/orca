@@ -12,6 +12,8 @@ import type { ClaudeSession } from '../claude-structured-session-state'
 import type { ClaudeStructuredSessionEvent } from '../lifecycle/claude-structured-session-event'
 import type { StructuredAgentSessionAdapter } from '../../../native-chat/agent-session-wire/providers/structured-agent-session-adapter'
 import { decodeStructuredAgentSessionOptionValue } from '../../../../shared/agent-session/options/selection/structured-agent-session-option-codec'
+export { claudeChatSelectionRestart } from './claude-chat-capabilities'
+import { CHAT_CAPABILITIES_OPTION } from '../../../../shared/agent-session/options/protocol/agent-session-chat-capabilities'
 
 import { beginClaudeOptionMutation } from '../turns/claude-structured-execution-observations'
 import {
@@ -25,7 +27,7 @@ export function claudeEffortLevel(value: string) {
   return value === 'ultracode' ? 'xhigh' : EFFORT_LEVELS.find((level) => level === value)
 }
 
-const OPTION_ORDER = ['model', 'effort', 'fastMode'] as const
+const OPTION_ORDER = ['model', 'effort', 'fastMode', CHAT_CAPABILITIES_OPTION] as const
 
 /** A fallback approval mode is dropped only by reopening for a newly picked model (only an approved plan
  *  changes the live mode). Compares with what Orca itself launched, so the reopened child never matches again. */
@@ -60,7 +62,7 @@ export function restoredClaudeStructuredSessionOptions(
   )
 }
 
-const CLAUDE_STRUCTURED_OPTION_KEYS = new Set(['model', 'effort', 'fastMode', 'interactionMode'])
+const CLAUDE_STRUCTURED_OPTION_KEYS = new Set<string>([...OPTION_ORDER, 'interactionMode'])
 
 export function isClaudeStructuredOptionKey(key: string): boolean {
   return CLAUDE_STRUCTURED_OPTION_KEYS.has(key)

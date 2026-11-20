@@ -27,6 +27,7 @@ import {
   type StructuredAgentSessionRestingOptions as RestingOptions
 } from './structured-agent-session-option-models'
 import { structuredAgentSessionImmediatePermission } from './structured-agent-session-launch-permission'
+import { chatCapabilitiesReport } from '../../../../shared/agent-session/options/protocol/agent-session-chat-capabilities'
 import type { StructuredAgentSessionMutationContext } from '../operations/structured-agent-session-mutation-context'
 import { readStructuredSessionRecovery } from '../recovery/structured-agent-session-recovery-read'
 import { fillUnknownModelEfforts } from '../../../../shared/agent-session/options/model-catalog/agent-session-model-efforts'
@@ -243,6 +244,7 @@ export async function readStructuredAgentSessionOptions(
   }
   return {
     ...options,
+    ...chatCapabilitiesReport(agent, saved.chatCapabilities, options.chatCapabilities),
     ...recovery,
     forkSupport:
       capabilities?.fork === 'checkpoint'

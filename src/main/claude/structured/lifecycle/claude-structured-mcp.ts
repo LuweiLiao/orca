@@ -12,6 +12,7 @@ import {
   type ClaudeMcpControls
 } from '../../sdk-transport/claude-agent-sdk-control-requests'
 import type { ClaudeSession } from '../claude-structured-session-state'
+import type { StructuredAgentSessionAdapter } from '../../../native-chat/agent-session-wire/providers/structured-agent-session-adapter'
 
 // The CLI refuses OAuth for stdio and sdk servers.
 const SIGN_IN_TRANSPORTS = new Set(['http', 'sse', 'claudeai-proxy'])
@@ -87,4 +88,10 @@ export async function manageClaudeMcp(
     }
     throw error
   }
+}
+
+export function claudeMcpManager(
+  sessions: ReadonlyMap<string, ClaudeSession>
+): NonNullable<StructuredAgentSessionAdapter['manageMcp']> {
+  return (record, operation) => manageClaudeMcp(sessions, record.sessionId, operation)
 }

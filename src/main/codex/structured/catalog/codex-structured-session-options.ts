@@ -10,6 +10,7 @@ import {
   type CodexSessionOptionCatalog
 } from './codex-structured-model-catalog'
 import { codexSessionCapabilities } from './codex-structured-catalog-entry'
+import { codexChatCapabilityReport } from './codex-chat-capabilities'
 
 export function restoredCodexSessionOptions(
   options: Readonly<Record<string, string>> | undefined
@@ -62,7 +63,14 @@ export async function readLiveCodexSessionOptions(
   session: CodexSession,
   _timeoutMs: number | undefined
 ): Promise<StructuredAgentSessionLiveOptions> {
-  return composeLiveCodexCatalog(session, codexSessionCapabilities(session))
+  const chatCapabilities = codexChatCapabilityReport(
+    session.chatCapabilities,
+    session.skillReport?.read()
+  )
+  return {
+    ...composeLiveCodexCatalog(session, codexSessionCapabilities(session)),
+    ...(chatCapabilities ? { chatCapabilities } : {})
+  }
 }
 
 export async function applyCodexStructuredSessionOption(

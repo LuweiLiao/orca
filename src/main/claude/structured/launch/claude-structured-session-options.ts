@@ -13,6 +13,7 @@ import {
 } from '../../../native-chat/agent-session-wire/options/structured-agent-session-option-models'
 import { wireClaudeModels, type WireClaudeModel } from './claude-structured-catalog-listing'
 import { decodeStructuredAgentSessionOptionValue } from '../../../../shared/agent-session/options/selection/structured-agent-session-option-codec'
+import { readChatSelection } from '../../../../shared/agent-session/options/protocol/agent-session-chat-capabilities'
 
 export function claudeObservedEffort(
   effort: string | null | undefined,
@@ -151,7 +152,15 @@ export async function readClaudeStructuredSessionOptions(
   session: ClaudeSession,
   _timeoutMs?: number
 ): Promise<StructuredAgentSessionLiveOptions> {
-  return claudeStructuredSessionOptionsFrom(session, null)
+  const mcpServers = await session.connection.mcp?.status().catch(() => undefined)
+  return {
+    ...claudeStructuredSessionOptionsFrom(session, null),
+    chatCapabilities: {
+      selection: readChatSelection(session.options.get('chatCapabilities')),
+      skills: (session.commands.commands ?? []).filter((command) => command.kind === 'skill'),
+      mcpServers: (mcpServers ?? []).map(({ name, status }) => ({ name, status }))
+    }
+  }
 }
 
 /** Native turn completion owns optional settings observations, independently of user actions. */

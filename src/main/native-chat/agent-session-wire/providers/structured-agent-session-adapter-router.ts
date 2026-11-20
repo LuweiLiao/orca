@@ -154,9 +154,15 @@ export class StructuredAgentSessionAdapterRouter implements Adapter {
   liveTurnId = (sessionId: string): string | null | undefined =>
     this.liveOwnerOrNull(sessionId)?.liveTurnId?.(sessionId)
 
+  requiresRestartForOptions: NonNullable<Adapter['requiresRestartForOptions']> = (id, options) =>
+    this.liveOwnerOrNull(id)?.requiresRestartForOptions?.(id, options) ?? false
+
+  // A changed Skill/MCP selection also retires the child before its next message, once work settles.
   requiresModelTransitionRestart: NonNullable<Adapter['requiresModelTransitionRestart']> = (
     input
-  ) => this.liveOwnerOrNull(input.sessionId)?.requiresModelTransitionRestart?.(input) ?? false
+  ) =>
+    this.liveOwnerOrNull(input.sessionId)?.requiresModelTransitionRestart?.(input) === true ||
+    this.requiresRestartForOptions(input.sessionId, input.executionOptions)
 
   capturePendingOutput: Adapter['capturePendingOutput'] = (input) =>
     this.liveOwnerOrNull(input.sessionId)?.capturePendingOutput?.(input)

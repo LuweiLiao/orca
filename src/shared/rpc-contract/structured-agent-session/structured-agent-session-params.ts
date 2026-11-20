@@ -1,6 +1,10 @@
 import { BotLinkOpenTargetSchema } from '../../bots/bot-link-open-target'
 import { AgentSessionSelectionSchema } from '../../agent-session/options/protocol/agent-session-execution-options'
 import {
+  CHAT_CAPABILITIES_MAX_LENGTH,
+  CHAT_CAPABILITIES_OPTION
+} from '../../agent-session/options/protocol/agent-session-chat-capabilities'
+import {
   SendBody,
   MAX_OPTION_LABEL,
   CompactInstructions,
@@ -180,11 +184,19 @@ export const RespondParams = z
   })
   .strict()
 
-export const SetOptionParams = z.strictObject({
-  envelope: MutationEnvelope,
-  key: Identifier('Invalid option key'),
-  value: z.string().max(MAX_OPTION_LABEL)
-})
+export const SetOptionParams = z
+  .strictObject({
+    envelope: MutationEnvelope,
+    key: Identifier('Invalid option key'),
+    value: z.string().max(CHAT_CAPABILITIES_MAX_LENGTH)
+  })
+  .refine(
+    ({ key, value }) => key === CHAT_CAPABILITIES_OPTION || value.length <= MAX_OPTION_LABEL,
+    {
+      message: 'Option value is too long',
+      path: ['value']
+    }
+  )
 
 export const OptionsParams = z.object({ sessionId: SessionId }).strict()
 export const RevealParams = OptionsParams.extend({

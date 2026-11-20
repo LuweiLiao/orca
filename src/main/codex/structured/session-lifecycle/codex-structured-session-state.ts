@@ -21,6 +21,7 @@ import type { CodexDispatchEchoes } from '../turns/codex-structured-dispatch-ech
 import type { AgentChildWorkEvidence } from '../../../../shared/agent-status/child-work/agent-status-child-work-evidence'
 import type { CodexBackgroundTaskTracker } from '../background-work/codex-background-task-tracker'
 import type { CodexSkillReport } from '../catalog/codex-structured-skill-report'
+import type { CodexChatCapabilityState } from '../catalog/codex-chat-capabilities'
 import type { CodexJournalTranslator } from '../journal/codex-structured-journal-contracts'
 import type { StructuredAgentSessionLifecycleEvent } from '../../../native-chat/agent-session-wire/providers/structured-agent-session-adapter'
 import type { CodexStructuredPermissionPolicy } from '../../../../shared/agent-launch/permissions/codex-permission-policy'
@@ -184,6 +185,7 @@ export type CodexSession = Pick<CodexBotLaunchOptions, 'readOnly'> & {
   /** Ephemeral compatibility roster; durable child records own runtime state. */
   backgroundTasks: CodexBackgroundTaskTracker
   skillReport?: CodexSkillReport
+  chatCapabilities?: CodexChatCapabilityState
   unbindReadingControl?: () => void
   /** Terminates this exact child as an unexpected death and enters host recovery. */
   forceCloseUnexpected?: (reason: Error) => Promise<boolean>

@@ -3,6 +3,7 @@ import type { AgentJournalThreadGoal } from '../../journal/agent-session-journal
 import type { AgentSessionConversationCommand } from '../../conversation-context/agent-session-conversation-command'
 import type { AgentSessionContextUsage } from '../../conversation-context/agent-session-context-usage'
 import type { AgentSessionRewindSupport } from '../../lifecycle/rewind/agent-session-rewind'
+import type { AgentSessionChatCapabilities } from './agent-session-chat-capabilities'
 import type {
   AgentSessionFastModeState,
   AgentSessionFastModeSupport
@@ -26,6 +27,7 @@ export type AgentSessionOptionsResult = {
   sessionNeverStarted?: boolean
   /** Saved conversation on this execution host, resolved from the record's own account store. */
   transcriptPath?: string
+  chatCapabilities?: AgentSessionChatCapabilities
   rewind?: AgentSessionRewindSupport
   /** Whether this chat's agent copies its conversation natively; absent means unknown, never unsupported. */
   forkSupport?: 'unknown' | 'supported' | 'unsupported'

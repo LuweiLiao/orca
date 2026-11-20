@@ -39,7 +39,7 @@ export function useNativeChatComposerHandle(
     setActiveSuggestion
   })
 
-  const { attachmentScopeKey } = args
+  const { attachmentScopeKey, setCaret } = args
   const appendText = useCallback(
     (text: string, options?: { glow?: boolean }): void => {
       appendPlainText(text)
@@ -87,6 +87,18 @@ export function useNativeChatComposerHandle(
         input.focus()
         return true
       },
+      insertSkill: (token, path) => {
+        const input = textareaRef.current
+        if (!input || input.disabled || !input.insertSkill || isComposing()) {
+          return false
+        }
+        const at = input.selectionStart ?? input.value.length
+        input.insertSkill(at, input.selectionEnd ?? at, token, path)
+        setDraft(input.value)
+        setCaret(input.selectionStart ?? input.value.length)
+        input.focus()
+        return true
+      },
       isComposing,
       focus,
       resend: args.resend,
@@ -101,6 +113,8 @@ export function useNativeChatComposerHandle(
     [
       textareaRef,
       isComposing,
+      setDraft,
+      setCaret,
       focus,
       args.resend,
       insertTypedText,

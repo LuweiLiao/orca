@@ -98,6 +98,7 @@ export function useStructuredAgentSessionOptionState(args: {
             threadGoal: acceptedSupport.result.threadGoal,
             reportedThreadGoal: acceptedSupport.result.reportedThreadGoal,
             contextUsage: acceptedSupport.result.contextUsage,
+            chatCapabilities: acceptedSupport.result.chatCapabilities,
             acceptsImages: acceptedSupport.result.acceptsImages,
             canSwitchAccount: acceptedSupport.result.canSwitchAccount === true,
             rewind: acceptedSupport.result.rewind ?? {
