@@ -1,6 +1,5 @@
 import { expect, it } from 'vitest'
 
-import type { AppState } from '../../../types'
 import '../agent-status'
 
 import { createTestStore } from '../../../testing/app-store-test-fixture'
@@ -12,7 +11,7 @@ it('keeps a ccb launch recipe when its Claude runtime reports Claude', () => {
     tabsByWorktree: {
       'wt-1': [makeTab({ id: 'tab-1', worktreeId: 'wt-1' })]
     }
-  } as Partial<AppState>)
+  })
   const launchConfig = { agentCommand: 'ccb', agentArgs: '', agentEnv: {} }
   store.getState().registerAgentLaunchConfig('tab-1:leaf-1', launchConfig, {
     agentType: 'ccb',
