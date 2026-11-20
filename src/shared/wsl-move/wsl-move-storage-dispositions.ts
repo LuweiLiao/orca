@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the census keeps every localStorage module, SQLite schema file and table disposition in one list so a missing entry is easy to spot. */
 import { moveDisposition, notApplicableDisposition } from './wsl-move-dispositions'
 import type { WslMoveFieldDisposition } from './wsl-move-dispositions'
 
@@ -125,6 +126,8 @@ export const SQLITE_SCHEMA_FILE_DATABASES: Record<string, string> = {
   'src/main/native-chat/agent-session-journal/queued-messages/queued-message-schema.ts':
     'agent-session-journal',
   'src/main/persistence/profile-state/database/profile-state-database-schema.ts': 'profile-state',
+  'src/main/runtime/orchestration/db/delegation-grants/agent-delegation-grant-tables.ts':
+    'orchestration',
   'src/main/runtime/orchestration/db/schema/create-core-tables-sql.ts': 'orchestration',
   'src/main/runtime/orchestration/db/schema/create-graph-tables-sql.ts': 'orchestration',
   'src/main/runtime/orchestration/db/schema/migrate-legacy-contract-storage.ts': 'orchestration',
@@ -238,7 +241,10 @@ export const SQLITE_TABLE_DISPOSITIONS: Record<string, WslMoveFieldDisposition> 
         'legacy_operation_receipts',
         'removed_orchestration_work',
         'removed_orchestration_work_coverage',
-        'orchestration_maintenance'
+        'orchestration_maintenance',
+        'agent_delegation_grants',
+        'agent_delegation_slots',
+        'agent_delegation_slot_dispatches'
       ],
       notApplicableDisposition(
         53,

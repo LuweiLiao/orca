@@ -14,6 +14,7 @@ export const HOST_OPERATION_OWNERSHIP = {
   accounts: 'host',
   agent: 'host',
   agentActivity: 'host',
+  agentDelegation: 'host',
   agentHooks: 'host',
   agentSession: 'host',
   agentSessionAttachment: 'host',

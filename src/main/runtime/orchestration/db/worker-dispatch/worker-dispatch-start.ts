@@ -10,6 +10,12 @@ import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { taskNotFoundError } from '../../coordinator/dispatch/task-dispatch-refusal'
 import { claimTaskForStart } from '../tasks/task-start-claim'
 import { getFollowUpDispatch, takeFollowUpMail } from '../dispatch-context/worker-follow-up-lineage'
+import {
+  claimAgentDelegationReuseInTransaction,
+  claimAgentDelegationSlotInTransaction,
+  type AgentDelegationClaim,
+  type AgentDelegationReuse
+} from '../delegation-grants/agent-delegation-grant-store'
 
 export function createStartingWorkerDispatch(
   this: OrchestrationDb,
@@ -55,6 +61,8 @@ export function createStartingWorkerDispatch(
     takesMailOf?: string
     /** What the creator started it for; a retry or follow-up without one keeps its earlier start's. */
     originRef?: string
+    /** What the user authorized this start to spend: a new agent, or reuse of one it started. */
+    delegation?: StartDelegation
   }
 ): { dispatch: DispatchContextRow; worker: WorkerDispatchRow; task: TaskRow } {
   this.db.exec('BEGIN IMMEDIATE')
@@ -148,6 +156,14 @@ export function createStartingWorkerDispatch(
         { effectsApplied: false }
       )
     }
+    if (params.delegation) {
+      claimStartDelegation(this.db, params.delegation, {
+        id,
+        taskId: task.id,
+        runId: task.run_id,
+        retryOf: params.retryOf
+      })
+    }
     const accepting = params.mutationReceipt ?? params.acceptedBy
     if (accepting) {
       this.db
@@ -226,13 +242,46 @@ export function createStartingWorkerDispatch(
   }
 }
 
+type StartDelegation = { create: AgentDelegationClaim } | { reuse: AgentDelegationReuse }
+
+function claimStartDelegation(
+  db: OrchestrationDb['db'],
+  delegation: StartDelegation,
+  dispatch: { id: string; taskId: string; runId: string; retryOf?: string }
+): void {
+  if ('create' in delegation) {
+    claimAgentDelegationSlotInTransaction(db, delegation.create, dispatch)
+  } else {
+    claimAgentDelegationReuseInTransaction(db, delegation.reuse, dispatch)
+  }
+}
+
+/**
+ * Refuses a start the user's authorization does not cover, before effects the start would cause
+ * ahead of its Dispatch, such as releasing a retried attempt's terminal. Writes nothing.
+ */
+export function previewStartingWorkerDelegation(
+  this: OrchestrationDb,
+  delegation: StartDelegation,
+  dispatch: { taskId: string; runId: string; retryOf?: string }
+): void {
+  this.db.exec('BEGIN IMMEDIATE')
+  try {
+    claimStartDelegation(this.db, delegation, { ...dispatch, id: generateId('ctx') })
+  } finally {
+    this.db.exec('ROLLBACK')
+  }
+}
+
 export type WorkerDispatchStartMethods = {
   createStartingWorkerDispatch: typeof createStartingWorkerDispatch
+  previewStartingWorkerDelegation: typeof previewStartingWorkerDelegation
 }
 
 export function attachWorkerDispatchStart(ctor: { prototype: object }): void {
   Object.assign(ctor.prototype, {
-    createStartingWorkerDispatch
+    createStartingWorkerDispatch,
+    previewStartingWorkerDelegation
   })
 }
 

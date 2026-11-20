@@ -8,6 +8,12 @@ import '../../../../../../orchestration/db/dispatch-row-writer'
 import '../../../../../../orchestration/db/attempt-outcome-projection'
 import { createOrchestrationWorkerReleaseHarness } from '../../testing/worker-release.test-support'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const READY_WAIT = {
   handle: 'term_worker',
   condition: 'tui-idle',

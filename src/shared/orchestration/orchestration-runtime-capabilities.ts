@@ -58,6 +58,9 @@ export const ORCHESTRATION_PEER_MAIL_FILES_RUNTIME_CAPABILITY =
 /** Runs the workers a paired Orca places here as its own, coordinated from that Orca (wire v1). */
 export const ORCHESTRATION_REMOTE_OWNED_WORKERS_RUNTIME_CAPABILITY =
   'orchestration.remote-owned-workers.v1' as const
+/** Accepts `orchestration.authorizeTerminalAgents` from a person's terminal-agent composer. */
+export const AGENT_DELEGATION_TERMINAL_AUTHORIZE_RUNTIME_CAPABILITY =
+  'orchestration.agent-delegation-terminal-authorize.v1' as const
 
 export const ORCHESTRATION_RUNTIME_CAPABILITIES = [
   ORCHESTRATION_FEDERATION_RUNTIME_CAPABILITY,
