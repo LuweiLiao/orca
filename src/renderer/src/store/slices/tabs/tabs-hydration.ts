@@ -21,6 +21,7 @@ import {
 import { sanitizeRecentTabIds } from './tab-selection-history'
 import { dedupeTabOrder } from '../../../../../shared/workspace-layout/tab-groups/tab-order'
 import { restoresSavedContentTab } from '../../../../../shared/workspace-layout/editor-tabs/saved-editor-tab-restore'
+import { removeGroupLayoutLeaves } from '../../../../../shared/workspace-layout/tab-groups/tab-group-layout-tree'
 
 type HydratedTabState = {
   unifiedTabsByWorktree: Record<string, Tab[]>
@@ -34,36 +35,14 @@ export function pruneTabGroupLayoutForGroups(
   root: TabGroupLayoutNode,
   validGroupIds: Set<string>
 ): TabGroupLayoutNode | null {
-  return pruneLayoutNodeForGroups(root, validGroupIds, new Set())
-}
-
-function pruneLayoutNodeForGroups(
-  root: TabGroupLayoutNode,
-  validGroupIds: Set<string>,
-  placedGroupIds: Set<string>
-): TabGroupLayoutNode | null {
-  if (root.type === 'leaf') {
-    if (!validGroupIds.has(root.groupId) || placedGroupIds.has(root.groupId)) {
-      return null
+  const placedGroupIds = new Set<string>()
+  return removeGroupLayoutLeaves(root, (groupId) => {
+    if (!validGroupIds.has(groupId) || placedGroupIds.has(groupId)) {
+      return true
     }
-    placedGroupIds.add(root.groupId)
-    return root
-  }
-
-  const first = pruneLayoutNodeForGroups(root.first, validGroupIds, placedGroupIds)
-  const second = pruneLayoutNodeForGroups(root.second, validGroupIds, placedGroupIds)
-
-  if (first === null) {
-    return second
-  }
-  if (second === null) {
-    return first
-  }
-  if (first === root.first && second === root.second) {
-    return root
-  }
-
-  return { ...root, first, second }
+    placedGroupIds.add(groupId)
+    return false
+  })
 }
 
 /**

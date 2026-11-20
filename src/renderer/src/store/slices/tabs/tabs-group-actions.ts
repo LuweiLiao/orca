@@ -7,6 +7,7 @@ import type {
 } from '../../../../../shared/workspace-layout/tab-groups/tab-types'
 import {
   buildSplitNode,
+  distributeTabGroupSplit,
   collapseGroupLayout,
   replaceLeaf
 } from '../../../../../shared/workspace-layout/tab-groups/tab-group-layout-tree'
@@ -57,7 +58,10 @@ export function splitGroupEntries(
   )
   return {
     groups: [...(state.groupsByWorktree[worktreeId] ?? []), newGroup],
-    layout: replaceLeaf(currentLayout, sourceGroupId, replacement),
+    layout: distributeTabGroupSplit(
+      replaceLeaf(currentLayout, sourceGroupId, replacement),
+      newGroup.id
+    ),
     activeGroupId: target.activate === false ? null : newGroup.id
   }
 }

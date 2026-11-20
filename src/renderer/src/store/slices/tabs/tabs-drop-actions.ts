@@ -8,6 +8,7 @@ import { isPaneColumnSplitDropNoOp } from '../../../../../shared/workspace-layou
 import {
   collapseWorktreeGroupLayout,
   buildSplitNode,
+  distributeTabGroupSplit,
   replaceLeaf
 } from '../../../../../shared/workspace-layout/tab-groups/tab-group-layout-tree'
 import { buildActiveSurfacePatch } from './tabs-surface'
@@ -157,6 +158,9 @@ export function createTabsDropActions(
           }
         } else {
           nextActiveGroupId = resolvedTargetGroupId
+        }
+        if (target.splitDirection && nextLayout) {
+          nextLayout = distributeTabGroupSplit(nextLayout, resolvedTargetGroupId)
         }
 
         const nextLayoutByWorktree =
