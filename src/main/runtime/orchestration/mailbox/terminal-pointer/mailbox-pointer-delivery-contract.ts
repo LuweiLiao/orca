@@ -12,6 +12,7 @@ import type { WriteSettlement } from '../../../../../shared/terminal/pty/lifecyc
 export type OrchestrationMailboxPointerMessage = {
   id: string
   type: string
+  priority?: string
   sequence: number
   pointer_enter_pending?: number
   pointer_pty_id?: string | null

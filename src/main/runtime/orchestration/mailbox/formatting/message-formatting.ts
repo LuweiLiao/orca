@@ -145,6 +145,33 @@ export function orchestrationCheckRunFlag(mailboxHandle: string | undefined): st
   return mailboxHandle?.startsWith('run:') ? ` --run ${mailboxHandle.slice('run:'.length)}` : ''
 }
 
+export type MessagePointerKind = { type: string; priority?: string }
+
+const POINTER_TYPE_PATTERN = /^[a-z_]{1,32}$/
+
+// Only Orca-owned enums: sender-written text must not reach the agent as a user-role turn.
+function formatPointerKinds(kinds: readonly MessagePointerKind[]): string {
+  if (kinds.length === 0) {
+    return ''
+  }
+  const typeCounts = new Map<string, number>()
+  for (const { type } of kinds) {
+    const label = POINTER_TYPE_PATTERN.test(type) ? type : 'other'
+    typeCounts.set(label, (typeCounts.get(label) ?? 0) + 1)
+  }
+  const types =
+    typeCounts.size === 1
+      ? [...typeCounts.keys()][0]
+      : [...typeCounts].map(([type, n]) => `${n} ${type}`).join(', ')
+  const urgent = kinds.filter((kind) => kind.priority === 'urgent').length
+  const high = kinds.filter((kind) => kind.priority === 'high').length
+  const priorities = [urgent ? `${urgent} urgent` : '', high ? `${high} high priority` : '']
+    .filter(Boolean)
+    .join(', ')
+  return ` (${types}${priorities ? `; ${priorities}` : ''})`
+}
+
+/** `kinds` names the batch's types and raised priorities, so a busy agent sees a waiting follow-up. */
 export function formatMessagePointer(
   count: number,
   mailboxHandle?: string,
@@ -152,9 +179,10 @@ export function formatMessagePointer(
   heldDeliveryId?: string,
   terminalHandle?: string,
   /** Named so a check that comes back empty is still traceable to the mail it was woken for. */
-  messageIds?: readonly string[]
+  messageIds?: readonly string[],
+  kinds: readonly MessagePointerKind[] = []
 ): string {
-  const noun = `${count === 1 ? 'message' : 'messages'}${messageIds?.length ? ` (${messageIds.join(', ')})` : ''}`
+  const noun = `${count === 1 ? 'message' : 'messages'}${messageIds?.length ? ` (${messageIds.join(', ')})` : ''}${formatPointerKinds(kinds)}`
   const runFlag = orchestrationCheckRunFlag(mailboxHandle)
   const checkCommand = `${cliCommand} orchestration check${runFlag}${terminalHandle ? ` --terminal ${terminalHandle}` : ''}`
   if (heldDeliveryId) {

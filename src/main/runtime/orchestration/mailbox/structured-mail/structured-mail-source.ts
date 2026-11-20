@@ -198,7 +198,8 @@ export function structuredMailMessage(input: {
     input.cliCommand,
     undefined,
     undefined,
-    [input.message.id]
+    [input.message.id],
+    [input.message]
   ).trim()
   return {
     body: { kind: 'message', role: 'user', blocks: [{ type: 'text', text: pointer }], from },
