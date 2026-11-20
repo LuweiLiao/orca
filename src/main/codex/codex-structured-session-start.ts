@@ -80,7 +80,7 @@ export async function openCodexStructuredSession(
   }
   current()
   await waitForPromiseWithSignal(
-    initializeCodexAppServerConnection(connection, null),
+    initializeCodexAppServerConnection(connection, launch.command, null),
     openInput.signal
   )
   current()

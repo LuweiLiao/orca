@@ -6,6 +6,7 @@ import type { StructuredAgentLaunchPartResolver } from '../runtime/structured-ag
 import type { CodexStructuredLaunch } from './codex-structured-session-adapter'
 import { codexStructuredPermissionPolicy } from './codex-structured-permission-policy'
 import { codexStructuredLaunchArgs } from './codex-structured-launch-args'
+import { warmCodexClientVersion } from './codex-client-info'
 import {
   LEGACY_NATIVE_CHAT_VISUALS_DIR_ENV,
   NATIVE_CHAT_SCRATCH_DIR_ENV,
@@ -71,6 +72,8 @@ export function codexStructuredLaunchPart(
       resolveWorkingDirectory: basis.launchDirectory,
       resolveEnvironment: basis.environment
     })
+    // Overlap the one-time version probe with the remaining launch resolution.
+    const clientVersionWarmed = warmCodexClientVersion(command)
     const environment = await basis.environment()
     const args = codexStructuredLaunchArgs(await deps.resolveLaunchArgs())
     const head = agentSessionProviderHandleChainHead(record.providerHandleChain)
@@ -80,6 +83,7 @@ export function codexStructuredLaunchPart(
     const visuals = await basis.visuals()
     const developerInstructions = basis.replyInstructions()
     await basis.launchDirectory()
+    await clientVersionWarmed
     return {
       launch: {
         command,

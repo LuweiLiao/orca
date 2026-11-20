@@ -13,6 +13,7 @@ import {
   type CodexAppServerSpawn
 } from './codex-app-server-process-tree-kill'
 import { createProviderRecordReader } from '../provider-process/provider-record-reader'
+import { codexClientInfo } from './codex-client-info'
 
 export type CodexAppServerInvocation = {
   command: string
@@ -289,7 +290,7 @@ export async function runCodexAppServerSession<T>(
   try {
     const session = async (): Promise<T> => {
       await requestRpc('initialize', {
-        clientInfo: { name: 'orca_desktop', title: 'Orca', version: '0.0.0' }
+        clientInfo: codexClientInfo(invocation.command)
       })
       notify('initialized')
       return body({ request: requestRpc, notify })

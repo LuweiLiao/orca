@@ -252,7 +252,7 @@ async function connectCodexAppServer(
     if (initialize) {
       handshaking = true
       // Direct opens cannot expose the connection for cancellation until initialization finishes.
-      await initializeCodexAppServerConnection(connection, 15_000)
+      await initializeCodexAppServerConnection(connection, launch.command, 15_000)
     }
   } catch (error) {
     if ((await close()) !== true) {
