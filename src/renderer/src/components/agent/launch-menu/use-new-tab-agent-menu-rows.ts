@@ -19,6 +19,7 @@ import { useAppStateValueWithHostStatuses } from '@/store/slices/runtime-status/
 import { STRUCTURED_AGENT_SESSION_AVAILABILITY_RUNTIME_CAPABILITY as AVAILABILITY } from '../../../../../shared/agent-session/capabilities/structured-agent-session-surface-capabilities'
 import * as ExecutionHost from '../../../../../shared/execution-host/execution-host'
 import { isTuiAgent } from '../../../../../shared/agent-launch/catalog/tui-agent-config'
+import * as ClaudeLaunchers from '../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import { useAgentPickerRefusedWake } from './use-agent-picker-refused-wake'
 import { workspaceKindForWorktreeId } from '../../../../../shared/agent-launch/contracts/workspace-launch-kind'
 import { useHostStructuredAgentsVersion } from '@/runtime/native-chat/agent-catalogs/chat-provider-agents'
@@ -222,8 +223,9 @@ export function useAgentMenuObservation(
     if (!roster || !['yes', 'not-yet-known', 'not-on-host'].includes(preliminary)) {
       return preliminary
     }
-    const published =
-      availability?.state === 'received' ? availability.byAgent.get(agent) : undefined
+    // A launcher's (ccb's) chat is the Claude chat it runs, which is what the host lists.
+    const id = ClaudeLaunchers.structuredLaunchProviderFor(agent).agent
+    const published = availability?.state === 'received' ? availability.byAgent.get(id) : undefined
     if (published?.state === 'refused' && published.reason === 'windows') {
       return 'windows'
     }
@@ -237,7 +239,7 @@ export function useAgentMenuObservation(
   const rows = buildNewTabAgentMenuRows({
     settings,
     detectedOnHost: detectedIds,
-    chatAgents,
+    chatAgents: ClaudeLaunchers.withClaudeLauncherChats(chatAgents),
     chatProgram: (agent) =>
       unresolvedTarget ? 'unlearned' : readChatProgram(hostStatuses, agent, input, detectedIds),
     hostChatAnswer: answerFor,

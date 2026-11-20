@@ -12,6 +12,7 @@ import type { TabDragItemData } from '../../tab-group/drag/tab-drag-data'
 import { getTabDragLabel, resolveTerminalItemTab, type TabBarItem } from './tab-bar-item-model'
 import type { TabBarItemActions } from './use-tab-bar-item-actions'
 import {
+  useStructuredChatTabLauncher,
   useStructuredChatTabNaming,
   useStructuredChatTabNamingFailure
 } from '@/runtime/native-chat/naming/structured-conversation-name'
@@ -90,6 +91,9 @@ function TabBarItemRow({
   )
   const conversationName = chatNaming.name
   const namingFailure = useStructuredChatTabNamingFailure(
+    item.type === 'agent-session' ? item.data : undefined
+  )
+  const launcher = useStructuredChatTabLauncher(
     item.type === 'agent-session' ? item.data : undefined
   )
   const bot = useBotForWorkspace(
@@ -191,18 +195,24 @@ function TabBarItemRow({
             )
         }
       : undefined
+    // A Claude chat run by a launcher (ccb) shows as that launcher, not as Claude.
+    const shownAgent = launcher ?? nativeChat.agent
+    const unnamedLabel =
+      launcher && item.data.label === defaultAgentChatLabel(nativeChat.agent)
+        ? defaultAgentChatLabel(launcher)
+        : item.data.label
     return (
       <SortableTab
         {...sortableTabProps}
         tab={{
           id: item.id,
           worktreeId,
-          title: conversationName ?? item.data.label,
+          title: conversationName ?? unnamedLabel,
           customTitle: item.data.customLabel,
           color: item.data.color
         }}
         // Why: a chat records its provider, so its title or turn state must never re-identify it.
-        agent={agentTypeToIconAgent(nativeChat.agent)}
+        agent={agentTypeToIconAgent(shownAgent)}
         isExpanded={false}
         onActivate={actions.activateAgentSession}
         onToggleExpand={() => {}}

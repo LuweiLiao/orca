@@ -10,7 +10,8 @@ const CLAUDE_CLI_LAUNCH_AGENTS: ReadonlySet<string> = new Set<TuiAgent>([
 export type ClaudeLauncherAgent = Extract<TuiAgent, 'ccb'>
 
 /** Launchers whose sessions report Claude's own identity through hooks and the process table. */
-const CLAUDE_LAUNCHER_AGENTS: ReadonlySet<string> = new Set<ClaudeLauncherAgent>(['ccb'])
+const CLAUDE_LAUNCHERS: readonly ClaudeLauncherAgent[] = ['ccb']
+const CLAUDE_LAUNCHER_AGENTS: ReadonlySet<string> = new Set(CLAUDE_LAUNCHERS)
 
 /** A structured Claude chat's create-only option naming the launcher that starts its CLI. */
 export const CLAUDE_LAUNCHER_OPTION_ID = 'launcher'
@@ -18,6 +19,13 @@ export const CLAUDE_LAUNCHER_OPTION_ID = 'launcher'
 // Why: an older host refuses the launcher option, so a client offers a launcher's chat only to a
 // host advertising this; elsewhere the launcher opens in a terminal.
 export const CLAUDE_LAUNCHER_RUNTIME_CAPABILITY = 'agent-session.claude-launcher.v1' as const
+
+/** The chat agents a picker offers, with each launcher beside the Claude chat it runs. */
+export function withClaudeLauncherChats(agents: readonly TuiAgent[]): TuiAgent[] {
+  return agents.some((agent) => agent === 'claude')
+    ? [...new Set([...agents, ...CLAUDE_LAUNCHERS])]
+    : [...agents]
+}
 
 export function runsClaudeCodeCli(agent: string | null | undefined): boolean {
   return agent != null && CLAUDE_CLI_LAUNCH_AGENTS.has(agent)

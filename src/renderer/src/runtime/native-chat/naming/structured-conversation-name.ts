@@ -25,6 +25,11 @@ import {
   structuredChatNameReadsSource
 } from './structured-chat-shown-name'
 
+import {
+  isClaudeLauncherAgent,
+  type ClaudeLauncherAgent
+} from '../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
+
 const noSubscription = (): (() => void) => () => {}
 
 /**
@@ -133,6 +138,21 @@ export function useStructuredChatTabNaming(
     tab ? structuredAgentSessionOwnerForTab(state, tab) : null
   )
   return useStructuredChatNaming(owner, tab?.entityId)
+}
+
+/** The launcher (ccb) running an open tab's Claude chat, from its host; null for native Claude. */
+export function useStructuredChatTabLauncher(
+  tab: Pick<Tab, 'entityId' | 'worktreeId' | 'executionHostId'> | undefined
+): ClaudeLauncherAgent | null {
+  const owner = useAppStateValue((state) =>
+    tab ? structuredAgentSessionOwnerForTab(state, tab) : null
+  )
+  const sessionId = tab?.entityId
+  return useStructuredSessionSummaryField(owner, sessionId, (_summary, feed) => {
+    const launcher = sessionId ? feed.getSnapshot().get(sessionId)?.launcher : undefined
+    // Unchecked wire data from a paired host: only a launcher this build knows.
+    return isClaudeLauncherAgent(launcher) ? launcher : null
+  })
 }
 
 /** The tab's chat, its owning host and its naming failure, for the tab's hover card. */

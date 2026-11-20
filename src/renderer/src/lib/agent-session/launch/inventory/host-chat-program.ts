@@ -7,6 +7,7 @@ import {
 } from '../../../../../../shared/agent-session/capabilities/structured-agent-session-surface-capabilities'
 import { lastVerifiedRuntimeStatus } from '../../../../../../shared/remote-runtime/host-status/runtime-host-status'
 import type { TuiAgent } from '../../../../../../shared/agent-launch/catalog/tui-agent'
+import { isClaudeLauncherAgent } from '../../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import type { AgentSessionChatProgram } from '../../../../../../shared/agent-session/agent-discovery/agent-session-agent-availability'
 import { chatProviderAgents } from '../../../../runtime/native-chat/agent-catalogs/chat-provider-agents'
 import {
@@ -90,6 +91,10 @@ export function readChatProgram(
 ): ChatProgramObservation {
   const context = hostContext(statuses, host)
   const { executionHostId, runtimeId, pairingRevision, hostCapabilities: capabilities } = context
+  // A launcher's (ccb's) chat runs the launcher's own CLI, which only detection sees.
+  if (isClaudeLauncherAgent(agent)) {
+    return detected === null ? 'unknown' : detected.includes(agent) ? 'available' : 'missing'
+  }
   const snapshot = readHostStructuredAgentAvailability(executionHostId, runtimeId, pairingRevision)
   const published = snapshot.state === 'received' ? snapshot.byAgent.get(agent) : undefined
   // A publishing host's roster answers; an older host's absent field falls to inference below.
