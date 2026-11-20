@@ -11800,7 +11800,13 @@
           "optionsActiveFilters_many": "Opções do espaço de trabalho ({{count}} filtros ativos)",
           "optionsFilterCount_one": "Opções do espaço de trabalho ({{count}} filtro)",
           "optionsFilterCount_other": "Opções do espaço de trabalho ({{count}} filtros)",
-          "optionsFilterCount_many": "Opções do espaço de trabalho ({{count}} filtros)"
+          "optionsFilterCount_many": "Opções do espaço de trabalho ({{count}} filtros)",
+          "agentOrder": {
+            "title": "Agentes no espaço de trabalho",
+            "activity": "Atividade recente",
+            "newest": "Mais recentes primeiro",
+            "oldest": "Mais antigos primeiro"
+          }
         },
         "WorktreeList": {
           "7a8b9c0d1e": "Atualização necessária",
@@ -12630,7 +12636,9 @@
           "92154beb7e": "Novo espaço de trabalho",
           "addProject": "Adicionar projeto",
           "expandAllProjects": "Expandir todos os projetos",
-          "collapseAllProjects": "Recolher todos os projetos"
+          "collapseAllProjects": "Recolher todos os projetos",
+          "collapseAll": "Recolher todos os agentes",
+          "expandAll": "Expandir todos os agentes"
         },
         "NewExternalWorktreesInboxLine": {
           "9f2d4c8b17": "Ocultar worktrees externas permanentemente para {{value0}}",

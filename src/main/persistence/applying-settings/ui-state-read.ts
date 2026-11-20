@@ -3,6 +3,7 @@ import { normalizeExplorerDisplayRootByWorktree } from '../../../shared/file-lis
 import type { PersistedState } from '../../../shared/orca-profiles/persisted-state-types'
 import { getDefaultUIState } from '../../../shared/orca-profiles/constants'
 import { normalizeAgentActivityDisplayMode } from '../../../shared/agent-status/presentation/agent-activity-display-mode'
+import { normalizeWorktreeAgentOrder } from '../../../shared/agent-status/presentation/worktree-agent-order'
 import { normalizeWorktreeCardProperties } from '../../../shared/worktree/row-display/card-properties'
 import {
   normalizeWorkspaceStatuses,
@@ -54,6 +55,7 @@ export function getPersistedUI(
     worktreeCardProperties: normalizeWorktreeCardProperties(state.ui?.worktreeCardProperties),
     showAgentModels: state.ui?.showAgentModels !== false,
     agentActivityDisplayMode: normalizeAgentActivityDisplayMode(state.ui?.agentActivityDisplayMode),
+    worktreeAgentOrder: normalizeWorktreeAgentOrder(state.ui?.worktreeAgentOrder),
     workspaceStatuses: normalizeWorkspaceStatuses(state.ui?.workspaceStatuses),
     workspaceBoardOpacity: clampWorkspaceBoardOpacity(state.ui?.workspaceBoardOpacity),
     workspaceBoardColumnWidth: clampWorkspaceBoardColumnWidth(state.ui?.workspaceBoardColumnWidth),

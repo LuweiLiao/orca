@@ -6213,7 +6213,9 @@
           "92154beb7e": "新規ワークスペース",
           "addProject": "プロジェクトを追加",
           "expandAllProjects": "すべてのプロジェクトを展開",
-          "collapseAllProjects": "すべてのプロジェクトを折りたたむ"
+          "collapseAllProjects": "すべてのプロジェクトを折りたたむ",
+          "collapseAll": "すべての Agent を折りたたむ",
+          "expandAll": "すべての Agent を展開"
         },
         "SidebarNav": {
           "80611a8b10": "検索",
@@ -6328,7 +6330,13 @@
           "folderPathIdentity": "ブランチ / フォルダーパス",
           "cli": "Orca CLI",
           "optionsActiveFilters_other": "ワークスペースのオプション（{{count}} 個のフィルターが有効）",
-          "optionsFilterCount_other": "ワークスペースのオプション（{{count}} 個のフィルター）"
+          "optionsFilterCount_other": "ワークスペースのオプション（{{count}} 個のフィルター）",
+          "agentOrder": {
+            "title": "ワークスペース内の Agent",
+            "activity": "最近のアクティビティ",
+            "newest": "新しい順",
+            "oldest": "古い順"
+          }
         },
         "SshTargetRow": {
           "4677394048": "接続中…",

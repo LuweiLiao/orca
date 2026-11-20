@@ -7453,7 +7453,9 @@
           "92154beb7e": "New workspace",
           "addProject": "Add project",
           "expandAllProjects": "Expand all projects",
-          "collapseAllProjects": "Collapse all projects"
+          "collapseAllProjects": "Collapse all projects",
+          "collapseAll": "Collapse all agents",
+          "expandAll": "Expand all agents"
         },
         "SidebarNav": {
           "80611a8b10": "Search",
@@ -7578,7 +7580,13 @@
           "optionsActiveFilters_one": "Workspace options ({{count}} filter active)",
           "optionsActiveFilters_other": "Workspace options ({{count}} filters active)",
           "optionsFilterCount_one": "Workspace options ({{count}} filter)",
-          "optionsFilterCount_other": "Workspace options ({{count}} filters)"
+          "optionsFilterCount_other": "Workspace options ({{count}} filters)",
+          "agentOrder": {
+            "title": "Agents in a workspace",
+            "activity": "Recent activity",
+            "newest": "Newest first",
+            "oldest": "Oldest first"
+          }
         },
         "SshTargetRow": {
           "4677394048": "Connecting…",

@@ -5872,7 +5872,9 @@
         },
         "SidebarHeader": {
           "92154beb7e": "Nuevo espacio de trabajo",
-          "addProject": "Agregar proyecto"
+          "addProject": "Agregar proyecto",
+          "collapseAll": "Contraer todos los agentes",
+          "expandAll": "Expandir todos los agentes"
         },
         "SidebarNav": {
           "80611a8b10": "Buscar",
@@ -5993,7 +5995,13 @@
           "optionsActiveFilters_many": "Opciones de espacio de trabajo ({{count}} filtros activos)",
           "optionsFilterCount_one": "Opciones de espacio de trabajo ({{count}} filtro)",
           "optionsFilterCount_other": "Opciones de espacio de trabajo ({{count}} filtros)",
-          "optionsFilterCount_many": "Opciones de espacio de trabajo ({{count}} filtros)"
+          "optionsFilterCount_many": "Opciones de espacio de trabajo ({{count}} filtros)",
+          "agentOrder": {
+            "title": "Agentes del espacio de trabajo",
+            "activity": "Actividad reciente",
+            "newest": "Más recientes primero",
+            "oldest": "Más antiguos primero"
+          }
         },
         "SshTargetRow": {
           "4677394048": "Conectando…",

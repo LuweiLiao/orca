@@ -22,7 +22,11 @@ import {
 } from './sidebar-host-options'
 import { useSidebarHostScopeOptions } from './use-sidebar-host-scope-options'
 import { SidebarHostScopeMenuSection } from './SidebarHostScopeMenuSection'
-import { PROJECT_ORDER_OPTIONS, SORT_OPTIONS } from './sidebar-workspace-option-items'
+import {
+  AGENT_ORDER_OPTIONS,
+  PROJECT_ORDER_OPTIONS,
+  SORT_OPTIONS
+} from './sidebar-workspace-option-items'
 import {
   WorktreeCardDisplayMenuItem,
   WorktreeCardLayoutMenuItem,
@@ -152,14 +156,28 @@ function SortByOptionItem({ preserveWorkspaceBoardOpen }: OptionItemProps): JSX.
   const t = useTranslate()
   const sortBy = useAppStore((s) => s.sortBy)
   const setSortBy = useAppStore((s) => s.setSortBy)
+  const worktreeAgentOrder = useAppStore((s) => s.worktreeAgentOrder)
+  const setWorktreeAgentOrder = useAppStore((s) => s.setWorktreeAgentOrder)
   return (
-    <OptionChoiceSubmenu
-      label={t('auto.components.sidebar.SidebarWorkspaceOptionsMenu.7bada3b1ab', 'Sort by')}
-      choices={SORT_OPTIONS}
-      value={sortBy}
-      onChange={setSortBy}
-      preserveWorkspaceBoardOpen={preserveWorkspaceBoardOpen}
-    />
+    <>
+      <OptionChoiceSubmenu
+        label={t('auto.components.sidebar.SidebarWorkspaceOptionsMenu.7bada3b1ab', 'Sort by')}
+        choices={SORT_OPTIONS}
+        value={sortBy}
+        onChange={setSortBy}
+        preserveWorkspaceBoardOpen={preserveWorkspaceBoardOpen}
+      />
+      <OptionChoiceSubmenu
+        label={t(
+          'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.title',
+          'Agents in a workspace'
+        )}
+        choices={AGENT_ORDER_OPTIONS}
+        value={worktreeAgentOrder}
+        onChange={setWorktreeAgentOrder}
+        preserveWorkspaceBoardOpen={preserveWorkspaceBoardOpen}
+      />
+    </>
   )
 }
 

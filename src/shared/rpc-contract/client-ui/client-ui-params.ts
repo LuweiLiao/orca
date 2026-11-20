@@ -54,6 +54,8 @@ export const RightSidebarTabParam = z.custom<StaticRightSidebarTab | `plugin:${s
 
 export const AgentActivityDisplayMode = z.enum(['compact', 'full'])
 
+export const WorktreeAgentOrder = z.enum(['activity', 'newest', 'oldest'])
+
 export const StatusBarItem = z.enum([
   'claude',
   'codex',
@@ -192,6 +194,7 @@ export const UiUpdateFields = z
     _worktreeCardModeDefaulted: z.boolean().optional(),
     showAgentModels: z.boolean().optional(),
     agentActivityDisplayMode: AgentActivityDisplayMode.optional(),
+    worktreeAgentOrder: WorktreeAgentOrder.optional(),
     workspaceStatuses: z.array(WorkspaceStatusDefinition).optional(),
     workspaceBoardOpacity: z.number().finite().optional(),
     workspaceBoardColumnWidth: z.number().finite().optional(),

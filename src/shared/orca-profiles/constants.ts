@@ -6,6 +6,7 @@ import {
   DEFAULT_HIDE_SLEEPING_WORKSPACES
 } from '../workspace-view/sleeping-workspace-visibility'
 import { DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE } from '../agent-status/presentation/agent-activity-display-mode'
+import { DEFAULT_WORKTREE_AGENT_ORDER } from '../agent-status/presentation/worktree-agent-order'
 import type { GlobalSettings } from '../settings/global-settings-types'
 import type { PersistedState } from './persisted-state-types'
 import type { PersistedUIState } from './persisted-ui-state-types'
@@ -173,6 +174,7 @@ export function getDefaultUIState(): PersistedUIState {
     _worktreeCardModeDefaulted: true,
     showAgentModels: true,
     agentActivityDisplayMode: DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE,
+    worktreeAgentOrder: DEFAULT_WORKTREE_AGENT_ORDER,
     workspaceStatuses: cloneDefaultWorkspaceStatuses(),
     workspaceBoardOpacity: 1,
     workspaceBoardColumnWidth: 308,

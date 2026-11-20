@@ -15,6 +15,7 @@ import type { PersistedTrustedOrcaHooks } from '../workspace-setup/orca-yaml-hoo
 import type { CustomPet } from '../pets/pet-types'
 import type {
   AgentActivityDisplayMode,
+  WorktreeAgentOrder,
   ManualRepoOrderEntry,
   ProjectOrderBy,
   ActivityBarPosition,
@@ -130,6 +131,7 @@ export type PersistedUIState = {
   _worktreeCardModeDefaulted?: boolean
   showAgentModels?: boolean
   agentActivityDisplayMode?: AgentActivityDisplayMode
+  worktreeAgentOrder?: WorktreeAgentOrder
   workspaceStatuses?: WorkspaceStatusDefinition[]
   workspaceBoardOpacity?: number
   workspaceBoardColumnWidth?: number

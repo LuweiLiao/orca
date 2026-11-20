@@ -7,6 +7,7 @@ import type {
 } from '../../../../../shared/agent-status/presentation/agents-view-thread-filters'
 import type {
   AgentActivityDisplayMode,
+  WorktreeAgentOrder,
   ManualRepoOrderEntry,
   ProjectOrderBy,
   StatusBarItem,
@@ -117,6 +118,8 @@ export type UISlicePreferences = {
   setShowAgentModels: (show: boolean) => void
   agentActivityDisplayMode: AgentActivityDisplayMode
   setAgentActivityDisplayMode: (mode: AgentActivityDisplayMode) => void
+  worktreeAgentOrder: WorktreeAgentOrder
+  setWorktreeAgentOrder: (order: WorktreeAgentOrder) => void
   workspaceStatuses: WorkspaceStatusDefinition[]
   setWorkspaceStatuses: (statuses: WorkspaceStatusDefinition[]) => void
   /** Each paired runtime host's own columns, keyed by environment id; never persisted locally. */

@@ -14,6 +14,7 @@ import {
 } from './worktree-card-send-target-inputs'
 import { useAgentPresentation, useWorktreeAgentRow } from './useWorktreeAgentRows'
 import { useHostRootKeys } from './use-worktree-agent-host-roots'
+import { useOrderedAgentKeys } from './use-ordered-agent-keys'
 import { KeyedSummary } from './worktree-card-agent-keyed-summary'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host/execution-host'
 import { useWorktreeAgentDisplay } from './use-worktree-agent-display'
@@ -50,13 +51,14 @@ export default React.memo(function WorktreeCardAgents({
     `roots\0${worktreeId}`,
     useCallback((p) => p.display.roots(worktreeId), [worktreeId])
   )
-  const roots = useHostRootKeys(worktreeId, executionHostId, allRoots)
+  const hostRoots = useHostRootKeys(worktreeId, executionHostId, allRoots)
+  const roots = useOrderedAgentKeys(worktreeId, hostRoots)
   return roots.length ? (
     <WorktreeCardAgentsBody
       worktreeId={worktreeId}
       executionHostId={executionHostId}
       roots={roots}
-      hostFiltered={roots !== allRoots}
+      hostFiltered={hostRoots !== allRoots}
       className={className}
     />
   ) : null
@@ -215,9 +217,10 @@ const AgentBranches = React.memo(function AgentBranches({
   timerActive: boolean
   root?: boolean
 }) {
+  const ordered = useOrderedAgentKeys(context.worktreeId, keysToRender)
   return (
     <>
-      {keysToRender.map((key) => (
+      {ordered.map((key) => (
         <AgentBranch
           key={key}
           paneKey={key}

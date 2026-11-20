@@ -8,6 +8,7 @@ export const WORKSPACE_VIEW_UI_FIELDS = [
   'projectOrderBy',
   'worktreeCardProperties',
   'agentActivityDisplayMode',
+  'worktreeAgentOrder',
   'collapsedGroups',
   'workspaceStatuses',
   // Keep the legacy scope for older readers and as fallback when no host list is saved.

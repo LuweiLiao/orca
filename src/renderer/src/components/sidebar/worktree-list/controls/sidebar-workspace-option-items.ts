@@ -6,6 +6,7 @@ import {
   WORKSPACE_GROUP_BY_CHOICES,
   WORKSPACE_PROJECT_ORDER_CHOICES,
   WORKSPACE_SORT_BY_CHOICES,
+  WORKSPACE_AGENT_ORDER_CHOICES,
   WORKSPACE_CARD_DISPLAY_CHOICES,
   type WorkspaceViewChoice
 } from '../../../../../../shared/workspace-view/workspace-view-options'
@@ -78,6 +79,27 @@ export const SORT_OPTIONS = localizeChoices<ChoiceId<typeof WORKSPACE_SORT_BY_CH
       translate(
         'auto.components.sidebar.SidebarWorkspaceOptionsMenu.7153d07485',
         'Drag workspaces to arrange them within each group.'
+      )
+  }
+)
+
+export const AGENT_ORDER_OPTIONS = localizeChoices<ChoiceId<typeof WORKSPACE_AGENT_ORDER_CHOICES>>(
+  WORKSPACE_AGENT_ORDER_CHOICES,
+  {
+    activity: () =>
+      translate(
+        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.activity',
+        'Recent activity'
+      ),
+    newest: () =>
+      translate(
+        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.newest',
+        'Newest first'
+      ),
+    oldest: () =>
+      translate(
+        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.agentOrder.oldest',
+        'Oldest first'
       )
   }
 )

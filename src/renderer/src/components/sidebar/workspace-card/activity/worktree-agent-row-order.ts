@@ -1,3 +1,5 @@
+import type { WorktreeAgentOrder } from '../../../../../../shared/ui-chrome/ui-chrome-types'
+import { DEFAULT_WORKTREE_AGENT_ORDER } from '../../../../../../shared/agent-status/presentation/worktree-agent-order'
 import type { DashboardAgentRow } from '@/components/dashboard/rows/dashboard-agent-row'
 
 function comparableNumber(value: number | undefined, fallback = 0): number {
@@ -20,5 +22,33 @@ export function compareWorktreeAgentRows(a: DashboardAgentRow, b: DashboardAgent
     comparableNumber(a.tab.sortOrder) - comparableNumber(b.tab.sortOrder) ||
     comparableNumber(a.tab.createdAt) - comparableNumber(b.tab.createdAt) ||
     comparePaneKeysOrdinal(a.paneKey, b.paneKey)
+  )
+}
+
+// Why state/turn stamps, not updatedAt: tool pings bump updatedAt every few seconds and would reshuffle the list.
+function lastAgentActivityAt(row: DashboardAgentRow): number {
+  return Math.max(
+    comparableNumber(row.startedAt),
+    comparableNumber(row.entry.stateStartedAt),
+    comparableNumber(row.entry.turnStartedAt),
+    comparableNumber(row.entry.turnEndedAt)
+  )
+}
+
+/** Reorders rows already sorted by compareWorktreeAgentRows; the lineage tree keeps this order among siblings. */
+export function orderWorktreeAgentRows(
+  rows: readonly DashboardAgentRow[],
+  order: WorktreeAgentOrder = DEFAULT_WORKTREE_AGENT_ORDER
+): readonly DashboardAgentRow[] {
+  if (order === 'oldest' || rows.length < 2) {
+    return rows
+  }
+  const newestFirst = (a: DashboardAgentRow, b: DashboardAgentRow): number =>
+    compareWorktreeAgentRows(b, a)
+  if (order === 'newest') {
+    return rows.toSorted(newestFirst)
+  }
+  return rows.toSorted(
+    (a, b) => lastAgentActivityAt(b) - lastAgentActivityAt(a) || newestFirst(a, b)
   )
 }

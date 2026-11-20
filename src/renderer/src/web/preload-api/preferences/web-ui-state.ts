@@ -1,4 +1,5 @@
 import { normalizeAgentActivityDisplayMode } from '../../../../../shared/agent-status/presentation/agent-activity-display-mode'
+import { normalizeWorktreeAgentOrder } from '../../../../../shared/agent-status/presentation/worktree-agent-order'
 import {
   normalizeWorktreeCardProperties,
   getWorktreeCardModeProperties
@@ -50,6 +51,9 @@ export function mergeWebUIState(
       safeUpdates._worktreeCardModeDefaulted ?? base._worktreeCardModeDefaulted,
     agentActivityDisplayMode: normalizeAgentActivityDisplayMode(
       safeUpdates.agentActivityDisplayMode ?? base.agentActivityDisplayMode
+    ),
+    worktreeAgentOrder: normalizeWorktreeAgentOrder(
+      safeUpdates.worktreeAgentOrder ?? base.worktreeAgentOrder
     ),
     usagePercentageDisplay: normalizeUsagePercentageDisplay(
       safeUpdates.usagePercentageDisplay ?? base.usagePercentageDisplay

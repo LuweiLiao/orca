@@ -9,6 +9,10 @@ import {
   DEFAULT_AGENT_ACTIVITY_DISPLAY_MODE,
   normalizeAgentActivityDisplayMode
 } from '../../../../../shared/agent-status/presentation/agent-activity-display-mode'
+import {
+  DEFAULT_WORKTREE_AGENT_ORDER,
+  normalizeWorktreeAgentOrder
+} from '../../../../../shared/agent-status/presentation/worktree-agent-order'
 import { DEFAULT_SHOW_SLEEPING_WORKSPACES } from '../../../../../shared/workspace-view/sleeping-workspace-visibility'
 import { DEFAULT_STATUS_BAR_ITEMS } from '../../../../../shared/status-bar/status-bar-defaults'
 import {
@@ -231,6 +235,12 @@ export function createUiPreferenceActions(set: UISliceSet, get: UISliceGet): Par
       const normalized = normalizeAgentActivityDisplayMode(mode)
       window.api.ui.set({ agentActivityDisplayMode: normalized }).catch(console.error)
       set({ agentActivityDisplayMode: normalized })
+    },
+    worktreeAgentOrder: DEFAULT_WORKTREE_AGENT_ORDER,
+    setWorktreeAgentOrder: (order) => {
+      const normalized = normalizeWorktreeAgentOrder(order)
+      window.api.ui.set({ worktreeAgentOrder: normalized }).catch(console.error)
+      set({ worktreeAgentOrder: normalized })
     },
 
     workspaceStatuses: cloneDefaultWorkspaceStatuses(),

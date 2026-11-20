@@ -1,3 +1,4 @@
+import type { WorktreeAgentOrder } from '../ui-chrome/ui-chrome-types'
 import type { PersistedUIState } from '../orca-profiles/persisted-ui-state-types'
 import type {
   AgentActivityDisplayMode,
@@ -22,6 +23,12 @@ export const WORKSPACE_GROUP_BY_CHOICES = [
   { id: 'pr-status', label: 'PR' },
   { id: 'repo', label: 'Project' }
 ] as const satisfies readonly WorkspaceViewChoice<PersistedUIState['groupBy']>[]
+
+export const WORKSPACE_AGENT_ORDER_CHOICES = [
+  { id: 'activity', label: 'Recent activity' },
+  { id: 'newest', label: 'Newest first' },
+  { id: 'oldest', label: 'Oldest first' }
+] as const satisfies readonly WorkspaceViewChoice<WorktreeAgentOrder>[]
 
 export const WORKSPACE_SORT_BY_CHOICES = [
   { id: 'name', label: 'Name' },

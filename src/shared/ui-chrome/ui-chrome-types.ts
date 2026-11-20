@@ -56,6 +56,9 @@ export type WorktreeCardMode = 'Default' | 'Compact'
 
 export type AgentActivityDisplayMode = 'compact' | 'full'
 
+/** Order of the agents inside a workspace card; children always stay under their parent. */
+export type WorktreeAgentOrder = 'activity' | 'newest' | 'oldest'
+
 export type StatusBarItem =
   | 'claude'
   | 'codex'
