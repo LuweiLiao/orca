@@ -85,8 +85,6 @@ function NativeChatMarkdownImagePreview({ src, alt }: MarkdownImageProps): React
   const [open, setOpen] = useState(false)
   const [near, setNear] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
-  const [footprint, setFootprint] = useState<{ width: number; aspectRatio: string }>()
-  const [loadedImageSrc, setLoadedImageSrc] = useState<string>()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [failedSrc, setFailedSrc] = useState<string>()
@@ -132,15 +130,7 @@ function NativeChatMarkdownImagePreview({ src, alt }: MarkdownImageProps): React
     if (!element) {
       return
     }
-    return observeTranscriptVisibility(element, (nextNear) => {
-      if (!nextNear) {
-        const { width, height } = element.getBoundingClientRect()
-        if (width > 0 && height > 0) {
-          setFootprint({ width, aspectRatio: `${width} / ${height}` })
-        }
-      }
-      setNear(nextNear)
-    })
+    return observeTranscriptVisibility(element, setNear)
   }, [])
   const imageSrc = external || attachment ? src : leaseActive ? loadedSrc : undefined
   const displaySrc = imageSrc === failedSrc ? undefined : imageSrc
@@ -194,18 +184,12 @@ function NativeChatMarkdownImagePreview({ src, alt }: MarkdownImageProps): React
         }
       }}
       triggerLabel={`${t('components.native-chat.composer.viewAttachment', 'View image')}: ${title}`}
-      className="max-h-96 max-w-full rounded-md object-contain outline outline-1 outline-border/70"
+      // A fixed square, so loading or scrolling away never resizes the row it sits in.
+      triggerClassName="my-1 mr-1.5 inline-flex size-20 items-center justify-center overflow-hidden rounded-md border border-border bg-chat-canvas align-top transition-colors hover:border-ring [&>span]:line-clamp-3 [&>span]:break-all [&>span]:px-1 [&>span]:text-center [&>span]:text-xs"
+      className="size-full object-cover"
       onError={() => setFailedSrc(imageSrc)}
-      onLoad={() => {
-        const bounds = triggerRef.current?.getBoundingClientRect()
-        if (bounds && bounds.width > 0 && bounds.height > 0) {
-          setFootprint({ width: bounds.width, aspectRatio: `${bounds.width} / ${bounds.height}` })
-        }
-        setLoadedImageSrc(displaySrc)
-      }}
       triggerAttributes={copyAttributes}
       triggerRef={triggerRef}
-      triggerStyle={displaySrc && displaySrc === loadedImageSrc ? undefined : footprint}
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
           if (route.kind === 'file' && imageHref) {

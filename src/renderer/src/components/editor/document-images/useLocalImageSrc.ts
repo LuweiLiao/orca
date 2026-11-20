@@ -159,7 +159,11 @@ export function useLocalImageSrc(
     }
   }, [cacheKey, externalSrc, generation, retryKey, sourceKey])
 
-  return display.key === sourceKey ? display.src : undefined
+  if (display.key === sourceKey) {
+    return display.src
+  }
+  // Why read the cache now: waiting for the effect drew one empty frame on every lease change.
+  return externalSrc ?? (cacheKey ? blobUrlCache.get(cacheKey) : undefined)
 }
 
 /** Load through the same IPC/blob cache outside React, including ProseMirror node views. */
