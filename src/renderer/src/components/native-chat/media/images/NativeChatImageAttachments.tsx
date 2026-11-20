@@ -7,6 +7,8 @@ import { useTranslate } from '../../../../i18n/use-translate'
 import { basename } from '../../../../lib/path'
 import type { NativeChatBlock } from '../../../../../../shared/native-chat/native-chat-types'
 import { PanZoomImageDialog } from '../../../editor/document-images/PanZoomImageDialog'
+import { resolveExplicitFileLinkTargetPath } from '../../../../../../shared/file-links/explicit-file-link-target'
+import { filesystemPathToFileUri } from '../../../../../../shared/file-links/file-uri-path'
 import {
   getLocalImageCacheKey,
   useLocalImageSrc
@@ -26,7 +28,7 @@ function transcriptImageIdentity(
   block: Extract<NativeChatBlock, { type: 'image-ref' }>,
   runtimeContext: RuntimeFileOperationArgs | null | undefined
 ): string {
-  const source = block.url?.trim() || block.path
+  const source = transcriptImageSource(block, runtimeContext)
   const filePath = block.path ?? source ?? ''
   if (renderableImageSource(source)) {
     return `external\0${source ?? ''}`
@@ -45,17 +47,32 @@ const TRANSCRIPT_IMAGE_ACCESS = chatImageAccess()
 
 type ImageRef = Extract<NativeChatBlock, { type: 'image-ref' }>
 
+/** A relative path names a file in the chat's working directory, the same one its viewer reads. */
+function transcriptImageSource(
+  block: ImageRef,
+  runtimeContext: RuntimeFileOperationArgs | null | undefined
+): string | undefined {
+  const source = block.url?.trim() || block.path
+  if (!source || renderableImageSource(source) || !runtimeContext?.worktreePath) {
+    return source
+  }
+  return block.path
+    ? (resolveExplicitFileLinkTargetPath(source, runtimeContext.worktreePath) ?? undefined)
+    : source
+}
+
 /** One image's bytes while `active`, read from its owner (a URL loads as itself). */
 function useTranscriptImageSrc(
   block: ImageRef | undefined,
   runtimeContext: RuntimeFileOperationArgs | null | undefined,
   active: boolean
 ): { source: string | undefined; displaySrc: string | undefined; external: boolean } {
-  const source = block?.url?.trim() || block?.path
-  const filePath = block?.path ?? source ?? ''
+  const source = block ? transcriptImageSource(block, runtimeContext) : undefined
+  const filePath = source ?? ''
   const external = renderableImageSource(source)
+  const localSource = source && block?.path ? filesystemPathToFileUri(source) : source
   const localSrc = useLocalImageSrc(
-    active && !external && runtimeContext !== undefined ? source : undefined,
+    active && !external && runtimeContext !== undefined ? localSource : undefined,
     filePath,
     runtimeContext?.connectionId,
     runtimeContext,

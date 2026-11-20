@@ -6,10 +6,24 @@ const IMAGE_SUFFIX = new RegExp(
   `\\.(?:${IMAGE_FILE_EXTENSIONS.map((extension) => extension.slice(1)).join('|')})$`,
   'i'
 )
-const OUTPUT_PATH = new RegExp(
-  `(?:https?://|file:///|[A-Za-z]:[\\\\/]|\\.{1,2}/|~/|/|[\\p{L}\\p{N}._-]+[\\\\/])[^\\s\x22\x27\x60<>|]*?\\.(?:${IMAGE_FILE_EXTENSIONS.map((extension) => extension.slice(1)).join('|')})(?=$|[\\s\x22\x27\x60<>),;，。])`,
-  'giu'
-)
+const IMAGE_OUTPUT_FIELDS = new Set([
+  'path',
+  'file_path',
+  'filePath',
+  'imagePath',
+  'image_path',
+  'url',
+  'image',
+  'images',
+  'files',
+  'screenshot',
+  'screenshots',
+  'content',
+  'text',
+  'result',
+  'output',
+  'data'
+])
 
 export function nativeChatImageFileReference(value: string): NativeChatImageRefBlock | null {
   const source = value.trim()
@@ -43,7 +57,8 @@ export function nativeChatImageFileReference(value: string): NativeChatImageRefB
 export function nativeChatOutputImages(output: string): NativeChatImageRefBlock[] {
   const images: NativeChatImageRefBlock[] = []
   const add = (value: string): void => {
-    const image = nativeChatImageFileReference(value)
+    const candidate = value.trim().replace(/^([`"'])(.*)\1[.,;]?$/, '$2')
+    const image = nativeChatImageFileReference(candidate)
     if (image) {
       images.push(image)
     }
@@ -60,13 +75,12 @@ export function nativeChatOutputImages(output: string): NativeChatImageRefBlock[
       ) {
         return
       }
-      Object.values(value).forEach(visit)
-    } else if (typeof value === 'string') {
-      const image = nativeChatImageFileReference(value)
-      if (image) {
-        images.push(image)
-        return
+      for (const [key, entry] of fields) {
+        if (IMAGE_OUTPUT_FIELDS.has(key)) {
+          visit(entry)
+        }
       }
+    } else if (typeof value === 'string') {
       try {
         visit(JSON.parse(value))
         return
@@ -74,18 +88,10 @@ export function nativeChatOutputImages(output: string): NativeChatImageRefBlock[
         // CLI stdout and MCP text blocks can report paths without JSON.
       }
       for (const line of value.split(/\r?\n/)) {
-        const quoted = [...line.matchAll(/[`"']([^`"'\r\n]+)[`"']/g)]
-        for (const match of quoted) {
-          add(match[1])
-        }
-        const remaining = line.replace(/[`"']([^`"'\r\n]+)[`"']/g, ' ')
-        if (nativeChatImageFileReference(remaining.trim())) {
-          add(remaining)
-        } else {
-          for (const match of remaining.matchAll(OUTPUT_PATH)) {
-            add(match[0])
-          }
-        }
+        const reported = line.match(
+          /^\s*(?:saved|wrote|written|created|generated|rendered|output|image|screenshot|path)\b[^:]*:\s*(.+)$/i
+        )
+        add(reported?.[1] ?? line)
       }
     }
   }
