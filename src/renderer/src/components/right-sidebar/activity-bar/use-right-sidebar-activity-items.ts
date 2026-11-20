@@ -4,6 +4,7 @@ import {
   Plug,
   Files,
   GitBranch,
+  GitGraph,
   House,
   ListChecks,
   MessagesSquare,
@@ -200,6 +201,13 @@ export function useRightSidebarActivityItems({
         icon: ListChecks,
         title: t('auto.components.right.sidebar.index.83a10e3c44', 'Checks'),
         shortcut: checksShortcut === 'Unassigned' ? '' : checksShortcut,
+        gitOnly: true
+      },
+      {
+        id: 'git-graph',
+        icon: GitGraph,
+        title: t('gitGraph.title', 'Git Graph'),
+        shortcut: '',
         gitOnly: true
       },
       {

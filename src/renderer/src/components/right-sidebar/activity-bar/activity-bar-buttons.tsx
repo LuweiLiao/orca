@@ -16,8 +16,11 @@ import {
 import { translate } from '@/i18n/i18n'
 import { useTranslate, type Translate } from '@/i18n/use-translate'
 
+/** A panel tab, or Git Graph, which opens as an editor tab instead of a panel. */
+export type RightSidebarActivityId = ActiveRightSidebarTab | 'git-graph'
+
 export type ActivityBarItem = {
-  id: ActiveRightSidebarTab
+  id: RightSidebarActivityId
   pluginKey?: string
   icon: React.ComponentType<{ size?: number; className?: string }>
   title: string
@@ -76,7 +79,7 @@ export function TopActivityOverflowMenu({
 }: {
   items: ActivityBarItem[]
   activeTab: ActiveRightSidebarTab
-  onSelect: (tab: ActiveRightSidebarTab) => void
+  onSelect: (tab: RightSidebarActivityId) => void
   checksStatus?: CheckStatus | null
 }): React.JSX.Element {
   const t = useTranslate()

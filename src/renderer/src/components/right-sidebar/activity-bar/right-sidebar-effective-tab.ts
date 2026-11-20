@@ -21,20 +21,21 @@ export function resolveRightSidebarEffectiveTab({
     throw new Error('Right sidebar activity items must include at least one visible tab')
   }
 
-  const isVisible = (tab: ActiveRightSidebarTab): boolean =>
-    visibleItems.some((item) => item.id === tab)
+  // Git Graph opens an editor tab, so it is never the panel's tab.
+  const tabs = visibleItems.flatMap((item) => (item.id === 'git-graph' ? [] : [item.id]))
+  const isVisible = (tab: ActiveRightSidebarTab): boolean => tabs.includes(tab)
 
   if (activeFolderWorkspaceKey && rememberedFolderTab && isVisible(rememberedFolderTab)) {
     return rememberedFolderTab
   }
 
-  if (leadWithFirstTab) {
-    return visibleItems[0].id
+  if (leadWithFirstTab && tabs[0]) {
+    return tabs[0]
   }
 
   if (isVisible(normalizedActiveTab)) {
     return normalizedActiveTab
   }
 
-  return visibleItems[0].id
+  return tabs[0] ?? normalizedActiveTab
 }

@@ -5,8 +5,9 @@ import type { PluginPanelsFetchStatus } from '@/store/plugins/catalog/plugin-con
 import { normalizeRightSidebarRoute } from '@/store/slices/right-sidebar/right-sidebar-route'
 import { resolveRightSidebarEffectiveTab } from './right-sidebar-effective-tab'
 import { useInstalledPluginRouteReconciliation } from '../plugin-panels/use-installed-plugin-route-reconciliation'
-import type { ActivityBarItem } from './activity-bar-buttons'
+import type { ActivityBarItem, RightSidebarActivityId } from './activity-bar-buttons'
 import { openBotConnectorPage } from '@/components/bots/bot-connector-page'
+import { openGitGraph } from '@/lib/source-control/graph/git-graph-tab'
 
 // The last route request the panel saw, kept across unmounts: Settings unmounts it, and a request
 // made there (open a bot's Connectors) is still new when the panel mounts again.
@@ -14,7 +15,7 @@ let seenRouteRequestId: number | null = null
 
 export type RightSidebarTabRouting = {
   effectiveTab: ActiveRightSidebarTab
-  selectActivityTab: (tab: ActiveRightSidebarTab) => void
+  selectActivityTab: (tab: RightSidebarActivityId) => void
 }
 
 export function useRightSidebarTabRouting({
@@ -87,7 +88,14 @@ export function useRightSidebarTabRouting({
     }
     rememberedFolderTabByWorkspaceKeyRef.current[activeFolderWorkspaceKey] = effectiveTab
   }, [activeFolderWorkspaceKey, effectiveTab, visibleItems])
-  const selectActivityTab = (tab: ActiveRightSidebarTab): void => {
+  const selectActivityTab = (tab: RightSidebarActivityId): void => {
+    if (tab === 'git-graph') {
+      const worktreeId = useAppStore.getState().activeWorktreeId
+      if (worktreeId) {
+        void openGitGraph(worktreeId)
+      }
+      return
+    }
     if (activeFolderWorkspaceKey) {
       rememberedFolderTabByWorkspaceKeyRef.current[activeFolderWorkspaceKey] = tab
     }

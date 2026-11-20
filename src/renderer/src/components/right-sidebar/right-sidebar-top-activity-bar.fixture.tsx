@@ -56,7 +56,7 @@ function BotPageBar({
           RIGHT_SIDEBAR_TOP_ACTIVITY_STRIP_PADDING
         )}
         effectiveTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={(tab) => tab !== 'git-graph' && setActiveTab(tab)}
         checksStatus={null}
         closeButton={
           <button type="button" className="sidebar-toggle mr-1" aria-label="Toggle right sidebar">

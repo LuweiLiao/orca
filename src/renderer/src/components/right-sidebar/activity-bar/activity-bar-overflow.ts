@@ -1,4 +1,4 @@
-import type { ActiveRightSidebarTab } from '../../../../../shared/ui-chrome/ui-chrome-types'
+import type { RightSidebarActivityId } from './activity-bar-buttons'
 
 const TOP_ACTIVITY_BUTTON_WIDTH = 36
 const TOP_ACTIVITY_MORE_BUTTON_WIDTH = 32
@@ -12,7 +12,7 @@ const LABELED_TAB_COMPACT_WIDTH = 30
 const LABELED_TAB_MIN_TITLE_WIDTH = 24
 
 type TopActivityItem = {
-  id: ActiveRightSidebarTab
+  id: RightSidebarActivityId
   title: string
   labeledTab?: boolean
   count?: number
@@ -45,7 +45,7 @@ export type TopActivityBarLayout<T> = {
   visibleItems: T[]
   overflowItems: T[]
   /** Labeled tabs drawn as their icon alone. */
-  compactIds: ReadonlySet<ActiveRightSidebarTab>
+  compactIds: ReadonlySet<RightSidebarActivityId>
 }
 
 /**
@@ -57,7 +57,7 @@ export type TopActivityBarLayout<T> = {
 export function getTopActivityBarLayout<T extends TopActivityItem>(
   items: readonly T[],
   availableWidth: number | null,
-  activeId: ActiveRightSidebarTab,
+  activeId: RightSidebarActivityId,
   stripPadding = 0,
   measureTitle: MeasureTabTitle = () => null
 ): TopActivityBarLayout<T> {
@@ -72,7 +72,7 @@ export function getTopActivityBarLayout<T extends TopActivityItem>(
     }
     return LABELED_TAB_CHROME_WIDTH + titleWidth(item) + (item.count ? LABELED_TAB_COUNT_WIDTH : 0)
   }
-  const compactIds = new Set<ActiveRightSidebarTab>()
+  const compactIds = new Set<RightSidebarActivityId>()
   if (!availableWidth || !Number.isFinite(availableWidth)) {
     return { visibleItems: [...items], overflowItems: [], compactIds }
   }
@@ -95,7 +95,7 @@ export function getTopActivityBarLayout<T extends TopActivityItem>(
   // Hold room for More and the open tab before filling the rest in order, so pinning a titled open
   // tab can't push the bar past its width, or squeeze its title to nothing.
   const fittedWidth = (item: T): number => buttonWidth(item, compactIds.has(item.id))
-  const visibleIds = new Set<ActiveRightSidebarTab>()
+  const visibleIds = new Set<RightSidebarActivityId>()
   let used = TOP_ACTIVITY_MORE_BUTTON_WIDTH
   if (activeItem) {
     visibleIds.add(activeItem.id)

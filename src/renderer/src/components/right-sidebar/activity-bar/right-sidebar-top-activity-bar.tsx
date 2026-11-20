@@ -11,7 +11,8 @@ import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'
 import {
   ActivityBarButton,
   TopActivityOverflowMenu,
-  type ActivityBarItem
+  type ActivityBarItem,
+  type RightSidebarActivityId
 } from './activity-bar-buttons'
 import type { TopActivityBarLayout } from './activity-bar-overflow'
 
@@ -37,7 +38,7 @@ export function RightSidebarTopActivityBar({
   topActivityStripRef: (node: HTMLDivElement | null) => void
   topActivityLayout: TopActivityBarLayout<ActivityBarItem>
   effectiveTab: ActiveRightSidebarTab
-  onSelectTab: (tab: ActiveRightSidebarTab) => void
+  onSelectTab: (tab: RightSidebarActivityId) => void
   checksStatus: CheckStatus | null
   closeButton: React.ReactNode
   activityBarPosition: ActivityBarPosition
