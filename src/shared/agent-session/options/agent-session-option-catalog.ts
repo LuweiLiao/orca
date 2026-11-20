@@ -1,6 +1,7 @@
 import { OPENCODE_LAUNCH_OPTION_CATALOG } from './catalog-providers/agent-session-option-catalog-opencode'
 import { CODEBUDDY_SESSION_OPTION_CATALOG } from './catalog-providers/agent-session-option-catalog-codebuddy'
 import type { AgentType } from '../../agent-status/contracts/agent-status-types'
+import { isClaudeLauncherAgent } from '../../agent-launch/catalog/claude-cli-launch-agents'
 import { ANTIGRAVITY_SESSION_OPTION_CATALOG } from './catalog-providers/agent-session-option-catalog-antigravity'
 import {
   CLAUDE_SESSION_OPTION_CATALOG,
@@ -96,5 +97,5 @@ export function getAgentSessionOptionLaunchCatalog(
     ? OPENCODE_LAUNCH_OPTION_CATALOG
     : agent === 'pi'
       ? PI_LAUNCH_OPTION_CATALOG
-      : getAgentSessionOptionCatalog(agent)
+      : getAgentSessionOptionCatalog(isClaudeLauncherAgent(agent) ? 'claude' : agent)
 }

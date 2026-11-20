@@ -42,6 +42,7 @@ import type { StructuredAgentId } from '../../../../../../shared/agent-session/l
 import { resolveUncommittedStructuredCreate } from './structured-agent-session-precommit-refusal'
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../../../shared/workspace-layout/layout-owner-switch'
 import { structuredAgentSessionClosedBeforeCreate } from './structured-agent-session-close-before-create'
+import { claudeLauncherFromOptions } from '../../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import type { ChatTabPlacement } from '../../../../session-tabs/chat/agent-session-tab-layout'
 
 export type PreparedStructuredAgentSessionCreate = {
@@ -97,7 +98,8 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
       : undefined)
   // Adoption replay may need the record loaded from disk before source discovery can be skipped.
   let host = args.resumeFrom || args.forkFrom ? await args.ensureHost() : null
-  const resolved = await args.runtime.resolveStructuredAgentSessionCreateIntent({
+  const launcher = args.agent === 'claude' ? claudeLauncherFromOptions(args.options) : null
+  const intent = await args.runtime.resolveStructuredAgentSessionCreateIntent({
     envelope: args.envelope,
     worktree: args.worktree,
     agent: args.agent,
@@ -106,6 +108,12 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
     ...(args.resumeFrom ? { resumeFrom: args.resumeFrom } : {}),
     ...(args.forkFrom ? { forkFrom: args.forkFrom } : {})
   })
+  // Why: a launcher keeps its own model and effort defaults, never Claude's.
+  const launcherSeed =
+    launcher && !args.resumeFrom && !args.forkFrom
+      ? args.runtime.structuredAgentSessionLaunchSeedOptions(launcher)
+      : undefined
+  const resolved = launcherSeed ? { ...intent, options: launcherSeed } : intent
   const attachFingerprint = computeAgentSessionPayloadFingerprint({
     method: 'agentSession.attach',
     sessionId: args.envelope.sessionId,
