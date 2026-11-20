@@ -14,6 +14,7 @@ type PageCloseActions = Pick<
   | 'closeActivityPage'
   | 'closeSpacePage'
   | 'closeMobilePage'
+  | 'closeProjectMapPage'
 >
 
 /** The store API the rail navigates through (the real `useAppStore`, or a fake in tests). */
@@ -30,7 +31,8 @@ const CLOSE_PAGE: Record<Exclude<UISlice['activeView'], 'terminal'>, keyof PageC
   settings: 'closeSettingsPage',
   activity: 'closeActivityPage',
   space: 'closeSpacePage',
-  mobile: 'closeMobilePage'
+  mobile: 'closeMobilePage',
+  'project-map': 'closeProjectMapPage'
 }
 
 /** Nearest earlier entry that is a live workspace (folder workspaces included), never a page view. */

@@ -9,6 +9,7 @@ type MarkdownNode = {
   type: string
   url?: string
   alt?: string
+  data?: unknown
   children?: MarkdownNode[]
 }
 
@@ -47,7 +48,8 @@ export function remarkNativeChatImageFileLinks(): (tree: MarkdownNode) => void {
       }
       node.children = node.children.flatMap((child) => {
         const fragment = { type: 'paragraph', children: [child] }
-        if (child.type === 'text' || child.type === 'inlineCode') {
+        // A text node carrying data is another plugin's element (a mention chip); keep it whole.
+        if ((child.type === 'text' || child.type === 'inlineCode') && child.data === undefined) {
           linkPaths(fragment)
         }
         return fragment.children.flatMap((candidate) => {
