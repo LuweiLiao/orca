@@ -38,6 +38,14 @@ function setup(value = '') {
 }
 
 describe('native chat skill editor', () => {
+  it('keeps an unmounted editor unavailable to composer focus requests', () => {
+    const { input, editor } = setup()
+    act(() => editor.unmount())
+    expect(() => input.focus()).not.toThrow()
+    expect(input.disabled).toBe(true)
+    expect(input.contains?.(document.body)).toBe(false)
+  })
+
   it('continues replacing the selected text after a composer handoff', () => {
     const inputRef = createRef<NativeChatComposerInput>()
     const text = 'Hello\nworld'

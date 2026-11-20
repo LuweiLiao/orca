@@ -309,7 +309,7 @@ function NativePromptEditor({
               applyPosition(previousRange)
             },
             get disabled() {
-              return !editor.isEditable
+              return editor.isDestroyed || !editor.isEditable
             },
             set disabled(value: boolean) {
               editor.setEditable(!value)
