@@ -87,7 +87,11 @@ export async function resolveUnlaunchedIntent(
   params: AgentLaunchParams,
   runtime: OrcaRuntimeService,
   early: EarlyAgentLaunchTab | null,
-  modeOptions: { terminalOnly?: boolean; callerRendersStructured?: boolean } = {}
+  modeOptions: {
+    terminalOnly?: boolean
+    callerRendersStructured?: boolean
+    surfaces?: { launcherChats?: true }
+  } = {}
 ): Promise<{ intent: ResolvedAgentLaunchIntent; decidedMode: AgentLaunchModeReceipt }> {
   const intent = await agentLaunchIntent(params, runtime, early?.paneKey)
   await validateReusedTerminal(intent, runtime)

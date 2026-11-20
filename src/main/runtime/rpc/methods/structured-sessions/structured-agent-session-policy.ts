@@ -12,6 +12,7 @@ import type { RuntimeCapability } from '../../../../../shared/remote-runtime/pro
 import { AGENT_SESSION_OPTIONAL_MODEL_CLIENT_CAPABILITY } from '../../../../../shared/agent-session/options/protocol/agent-session-optional-model-capability'
 import { nativeChatPreferenceFor } from '../../../../../shared/agent-launch/choices/structured-native-chat-launch-route'
 import { isAgentSessionHandleProvider } from '../../../../../shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle'
+import { structuredLaunchProviderFor } from '../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import { readAgentLaunchModeSettings } from '../../../../agent-launch/agent-launch-mode'
 import type { RpcContext } from '../../core'
 
@@ -37,8 +38,10 @@ export function supportsStructuredAgentSessions(
 /** One audience rule for tabs and restart offers. Pi also needs dialog-shape support. */
 export function clientRendersStructuredAgent(
   clientCapabilities: readonly RuntimeCapability[] | undefined,
-  agent: string
+  requestedAgent: string
 ): boolean {
+  // A launcher's (ccb's) chat is the Claude chat it runs.
+  const agent = structuredLaunchProviderFor(requestedAgent).agent
   if (!clientCapabilities?.includes(STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY)) {
     return false
   }

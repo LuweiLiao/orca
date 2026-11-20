@@ -16,6 +16,7 @@ export function decideAgentLaunchIntentMode(execution: {
   runtime: Parameters<typeof readAgentLaunchModeSettings>[0]
   terminalOnly?: boolean
   callerRendersStructured?: boolean
+  surfaces?: { launcherChats?: true }
   vocabulary?: AgentLaunchModeVocabulary
 }): AgentLaunchModeReceipt {
   const { intent, runtime } = execution
@@ -33,6 +34,7 @@ export function decideAgentLaunchIntentMode(execution: {
     settings: execution.terminalOnly ? undefined : readAgentLaunchModeSettings(runtime, intent),
     ...(execution.terminalOnly ? { terminalOnly: true } : {}),
     ...(intent.surface ? { surface: intent.surface } : {}),
+    ...(execution.surfaces?.launcherChats ? { launcherChats: true } : {}),
     vocabulary: execution.vocabulary ?? DEFAULT_LAUNCH_VOCABULARY
   })
 }

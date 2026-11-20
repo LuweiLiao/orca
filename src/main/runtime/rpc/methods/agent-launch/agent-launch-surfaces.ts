@@ -18,6 +18,7 @@ import { STARTUP_CWD_FALLBACK_SENTENCE } from '../../../../../shared/shell/launc
 import { structuredCallerFor } from '../structured-sessions/creation/structured-agent-session-gate'
 import { createStructuredAgentSessionForWorktree } from '../structured-sessions/creation/structured-agent-session-create'
 import { supportedStructuredSeedOptions } from '../../../agent-session/installation/structured-agent-runtime-metadata'
+import { structuredLaunchProviderFor } from '../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import { deliverTerminalAgentLaunchPrompt } from './agent-launch-terminal-prompt'
 import { AgentLaunchSessionAlreadyExistsError } from '../../../../../shared/agent-launch/contracts/agent-launch-session-already-exists'
 import { AGENT_SESSION_CREATE_MESSAGE_RUNTIME_CAPABILITY } from '../../../../../shared/agent-session/lifecycle/operations/agent-session-create-capabilities'
@@ -49,9 +50,10 @@ export function agentLaunchSurfaceFactory(
   const movesHostWindow = agentLaunchMovesHostWindow(context)
   const { early: earlyTab, presentation } = view
   return {
+    launcherChats: true,
     createStructuredSession: async ({
       worktreeId,
-      agent,
+      agent: requestedAgent,
       options,
       chatOptions,
       sessionId: requested,
@@ -60,12 +62,15 @@ export function agentLaunchSurfaceFactory(
       firstMessage,
       signal
     }) => {
+      // A launcher (ccb) is created as the Claude chat it runs, carrying its launcher option.
+      const { agent, launcherOptions } = structuredLaunchProviderFor(requestedAgent)
       const sessionId = requested ?? createOrcaSessionId(randomUUID)
       const supported = supportedStructuredSeedOptions(
         agent,
         narrowStructuredLaunchSeedOptions(options)
       )
-      const seeded = chatOptions ?? (Object.keys(supported).length > 0 ? supported : undefined)
+      const picked = chatOptions ?? (Object.keys(supported).length > 0 ? supported : undefined)
+      const seeded = launcherOptions ? { ...picked, ...launcherOptions } : picked
       // A client that creates chats without starting them starts this one on its first message.
       const atRest =
         firstMessage !== undefined ||

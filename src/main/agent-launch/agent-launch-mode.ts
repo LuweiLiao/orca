@@ -10,11 +10,13 @@ import { STRUCTURED_AGENT_RUNTIME_METADATA } from '../runtime/agent-session/inst
 import {
   nativeChatPreferenceFor,
   resolveStructuredNativeChatSupport,
-  type NativeChatDefaultSettings,
   type StructuredNativeChatBlocker
 } from '../../shared/agent-launch/choices/structured-native-chat-launch-route'
 import type { TuiAgent } from '../../shared/agent-launch/catalog/tui-agent'
-import { isClaudeLauncherAgent } from '../../shared/agent-launch/catalog/claude-cli-launch-agents'
+import {
+  isClaudeLauncherAgent,
+  structuredLaunchProviderFor
+} from '../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import type {
   StructuredAgentCreateSupportReason,
   StructuredAgentCreateSupportReply
@@ -28,6 +30,8 @@ import {
   withWslHostChatRecovery,
   type WslHostChatSettingsSource
 } from './agent-launch-wsl-host-recovery'
+
+import type { AgentLaunchModeSettings } from './agent-launch-mode-settings'
 
 type AgentLaunchDowngradeReason = Exclude<AgentLaunchModeReason, 'user_default' | 'requested'>
 
@@ -44,7 +48,10 @@ export const DEFAULT_LAUNCH_VOCABULARY: AgentLaunchModeVocabulary = {
   terminal: 'a terminal agent'
 }
 
-export type AgentLaunchModeSettings = NativeChatDefaultSettings
+export {
+  readAgentLaunchModeSettings,
+  type AgentLaunchModeSettings
+} from './agent-launch-mode-settings'
 
 export type AgentLaunchModePlacement = {
   agent?: string
@@ -108,6 +115,8 @@ export function decideAgentLaunchMode(args: {
   terminalOnly?: boolean
   surface?: AgentLaunchSurface
   vocabulary?: AgentLaunchModeVocabulary
+  /** The surfaces can create a launcher's chat as its Claude chat. */
+  launcherChats?: boolean
 }): AgentLaunchModeReceipt {
   const { placement, settings, surface } = args
   const vocabulary = args.vocabulary ?? DEFAULT_LAUNCH_VOCABULARY
@@ -135,8 +144,8 @@ export function decideAgentLaunchMode(args: {
     }
   }
   // Federated launches create terminals; this host cannot establish the remote’s chat support.
-  // Why: only the renderer maps a launcher to its Claude chat, so a launcher keeps its terminal here.
-  if (placement.on || isClaudeLauncherAgent(agent)) {
+  // Why: other surfaces create the chat under the launcher's own name, which no host registers.
+  if (placement.on || (isClaudeLauncherAgent(agent) && !args.launcherChats)) {
     return blocked(placement.on ? 'remote_execution_host' : 'agent_without_structured_session')
   }
   const cwdRelation = launchCwdRelation(placement)
@@ -212,12 +221,13 @@ async function readStructuredCreateSupport(
   worktreeId: string,
   agent: TuiAgent | undefined
 ): Promise<StructuredAgentCreateSupportReply | null> {
-  if (!agent || !REGISTERED_STRUCTURED_AGENTS.includes(agent)) {
+  const provider = agent && structuredLaunchProviderFor(agent).agent
+  if (!provider || !REGISTERED_STRUCTURED_AGENTS.includes(provider)) {
     return { supported: false, reason: 'agent' }
   }
   try {
     // These launches have no chat tab to offer the install, so they keep the agent's own CLI.
-    return await runtime.getStructuredAgentSessionCreateSupport(`id:${worktreeId}`, agent, {
+    return await runtime.getStructuredAgentSessionCreateSupport(`id:${worktreeId}`, provider, {
       requireInstalledChatProgram: true
     })
   } catch {
@@ -317,23 +327,5 @@ export function warnStructuredLaunchDowngrade(
 ): void {
   if (receipt.mode === 'terminal' && receipt.preferred === 'structured') {
     console.warn(`[agent-launch] ${agent} opened a terminal: ${receipt.reason}`)
-  }
-}
-
-/** A desktop stamp supplies its resolved preference for the launched agent; other callers read the host’s settings. */
-export function readAgentLaunchModeSettings(
-  runtime: { requireStore(): { getSettings(): AgentLaunchModeSettings | null } },
-  caller?: { agent?: string; nativeChatDefault?: boolean }
-): AgentLaunchModeSettings | null {
-  if (caller?.nativeChatDefault !== undefined) {
-    return caller.agent === undefined
-      ? {}
-      : { nativeChatProviders: { [caller.agent]: caller.nativeChatDefault } }
-  }
-  try {
-    return runtime.requireStore().getSettings()
-  } catch (error) {
-    console.warn('[agent-launch] could not resolve chat preference', error)
-    return null
   }
 }

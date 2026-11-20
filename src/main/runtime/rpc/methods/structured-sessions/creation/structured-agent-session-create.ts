@@ -28,6 +28,10 @@ import type {
 } from '../../../../../../shared/agent-session/lifecycle/operations/structured-agent-session-create'
 import '../../../../../native-chat/agent-session-wire/options/structured-agent-session-options-read'
 import { structuredAgentSessionOptionOverridesRefusal } from '../../../../../native-chat/agent-session-wire/options/structured-agent-session-option-intent'
+import {
+  mergeCreateOptions,
+  withoutCreateOnlyOptions
+} from '../../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import type { StructuredAgentSessionCreateOptions } from '../../../../../native-chat/agent-session-wire/acquisition/structured-agent-session-create'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import {
@@ -126,7 +130,7 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
     const refusal = structuredAgentSessionOptionOverridesRefusal(
       host.deps.agents,
       args.agent,
-      args.options
+      withoutCreateOnlyOptions(args.agent, args.options)
     )
     if (refusal) {
       throw new AgentSessionRefusalError(refusal)
@@ -134,14 +138,12 @@ export async function prepareStructuredAgentSessionCreateForWorktree(args: {
   }
   const { agent: _agent, provider: _provider, hostLaunchDirectory, ...resolvedAttach } = resolved
   // Fingerprint explicit picks, never replay-varying defaults; explicit options replace saved seeds, while permission default stays chat-owned.
-  const overlays = atRest
-    ? args.optionsMode !== 'replace-model-selection'
-    : Object.keys(args.options ?? {}).every((id) => id === AGENT_CHAT_PERMISSION_MODE_OPTION_ID)
-  const picked = args.options
-    ? overlays
-      ? { ...resolved.options, ...args.options }
-      : { ...seededPermissionMode(resolved.options), ...args.options }
-    : resolved.options
+  const picked = mergeCreateOptions(args.agent, args.options, resolved.options, (picks) => {
+    const overlays = atRest
+      ? args.optionsMode !== 'replace-model-selection'
+      : Object.keys(picks).every((id) => id === AGENT_CHAT_PERMISSION_MODE_OPTION_ID)
+    return { ...(overlays ? resolved.options : seededPermissionMode(resolved.options)), ...picks }
+  })
   return {
     host,
     ...(hostLaunchDirectory ? { hostLaunchDirectory } : {}),
