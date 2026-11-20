@@ -139,9 +139,10 @@ describe('automatic desktop updates', () => {
 
     expect(updater.getUpdateStatus()).toMatchObject({ state: 'downloaded', version: '1.1.0' })
     expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled()
+    // LLW downloads every found release in the background; installing still waits for Restart.
     updater.checkForUpdates()
     await vi.advanceTimersByTimeAsync(0)
-    expect(updater.getUpdateStatus()).toMatchObject({ state: 'available', version: '1.1.0' })
+    expect(updater.getUpdateStatus()).toMatchObject({ state: 'downloading', version: '1.1.0' })
   })
 
   it('does not restart when a non-persistent terminal starts during the checkpoint', async () => {
@@ -230,20 +231,20 @@ describe('automatic desktop updates', () => {
     }
   )
 
-  it('keeps the offer manual until the preference is enabled', async () => {
-    let automaticUpdates = false
+  it('downloads in the background but waits for Restart while the preference is off', async () => {
     const updater = new UpdaterSetup()
     updater.setupAutoUpdater(null, {
-      getAutomaticUpdates: () => automaticUpdates,
+      getAutomaticUpdates: () => false,
       getLastUpdateCheckAt: Date.now
     })
 
     updater.checkForUpdates()
     await vi.advanceTimersByTimeAsync(0)
-    expect(updater.getUpdateStatus()).toMatchObject({ state: 'available', version: '1.1.0' })
-
-    automaticUpdates = true
-    updater.applyAutomaticUpdatesSetting()
     expect(updater.getUpdateStatus()).toMatchObject({ state: 'downloading', version: '1.1.0' })
+    finishDownload()
+    await vi.advanceTimersByTimeAsync(1000)
+
+    expect(updater.getUpdateStatus()).toMatchObject({ state: 'downloaded', version: '1.1.0' })
+    expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled()
   })
 })

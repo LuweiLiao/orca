@@ -34,7 +34,11 @@ export abstract class UpdaterInstallExecution extends UpdaterMacInstallPreflight
       return
     }
     const linuxPackageType = getLinuxPackageType()
-    if (linuxPackageType === 'deb' || linuxPackageType === 'rpm') {
+    if (
+      linuxPackageType === 'rpm' ||
+      (linuxPackageType === 'deb' &&
+        (this.updateInstallMode !== 'interactive' || this.currentStatus.state !== 'downloaded'))
+    ) {
       recordUpdaterLifecycle('linux_package_manual_install_required', {
         packageType: linuxPackageType,
         version: pendingVersion || null

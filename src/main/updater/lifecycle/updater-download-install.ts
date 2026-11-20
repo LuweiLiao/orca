@@ -6,7 +6,10 @@ import {
   setMacInstallPreflightInProgress
 } from '../mac-install/updater-mac-install'
 import { recordUpdaterLifecycle } from '../updater-lifecycle-diagnostics'
-import { isExternallyManagedLinuxInstall } from '../linux-package/linux-update-package-type'
+import {
+  getLinuxPackageType,
+  isExternallyManagedLinuxInstall
+} from '../linux-package/linux-update-package-type'
 import type { UpdateStatus } from '../../../shared/updater/update-status-types'
 import { updaterCodedMessage } from '../../../shared/updater/updater-failure-copy'
 import { MAC_DEFERRED_STAGING_TIMEOUT_MS, QUIT_AND_INSTALL_DELAY_MS } from './updater-state'
@@ -68,6 +71,8 @@ export abstract class UpdaterDownloadInstall extends UpdaterRemoteStatus {
     this.sendStatus(autoDownload ? { ...status, automaticDownload: true } : status)
     if (autoDownload) {
       this.downloadAvailableUpdateAutomatically()
+    } else if (eligible && backgroundCheck && this.canDownloadInBackground()) {
+      this.downloadUpdate()
     }
   }
 
@@ -126,11 +131,23 @@ export abstract class UpdaterDownloadInstall extends UpdaterRemoteStatus {
     }
   }
 
+  // LLW: every interactive build downloads a found release in the background, then waits for Restart.
+  private canDownloadInBackground(): boolean {
+    return (
+      this.updateInstallMode === 'interactive' &&
+      this.currentStatus.state === 'available' &&
+      this.activeUpdateSource === 'release' &&
+      !this.isPinnedBuildActive &&
+      !isExternallyManagedLinuxInstall()
+    )
+  }
+
   private canDownloadAutomatically(version: string): boolean {
     return (
       app.isPackaged &&
       this.getAutomaticUpdates?.() === true &&
-      this.autoUpdater?.autoInstallOnAppQuit === true &&
+      this.updateInstallMode === 'interactive' &&
+      getLinuxPackageType() === 'non-root' &&
       this.automaticDownloadOfferVersion === version &&
       this.activeUpdateSource === 'release' &&
       !this.isPinnedBuildActive

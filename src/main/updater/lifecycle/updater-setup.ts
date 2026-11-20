@@ -1,6 +1,11 @@
 import { app, powerMonitor } from 'electron'
+import { isUpdaterActive } from './updater-build-switch'
 import type { BrowserWindow } from 'electron'
-import type { ReleaseBuild, ReleaseChannel } from '../../../shared/updater/release-channel'
+import {
+  MAIN_RELEASE_REPO,
+  type ReleaseBuild,
+  type ReleaseChannel
+} from '../../../shared/updater/release-channel'
 import type { ReleaseBuildListOptions } from '../releases/updater-release-build-cache'
 import type {
   LinuxPackageInstallInstructions,
@@ -12,7 +17,6 @@ import type {
   RemoteServerUpdaterSnapshot,
   RemoteServerUpdateSupport
 } from '../../../shared/remote-runtime/host-catalog/remote-server-update'
-import { getLinuxPackageType } from '../linux-package/linux-update-package-type'
 import { createUpdaterDiagnosticLogger } from '../linux-package/linux-package-install-diagnostic'
 import { registerAutoUpdaterHandlers } from '../updater-events'
 import { getServeUpdateHandoffFailure } from '../serve-update-handoff'
@@ -150,7 +154,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
       this.sendErrorStatus(`The server update did not complete: ${serveHandoffFailure}`, true)
     }
 
-    if (!app.isPackaged) {
+    if (!isUpdaterActive()) {
       return
     }
 
@@ -163,8 +167,8 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
       autoUpdater.disableDifferentialDownload = false
     }
     // Implicit quit install requires interactive mode and an explicit non-root/AppImage marker; serve requires handoff.
-    autoUpdater.autoInstallOnAppQuit =
-      this.updateInstallMode === 'interactive' && getLinuxPackageType() === 'non-root'
+    // LLW: closing Orca never installs a downloaded update; the user chooses Restart to Update.
+    autoUpdater.autoInstallOnAppQuit = false
     // MacUpdater ignores quitAndInstall arguments; only the surviving CLI supervisor may relaunch serve.
     autoUpdater.autoRunAppAfterInstall = this.updateInstallMode === 'interactive'
     // Keep native updater diagnostics visible through local logging.
@@ -182,7 +186,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     if (this.activeUpdateSource === 'release') {
       autoUpdater.setFeedURL({
         provider: 'generic',
-        url: 'https://github.com/stablyai/orca/releases/latest/download'
+        url: `https://github.com/${MAIN_RELEASE_REPO}/releases/latest/download`
       })
     }
     if (this.autoUpdaterInitialized) {
@@ -193,6 +197,7 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
 
     registerAutoUpdaterHandlers({
       autoUpdater,
+      canInstallDebUpdate: () => this.updateInstallMode === 'interactive',
       clearBackgroundCheckLaunchPending: () => this.clearBackgroundCheckLaunchPending(),
       clearAvailableUpdateContext: () => this.clearAvailableUpdateContext(),
       consumeMissingManifestPrereleaseFallbackResult: () =>
@@ -261,7 +266,8 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
       if (
         this.backgroundCheckLaunchPending ||
         this.currentStatus.state === 'checking' ||
-        this.currentStatus.state === 'downloading'
+        this.currentStatus.state === 'downloading' ||
+        this.currentStatus.state === 'downloaded'
       ) {
         return
       }

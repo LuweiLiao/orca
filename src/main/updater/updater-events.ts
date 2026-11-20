@@ -18,11 +18,14 @@ import { isExternallyManagedLinuxInstall } from './linux-package/linux-update-pa
 import * as linuxPackageRecovery from './linux-package/linux-package-update-recovery'
 import { preExtractDownloadedAppImageUpdate } from '../cli/appimage/appimage-copy-pre-extraction'
 
-const AUTO_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
-const AUTO_UPDATE_RETRY_INTERVAL_MS = 60 * 60 * 1000
+import {
+  AUTO_UPDATE_CHECK_INTERVAL_MS,
+  AUTO_UPDATE_RETRY_INTERVAL_MS
+} from './lifecycle/updater-state'
 
 export function registerAutoUpdaterHandlers({
   autoUpdater,
+  canInstallDebUpdate,
   clearBackgroundCheckLaunchPending,
   clearAvailableUpdateContext,
   consumeMissingManifestPrereleaseFallbackResult,
@@ -261,7 +264,7 @@ export function registerAutoUpdaterHandlers({
     void preExtractDownloadedAppImageUpdate(info.downloadedFile, (filePath) =>
       linuxPackageRecovery.isInUpdaterPendingCache(filePath)
     )
-    const linuxPackageStatus = resolveLinuxPackageDownloadedStatus(info)
+    const linuxPackageStatus = resolveLinuxPackageDownloadedStatus(info, canInstallDebUpdate())
     if (linuxPackageStatus) {
       sendStatus(linuxPackageStatus)
       return

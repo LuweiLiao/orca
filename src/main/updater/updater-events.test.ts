@@ -70,6 +70,7 @@ function createUpdaterStub(): {
 function createContext(overrides?: Partial<HandlerContext>): HandlerContext {
   return {
     autoUpdater: createUpdaterStub() as never,
+    canInstallDebUpdate: vi.fn(() => false),
     clearBackgroundCheckLaunchPending: vi.fn(),
     clearAvailableUpdateContext: vi.fn(),
     consumeMissingManifestPrereleaseFallbackResult: vi.fn(() => null),

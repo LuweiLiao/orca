@@ -10,10 +10,11 @@ import type {
 import type { ReleaseChannel } from '../../../shared/updater/release-channel'
 import type { PrimaryEventSuppression, UpdateCheckVariant } from './updater-types'
 
-export const AUTO_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
-export const AUTO_UPDATE_RETRY_INTERVAL_MS = 60 * 60 * 1000
+// LLW polls its fork releases every minute; a failing feed retries after 2 minutes, backing off to 12.
+export const AUTO_UPDATE_CHECK_INTERVAL_MS = 60_000
+export const AUTO_UPDATE_RETRY_INTERVAL_MS = 2 * 60_000
 // #7576: back off persistent feed failures up to this cap; completed checks reset the cadence.
-export const MAX_AUTO_UPDATE_RETRY_INTERVAL_MS = 6 * 60 * 60 * 1000
+export const MAX_AUTO_UPDATE_RETRY_INTERVAL_MS = 12 * 60_000
 export const NUDGE_POLL_INTERVAL_MS = 30 * 60 * 1000
 export const NUDGE_ACTIVATION_COOLDOWN_MS = 5 * 60 * 1000
 export const QUIT_AND_INSTALL_DELAY_MS = 100

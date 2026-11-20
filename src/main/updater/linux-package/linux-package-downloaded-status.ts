@@ -51,9 +51,11 @@ export function shouldIgnoreDownloadedUpdateEvent(
   )
 }
 
-export function resolveLinuxPackageDownloadedStatus(info: {
-  version: string
-}): UpdateStatus | null {
+/** `allowDebInstall`: an interactive Debian desktop applies the package itself, through pkexec. */
+export function resolveLinuxPackageDownloadedStatus(
+  info: { version: string },
+  allowDebInstall = false
+): UpdateStatus | null {
   const packageType = getLinuxPackageType()
   if (packageType === 'non-root') {
     return null
@@ -75,6 +77,9 @@ export function resolveLinuxPackageDownloadedStatus(info: {
       version: info.version,
       retryable: false
     }
+  }
+  if (packageType === 'deb' && allowDebInstall) {
+    return null
   }
   return createLinuxPackageManualInstallStatus(artifact)
 }

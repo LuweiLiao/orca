@@ -111,6 +111,7 @@ const isWinAdhoc = process.env.ORCA_WIN_ADHOC === '1'
 const isWinDevChannel = isWinHourly || isWinDaily || isWinAdhoc
 const isMacRelease = process.env.ORCA_MAC_RELEASE === '1' || isMacHourly || isMacDaily || isMacAdhoc
 const isLinuxArm64Release = process.env.ORCA_LINUX_ARM64_RELEASE === '1'
+const localLinuxBuildNumber = process.env.ORCA_LLW_BUILD_NUMBER
 const localBuildVersion =
   isMacRelease || isWinDevChannel ? undefined : process.env.ORCA_LOCAL_BUILD_VERSION
 const isHourlyChannel = isMacHourly || isWinHourly
@@ -296,6 +297,7 @@ module.exports = {
     '!cloud{,/**/*}',
     // Release archives and other build staging are not runtime resources.
     '!.build{,/**/*}',
+    '!{output,dist,test-results,playwright-report,.cache}{,/**/*}',
     // Worktree-local Vite dependency caches are development inputs.
     '!.cache/vite{,.lock}{,/**/*}',
     '!docs{,/**/*}',
@@ -808,7 +810,11 @@ module.exports = {
     category: 'Utility'
   },
   appImage: {
-    artifactName: isLinuxArm64Release ? 'orca-linux-arm64.${ext}' : 'orca-linux.${ext}'
+    artifactName: localLinuxBuildNumber
+      ? `orca-linux${isLinuxArm64Release ? '-arm64' : ''}-llw${localLinuxBuildNumber}` + '.${ext}'
+      : isLinuxArm64Release
+        ? 'orca-linux-arm64.${ext}'
+        : 'orca-linux.${ext}'
   },
   deb: {
     packageName: 'orca-ide',
@@ -855,7 +861,7 @@ module.exports = {
   npmRebuild: true,
   publish: {
     provider: 'github',
-    owner: 'stablyai',
+    owner: 'LuweiLiao',
     repo: devChannelRepo ?? 'orca',
     // Keep main-repo releases draft until release-cut verifies all assets; early --publish always would expose missing Windows installers.
     releaseType: devChannelRepo ? 'prerelease' : 'draft'

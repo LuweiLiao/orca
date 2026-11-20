@@ -21,7 +21,6 @@ export function UpdateCardStateContent({
   errorCard,
   linuxPackageRecovery,
   isLocalBuild,
-  hasStartedDownload,
   prefersReducedMotion,
   mediaFailed,
   mediaLoaded,
@@ -40,7 +39,6 @@ export function UpdateCardStateContent({
     diagnostic: string
   } | null
   isLocalBuild: boolean
-  hasStartedDownload: boolean
   prefersReducedMotion: boolean
   mediaFailed: boolean
   mediaLoaded: boolean
@@ -114,11 +112,8 @@ export function UpdateCardStateContent({
         </div>
       )
     }
-    return hasStartedDownload && !status.automaticDownload ? (
-      <div className="p-4">
-        <p className="text-sm">{t('auto.components.UpdateCard.09a55c39b5', 'Installing...')}</p>
-      </div>
-    ) : (
+    // LLW: a downloaded update always waits for the user's Restart to Update.
+    return (
       <UpdateReadyToInstallContent
         version={status.version}
         onRestart={onInstallRetry}

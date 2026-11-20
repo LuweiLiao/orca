@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { isUpdaterActive } from './updater-build-switch'
 import { isMacInstallRequested } from '../mac-install/updater-mac-install'
 import { withUpdaterSpan } from '../../observability/instrumentation'
 import {
@@ -29,7 +29,8 @@ export abstract class UpdaterScheduling extends UpdaterCheckFailure {
     }
     this.autoUpdateCheckTimer = setTimeout(() => {
       // Long-running apps need main-process timers independent of renderer/relaunch lifetime.
-      if (!this.runBackgroundUpdateCheck()) {
+      // A downloaded update waits for Restart; checking again would replace its offer.
+      if (this.currentStatus.state === 'downloaded' || !this.runBackgroundUpdateCheck()) {
         // Deferred checks have no outcome handler; re-arm here or automatic checks stop forever.
         this.scheduleAutomaticUpdateCheck(AUTO_UPDATE_CHECK_INTERVAL_MS)
       }
@@ -69,7 +70,7 @@ export abstract class UpdaterScheduling extends UpdaterCheckFailure {
     ) {
       return false
     }
-    if (!app.isPackaged) {
+    if (!isUpdaterActive()) {
       this.sendStatus({ state: 'not-available' })
       return false
     }
