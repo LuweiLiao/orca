@@ -1,5 +1,5 @@
 import { useStructuredChatTabNames } from '@/runtime/native-chat/naming/structured-chat-name-observation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { GitFileStatus } from '../../../../../shared/git/status/git-status-types'
 import type { Tab } from '../../../../../shared/workspace-layout/tab-groups/tab-types'
 import type { TabBarProps } from '../tab-bar-props'
@@ -12,6 +12,7 @@ import {
 } from './tab-bar-item-model'
 import type { DropIndicator } from '../strip/drop-indicator'
 import { sameStringArray } from '@/runtime/web-session-tabs-sync/snapshots/state-equality-core'
+import { revealWorkerTab, useHiddenWorkerTabIds } from './worker-tab-visibility'
 
 export type TabBarItemProjection = {
   orderedItems: TabBarItem[]
@@ -21,6 +22,10 @@ export type TabBarItemProjection = {
   /** The active item's unified tab id; resolved here so strip re-renders don't search every tab. */
   activeUnifiedTabId: string | null
   tabStripLayoutKey: string
+}
+
+function isHiddenWorkerItem(item: TabBarItem, hidden: ReadonlySet<string>): boolean {
+  return hidden.has(item.id) || hidden.has(item.unifiedTabId)
 }
 
 export function useTabBarItemProjection({
@@ -89,7 +94,8 @@ export function useTabBarItemProjection({
     () => agentSessionTabs?.map((tab) => tab.id) ?? [],
     [agentSessionTabs]
   )
-  const orderedItems = useMemo(
+  const hiddenWorkerTabIds = useHiddenWorkerTabIds()
+  const allItems = useMemo(
     () =>
       buildOrderedTabItems({
         tabBarOrder,
@@ -120,6 +126,37 @@ export function useTabBarItemProjection({
       unifiedTabByVisibleId
     ]
   )
+  const activeAmongAll = useMemo(
+    () =>
+      findActiveVisibleTabId(allItems, {
+        activeTabId,
+        activeFileId,
+        activeBrowserTabId,
+        activeSimulatorTabId,
+        activeTabType
+      }),
+    [activeBrowserTabId, activeFileId, activeSimulatorTabId, activeTabId, activeTabType, allItems]
+  )
+  const orderedItems = useMemo(
+    () =>
+      hiddenWorkerTabIds.size === 0
+        ? allItems
+        : allItems.filter(
+            (item) => item.id === activeAmongAll || !isHiddenWorkerItem(item, hiddenWorkerTabIds)
+          ),
+    [activeAmongAll, allItems, hiddenWorkerTabIds]
+  )
+  // Why: once a worker tab is shown (sidebar click, shortcut), it stays in the strip after focus moves on.
+  const activeItem = allItems.find((item) => item.id === activeAmongAll)
+  const activeHiddenWorkerIds =
+    activeItem && isHiddenWorkerItem(activeItem, hiddenWorkerTabIds)
+      ? `${activeItem.id} ${activeItem.unifiedTabId}`
+      : null
+  useEffect(() => {
+    for (const id of activeHiddenWorkerIds?.split(' ') ?? []) {
+      revealWorkerTab(id)
+    }
+  }, [activeHiddenWorkerIds])
   const orderedIds = useMemo(() => orderedItems.map((item) => item.id), [orderedItems])
   // Why: dnd-kit re-renders every tab when this array's identity changes, and the items rebuild on any tab write.
   const [sortableIds, setSortableIds] = useState(orderedIds)
@@ -137,24 +174,8 @@ export function useTabBarItemProjection({
     () => buildTabDropIndicators(orderedItems, activeIndicator),
     [activeIndicator, orderedItems]
   )
-  const activeVisibleTabId = useMemo(
-    () =>
-      findActiveVisibleTabId(orderedItems, {
-        activeTabId,
-        activeFileId,
-        activeBrowserTabId,
-        activeSimulatorTabId,
-        activeTabType
-      }),
-    [
-      activeBrowserTabId,
-      activeFileId,
-      activeSimulatorTabId,
-      activeTabId,
-      activeTabType,
-      orderedItems
-    ]
-  )
+  // Why: the active item is never filtered out, so its id among all items is its visible id.
+  const activeVisibleTabId = activeAmongAll
   const activeUnifiedTabId = useMemo(
     () => orderedItems.find((item) => item.id === activeVisibleTabId)?.unifiedTabId ?? null,
     [activeVisibleTabId, orderedItems]
