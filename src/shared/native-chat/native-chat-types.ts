@@ -5,6 +5,7 @@ import type {
   NativeChatBotMessageCardFields
 } from './bot-cards/native-chat-bot-card-fields'
 import type { AgentSessionForkedFromMark } from '../agent-session/conversation-naming/agent-session-fork-name'
+import type { AgentImageDisplay } from '../agent-session/image-display/agent-image-display'
 import type { AgentSessionProviderContextBoundary } from '../agent-session/conversation-context/agent-session-provider-context'
 // IPC-serializable conversation contract: plain JSON only, no classes/Maps/Dates. Sources prefer transcripts, then hooks,
 // then degraded scrollback; docs/plans/2026-06-17-001-feat-native-chat-view-plan.md (KTD2).
@@ -137,6 +138,7 @@ export type NativeChatImageRefBlock = {
   path?: string
   url?: string
   alt?: string
+  display?: AgentImageDisplay
 }
 
 /** Collapse in-flight provider states to working. idle means existing but inactive; unverifiable means contact lost without proof of exit

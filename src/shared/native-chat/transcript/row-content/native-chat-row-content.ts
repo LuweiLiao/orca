@@ -13,6 +13,7 @@ import {
 } from '../subagents/native-chat-subagent-summary'
 import { isSubagentGroupBlock, isTextBlock, type NativeChatBlock } from '../../native-chat-types'
 import { splitNativeChatBlocks } from '../../tools/native-chat-tool-fold'
+import { nativeChatToolImagePreviews } from '../../tools/native-chat-tool-image-previews'
 import { nativeChatProseToMarkdown } from './native-chat-prose'
 
 /** Inferred from `derive` so the shape cannot drift from what it returns. */
@@ -32,6 +33,7 @@ function derive(blocks: readonly NativeChatBlock[]) {
       (block) => !isWordlessProviderFrameBlock(block) && !isNativeChatProviderTurnStartBlock(block)
     )
   )
+  split.prose.push(...nativeChatToolImagePreviews(blocks))
   const groups = subagentGroupBlocks(split.prose)
   const tasks = backgroundTaskBlocks(split.prose)
   // Remove fallback twins only when rendering their blocks; preserve real adjacent prose.

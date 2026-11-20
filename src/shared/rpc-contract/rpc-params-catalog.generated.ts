@@ -857,6 +857,11 @@ import {
   SshTargetUpdate
 } from './ssh/ssh-params'
 import {
+  ImageDisplayTarget,
+  ReportImageDisplayParams,
+  ShowImageParams
+} from './structured-agent-session/agent-image-display-params'
+import {
   AttachmentReadParams,
   AttachmentTextReadParams,
   AttachmentUploadAppendParams,
@@ -1121,6 +1126,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.handoffStatus': HandoffStatusParams,
   'agentSession.history': HistoryParams,
   'agentSession.hold': HoldParams,
+  'agentSession.imageRendered': ReportImageDisplayParams,
+  'agentSession.imageStatus': ImageDisplayTarget,
   'agentSession.item': ItemParams,
   'agentSession.mcp': AgentSessionMcpParams,
   'agentSession.modelCatalog': ModelCatalogParams,
@@ -1147,6 +1154,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.send': SendParams,
   'agentSession.sendRecorded': SendRecordedParams,
   'agentSession.setOption': SetOptionParams,
+  'agentSession.showImage': ShowImageParams,
   'agentSession.skipAsyncQuestions': SkipAsyncQuestionsParams,
   'agentSession.sleepWorkspace': SleepWorkspaceParams,
   'agentSession.subscribe': SubscribeParams,

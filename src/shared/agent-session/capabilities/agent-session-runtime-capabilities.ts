@@ -1,6 +1,7 @@
 import { AGENT_SESSION_ATTENTION_RUNTIME_CAPABILITIES } from '../view/agent-session-attention-capabilities'
 import { CLAUDE_LAUNCHER_RUNTIME_CAPABILITY } from '../../agent-launch/catalog/claude-cli-launch-agents'
 import { AGENT_SESSION_BACKGROUND_TASK_CHILD_VIEWS_CAPABILITY } from '../background-tasks/agent-session-background-task-child-views-capability'
+import { AGENT_IMAGE_DISPLAY_CAPABILITY } from '../image-display/agent-image-display'
 import {
   AGENT_SESSION_CONTINUE_INTERRUPTED_RUNTIME_CAPABILITY,
   AGENT_SESSION_PHONE_CONTINUE_INTERRUPTED_RUNTIME_CAPABILITY
@@ -150,6 +151,7 @@ export const AGENT_SESSION_PR_EVENTS_RUNTIME_CAPABILITY = 'agent-session.pr-even
 // Individual client flags must not retain the unused host capability aggregate.
 export const AGENT_SESSION_RUNTIME_CAPABILITIES = /* @__PURE__ */ (() =>
   [
+    AGENT_IMAGE_DISPLAY_CAPABILITY,
     AGENT_SESSION_RESTORE_SOURCE_PANE_RUNTIME_CAPABILITY,
     AGENT_SESSION_TEXT_ATTACHMENT_READ_CAPABILITY,
     ...AGENT_SESSION_STOP_RUNTIME_CAPABILITIES,

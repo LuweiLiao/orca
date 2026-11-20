@@ -39,6 +39,8 @@ export const MOBILE_AGENT_SESSION_RPC_METHODS = [
   'agentSession.subscribeStatus',
   // One visual from the chat's own scratch folder, for the transcript's `::orca-visual` lines.
   'agentSession.readVisual',
+  'agentSession.imageStatus',
+  'agentSession.imageRendered',
   // One item whole, for "Show full output" and "Show full message".
   'agentSession.item',
   // Whether the host recorded a send, for one the phone lost track of; gated on agent-session.send-recorded.v1.

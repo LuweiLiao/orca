@@ -1,3 +1,4 @@
+import { remarkNativeChatImageFileLinks } from '../media/images/native-chat-image-file-links'
 import {
   Children,
   cloneElement,
@@ -146,7 +147,11 @@ function createNativeChatImageExtension(
   )
   return {
     ...base,
-    remarkPlugins: [...base.remarkPlugins, remarkNativeChatListItemNumbers],
+    remarkPlugins: [
+      ...base.remarkPlugins,
+      remarkNativeChatListItemNumbers,
+      remarkNativeChatImageFileLinks
+    ],
     sanitizeAttributes: { ...base.sanitizeAttributes, li: ['value'] },
     components: {
       ...NATIVE_CHAT_TEXT_BLOCK_COMPONENTS,

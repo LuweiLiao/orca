@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Image as ImageIcon } from 'lucide-react'
 import { cn } from '../../../../lib/class-names'
+import { reportNativeChatImageDisplay } from './native-chat-image-display-report'
+import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
 import { useTranslate } from '../../../../i18n/use-translate'
 import { basename } from '../../../../lib/path'
 import type { NativeChatBlock } from '../../../../../../shared/native-chat/native-chat-types'
@@ -90,6 +92,7 @@ export function NativeChatImageTile({
   imageClassName?: string
 }): React.JSX.Element {
   const t = useTranslate()
+  const owner = useContext(NativeChatMarkdownImageOwnerContext)
   const [near, setNear] = useState(false)
   const [thumbnailErrorSrc, setThumbnailErrorSrc] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -145,7 +148,13 @@ export function NativeChatImageTile({
           src={displaySrc}
           alt={label}
           loading="lazy"
-          onError={() => setThumbnailErrorSrc(displaySrc ?? null)}
+          onLoad={() =>
+            reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'loaded')
+          }
+          onError={() => {
+            setThumbnailErrorSrc(displaySrc ?? null)
+            reportNativeChatImageDisplay(block, owner?.sessionId, runtimeContext?.target, 'failed')
+          }}
           className={imageClassName}
         />
       </button>
