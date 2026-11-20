@@ -1,11 +1,8 @@
-import { realpathSync, statSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { runProcess } from '@orca/process-host'
 import { removeTree } from '../../../../shared/file-write/windows-transient-lock-removal'
 import '../../../codex-cli/command'
-import { withCliRuntimeOnPath } from '../../../../shared/shell/command-resolution/node-cli-command-resolution'
 import { CODEX_SHORT_LIVED_PROBE_APP_SERVER_ARGS } from '../../../codex-cli/codex-read-only-app-server-args'
 import { collectListedHooks, type CodexListedHook } from '../../app-server/codex-app-server-client'
 import {
@@ -18,8 +15,11 @@ import {
   CODEX_EVENT_LABEL
 } from '../../hooks/definitions/codex-hook-definition'
 import type { CodexEventLabel } from '../toml/config-toml-trust'
+import { CODEX_VERSION_SCRATCH_PREFIX } from './codex-binary-version'
 import { normalizeCodexHookTrustLookupKey as normalizeHookTrustKeyForLookup } from '../identity/codex-trust-identity'
 import { upsertProjectTrustContent as upsertProjectTrustLevelInContent } from '../toml/config-toml-project-trust'
+
+export { fingerprintCodex, probeCodexVersion } from './codex-binary-version'
 
 /** Absent: unlisted event; null: listed by pre-0.129 Codex without hook approvals. */
 export type CodexHookHashes = Readonly<Partial<Record<CodexEventLabel, string | null>>>
@@ -31,15 +31,13 @@ export type CodexHookAnswer =
   /** No definitive answer; retrying may succeed. */
   | { kind: 'pending'; failure: string; codexMissing?: true }
 
-// Allow macOS first-run assessment, measured at 10–12s, off the launch path.
-const VERSION_TIMEOUT_MS = 30_000
 // Allow cold SQLite startup (~4s) while bounding hung binaries.
 const DERIVE_TIMEOUT_MS = 30_000
 // Shift a copy to verify that Codex hashes do not depend on position.
 const SCRATCH_DUMMY_HOOK = { type: 'command', command: 'exit 0' }
 const SCRATCH_ORCA_GROUP_INDEXES = [0, 2] as const
 const SCRATCH_DUMMY_GROUP_INDEX = 1
-const SCRATCH_PREFIXES = ['orca-codex-hook-trust-', 'orca-codex-version-'] as const
+const SCRATCH_PREFIXES = ['orca-codex-hook-trust-', CODEX_VERSION_SCRATCH_PREFIX] as const
 // An hour exceeds any probe's lifetime; older scratch homes were abandoned.
 const STALE_SCRATCH_MS = 60 * 60_000
 
@@ -218,35 +216,6 @@ export function readCodexHookHashes(
 
 function describeCodexVersion(codexVersion: string): string {
   return codexVersion.replace(/^codex-cli\s+/, 'Codex ')
-}
-
-// Detect binary replacement by updates/reinstalls, including equal-size atomic replacements via inode.
-export function fingerprintCodex(codexPath: string): string | null {
-  try {
-    const realPath = realpathSync(codexPath)
-    const info = statSync(realPath)
-    return `${realPath}:${info.size}:${info.mtimeMs}:${info.ino}`
-  } catch {
-    return null
-  }
-}
-
-export async function probeCodexVersion(codexCommand: string): Promise<string | null> {
-  // Even --version creates tmp/arg0 in CODEX_HOME; isolate it from real homes.
-  const scratchHome = await mkdtemp(join(tmpdir(), SCRATCH_PREFIXES[1]))
-  try {
-    const result = await runProcess({
-      program: codexCommand,
-      args: ['--version'],
-      env: withCliRuntimeOnPath(codexCommand, { ...process.env, CODEX_HOME: scratchHome }),
-      timeoutMs: VERSION_TIMEOUT_MS,
-      // A hung Windows wrapper's Codex child would survive a root-only kill.
-      terminationBarrier: true
-    })
-    return (result.code === 0 && result.stdout.trim()) || null
-  } finally {
-    await removeTree(scratchHome).catch(() => {})
-  }
 }
 
 export async function sweepStaleCodexScratchHomes(): Promise<void> {

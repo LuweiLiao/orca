@@ -26,6 +26,7 @@ import type { AgentSessionRecord } from '../../../../shared/agent-session/lifecy
 import { moveCodexThreadIntoAccountHome } from '../../history/resume/codex-thread-account-move'
 import { agentSessionProviderHandleChainHead } from '../../../../shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle'
 import { resolveCodexCommand } from '../../../codex-cli/command'
+import { warmCodexClientVersion } from '../../app-server/codex-client-info'
 import { CODEX_STRUCTURED_AGENT } from './codex-structured-agent-definition'
 import type { StructuredAgentLaunchPartResolver } from '../../../runtime/agent-session/launch/structured-agent-launch-composition'
 import type { CodexStructuredLaunch } from '../session-lifecycle/codex-structured-session-state'
@@ -144,6 +145,8 @@ export function codexStructuredLaunchPart(
       resolveWorkingDirectory: basis.launchDirectory,
       resolveEnvironment: basis.environment
     })
+    // Overlap the one-time version probe with the remaining launch resolution.
+    const clientVersionWarmed = prefixArgs.length === 0 ? warmCodexClientVersion(command) : null
     const environment = await basis.environment()
     const args = codexStructuredLaunchArgs(await deps.resolveLaunchArgs())
     const head = agentSessionProviderHandleChainHead(record.providerHandleChain)
@@ -188,6 +191,7 @@ export function codexStructuredLaunchPart(
         resumeThreadId,
         head.mintedAtFence
       ))
+    await clientVersionWarmed
     return {
       launch: {
         command,

@@ -20,6 +20,7 @@ import {
 } from './codex-app-server-process-tree-kill'
 import { createProviderRecordReader } from '../../provider-process/provider-record-reader'
 import { oversizedLineError } from './codex-app-server-frame-size-error'
+import { codexClientInfo } from './codex-client-info'
 
 export type CodexAppServerInvocation = {
   command: string
@@ -294,7 +295,7 @@ export async function runCodexAppServerSession<T>(
   try {
     const session = async (): Promise<T> => {
       await requestRpc('initialize', {
-        clientInfo: { name: 'orca_desktop', title: 'Orca', version: '0.0.0' },
+        clientInfo: codexClientInfo(invocation.command),
         ...(invocation.experimentalApi ? { capabilities: { experimentalApi: true } } : {})
       })
       notify('initialized')

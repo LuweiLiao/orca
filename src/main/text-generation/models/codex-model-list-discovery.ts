@@ -5,6 +5,7 @@ import type { CommitMessageModel } from '../../../shared/source-control/ai/gener
 import { createIncrementalNdjsonFramer } from '../../../shared/json-stream/main-process-ndjson-framer'
 import { createCodexAppServerRecordDispatcher } from '../../codex/app-server/codex-app-server-record-dispatch'
 import { isProviderRecord } from '../../provider-process/provider-json-record'
+import { codexClientInfo } from '../../codex/app-server/codex-client-info'
 import { listCodexModelPages } from '../../codex/structured/catalog/codex-structured-model-catalog'
 import type { AgentModelProbeSpec } from '../../../shared/agent-session/options/model-catalog/agent-model-probe-spec'
 import { discoveredModelsResult } from './commit-message-model-discovery-policy'
@@ -84,7 +85,7 @@ export function startCodexModelListDiscovery(stdin: Writable): CodexModelListDis
 
   const models = (async (): Promise<CommitMessageModel[] | null> => {
     await request('initialize', {
-      clientInfo: { name: 'orca_desktop', title: 'Orca', version: '0.0.0' }
+      clientInfo: codexClientInfo()
     })
     write({ method: 'initialized' })
     const listing = await listCodexModelPages((params) => request('model/list', params))
