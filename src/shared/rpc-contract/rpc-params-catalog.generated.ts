@@ -39,6 +39,11 @@ import {
   DesktopBrowserBridgeResultChunkParams,
   DesktopBrowserBridgeResultParams
 } from '../browser/client-hosting/desktop-browser-bridge-protocol'
+import {
+  ConversationReferenceCreateParams,
+  ConversationReferenceReadParams,
+  ConversationReferenceRetargetParams
+} from '../conversation-reference'
 import { MobileWebBundleChunkParamsSchema } from '../mobile-web-bundle/bundle-rpc-contract'
 import { MobileWebBundleLocaleCatalogParamsSchema } from '../mobile-web-bundle/locale-catalog-contract'
 import { OrcadMigrationBlobChunkRequestSchema } from '../orcad-migration/orcad-migration-blob-transfer'
@@ -1469,6 +1474,9 @@ export const RPC_PARAMS_BY_METHOD = {
   'connector.slackMirror.post': ConnectorSlackMirrorPost,
   'connector.slackMirror.set': ConnectorSlackMirrorSet,
   'connector.slackMirror.status': ConnectorSlackMirrorStatus,
+  'conversation.createReference': ConversationReferenceCreateParams,
+  'conversation.read': ConversationReferenceReadParams,
+  'conversation.retargetReference': ConversationReferenceRetargetParams,
   'desktop.openWindowInBackground': null,
   'desktopBrowserBridge.attach': DesktopBrowserBridgeAttachParams,
   'desktopBrowserBridge.result': DesktopBrowserBridgeResultParams,

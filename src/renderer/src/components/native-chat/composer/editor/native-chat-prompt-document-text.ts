@@ -7,6 +7,11 @@ import {
 } from '../../../../../../shared/native-chat/attachments/native-chat-image-reference'
 import { NATIVE_CHAT_PASTED_TEXT_TOKEN } from '../../paste/native-chat-pasted-text-reference'
 import {
+  CONVERSATION_REFERENCE_NODE,
+  conversationReferenceToken,
+  splitConversationReferences
+} from '../../../../../../shared/conversation-reference'
+import {
   botMentionToken,
   splitBotMentions
 } from '../../../../../../shared/bots/bot-mention-context'
@@ -95,23 +100,41 @@ export function openingPromptContent(document: JSONContent | undefined, text: st
     : promptTextContent(text)
 }
 
+function promptLineContent(line: string): JSONContent[] {
+  return splitImageReferences(line).flatMap((part) =>
+    typeof part === 'string'
+      ? part
+          .split(NATIVE_CHAT_PASTED_TEXT_TOKEN)
+          .flatMap((piece, index): JSONContent[] =>
+            piece === ''
+              ? []
+              : index % 2 === 1
+                ? [{ type: FILE_REFERENCE_NODE, attrs: { token: piece, path: '' } }]
+                : botMentionContent(piece)
+          )
+      : [{ type: IMAGE_REFERENCE_NODE, attrs: { attachmentId: part.attachmentId } }]
+  )
+}
+
 export function promptTextContent(text: string): JSONContent {
   return {
     type: 'doc',
     content: text.split('\n').map((line) => ({
       type: 'paragraph',
-      content: splitImageReferences(line).flatMap((part) =>
-        typeof part === 'string'
-          ? part
-              .split(NATIVE_CHAT_PASTED_TEXT_TOKEN)
-              .flatMap((piece, index): JSONContent[] =>
-                piece === ''
-                  ? []
-                  : index % 2 === 1
-                    ? [{ type: FILE_REFERENCE_NODE, attrs: { token: piece, path: '' } }]
-                    : botMentionContent(piece)
-              )
-          : [{ type: IMAGE_REFERENCE_NODE, attrs: { attachmentId: part.attachmentId } }]
+      // A conversation link in restored or pasted text comes back as its reference pill.
+      content: splitConversationReferences(line).flatMap((reference) =>
+        typeof reference === 'string'
+          ? promptLineContent(reference)
+          : [
+              {
+                type: CONVERSATION_REFERENCE_NODE,
+                attrs: {
+                  uri: reference.uri,
+                  title: reference.title,
+                  token: conversationReferenceToken(reference)
+                }
+              }
+            ]
       )
     }))
   }

@@ -15,6 +15,7 @@ import { isSubagentGroupBlock, isTextBlock, type NativeChatBlock } from '../../n
 import { splitNativeChatBlocks } from '../../tools/native-chat-tool-fold'
 import { nativeChatToolImagePreviews } from '../../tools/native-chat-tool-image-previews'
 import { nativeChatProseToMarkdown } from './native-chat-prose'
+import { withoutConversationReferenceInstructions } from '../../../conversation-reference'
 
 /** Inferred from `derive` so the shape cannot drift from what it returns. */
 export type NativeChatRowContent = ReturnType<typeof derive>
@@ -22,7 +23,8 @@ export type NativeChatRowContent = ReturnType<typeof derive>
 const derivations = new WeakMap<object, NativeChatRowContent>()
 
 function readMarkdown(this: { prose: NativeChatBlock[] }): string {
-  const value = nativeChatProseToMarkdown(this.prose)
+  // A sent message's reference reading note is the agent's, never the transcript's.
+  const value = withoutConversationReferenceInstructions(nativeChatProseToMarkdown(this.prose))
   Object.defineProperty(this, 'markdown', { value })
   return value
 }

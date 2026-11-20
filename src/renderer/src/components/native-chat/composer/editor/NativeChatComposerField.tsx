@@ -18,6 +18,7 @@ import type { NativeChatComposerFieldProps } from '../../native-chat-composer-fi
 import { imeComposedSegment } from '@/lib/text-input/ime/ime-composed-segment'
 import { acceptNativeChatPromptSuggestion } from './native-chat-prompt-suggestion-accept'
 import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
+import { useConversationReferenceDrop } from '../../use-conversation-reference-drop'
 
 function noop(): void {}
 
@@ -84,6 +85,14 @@ export function NativeChatComposerField({
   const t = useTranslate()
   const annotationComposer = useNativeChatAnnotationComposer()
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
+  // A conversation dragged from history or the sidebar lands here as a reference pill.
+  const conversationDrop = useConversationReferenceDrop({
+    scope: draftScopeKey,
+    input: textareaRef,
+    disabled,
+    composing: imeEnterGesture.isComposing,
+    targetEnvironmentId: attachmentEnvironmentId
+  })
   const glowing = useNativeChatComposerGlow(draftScopeKey)
   const optionCount =
     autocomplete.mode === 'slash'
@@ -116,6 +125,11 @@ export function NativeChatComposerField({
   // An open picker takes Tab first, so the suggestion only shows and accepts while none is.
   const suggestion = autocomplete.mode === 'none' ? promptSuggestion : undefined
   const editorKeyDownCapture = useLatestHandler((event: React.KeyboardEvent<HTMLDivElement>) => {
+    // A reference still being made is not in the draft yet; Enter must not send without it.
+    if (conversationDrop.pending && event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      return
+    }
     if (
       !imeEnterGesture.ownsKeyDown(event) &&
       !acceptNativeChatPromptSuggestion(
@@ -228,9 +242,15 @@ export function NativeChatComposerField({
             className="mb-1.5"
           />
           <div
+            ref={conversationDrop.ref}
+            data-conversation-reference-drop="true"
+            onDragOver={conversationDrop.onDragOver}
+            onDragLeave={conversationDrop.onDragLeave}
+            onDrop={conversationDrop.onDrop}
             className={cn(
               // Use a constant container border so focus changes cannot flash it.
               'group/composer rounded-xl border p-1.5 shadow-xs',
+              conversationDrop.hover && 'ring-2 ring-inset ring-ring',
               !launch && 'native-chat-composer-card',
               launch
                 ? 'border-foreground/10 bg-background dark:bg-foreground/[0.04]'
@@ -319,7 +339,7 @@ export function NativeChatComposerField({
                 editSession={editSession}
                 attachDisabled={attachDisabled}
                 dictationDisabled={dictationDisabled}
-                sendDisabled={sendButtonDisabled}
+                sendDisabled={sendButtonDisabled || conversationDrop.pending}
                 sendBlockedReason={sendBlockedReason}
                 draftNotSaved={draftNotSaved}
                 isWorking={isWorking}

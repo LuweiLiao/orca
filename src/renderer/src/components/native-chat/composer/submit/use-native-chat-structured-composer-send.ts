@@ -16,6 +16,7 @@ import {
 import type { StructuredAgentSessionAttachmentPreparation } from '../../session/structured/delivery/structured-agent-session-send-slot'
 import { useCallback } from 'react'
 import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
+import { withConversationReferenceInstructions } from '../../../../../../shared/conversation-reference'
 import {
   nativeChatAnnotationSendHooks,
   prepareNativeChatAnnotatedMessage
@@ -215,7 +216,7 @@ export function useNativeChatStructuredComposerSend({
       const annotationHooks = nativeChatAnnotationSendHooks(annotated)
       return dispatchNativeChatStructuredComposerText(
         structuredTransport,
-        annotated?.text ?? text,
+        withConversationReferenceInstructions(annotated?.text ?? text),
         attachments,
         promptSkillRefs(submission.draft?.document),
         {

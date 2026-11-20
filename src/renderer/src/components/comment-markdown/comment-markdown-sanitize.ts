@@ -1,3 +1,4 @@
+import { parseConversationReferenceUri } from '../../../../shared/conversation-reference'
 import { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize'
 import { defaultUrlTransform, type Options as MarkdownOptions } from 'react-markdown'
 import { GITHUB_CALLOUT_SANITIZE_ATTRIBUTE } from '../../../../shared/github/markdown/github-callouts'
@@ -18,6 +19,10 @@ export function isTrustedCompactImageSrc(src: string | undefined): src is string
 type UrlTransform = NonNullable<MarkdownOptions['urlTransform']>
 
 export const commentMarkdownUrlTransform: UrlTransform = (value, key, node) => {
+  // A conversation reference opens in Orca, never a browser; the chat draws it as a pill.
+  if (key === 'href' && parseConversationReferenceUri(value)) {
+    return value
+  }
   if (key === 'src' && node?.tagName === 'img' && isTrustedCompactImageSrc(value)) {
     return value
   }
@@ -55,7 +60,7 @@ export const commentMarkdownSanitizeSchema: SanitizeSchema = {
   protocols: {
     ...defaultSchema.protocols,
     // Allow file links through sanitize for native chat; other surfaces still strip them in URL transformation.
-    href: [...(defaultSchema.protocols?.href ?? []), 'file'],
+    href: [...(defaultSchema.protocols?.href ?? []), 'file', 'orca-conversation'],
     src: [...(defaultSchema.protocols?.src ?? []), 'data', 'blob', 'orca-jira-image']
   }
 }

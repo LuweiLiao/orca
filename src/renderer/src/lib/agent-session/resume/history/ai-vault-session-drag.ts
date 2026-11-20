@@ -1,3 +1,4 @@
+import { writeConversationReferenceDrag } from '../../../conversation-reference-drag'
 import {
   isAiVaultAgent,
   type AiVaultAgent
@@ -137,6 +138,20 @@ export function writeAiVaultSessionDragData(
   dataTransfer: DataTransfer,
   payload: AiVaultSessionDragPayload
 ): void {
+  // The same drag dropped on a chat composer references the conversation instead of resuming it.
+  writeConversationReferenceDrag(dataTransfer, {
+    source: payload.structuredSession
+      ? { kind: 'structured', ...payload.structuredSession }
+      : {
+          kind: 'transcript',
+          agent: payload.agent,
+          sessionId: payload.sessionId,
+          ...(payload.sessionFilePath ? { filePath: payload.sessionFilePath } : {}),
+          codexHome: payload.codexHome
+        },
+    title: payload.title.slice(0, 1024),
+    executionHostId: payload.sessionExecutionHostId ?? 'local'
+  })
   const serialized = JSON.stringify({ kind: 'ai-vault-session', version: 1, ...payload })
   if (isAiVaultSessionDragPayloadTooLarge(serialized)) {
     activeAiVaultSessionDragPayload = null

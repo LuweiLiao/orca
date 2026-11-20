@@ -1,5 +1,7 @@
 import type { OrchestrationAgentReference } from '../../../../../../shared/orchestration/mailbox/orchestration-agent-reference'
 import { NativeChatFileReferencePill } from './NativeChatFileReferencePill'
+import { NativeChatConversationReferencePill } from '../../NativeChatConversationReferencePill'
+import { CONVERSATION_REFERENCE_NODE } from '../../../../../../shared/conversation-reference'
 import { NativeChatSkillPill, skillLabel } from './NativeChatSkillPill'
 import { NativeChatImageReferencePill } from './NativeChatImageReferencePill'
 import { NativeChatBotMentionPill } from './NativeChatBotMentionPill'
@@ -55,6 +57,19 @@ export const NativeChatFileReference = Node.create({
   renderHTML: ({ node }) => ['span', { 'data-native-chat-file-reference': node.attrs.path }]
 })
 
+/** A referenced conversation. `token` is its markdown link, which the agent reads with the CLI. */
+export const NativeChatConversationReference = Node.create({
+  name: CONVERSATION_REFERENCE_NODE,
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addNodeView: () => ReactNodeViewRenderer(NativeChatConversationReferencePill),
+  addAttributes: () => ({ token: { default: '' }, uri: { default: '' }, title: { default: '' } }),
+  renderText: ({ node }) => node.attrs.token,
+  renderHTML: ({ node }) => ['span', { 'data-native-chat-conversation-reference': node.attrs.uri }]
+})
+
 export const NativeChatImageReference = Node.create({
   name: IMAGE_REFERENCE_NODE,
   group: 'inline',
@@ -98,6 +113,7 @@ export const NativeChatBotMention = Node.create({
 export const nativeChatPromptPills = [
   NativeChatSkill,
   NativeChatFileReference,
+  NativeChatConversationReference,
   NativeChatImageReference,
   NativeChatBotMention,
   NativeChatPromptPillKeys

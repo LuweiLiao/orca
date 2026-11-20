@@ -7,8 +7,10 @@ import { electronRendererWindows } from './electron-renderer-windows'
 import { translateMain } from '../i18n/main-i18n'
 import { encodeRepoIconPng } from './electron-repo-icon-png'
 import { fetchWithElectronManualRedirects } from './electron-manual-redirect-fetch'
+import { forwardConversationReference } from '../ai-vault/conversation-reference-routing'
 
 export const electronRuntimeDesktopSurface: RuntimeDesktopSurface = {
+  forwardConversationReference,
   translateNotification: translateMain,
   isAwayForMobileNotifications: () => readDesktopAwayState(powerMonitor),
   showNotification: ({ title, body }) => {

@@ -1,3 +1,5 @@
+import type { ConversationReferencePage } from '../../../shared/conversation-reference'
+import type { ConversationTranscriptRead } from '../conversation-transcript-reader'
 import type {
   AiVaultListResult,
   AiVaultSubagentListResult
@@ -30,6 +32,7 @@ export type AiVaultServiceOperation =
   | 'titles'
   | 'subagents'
   | 'firstPrompt'
+  | 'conversationRead'
   | 'searchSessions'
   | 'searchStatus'
   | 'searchReconcile'
@@ -40,6 +43,7 @@ const AI_VAULT_SERVICE_OPERATIONS: ReadonlySet<string> = new Set<AiVaultServiceO
   'titles',
   'subagents',
   'firstPrompt',
+  'conversationRead',
   'searchSessions',
   'searchStatus',
   'searchReconcile',
@@ -66,6 +70,7 @@ export type AiVaultServiceInit = {
 }
 
 export type AiVaultServiceRequestBody =
+  | { type: 'request'; operation: 'conversationRead'; request: ConversationTranscriptRead }
   | { type: 'request'; operation: 'scan'; options: AiVaultServiceScanOptions }
   | {
       type: 'request'
@@ -124,6 +129,7 @@ export type AiVaultServiceResultValue =
   | { operation: 'titles'; value: AiVaultSessionTitlesResult }
   | { operation: 'subagents'; value: AiVaultSubagentListResult }
   | { operation: 'firstPrompt'; value: { prompt: string | null } }
+  | { operation: 'conversationRead'; value: Omit<ConversationReferencePage, 'reference'> }
   | { operation: 'searchSessions'; value: AiVaultSearchResponse }
   | { operation: 'searchStatus'; value: AiVaultSearchStatus }
   | { operation: 'searchReconcile'; value: null }

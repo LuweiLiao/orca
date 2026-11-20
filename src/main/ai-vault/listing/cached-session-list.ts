@@ -10,7 +10,8 @@ import {
 import {
   isAiVaultScanCancelledError,
   type AiVaultListArgs,
-  type AiVaultListResult
+  type AiVaultListResult,
+  type AiVaultSession
 } from '../../../shared/ai-vault/contracts/ai-vault-types'
 import {
   aiVaultLocalScanKey,
@@ -59,6 +60,26 @@ type CachedAiVaultList = {
 
 // Least recently used first.
 const cachedLists = new Map<string, CachedAiVaultList>()
+
+/** The one cached session a conversation reference names; null when absent or ambiguous. */
+export function findCachedAiVaultSession(
+  source: Pick<AiVaultSession, 'agent' | 'sessionId'> &
+    Partial<Pick<AiVaultSession, 'filePath' | 'codexHome'>>
+): AiVaultSession | null {
+  for (const list of [...cachedLists.values()].toReversed()) {
+    const matches = list.result.sessions.filter(
+      (session) =>
+        session.agent === source.agent &&
+        session.sessionId === source.sessionId &&
+        (!source.filePath || session.filePath === source.filePath) &&
+        (source.codexHome === undefined || session.codexHome === source.codexHome)
+    )
+    if (matches.length > 0) {
+      return matches.length === 1 ? matches[0]! : null
+    }
+  }
+  return null
+}
 let scanCoordinator = new AiVaultScanCoordinator()
 // Reject cache writes from scans that began before invalidation, or late results can resurrect deleted sessions.
 let cacheGeneration = 0

@@ -22672,6 +22672,32 @@
         "originalUnavailable": "Original text is not currently displayed.",
         "transferFailed": "The message draft could not be saved. Your annotations have been kept.",
         "retry": "Retry saving annotations"
+      },
+      "conversationReference": {
+        "source": "Referenced conversation",
+        "remove": "Remove conversation reference",
+        "differentHost": "This agent cannot reach the conversation on its source host. Open the chat on that host to reference it.",
+        "loading": "Reading conversation",
+        "retry": "Retry",
+        "more": "Load more",
+        "drag": "Drag into a message to reference this conversation",
+        "copy": "Copy conversation reference",
+        "reference": "Reference conversation",
+        "addedToDraft": "The conversation reference was added to the draft of the chat it was meant for.",
+        "draftSaveFailed": "The conversation reference could not be saved to the target draft.",
+        "unavailable": "This conversation cannot be referenced.",
+        "noComposer": "Open a chat to reference this conversation in its message box.",
+        "ambiguousComposer": "Click the message box of the chat to reference this conversation in, then try again.",
+        "composerUnavailable": "The open chat cannot take a message right now.",
+        "user": "User",
+        "assistant": "Assistant",
+        "tool": "Tool",
+        "empty": "This conversation has no readable text.",
+        "snapshot": "Snapshot through message {{count}}",
+        "liveShort": "live",
+        "liveNote": "Follows the chat: the agent reads it as it is when it reads it.",
+        "pinNow": "Pin it where it is now",
+        "followLive": "Follow the chat as it goes on"
       }
     },
     "tab": {

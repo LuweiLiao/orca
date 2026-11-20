@@ -1,3 +1,8 @@
+import type {
+  ConversationReferenceCreate,
+  ConversationReferenceRead
+} from '../../../shared/conversation-reference'
+
 /** Optional desktop facilities for runtime hosts, addressed by window id with plain data so a host outside Electron main can supply them.
  * Node hosts legitimately lack these; terminal creation uses background spawn without a window (#10333), and notifications route to paired clients. */
 
@@ -41,6 +46,11 @@ export type RuntimeDesktopSurface = {
   encodeRepoIconPng?(bytes: Uint8Array, maxEdge: number): Uint8Array | null
   /** A GET answering redirects with the 3xx, without proxy login; absent where fetch already does. */
   fetchRepoIcon?(url: string, init: RequestInit): Promise<Response>
+  /** Desktop-owned connections can read references on their paired source hosts. */
+  forwardConversationReference?(
+    method: 'conversation.createReference' | 'conversation.read',
+    request: ConversationReferenceCreate | ConversationReferenceRead
+  ): Promise<unknown>
 }
 
 const inertDesktopSurface: RuntimeDesktopSurface = {

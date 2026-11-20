@@ -1,3 +1,4 @@
+import { readConversationTranscript } from '../conversation-transcript-reader'
 import { setActiveSink } from '../../observability/tracer'
 import { requestSessionSearchRoots } from './session-scanner-service-root-request'
 import { aiVaultScanWork, trackAiVaultScanProgress } from '../scan-lifecycle/ai-vault-scan-progress'
@@ -112,6 +113,12 @@ async function executeRequest(request: AiVaultServiceRequest): Promise<AiVaultSe
       return {
         operation: 'firstPrompt',
         value: await readAiVaultFirstUserPrompt(request.request)
+      }
+    }
+    if (request.operation === 'conversationRead') {
+      return {
+        operation: 'conversationRead',
+        value: await readConversationTranscript(request.request, controller.signal)
       }
     }
     const startedAt = performance.now()

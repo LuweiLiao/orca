@@ -1,5 +1,11 @@
 import { isAntigravityReferenceSession } from '../../../../../../shared/agent-session/lifecycle/provider-handles/antigravity-session-origin'
 import type { AiVaultSubagentResumeActions } from './AiVaultSessionSubagents'
+import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import { aiVaultConversationReference } from '@/lib/ai-vault-conversation-reference'
+import {
+  copyConversationReference,
+  referenceConversationInFocusedChat
+} from '../../../native-chat/conversation-reference-insertion'
 import { useCallback } from 'react'
 import type React from 'react'
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -129,7 +135,20 @@ export function VaultSessionRow({
           'The transcript source is unavailable.'
         )
   const requestDelete = (): void => onRequestDelete?.(session)
-  const draggable = !resumeDisabled && !onPick
+  // A conversation with content can be referenced even where it cannot be resumed.
+  const referenceable =
+    session.messageCount > 0 ||
+    session.previewMessages.length > 0 ||
+    Boolean(session.structuredSession)
+  const draggable = !onPick && referenceable
+  const referenceActions = referenceable
+    ? {
+        onReferenceConversation: (): void =>
+          void referenceConversationInFocusedChat(aiVaultConversationReference(session, title)),
+        onCopyReference: (): void =>
+          void copyConversationReference(aiVaultConversationReference(session, title))
+      }
+    : {}
   const detailsTooltip = detailsExpanded
     ? t('auto.components.right.sidebar.AiVaultSessionRow.hideDetails', 'Hide Details')
     : t('auto.components.right.sidebar.AiVaultSessionRow.showDetails', 'Show Details')
@@ -138,6 +157,13 @@ export function VaultSessionRow({
       event.stopPropagation()
       if (!draggable) {
         event.preventDefault()
+        return
+      }
+      if (resumeDisabled) {
+        writeConversationReferenceDrag(
+          event.dataTransfer,
+          aiVaultConversationReference(session, title)
+        )
         return
       }
       writeAiVaultSessionDragData(event.dataTransfer, {
@@ -158,7 +184,7 @@ export function VaultSessionRow({
       })
       window.dispatchEvent(new Event(AI_VAULT_SESSION_DRAG_START_EVENT))
     },
-    [draggable, realHomeResumeStartup, session, resumeStartup, title]
+    [draggable, resumeDisabled, realHomeResumeStartup, session, resumeStartup, title]
   )
 
   const body = (
@@ -193,8 +219,8 @@ export function VaultSessionRow({
             !draggable
               ? undefined
               : t(
-                  'auto.components.right.sidebar.AiVaultSessionRow.dragToResume',
-                  'Drag to resume in a new tab'
+                  'components.native-chat.conversationReference.drag',
+                  'Drag into a message to reference this conversation'
                 )
           }
           onDragStart={startResumeDrag}
@@ -222,6 +248,7 @@ export function VaultSessionRow({
           onResumeInNewChat={onResumeInNewChat}
           onResumeInNewCli={onResumeInNewCli}
           onCopyResume={onCopyResume}
+          {...referenceActions}
           onCopyId={onCopyId}
           onCopyPath={onCopyPath}
           onOpenLog={onOpenLog}
@@ -302,6 +329,7 @@ export function VaultSessionRow({
           onResumeInNewChat={onResumeInNewChat}
           onResumeInNewCli={onResumeInNewCli}
           onCopyResume={onCopyResume}
+          {...referenceActions}
           onCopyId={onCopyId}
           onCopyPath={onCopyPath}
           onOpenLog={onOpenLog}

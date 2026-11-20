@@ -1,5 +1,10 @@
 import { remarkNativeChatImageFileLinks } from '../media/images/native-chat-image-file-links'
 import {
+  parseConversationReferenceUri,
+  withoutConversationReferenceInstructions
+} from '../../../../../shared/conversation-reference'
+import { NativeChatConversationReference } from '../NativeChatConversationReference'
+import {
   Children,
   cloneElement,
   isValidElement,
@@ -158,6 +163,14 @@ function createNativeChatImageExtension(
       ...base.components,
       img: ({ src, alt }) => <NativeChatDeferredMarkdownImage src={src} alt={alt} />,
       a: (props) => {
+        if (props.href && parseConversationReferenceUri(props.href)) {
+          return (
+            <NativeChatConversationReference
+              uri={props.href}
+              title={Children.toArray(props.children).join('')}
+            />
+          )
+        }
         const renderAnchor = (children: ReactNode): ReactNode => (
           <NativeChatLinkPeek href={props.href}>
             {typeof Anchor === 'function' ? (
@@ -241,7 +254,7 @@ export function NativeChatMarkdown({
         content={
           visualExtension && streaming
             ? withoutPendingNativeChatVisualDirectiveTail(content)
-            : content
+            : withoutConversationReferenceInstructions(content)
         }
         math
         extension={extension}

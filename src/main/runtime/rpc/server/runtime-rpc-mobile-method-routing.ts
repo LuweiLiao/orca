@@ -44,6 +44,9 @@ export const EXECUTION_HOST_METHODS = [
   'aiVault.resolveSessionTitles',
   'aiVault.searchSessions',
   'aiVault.searchStatus',
+  // A conversation reference reads on the host that keeps the source conversation.
+  'conversation.createReference',
+  'conversation.read',
   'automation.list',
   'automation.show',
   'automation.create',

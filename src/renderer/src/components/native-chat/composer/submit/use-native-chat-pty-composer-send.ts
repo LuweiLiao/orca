@@ -32,6 +32,7 @@ import {
   type NativeChatLocalCommandAnswer
 } from '../../session/options/terminal/use-native-chat-local-command-answer'
 import { prepareNativeChatAnnotatedMessage } from '../../annotations/native-chat-annotation-delivery'
+import { withConversationReferenceInstructions } from '../../../../../../shared/conversation-reference'
 import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
 
 export function useNativeChatPtyComposerSend(args: {
@@ -99,6 +100,7 @@ export function useNativeChatPtyComposerSend(args: {
       if (text.trim() === '' && imagePaths.length === 0) {
         return false
       }
+      text = withConversationReferenceInstructions(text)
       const { sendOptions: launchSendOptions } = resolveNativeChatLaunchDraftSend({
         launchDraft: args.launchDraft,
         launchDraftResolved: args.launchDraftResolved,

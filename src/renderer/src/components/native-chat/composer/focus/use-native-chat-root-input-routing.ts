@@ -17,6 +17,18 @@ import {
 
 // Floating panels can reveal a chat beside the workspace’s chat.
 const revealedChatRoots = new Set<HTMLElement>()
+// The chat root focus last entered: the evidence that picks one of several revealed chats.
+let lastFocusedChatRoot: HTMLElement | null = null
+
+/** The chat visible in the focused group; with several revealed, the one last focused, if any. */
+export function focusedNativeChatRoot(): HTMLElement | 'ambiguous' | null {
+  if (revealedChatRoots.size <= 1) {
+    return revealedChatRoots.values().next().value ?? null
+  }
+  return lastFocusedChatRoot && revealedChatRoots.has(lastFocusedChatRoot)
+    ? lastFocusedChatRoot
+    : 'ambiguous'
+}
 
 /** Route revealed-pane typing/dictation to its input when focus is unowned or within that chat. */
 export function useNativeChatRootInputRouting(
@@ -50,7 +62,14 @@ export function useNativeChatRootInputRouting(
         )
       }
     }
+    const onFocusIn = (): void => {
+      lastFocusedChatRoot = root
+    }
     revealedChatRoots.add(root)
+    if (root.contains(root.ownerDocument.activeElement)) {
+      lastFocusedChatRoot = root
+    }
+    root.addEventListener('focusin', onFocusIn)
     root.ownerDocument.addEventListener('keydown', onKeyDown)
     const releaseDictation = registerDictationInputOwner(root, {
       focusInput: () =>
@@ -58,6 +77,7 @@ export function useNativeChatRootInputRouting(
       ownsOutsideFocus: ownsUnfocusedInput
     })
     return () => {
+      root.removeEventListener('focusin', onFocusIn)
       revealedChatRoots.delete(root)
       root.ownerDocument.removeEventListener('keydown', onKeyDown)
       releaseDictation()

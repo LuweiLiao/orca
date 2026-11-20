@@ -1,5 +1,6 @@
 import { agentSessionAttachmentUploadIdOfPath } from '../../../../../../../shared/agent-session/agent-session-attachments'
 import type { AgentJournalMessageItem } from '../../../../../../../shared/agent-session/journal/agent-session-journal-types'
+import { withoutConversationReferenceInstructions } from '../../../../../../../shared/conversation-reference'
 import type { NativeChatComposerDraftImage } from '../../../drafts/native-chat-composer-draft-storage'
 import { appendToNativeChatComposerDraft } from '../../../drafts/native-chat-composer-draft-store'
 import { structuredAgentSessionDraftScopeKey } from '../../../drafts/native-chat-draft-scope'
@@ -12,7 +13,10 @@ import {
 import { restoreNativeChatAnnotationMessage } from '../../../annotations/native-chat-annotation-delivery'
 
 export function structuredAgentSessionMessageText(body: AgentJournalMessageItem): string {
-  return body.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')
+  // A returned message comes back as the person wrote it, without the reference reading note.
+  return withoutConversationReferenceInstructions(
+    body.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')
+  )
 }
 
 /** Append returned input without replacing later typing; return true once durable. */

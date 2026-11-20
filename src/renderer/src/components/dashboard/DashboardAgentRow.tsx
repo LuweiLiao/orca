@@ -48,6 +48,11 @@ import {
 import { translate } from '@/i18n/i18n'
 import { useTranslate, type Translate } from '@/i18n/use-translate'
 import { useUiLanguageRevision } from '@/i18n/use-ui-language-revision'
+import {
+  canReferenceAgentRow,
+  startAgentRowReferenceDrag
+} from '@/lib/agent-row-conversation-reference'
+import { AgentRowContextMenu } from '@/components/AgentRowContextMenu'
 
 function formatTimeAgo(ts: number, now: number, t: Translate = translate): string {
   const delta = now - ts
@@ -249,166 +254,174 @@ const DashboardAgentRow = React.memo(function DashboardAgentRow({
   const titleParts = sendTargetDisabledReason ? [sendTargetDisabledReason, ...tsParts] : tsParts
 
   return (
-    // Why: no role="button" — nested interactive children (buttons, tooltip triggers) would violate ARIA nesting rules.
-    <div
-      onClickCapture={handleSendTargetClickCapture}
-      onClick={handleActivate}
-      className={cn(
-        // Why: named group scopes the X-reveal to this row, not every row in the card.
-        'agent-disclosure-row group/agent-row relative -ml-2 flex flex-col py-1',
-        isLineageChild ? 'pl-5 pr-2' : 'px-2',
-        // Why: hover wash stays softer than the enclosing card's highlight.
-        'cursor-pointer rounded-sm worktree-agent-row-hover',
-        hasChildDisclosure && 'worktree-agent-lineage-parent-row',
-        isLineageChild && 'worktree-agent-lineage-child-row',
-        sendTargetStatus === 'sending' && 'cursor-progress opacity-75',
-        sendTargetStatus === 'disabled' && 'cursor-default opacity-60'
-      )}
-      data-focused-agent-pane={highlighted ? 'true' : undefined}
-      data-current={view?.current ? 'true' : undefined}
-      aria-current={view?.current ? 'true' : undefined}
-      aria-description={
-        opensClaudeParentConversation(agent)
-          ? t('auto.lib.claudeAgentRowView.openParentConversation', 'Open parent conversation')
-          : undefined
-      }
-      data-agent-send-target={sendTargetStatus}
-      title={titleParts.length > 0 ? titleParts.join(' • ') : undefined}
-      role={participatesInLineage ? 'treeitem' : undefined}
-      aria-level={participatesInLineage ? (lineage?.depth ?? 0) + 1 : undefined}
-    >
-      {lineageChildCount > 0 && !hideLineageConnectors ? (
-        <span
-          aria-hidden
-          data-agent-lineage-parent-connector
-          className="pointer-events-none absolute bottom-[-0.75rem] left-[13px] top-[1.05rem] border-l-[1.5px] border-muted-foreground/45 dark:border-muted-foreground/35"
-        />
-      ) : null}
-      {isLineageChild && !hideLineageConnectors ? (
-        <span
-          aria-hidden
-          data-agent-lineage-connector={lineage?.isLastSibling === false ? 'branch' : 'last'}
-          className="pointer-events-none absolute bottom-[-1px] left-[13px] top-[-1px] w-3"
-        >
+    <AgentRowContextMenu agent={agent} title={prompt} disabled={Boolean(sendTargetStatus)}>
+      {/* Why: no role="button" — nested interactive children (buttons, tooltip triggers) would violate ARIA nesting rules. */}
+      <div
+        draggable={!sendTargetStatus && canReferenceAgentRow(agent)}
+        onDragStart={(event) =>
+          startAgentRowReferenceDrag(event, agent, prompt, Boolean(sendTargetStatus))
+        }
+        onClickCapture={handleSendTargetClickCapture}
+        onClick={handleActivate}
+        className={cn(
+          // Why: named group scopes the X-reveal to this row, not every row in the card.
+          'agent-disclosure-row group/agent-row relative -ml-2 flex flex-col py-1',
+          isLineageChild ? 'pl-5 pr-2' : 'px-2',
+          // Why: hover wash stays softer than the enclosing card's highlight.
+          'cursor-pointer rounded-sm worktree-agent-row-hover',
+          hasChildDisclosure && 'worktree-agent-lineage-parent-row',
+          isLineageChild && 'worktree-agent-lineage-child-row',
+          sendTargetStatus === 'sending' && 'cursor-progress opacity-75',
+          sendTargetStatus === 'disabled' && 'cursor-default opacity-60'
+        )}
+        data-focused-agent-pane={highlighted ? 'true' : undefined}
+        data-current={view?.current ? 'true' : undefined}
+        aria-current={view?.current ? 'true' : undefined}
+        aria-description={
+          opensClaudeParentConversation(agent)
+            ? t('auto.lib.claudeAgentRowView.openParentConversation', 'Open parent conversation')
+            : undefined
+        }
+        data-agent-send-target={sendTargetStatus}
+        title={titleParts.length > 0 ? titleParts.join(' • ') : undefined}
+        role={participatesInLineage ? 'treeitem' : undefined}
+        aria-level={participatesInLineage ? (lineage?.depth ?? 0) + 1 : undefined}
+      >
+        {lineageChildCount > 0 && !hideLineageConnectors ? (
           <span
-            className={cn(
-              'absolute left-0 border-l-[1.5px] border-muted-foreground/45 dark:border-muted-foreground/35',
-              lineage?.isFirstSibling ? 'top-[-0.9rem]' : 'top-[-1px]',
-              lineage?.isLastSibling
-                ? lineage?.isFirstSibling
-                  ? 'h-[1.6rem]'
-                  : 'h-[calc(0.7rem+1px)]'
-                : 'bottom-[-1px]'
-            )}
+            aria-hidden
+            data-agent-lineage-parent-connector
+            className="pointer-events-none absolute bottom-[-0.75rem] left-[13px] top-[1.05rem] border-l-[1.5px] border-muted-foreground/45 dark:border-muted-foreground/35"
           />
-          <span className="absolute left-0 top-[0.7rem] w-1.5 border-t-[1.5px] border-muted-foreground/45 dark:border-muted-foreground/35" />
-        </span>
-      ) : null}
-      <div className="flex items-center gap-1.5">
-        {/* Why: state dot sits in the leading gutter so the eye can scan one column for row state. */}
-        <Tooltip>
-          <TooltipTrigger asChild>
+        ) : null}
+        {isLineageChild && !hideLineageConnectors ? (
+          <span
+            aria-hidden
+            data-agent-lineage-connector={lineage?.isLastSibling === false ? 'branch' : 'last'}
+            className="pointer-events-none absolute bottom-[-1px] left-[13px] top-[-1px] w-3"
+          >
             <span
-              className="inline-flex shrink-0 items-center justify-center"
-              aria-label={dotTooltipLabel}
-            >
-              <AgentStateDot
-                state={dotState}
-                size={stateDotSize}
-                title={null}
-                progress={presentation.progress}
-                unread={isUnvisited}
-              />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={4}>
-            {dotTooltipLabel}
-          </TooltipContent>
-        </Tooltip>
-        {/* Why: subagent rows skip the icon — agentType holds a child's name, which AgentTypeIcon would draw as a misleading letter; nesting conveys identity. */}
-        {!hideIdentityIcon && agent.rowSource !== 'subagent' && (
-          <span className="inline-flex shrink-0" title={identityTitle}>
-            <AgentTypeIcon agentType={agent.agentType} size={14} />
+              className={cn(
+                'absolute left-0 border-l-[1.5px] border-muted-foreground/45 dark:border-muted-foreground/35',
+                lineage?.isFirstSibling ? 'top-[-0.9rem]' : 'top-[-1px]',
+                lineage?.isLastSibling
+                  ? lineage?.isFirstSibling
+                    ? 'h-[1.6rem]'
+                    : 'h-[calc(0.7rem+1px)]'
+                  : 'bottom-[-1px]'
+              )}
+            />
+            <span className="absolute left-0 top-[0.7rem] w-1.5 border-t-[1.5px] border-muted-foreground/45 dark:border-muted-foreground/35" />
           </span>
-        )}
-        {/* Why: interpolate-size:allow-keywords is the only way to animate height to/from auto without measuring in JS; falls back to an instant swap where unsupported. */}
-        <span
-          className={cn(
-            'block min-w-0 flex-1 overflow-hidden text-[11px] leading-snug',
-            'transition-[height] duration-200 ease-out [interpolate-size:allow-keywords]',
-            expanded ? 'h-auto whitespace-pre-wrap break-words' : 'h-[1lh] truncate',
-            isUnvisited ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground',
-            // Why: the selected-row fill washes out muted text — keep it readable.
-            highlighted && !isUnvisited && 'text-foreground/90'
+        ) : null}
+        <div className="flex items-center gap-1.5">
+          {/* Why: state dot sits in the leading gutter so the eye can scan one column for row state. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="inline-flex shrink-0 items-center justify-center"
+                aria-label={dotTooltipLabel}
+              >
+                <AgentStateDot
+                  state={dotState}
+                  size={stateDotSize}
+                  title={null}
+                  progress={presentation.progress}
+                  unread={isUnvisited}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={4}>
+              {dotTooltipLabel}
+            </TooltipContent>
+          </Tooltip>
+          {/* Why: subagent rows skip the icon — agentType holds a child's name, which AgentTypeIcon would draw as a misleading letter; nesting conveys identity. */}
+          {!hideIdentityIcon && agent.rowSource !== 'subagent' && (
+            <span className="inline-flex shrink-0" title={identityTitle}>
+              <AgentTypeIcon agentType={agent.agentType} size={14} />
+            </span>
           )}
-          title={displayLabel}
-        >
-          {displayLabel}
-        </span>
-        {showModel && model && (
+          {/* Why: interpolate-size:allow-keywords is the only way to animate height to/from auto without measuring in JS; falls back to an instant swap where unsupported. */}
           <span
             className={cn(
-              'max-w-24',
-              // Why: only shrink when the in-flow Send button would otherwise overflow the row.
-              sendTargetStatus === 'eligible' || sendTargetStatus === 'sending'
-                ? 'min-w-0'
-                : 'shrink-0',
-              'truncate font-mono text-3xs text-muted-foreground/70'
+              'block min-w-0 flex-1 overflow-hidden text-[11px] leading-snug',
+              'transition-[height] duration-200 ease-out [interpolate-size:allow-keywords]',
+              expanded ? 'h-auto whitespace-pre-wrap break-words' : 'h-[1lh] truncate',
+              isUnvisited ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground',
+              // Why: the selected-row fill washes out muted text — keep it readable.
+              highlighted && !isUnvisited && 'text-foreground/90'
             )}
-            title={model}
+            title={displayLabel}
           >
-            {model}
+            {displayLabel}
           </span>
-        )}
-        {/* Why: "+N" badge shows the hidden child count when collapsed; redundant once children are expanded below. */}
-        {hasChildDisclosure && !childAgentsExpanded && (
-          <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-normal leading-none text-muted-foreground/70 tabular-nums">
-            {collapsedChildAgentsState && (
-              <AgentStateDot state={collapsedChildAgentsState} size="sm" tooltipSide="right" />
-            )}
-            <span aria-hidden>+{childAgentCount}</span>
-          </span>
-        )}
-        <DashboardAgentRowTrailingControls
-          paneKey={agent.paneKey}
-          relativeTimestamp={relativeTimestamp}
-          childAgentCount={childAgentCount}
-          childAgentsExpanded={childAgentsExpanded}
-          onToggleChildAgents={onToggleChildAgents}
+          {showModel && model && (
+            <span
+              className={cn(
+                'max-w-24',
+                // Why: only shrink when the in-flow Send button would otherwise overflow the row.
+                sendTargetStatus === 'eligible' || sendTargetStatus === 'sending'
+                  ? 'min-w-0'
+                  : 'shrink-0',
+                'truncate font-mono text-3xs text-muted-foreground/70'
+              )}
+              title={model}
+            >
+              {model}
+            </span>
+          )}
+          {/* Why: "+N" badge shows the hidden child count when collapsed; redundant once children are expanded below. */}
+          {hasChildDisclosure && !childAgentsExpanded && (
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-normal leading-none text-muted-foreground/70 tabular-nums">
+              {collapsedChildAgentsState && (
+                <AgentStateDot state={collapsedChildAgentsState} size="sm" tooltipSide="right" />
+              )}
+              <span aria-hidden>+{childAgentCount}</span>
+            </span>
+          )}
+          <DashboardAgentRowTrailingControls
+            paneKey={agent.paneKey}
+            relativeTimestamp={relativeTimestamp}
+            childAgentCount={childAgentCount}
+            childAgentsExpanded={childAgentsExpanded}
+            onToggleChildAgents={onToggleChildAgents}
+            expanded={expanded}
+            hideExpand={hideExpand}
+            hideDismiss={agent.rowSource === 'subagent'}
+            sendTargetStatus={sendTargetStatus}
+            onDismiss={onDismiss}
+            onToggleExpanded={handleToggleExpanded}
+            onSendTargetClick={onSendTargetClick}
+          />
+        </div>
+        <DashboardAgentRowToolStep
           expanded={expanded}
-          hideExpand={hideExpand}
-          hideDismiss={agent.rowSource === 'subagent'}
-          sendTargetStatus={sendTargetStatus}
-          onDismiss={onDismiss}
-          onToggleExpanded={handleToggleExpanded}
-          onSendTargetClick={onSendTargetClick}
+          showsTool={showsTool}
+          reservesHeight={isWorking}
+          toolName={toolName}
+          toolInput={toolInput}
+          statusLabel={
+            stoppingLabel ??
+            (presentation.attention ? programStatusAttentionLine(presentation.attention) : null) ??
+            // A blocked row (auth) shows no tool line, so the program's block stands in for it.
+            (agent.state === 'blocked' && agent.entry.programStatus?.state === 'blocked'
+              ? programStatusAttentionLine({
+                  ...(agent.entry.programStatus.kind
+                    ? { kind: agent.entry.programStatus.kind }
+                    : {}),
+                  ...(presentation.message ? { message: presentation.message } : {})
+                })
+              : null)
+          }
+        />
+        <DashboardAgentRowMessage
+          expanded={expanded}
+          isInterrupted={isInterrupted}
+          stoppedByUser={agentMainAgentVerdict(agent.entry) === 'cancellation'}
+          lastAssistantMessage={lastAssistantMessage}
         />
       </div>
-      <DashboardAgentRowToolStep
-        expanded={expanded}
-        showsTool={showsTool}
-        reservesHeight={isWorking}
-        toolName={toolName}
-        toolInput={toolInput}
-        statusLabel={
-          stoppingLabel ??
-          (presentation.attention ? programStatusAttentionLine(presentation.attention) : null) ??
-          // A blocked row (auth) shows no tool line, so the program's block stands in for it.
-          (agent.state === 'blocked' && agent.entry.programStatus?.state === 'blocked'
-            ? programStatusAttentionLine({
-                ...(agent.entry.programStatus.kind ? { kind: agent.entry.programStatus.kind } : {}),
-                ...(presentation.message ? { message: presentation.message } : {})
-              })
-            : null)
-        }
-      />
-      <DashboardAgentRowMessage
-        expanded={expanded}
-        isInterrupted={isInterrupted}
-        stoppedByUser={agentMainAgentVerdict(agent.entry) === 'cancellation'}
-        lastAssistantMessage={lastAssistantMessage}
-      />
-    </div>
+    </AgentRowContextMenu>
   )
 })
 

@@ -21,6 +21,18 @@ const COMMAND_SCOPED_FLAG_HELP: Record<string, Record<string, string>> = {
   'bot item comment': { text: "--text <text>          The comment's text" },
   'bot item link': { ref: '--ref <ref>            A worker, PR, URL or file to link' },
   'bot item list': { cursor: '--cursor <c>           Cursor printed with the previous page' },
+  'conversation read': {
+    from: '--from <index>         Start at this messageIndex (zero-based, as returned by search)',
+    reference: '--reference <uri>      Conversation link attached to a message',
+    cursor: '--cursor <cursor>      Opaque nextCursor returned by the previous read',
+    limit: '--limit <n>            Message slices per page (default 20, maximum 100)'
+  },
+  'conversation search': {
+    reference: '--reference <uri>      Conversation link attached to a message',
+    query: '--query <text>         Literal text to find inside this conversation',
+    cursor: '--cursor <cursor>      Opaque nextCursor returned by the same search',
+    limit: '--limit <n>            Matching message slices per page (default 20, maximum 100)'
+  },
   'agent list': {
     state: '--state <state>        Only agents in this state: working, blocked, waiting or done'
   },

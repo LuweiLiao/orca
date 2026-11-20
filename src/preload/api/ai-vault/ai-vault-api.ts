@@ -1,4 +1,11 @@
 import type {
+  ConversationReference,
+  ConversationReferenceCreate,
+  ConversationReferenceRead,
+  ConversationReferenceRetarget,
+  ConversationReferencePage
+} from '../../../shared/conversation-reference'
+import type {
   AiVaultSearchRequest,
   AiVaultSearchResponse,
   AiVaultSearchStatus
@@ -37,6 +44,16 @@ import type {
 } from '../../../shared/ai-vault/scanning/ai-vault-scan-progress'
 
 export type AiVaultApi = {
+  createConversationReference: (
+    request: ConversationReferenceCreate
+  ) => Promise<ConversationReference>
+  readConversationReference: (
+    request: ConversationReferenceRead
+  ) => Promise<ConversationReferencePage>
+  /** A new reference to the same chat: live, or pinned where the chat is now. */
+  retargetConversationReference: (
+    request: ConversationReferenceRetarget
+  ) => Promise<ConversationReference>
   /** Omitted host means this host; `all` is merged by this desktop across every enumerated host. */
   searchSessions: (
     request: AiVaultSearchRequest,

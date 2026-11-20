@@ -63,6 +63,7 @@ import {
 } from '../../ai-vault/structured-sessions/structured-session-ownership'
 import { allHostsRuntimeScanTimeoutMs } from './ai-vault-all-host-timeouts'
 import { registerAiVaultScanProgressBroadcast } from './ai-vault-scan-progress-broadcast'
+import { registerConversationReferenceHandlers } from './conversation-reference'
 
 type AiVaultHandlerOptions = AiVaultSessionSources &
   AiVaultResumeHandlerOptions & {
@@ -229,6 +230,7 @@ export async function getActiveRuntimeAiVaultHostInfosResult(): Promise<
 }
 
 export function registerAiVaultHandlers(options: AiVaultHandlerOptions = {}): void {
+  registerConversationReferenceHandlers(options.ensureStructuredSessionOwnership)
   handlerOptions = options
   // Configure the same source/cache instance used by runtime RPC and headless serve.
   configureAiVaultSessionSources(options)
