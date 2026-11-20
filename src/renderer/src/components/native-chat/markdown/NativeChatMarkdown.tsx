@@ -4,6 +4,8 @@ import {
   withoutConversationReferenceInstructions
 } from '../../../../../shared/conversation-reference'
 import { NativeChatConversationReference } from '../NativeChatConversationReference'
+import { parseOrchestrationReferenceUri } from '../../../../../shared/native-chat-orchestration-reference'
+import { NativeChatOrchestrationProposal } from '../orchestration-cards/NativeChatOrchestrationProposal'
 import {
   Children,
   cloneElement,
@@ -67,6 +69,8 @@ type NativeChatMarkdownProps = Omit<
   streaming?: boolean
   /** The transcript row's identity, so reader choices inside the text outlive the row's mount. */
   rowKey?: string
+  /** A reply's proposed assignment cards offer to be added to the message box. */
+  orchestrationProposals?: boolean
   /** The content is a Slack message's drawn form: its mention links draw as mentions. */
   slackMentions?: boolean
 }
@@ -140,7 +144,8 @@ function createNativeChatImageExtension(
   mentionNames: readonly string[] | null,
   everyone: boolean,
   slackMentions: boolean,
-  slackPeople: SlackPeople | null
+  slackPeople: SlackPeople | null,
+  orchestrationProposals = false
 ): CommentMarkdownExtension {
   const Anchor = createDocumentCommentMarkdownComponents(onLinkClick).a
   const base = withFileDestinations(
@@ -163,6 +168,15 @@ function createNativeChatImageExtension(
       ...base.components,
       img: ({ src, alt }) => <NativeChatDeferredMarkdownImage src={src} alt={alt} />,
       a: (props) => {
+        const orchestration = props.href ? parseOrchestrationReferenceUri(props.href) : null
+        if (orchestration) {
+          return (
+            <NativeChatOrchestrationProposal
+              selection={orchestration}
+              actionable={orchestrationProposals}
+            />
+          )
+        }
         if (props.href && parseConversationReferenceUri(props.href)) {
           return (
             <NativeChatConversationReference
@@ -209,6 +223,7 @@ export function NativeChatMarkdown({
   streaming = false,
   growing = false,
   rowKey,
+  orchestrationProposals = false,
   content,
   variant,
   slackMentions = false,
@@ -231,10 +246,21 @@ export function NativeChatMarkdown({
             mentionNames,
             everyone,
             slackMentions,
-            slackPeople
+            slackPeople,
+            orchestrationProposals && !streaming
           )
         : withFileDestinations(visualExtension, mentionNames, everyone, slackMentions, slackPeople),
-    [everyone, mentionNames, onLinkClick, slackMentions, slackPeople, variant, visualExtension]
+    [
+      everyone,
+      mentionNames,
+      onLinkClick,
+      orchestrationProposals,
+      slackMentions,
+      slackPeople,
+      streaming,
+      variant,
+      visualExtension
+    ]
   )
   const fileLinkExists = useNativeChatFileLinkExists(
     linkifyFilePaths && onLinkClick !== undefined,

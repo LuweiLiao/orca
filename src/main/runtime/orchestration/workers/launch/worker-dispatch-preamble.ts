@@ -99,7 +99,9 @@ ${dispatchIdentityLines(params)}
 The coordinator cannot see this ${surface}. Reach it with the \`${cli} orchestration\` commands
 below, and message it only to ask, report a blocker, or finish; it needs no progress updates
 unless the task asks.
-Do only this task, yourself: no subagents or helper workers unless the task asks.
+Do only this task, yourself. This Dispatch does not authorize creating more agents.
+Additional Orca workers require an assignment card the user submits to this conversation;
+honor their exact count, provider, model, effort, and scope. Never use provider-native subagents.
 
 === CLI COMMANDS ===
 
@@ -199,7 +201,9 @@ function buildSubDispatchSection(cli: string, workerHandle: string): string {
   return `
 
 === SUB-DISPATCH ===
-If the task asks for helper workers, start them here. They report to you: their
+Only if the user submitted an assignment card here for helper workers on this task, start
+them with the authorized count, provider, model, and effort; nesting depth is not
+authorization. They report to you: their
 questions, escalations, and worker_done arrive in your own \`check\`, next to
 your coordinator's mail.
 
@@ -220,7 +224,9 @@ function buildOwnRunSubDispatchSection(cli: string): string {
   return `
 
 === SUB-DISPATCH ===
-If the task asks for sub-workers, create your own Run first, then:
+Only if the user submitted an assignment card here for sub-workers on this task, start
+them with the authorized count, provider, model, and effort; a new Run is not
+authorization. For authorized work, create your own Run first, then:
 
 \`\`\`sh
   ${cli} orchestration run-create --objective "<what the sub-workers are for>" --json

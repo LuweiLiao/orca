@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type * as WorkerStartCard from '../../../../orchestration/workers/launch/worker-start-card'
 import { createOrchestrationWorkerReleaseHarness } from './testing/worker-release.test-support'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const recordedStarts = vi.hoisted((): boolean[] => [])
 vi.mock('../../../../orchestration/workers/launch/worker-start-card', async (importOriginal) => {
   const actual = await importOriginal<typeof WorkerStartCard>()

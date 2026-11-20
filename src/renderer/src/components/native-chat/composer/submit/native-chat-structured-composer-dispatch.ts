@@ -17,7 +17,7 @@ export async function dispatchNativeChatStructuredComposerText(
   skills: readonly AgentJournalSkillRef[] = [],
   intent: Pick<
     StructuredAgentSessionSendRequest,
-    'alternate' | 'prepareAttachments' | 'onSettled' | 'onCreated'
+    'alternate' | 'prepareAttachments' | 'onSettled' | 'onCreated' | 'orchestrationCards'
   > = {},
   onPending?: () => void
 ): Promise<Omit<StructuredAgentSessionCommandOutcome, 'handled'> & { revealsTranscript: boolean }> {

@@ -9,6 +9,14 @@ import {
   useHelperFollowUpCli
 } from '../testing/helper-follow-up-cli.test-support'
 
+vi.mock(
+  '../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
+  async () =>
+    (
+      await import('../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+    ).admitEveryAgentDelegation()
+)
+
 const failedReceipt = z.object({
   taskId: z.string(),
   dispatchId: z.string(),

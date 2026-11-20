@@ -29,6 +29,12 @@ import { readSessionWorkers } from '../../../rpc/methods/orchestration/worker/se
 import { createStructuredWorkerSession } from '../../../rpc/methods/orchestration/structured-workers/orchestration-structured-worker-session'
 import type { placeWorkerAgent } from '../../../rpc/methods/orchestration/worker/start/placement/worker-start-agent-placement'
 
+vi.mock('../../db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 // The worker's chat is created in the rig's real session host, as the production create would.
 vi.mock(
   '../../../rpc/methods/structured-sessions/creation/structured-agent-session-create',

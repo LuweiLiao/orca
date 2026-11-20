@@ -1,8 +1,16 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getWorkerTerminalAutoReleaseScheduler } from '../../../../../orchestration/terminal-authority/release/worker-terminal-auto-release-scheduler'
 import { getFollowUpDispatch } from '../../../../../orchestration/db/dispatch-context/worker-follow-up-lineage'
 import './worker-resume-session-capture'
 import { createOrchestrationWorkerReleaseHarness } from '../testing/worker-release.test-support'
+
+vi.mock(
+  '../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
+  async () =>
+    (
+      await import('../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+    ).admitEveryAgentDelegation()
+)
 
 // A coordinator replying to a finished worker's report, through the same calls the CLI makes.
 describe('a reply to a finished worker report', () => {

@@ -16,6 +16,12 @@ import {
 } from '../../rpc/methods/structured-sessions/structured-codex-session-rpc-test-harness'
 import { codexProviderHandle } from '../../../../shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle-encoding'
 
+vi.mock('../../rpc/methods/agent-creation-caller-admission', async () =>
+  (
+    await import('../../rpc/methods/agent-creation-caller-admission.test-support')
+  ).admitEveryAgentCreationCaller()
+)
+
 const { journalOpenHold } = vi.hoisted(() => {
   const journalOpenHold: { next: { entered: () => void; released: Promise<void> } | null } = {
     next: null

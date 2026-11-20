@@ -32,8 +32,10 @@ export type NativeChatComposerNotice = NativeChatComposerNoticeContent & {
   signIn?: NativeChatSignInNoticeView
   /** The host's fuller words under a sign-in notice, collapsed so the notice stays one line. */
   signInDetails?: string
+  /** What the × does, when more than hiding the row. */
+  dismissLabel?: string
 } & (
-    | { kind: 'error' | 'attachment' | 'device' | 'context' }
+    | { kind: 'error' | 'attachment' | 'device' | 'context' | 'delegation' }
     | { kind: 'host'; tone: 'warning' | 'muted' }
   )
 

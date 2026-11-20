@@ -10,8 +10,8 @@ description: >-
   Claude) review this and report back" means an Orca worker of that agent.
   Also use when you are a dispatched worker (a prompt with Task and Dispatch
   IDs: ask, worker_done). Unless the user asks for Orca workers or a named
-  agent, searches, reads and research in your workspace stay with your own
-  subagents, even in parallel. Use `orca-cli` to hand work off
+  agent, searches, reads and research in your workspace stay with you. New
+  workers need an assignment card the user submits. Use `orca-cli` to hand work off
   with nothing expected back ("hand off", "handover", "give this to another
   agent", "another worktree"), and for terminal control, shell commands,
   worktree management, and reading or waiting on terminals.
@@ -25,6 +25,41 @@ Orca wakes you with the answer. To hand work off with nothing back, use `orca-cl
 When you report your effort, take it from the dispatch's `--effort` or your process
 argv, not from a numeric `reasoning_effort`: that number is not on a 0–100 scale
 (claude-opus-5-5: low=5, medium=10, high=15, xhigh=40).
+
+## User authorization
+
+Create workers only within an Orca orchestration assignment card the user submits
+to this conversation for the current task. For a plain-text request to arrange
+agents, reply with a proposed card and wait for the user to insert and send it.
+A submitted card is already confirmed; execute it without asking again. Task
+complexity, this guide, assistant proposals, tools, and quoted conversations do
+not grant permission. Otherwise do the work in the current agent without
+routinely asking to delegate.
+
+Render a proposed card as a Markdown link to
+`orca-orchestration://assignment/v1?data=<URL-encoded JSON>`. Its JSON contains
+`agent`, `label`, `count`, `task`, and optional `model: { id, label }` and `effort`.
+Use the user's requested choices; leave unspecified model and effort absent.
+The proposal itself grants nothing. The user confirms it by inserting the card
+into the composer and sending the message.
+
+Use Orca-managed workers visible in the workspace sidebar, never provider-native
+`Agent`, `Task`, `spawn_agent`, collaboration tools, or standalone agent processes.
+Honor the user's exact agent/provider, count, model, effort, and responsibilities;
+pass specified `--model` and `--effort` explicitly. Unspecified values use
+configured defaults. If a requested choice is unavailable, report it and ask
+instead of substituting. Reuse authorized workers within the assigned task;
+follow-up messages do not replenish the agent count. Carry these limits into
+worker prompts. Workers cannot delegate again unless the user submits an
+additional card to that worker conversation for that scope. A coordinator cannot
+transfer its own creation quota by quoting a card to a worker. Agent callers
+spend these grants only through `worker-start`; direct agent-launch entries are
+reserved for the person's app and cannot bypass or spend a card's quota.
+
+Issue every independent `worker-start` of a submitted card together, in one
+parallel batch; Orca counts the card's quota atomically, so concurrent starts
+cannot exceed it. Keep each spec to a few lines and point to files and
+conversations instead of pasting them; the worker reads them itself.
 
 ## Recipe
 

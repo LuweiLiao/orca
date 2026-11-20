@@ -33,3 +33,11 @@ export function assertAgentLaunchAdmitted(
   assertPersonCreatesAgent(context, 'agent.launch')
   assertAgentLaunchTargetAuthorized(target, context)
 }
+
+/** The context, once its caller proved a person's app. In-process schedules skip RPC entries. */
+export function asAgentCreator<
+  T extends Pick<RpcContext, 'caller' | 'clientKind' | 'clientCapabilities'>
+>(context: T, entry: string): T {
+  assertPersonCreatesAgent(context, entry)
+  return context
+}

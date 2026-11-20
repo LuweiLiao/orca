@@ -48,6 +48,10 @@ import { GIT_DIFF_TOO_LARGE_CODE } from '../../../../shared/git/diff/git-diff-tr
 import { AUTOMATION_OWNER_CONFLICT_CODES } from '../../../../shared/automations/ownership/automation-owner-conflict'
 import { ARCHIVE_HOOK_FAILED_REMOVAL_CODE } from '../../../../shared/worktree/removal/archive-hook-removal-gate'
 import { NESTED_WORKER_DEPTH_EXCEEDED_CODE } from '../../../../shared/orchestration/workers/nested-worker-depth'
+import {
+  AGENT_DELEGATION_UNAUTHORIZED_CODE,
+  WORKER_RETRY_PRIOR_ATTEMPT_LIVE_CODE
+} from '../../../../shared/agent-delegation-grant'
 import { PROJECT_RUNTIME_REPAIR_REQUIRED_CODE } from '../../../../shared/execution-host/project-runtime-repair-message'
 import {
   WORKTREE_CREATE_COLLISION_CODE,
@@ -151,6 +155,8 @@ const STRUCTURED_RUNTIME_PASSTHROUGH_CODES: ReadonlySet<string> = new Set([
   // Paired-only method refusal must match the mobile transport allowlist's forbidden code.
   'forbidden',
   NESTED_WORKER_DEPTH_EXCEEDED_CODE,
+  AGENT_DELEGATION_UNAUTHORIZED_CODE,
+  WORKER_RETRY_PRIOR_ATTEMPT_LIVE_CODE,
   PROJECT_RUNTIME_REPAIR_REQUIRED_CODE,
   GIT_DIFF_TOO_LARGE_CODE,
   ARTIFACT_SHARING_DISABLED_CODE,

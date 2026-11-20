@@ -31,6 +31,7 @@ import {
 } from '@/lib/files/drop/browser-attachment-files'
 import { releaseNativeChatStagedFiles } from '../../drafts/native-chat-draft-attachment-staging'
 import { moveNativeChatComposerDraft } from '../../drafts/native-chat-composer-draft-move'
+import type * as I18nModule from '@/i18n/i18n'
 
 const mocks = vi.hoisted(() => {
   const state: {
@@ -55,7 +56,10 @@ vi.mock('@/store', () => ({
     getState: () => ({ tabsByWorktree: mocks.tabsByWorktree })
   })
 }))
-vi.mock('@/i18n/i18n', () => ({ translate: (_key: string, fallback: string) => fallback }))
+vi.mock('@/i18n/i18n', async (importOriginal) => ({
+  ...(await importOriginal<typeof I18nModule>()),
+  translate: (_key: string, fallback: string) => fallback
+}))
 vi.mock(
   '../../../../../../shared/remote-runtime/remote-runtime-pty-id',
   async (importOriginal) => ({

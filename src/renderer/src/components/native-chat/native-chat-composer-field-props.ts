@@ -15,6 +15,8 @@ import type { NativeChatFollowUpBehavior } from '../../../../shared/native-chat/
 import type { NativeChatSteerChordPreview } from '../../../../shared/native-chat/input/composer/use-native-chat-steer-chord-preview'
 import type { NativeChatComposerImageAttachment } from './attachments/chips/native-chat-image-attachment'
 import type { NativeChatOptionPickerRequest } from './session/options/controls/native-chat-option-picker-request'
+import type { NativeChatStructuredComposerTransport } from './composer/submit/native-chat-structured-composer-transport'
+import type { OrchestrationAgentSelection } from './orchestration-cards/native-chat-orchestration-instruction'
 
 export type NativeChatComposerFieldProps = {
   editSession?: { cancel: () => void }
@@ -85,4 +87,7 @@ export type NativeChatComposerFieldProps = {
   agent?: string
   launchPrompt?: { placeholder: string }
   workspaceFooter?: React.ReactNode
+  terminalTabId?: string
+  structuredTransport?: NativeChatStructuredComposerTransport
+  onInsertOrchestrationInstruction?: (selections: OrchestrationAgentSelection[]) => boolean
 }

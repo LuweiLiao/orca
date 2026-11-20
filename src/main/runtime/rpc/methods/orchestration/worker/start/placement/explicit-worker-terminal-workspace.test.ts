@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createOrchestrationWorkerReleaseHarness } from '../../testing/worker-release.test-support'
 
+vi.mock(
+  '../../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
+  async () =>
+    (
+      await import('../../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+    ).admitEveryAgentDelegation()
+)
+
 describe('worker-start --terminal in another workspace than the coordinator', () => {
   const h = createOrchestrationWorkerReleaseHarness()
 

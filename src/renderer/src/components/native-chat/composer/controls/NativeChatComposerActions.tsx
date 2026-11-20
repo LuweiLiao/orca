@@ -27,6 +27,9 @@ import { NativeChatContextUsageRing } from '../../usage/NativeChatContextUsageRi
 import type { NativeChatContextUsageSummary } from '../../../../../../shared/native-chat/native-chat-context-usage-summary'
 import type { NativeChatOptionPickerRequest } from '../../session/options/controls/native-chat-option-picker-request'
 import type { NativeChatSteerChordPreview } from '../../../../../../shared/native-chat/input/composer/use-native-chat-steer-chord-preview'
+import type { NativeChatStructuredComposerTransport } from '../submit/native-chat-structured-composer-transport'
+import { NativeChatOrchestrationPicker } from '../../orchestration-cards/NativeChatOrchestrationPicker'
+import type { OrchestrationAgentSelection } from '../../orchestration-cards/native-chat-orchestration-instruction'
 
 export type NativeChatComposerActionsProps = {
   editSession?: { cancel: () => void }
@@ -67,6 +70,9 @@ export type NativeChatComposerActionsProps = {
   agent?: string
   /** A launch prompt: Attach and dictation are its only controls; launching is the panel's. */
   launchPrompt?: boolean
+  terminalTabId?: string
+  structuredTransport?: NativeChatStructuredComposerTransport
+  onInsertOrchestrationInstruction?: (selections: OrchestrationAgentSelection[]) => boolean
 }
 
 // Memoized: typing re-renders the composer per keystroke, and these controls rarely change with it.
@@ -98,7 +104,10 @@ export const NativeChatComposerActions = memo(function NativeChatComposerActions
   contextUsage,
   focusComposer,
   agent,
-  launchPrompt = false
+  launchPrompt = false,
+  terminalTabId,
+  structuredTransport,
+  onInsertOrchestrationInstruction
 }: NativeChatComposerActionsProps): React.JSX.Element {
   const t = useTranslate()
   useUiLanguageRevision()
@@ -197,6 +206,21 @@ export const NativeChatComposerActions = memo(function NativeChatComposerActions
   const left: NativeChatComposerControl[] = [
     { id: 'attach', priority: 6, content: attach },
     ...(roomReplies ? [{ id: 'room-replies', priority: 6, content: roomReplies }] : []),
+    ...(terminalTabId && onInsertOrchestrationInstruction
+      ? [
+          {
+            id: 'orchestration',
+            priority: 5,
+            content: (
+              <NativeChatOrchestrationPicker
+                terminalTabId={terminalTabId}
+                structuredTransport={structuredTransport}
+                onInsert={onInsertOrchestrationInstruction}
+              />
+            )
+          }
+        ]
+      : []),
     {
       id: 'permissions',
       priority: 5,

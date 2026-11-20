@@ -15,7 +15,7 @@ import {
   runtime
 } from './structured-chat-coordinator-mail-rig.test-fixture'
 
-vi.mock('./orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+vi.mock('../../db/delegation-grants/agent-delegation-grant-store', async () =>
   (
     await import('../../db/delegation-grants/agent-delegation-grant-store.test-support')
   ).admitEveryAgentDelegation()

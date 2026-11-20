@@ -34,6 +34,9 @@ import {
 import { prepareNativeChatAnnotatedMessage } from '../../annotations/native-chat-annotation-delivery'
 import { withConversationReferenceInstructions } from '../../../../../../shared/conversation-reference'
 import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
+import { authorizeTerminalAgentCards } from '@/runtime/agent-orchestration/terminal-agent-authorization'
+import { promptOrchestrationCards } from '../../orchestration-cards/native-chat-prompt-orchestration-cards'
+import { withNativeChatTextDelegation } from '../../orchestration-cards/native-chat-text-delegation-store'
 
 export function useNativeChatPtyComposerSend(args: {
   agent: AgentType
@@ -88,9 +91,19 @@ export function useNativeChatPtyComposerSend(args: {
         return false
       }
       const submitted = readNativeChatComposerDraft(args.draftScopeKey)
+      const typed = text
       text = retry
         ? resolveNativeChatPastedText(args.draftScopeKey, text)
         : serializeNativeChatAgentReferences(text, submitted.document, submitted.pastedTextFiles)
+      // A retry resends its own text; only a fresh message carries the person's cards.
+      const message =
+        !retry && classification === 'chat'
+          ? withNativeChatTextDelegation(args.draftScopeKey, typed, {
+              text,
+              cards: promptOrchestrationCards(submitted.document)
+            })
+          : { text, cards: [] }
+      text = message.text
       // A retry resends its own text; annotations ride only the composer's first send of a message.
       const annotated =
         retry || classification === 'command'
@@ -129,16 +142,20 @@ export function useNativeChatPtyComposerSend(args: {
             }
           : launchSendOptions
       // The terminal acknowledged the write: the annotations it carried are delivered.
-      const sendOptions = annotated?.hasAnnotations
-        ? {
-            ...echoOptions,
-            onDeliverySettled: (acknowledged: boolean) => {
-              if (acknowledged) {
-                annotated.consume()
+      // Recorded before the write and settled by its outcome, so undelivered cards authorize nothing.
+      const settleCards = authorizeTerminalAgentCards(target.ptyId, message.cards)
+      const sendOptions =
+        annotated?.hasAnnotations || settleCards
+          ? {
+              ...echoOptions,
+              onDeliverySettled: (acknowledged: boolean) => {
+                if (acknowledged) {
+                  annotated?.consume()
+                }
+                settleCards?.(acknowledged)
               }
             }
-          }
-        : echoOptions
+          : echoOptions
       let pendingHandle: NativeChatSendHandle | null = null
       // Why: slash-like text must not silently drop its attached images.
       if (classification !== 'chat' && imagePaths.length === 0) {

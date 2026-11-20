@@ -19,12 +19,11 @@ const FENCE = /^(`{3,}|~{3,})/
 const INLINE_CODE = /`+[^`]*`+/g
 
 /**
- * The assignment cards a person put in one message they submitted. Each card is a composer pill,
- * so a token here is one the person saw and sent. Quoted lines and code are text the person is
- * showing, such as an agent's reply pasted back, and grant nothing.
+ * The lines of a message in the sender's own words. Quoted lines and code are text being shown,
+ * such as an agent's reply pasted back.
  */
-export function assignmentCardsInSubmittedText(text: string): OrchestrationAgentSelection[] {
-  const cards: OrchestrationAgentSelection[] = []
+export function ownWordsLines(text: string): string[] {
+  const lines: string[] = []
   let fence: string | null = null
   for (const line of text.split('\n')) {
     const trimmed = line.trimStart()
@@ -37,16 +36,21 @@ export function assignmentCardsInSubmittedText(text: string): OrchestrationAgent
       }
       continue
     }
-    if (fence !== null || trimmed.startsWith('>')) {
-      continue
-    }
-    for (const part of splitOrchestrationReferences(line.replace(INLINE_CODE, ''))) {
-      if (typeof part !== 'string') {
-        cards.push(part)
-      }
+    if (fence === null && !trimmed.startsWith('>')) {
+      lines.push(line.replace(INLINE_CODE, ''))
     }
   }
-  return cards
+  return lines
+}
+
+/**
+ * The assignment cards a person put in one message they submitted. Each card is a composer pill,
+ * so a token here is one the person saw and sent; quoted lines and code grant nothing.
+ */
+export function assignmentCardsInSubmittedText(text: string): OrchestrationAgentSelection[] {
+  return ownWordsLines(text).flatMap((line) =>
+    splitOrchestrationReferences(line).flatMap((part) => (typeof part === 'string' ? [] : [part]))
+  )
 }
 
 export function agentDelegationRequestOfCard(

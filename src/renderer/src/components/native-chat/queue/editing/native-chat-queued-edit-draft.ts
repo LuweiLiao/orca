@@ -14,9 +14,9 @@ import { createNonSecureContextUuid as createUuidV4 } from '../../../../../../sh
 import { promptSkillRefs } from '../../composer/editor/native-chat-prompt-document'
 import {
   promptTextContent,
-  seedPromptSkillReferences,
-  withoutImageReferenceNodes
+  seedPromptSkillReferences
 } from '../../composer/editor/native-chat-prompt-document-text'
+import { withoutImageReferenceNodes } from '../../composer/editor/native-chat-prompt-image-chip-removal'
 import {
   appendToNativeChatComposerDraft,
   openNativeChatEditDraft,

@@ -1,3 +1,4 @@
+import type { OrchestrationAgentSelection } from '../../../../../../../shared/native-chat-orchestration-reference'
 import type { structuredAgentSessionSendBody } from '../../../../../../../shared/agent-session/requests/structured-agent-session-send-mutation'
 import type { AgentJournalCursor } from '../../../../../../../shared/agent-session/journal/agent-session-journal-identity'
 // Keep unanswered sends in memory only for the sender and mounted views.
@@ -12,6 +13,8 @@ export type StructuredAgentSessionPendingSend = {
   selection?: Readonly<Record<string, string>>
   options?: Readonly<Record<string, string>>
   usageLimitContinuationOfTurnItemId?: string
+  /** The composer's assignment pills, sent beside the body to a host that records them. */
+  orchestrationCards?: readonly OrchestrationAgentSelection[]
   /** Only sending is live work; settled content stays until the host records it or the chat closes. */
   phase: 'sending' | 'recorded' | 'unconfirmed'
   /** A read past this acknowledgement supersedes the echo even when its row is off-page. */

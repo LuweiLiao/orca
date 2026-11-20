@@ -1,9 +1,17 @@
 import { parseOrcaSessionAddress } from '../../../../../../shared/agent-session/identity/orca-session-address'
+import { AGENT_SESSION_HISTORY_MAX_LIMIT } from '../../../../../../shared/agent-session/agent-session-wire'
+import type { AgentJournalSubmission } from '../../../../../../shared/agent-session/journal/agent-session-journal-types'
+import { getStructuredAgentSessionHost } from '../../../../../native-chat/agent-session-wire/host/structured-agent-session-registry'
+import type { StructuredAgentSessionHost } from '../../../../../native-chat/agent-session-wire/host/structured-agent-session-host'
 import type {
   AgentDelegationClaim,
   AgentDelegationReuse
 } from '../../../../orchestration/db/delegation-grants/agent-delegation-grant-store'
-import type { OrchestrationSessionCaller } from '../../../../orchestration/addressing/orchestration-caller-identity'
+import {
+  sessionCallerOf,
+  type OrchestrationEntryCaller,
+  type OrchestrationSessionCaller
+} from '../../../../orchestration/addressing/orchestration-caller-identity'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import type { OrchestrationDb } from '../../../../orchestration/db/orchestration-db'
 import {
@@ -66,9 +74,51 @@ function agentInstance(
     : null
 }
 
-/** The host has no journal snapshot read yet, so no message counts as delivered, which only refuses. */
-async function deliveredMessageIds(_sessionId: string): Promise<ReadonlySet<string>> {
-  return new Set()
+// The message whose cards a chat acts on is among its latest; older ones were settled long since.
+const DELIVERY_HISTORY_PAGES = 5
+
+/**
+ * The messages this chat's agent has been handed, from its recent journal: a send still queued, or
+ * one the host refused, is not among them. Unreadable reads as none, which only refuses.
+ */
+async function deliveredMessageIds(sessionId: string): Promise<ReadonlySet<string>> {
+  const host = getStructuredAgentSessionHost()
+  const submissions: AgentJournalSubmission[] = []
+  try {
+    let request: Parameters<StructuredAgentSessionHost['history']>[0] = {
+      sessionId,
+      direction: 'tail',
+      limit: AGENT_SESSION_HISTORY_MAX_LIMIT
+    }
+    for (let read = 0; host && read < DELIVERY_HISTORY_PAGES; read++) {
+      const result = await host.history(request)
+      if (!result.ok) {
+        break
+      }
+      submissions.push(...result.page.submissions)
+      const oldest = result.page.window.oldest
+      if (!result.page.hasOlder || !oldest) {
+        break
+      }
+      request = { sessionId, direction: 'before', cursor: oldest, limit: request.limit }
+    }
+  } catch {
+    return new Set()
+  }
+  return new Set(
+    submissions
+      .filter(
+        (submission) =>
+          submission.dispatchState !== 'rejected' &&
+          (submission.handedOverAt !== undefined ||
+            (!submission.handoverRecorded && submission.dispatchState === 'accepted'))
+      )
+      .flatMap((submission) =>
+        submission.queuedMessageId
+          ? [submission.clientMessageId, submission.queuedMessageId]
+          : [submission.clientMessageId]
+      )
+  )
 }
 
 /**
@@ -80,8 +130,9 @@ export async function prepareWorkerStartDelegation(
   runtime: OrcaRuntimeService,
   db: OrchestrationDb,
   start: {
-    delegationHolderKey: string | null
-    callerSession?: OrchestrationSessionCaller
+    /** Absent: this start spends no authorization (a follow-up, or a paired Orca's coordinator). */
+    delegationHolderKey?: string | null
+    callerSession?: OrchestrationEntryCaller
     params: { terminal?: string; model?: string; effort?: string; retryOf?: string; agent?: string }
     /** The resolved agent; absent, the requested one. */
     agent?: string
@@ -92,18 +143,22 @@ export async function prepareWorkerStartDelegation(
     /** Its `--terminal` is a pane on another host, which no retry here takes over. */
     remote?: true
   }
-): Promise<WorkerStartDelegation> {
+): Promise<WorkerStartDelegation | undefined> {
   const { params } = start
   const taskId = (start.existingTask ?? start.task)?.id
-  const runId = start.run?.id ?? start.runId ?? ''
-  const delegation = await resolveWorkerStartDelegation(runtime, {
-    holderKey: start.delegationHolderKey,
-    callerSession: start.callerSession,
-    start: params,
-    agent: start.agent ?? params.agent
-  })
+  // A retry's Task already has its Run, which the start binds again.
+  const runId = start.run?.id ?? start.runId ?? (taskId ? db.getTask(taskId)?.run_id : '') ?? ''
+  const delegation =
+    start.delegationHolderKey === undefined
+      ? undefined
+      : await resolveWorkerStartDelegation(runtime, {
+          holderKey: start.delegationHolderKey,
+          callerSession: sessionCallerOf(start.callerSession),
+          start: params,
+          agent: start.agent ?? params.agent
+        })
   const retry = { retryOf: params.retryOf, taskId }
-  if (retry.retryOf && retry.taskId && isRetryOfLatestFailedAttempt(db, retry)) {
+  if (delegation && retry.retryOf && retry.taskId && isRetryOfLatestFailedAttempt(db, retry)) {
     db.previewStartingWorkerDelegation(delegation, {
       taskId: retry.taskId,
       retryOf: retry.retryOf,

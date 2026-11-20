@@ -17,6 +17,8 @@ import { getRuntimeGitScope } from '@/runtime/source-control/git/runtime-git-cli
 import type { RuntimeGitContext } from '@/runtime/source-control/git/runtime-git-client-context'
 import { callStructuredAgentSession } from '@/runtime/native-chat/requests/structured-agent-session-call'
 import { useAppStore } from '@/store/index'
+import { structuredAgentSessionHostKey } from '@/runtime/native-chat/host-capabilities/structured-agent-session-host-capability'
+import type { RuntimeClientTarget } from '../../../../../../../shared/remote-runtime/host-catalog/runtime-client-target'
 import { selectFileListWorktree } from '@/store/workspaces/selection/known-worktree-selection'
 import type { AgentType } from '../../../../../../../shared/agent-status/contracts/agent-status-types'
 import type { CatalogModel } from '../../../../../../../shared/agent-session/options/catalog-providers/agent-session-option-catalog-types'
@@ -26,6 +28,41 @@ import type { AgentSessionModelOption } from '../../../../../../../shared/agent-
 export type NativeChatModelDiscoveryContext = {
   hostKey: string
   runtime: RuntimeGitContext
+}
+
+/** Model discovery for a chat known only by its transport, as the orchestration card picker asks. */
+export function discoveryContextForTransport(
+  target: RuntimeClientTarget,
+  worktreeId: string | null,
+  connectionId: string | null | undefined,
+  context: NativeChatModelDiscoveryContext | null
+): NativeChatModelDiscoveryContext | undefined {
+  if (
+    context?.runtime.worktreeId === worktreeId &&
+    structuredAgentSessionHostKey(context.runtime.target) === structuredAgentSessionHostKey(target)
+  ) {
+    return context
+  }
+  if (connectionId === undefined || (!worktreeId && target.kind !== 'local')) {
+    return undefined
+  }
+  const state = useAppStore.getState()
+  const worktreePath = selectFileListWorktree(state, worktreeId)?.path ?? ''
+  return {
+    hostKey: resolveNativeChatModelDiscoveryHostKey(
+      state,
+      worktreeId,
+      worktreePath,
+      getRuntimeGitScope(target, connectionId)
+    ),
+    runtime: {
+      target,
+      prefs: state.settings,
+      worktreeId,
+      worktreePath,
+      ...(connectionId ? { connectionId } : {})
+    }
+  }
 }
 
 export function resolveNativeChatModelDiscoveryHostKey(

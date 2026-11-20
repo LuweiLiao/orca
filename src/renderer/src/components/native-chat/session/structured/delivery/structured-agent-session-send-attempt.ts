@@ -14,6 +14,7 @@ import type { AgentSessionWriteNoticePart } from '../../../../../../../shared/ag
 import { structuredAgentSessionMessageSendMutation } from '../../../../../../../shared/agent-session/requests/structured-agent-session-send-mutation'
 import { structuredAgentSessionBlocksTooLarge } from '../../../../../../../shared/rpc-contract/structured-agent-session/structured-agent-session-message-params'
 import { AGENT_SESSION_SEND_SKILLS_RUNTIME_CAPABILITY } from '../../../../../../../shared/agent-session/lifecycle/operations/agent-session-create-capabilities'
+import { AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY } from '../../../../../../../shared/agent-session/capabilities/agent-session-runtime-capabilities'
 import {
   structuredAgentSessionSendEvidence,
   type StructuredAgentSessionSendAnswer,
@@ -111,6 +112,7 @@ export async function attemptStructuredAgentSessionSend(args: {
   }
   let fence: number | null
   let body = entry.body
+  let orchestrationCards = entry.orchestrationCards?.length ? entry.orchestrationCards : undefined
   try {
     if (target.kind === 'environment') {
       await ensureRuntimeEnvironmentCompatible(target.environmentId)
@@ -126,6 +128,16 @@ export async function attemptStructuredAgentSessionSend(args: {
       const { skills: _skills, ...compatibleBody } = body
       body = compatibleBody
     }
+    // An older host refuses the field and enforces no authorization, so it gets the message alone.
+    if (
+      orchestrationCards &&
+      !(await structuredAgentSessionHostSupports(
+        target,
+        AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY
+      ))
+    ) {
+      orchestrationCards = undefined
+    }
   } catch (error) {
     return args.abandoned() ? null : { kind: 'not-sent', parts: notSentParts(error) }
   }
@@ -136,18 +148,22 @@ export async function attemptStructuredAgentSessionSend(args: {
     return { kind: 'not-sent', parts: NOT_SENT }
   }
   args.beforeIssue()
-  const params = structuredAgentSessionMessageSendMutation({
-    sessionId: entry.sessionId,
-    clientOperationId: entry.clientMessageId,
-    expectedRuntimeFence: fence,
-    body,
-    ...(entry.delivery ? { delivery: entry.delivery } : {}),
-    ...(entry.options ? { options: entry.options } : {}),
-    ...(entry.selection !== undefined ? { selection: entry.selection } : {}),
-    ...(entry.usageLimitContinuationOfTurnItemId
-      ? { usageLimitContinuationOfTurnItemId: entry.usageLimitContinuationOfTurnItemId }
-      : {})
-  })
+  const params = {
+    ...structuredAgentSessionMessageSendMutation({
+      sessionId: entry.sessionId,
+      clientOperationId: entry.clientMessageId,
+      expectedRuntimeFence: fence,
+      body,
+      ...(entry.delivery ? { delivery: entry.delivery } : {}),
+      ...(entry.options ? { options: entry.options } : {}),
+      ...(entry.selection !== undefined ? { selection: entry.selection } : {}),
+      ...(entry.usageLimitContinuationOfTurnItemId
+        ? { usageLimitContinuationOfTurnItemId: entry.usageLimitContinuationOfTurnItemId }
+        : {})
+    }),
+    // Beside the fingerprinted fields: authorization metadata the agent never receives.
+    ...(orchestrationCards ? { orchestrationCards } : {})
+  }
   type SendAnswer = AgentSessionMutationResult<AgentSessionSendResult>
   let answer: StructuredAgentSessionSendAnswer
   try {

@@ -2,6 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { receipt, useHelperFollowUpCli } from '../testing/helper-follow-up-cli.test-support'
 import '../worker-stop'
 
+vi.mock(
+  '../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
+  async () =>
+    (
+      await import('../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+    ).admitEveryAgentDelegation()
+)
+
 describe('worker-stop through CLI argv, RPC and SQLite', () => {
   const f = useHelperFollowUpCli()
   const { h, cli, success, start, report } = f

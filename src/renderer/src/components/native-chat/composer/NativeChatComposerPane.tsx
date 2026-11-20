@@ -28,6 +28,8 @@ import { useNativeChatComposerAppMenuSelection } from './focus/use-native-chat-c
 import { useNativeChatComposerSubmit } from './submit/use-native-chat-composer-submit'
 import { useNativeChatComposerCommandPicker } from './pickers/use-native-chat-composer-command-picker'
 import type * as C from './native-chat-composer-types'
+import { nativeChatComposerTargetKey } from './submit/native-chat-composer-target'
+import { useNativeChatOrchestrationInsert } from '../orchestration-cards/use-native-chat-orchestration-insert'
 
 type ComposerHandle = C.NativeChatComposerHandle
 
@@ -88,6 +90,7 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
     )
     const { notices, setNotice } = useNativeChatComposerNotice(chatNotices, holdNotice)
     const { textareaRef } = useNativeChatComposerAppMenuSelection(imeEnterGesture.isComposing)
+    const insertOrchestration = useNativeChatOrchestrationInsert(textareaRef, setCaret)
     const recall = useNativeChatComposerRecall({
       draft,
       source: recallSource,
@@ -178,13 +181,7 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
       setDraft,
       setCaret,
       setActiveSuggestion,
-      targetKey: JSON.stringify([
-        paneKey,
-        targetPtyId,
-        structuredTransport?.sessionId,
-        structuredTransport?.worktreeId,
-        structuredTransport?.runtimeEnvironmentId
-      ]),
+      targetKey: nativeChatComposerTargetKey(paneKey, targetPtyId, structuredTransport),
       agent,
       disabled,
       resolveAttachmentOwner: fileDrops.resolveAttachmentOwner,
@@ -409,6 +406,9 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
               sessionOptionsSnapshot={sessionOptions.snapshot}
               contextUsage={contextUsageSummary}
               sessionOptionsPickerRequest={structuredTransport?.optionPickerRequest ?? null}
+              terminalTabId={terminalTabId}
+              structuredTransport={structuredTransport}
+              onInsertOrchestrationInstruction={insertOrchestration}
               agent={agent}
               launchPrompt={launchPrompt}
               workspaceFooter={workspaceFooter}

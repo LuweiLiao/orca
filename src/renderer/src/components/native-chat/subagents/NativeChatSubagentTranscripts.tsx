@@ -2,6 +2,7 @@ import { slackPeopleOf } from '../../../../../shared/connectors/slack-mention-to
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { cn } from '@/lib/class-names'
 import { NativeChatMessageList } from '../NativeChatMessageList'
+import { NativeChatOrchestrationProposalProvider } from '../orchestration-cards/NativeChatOrchestrationProposal'
 import { NativeChatSideChatForkPointContext } from '../messages/actions/native-chat-fork-context'
 import { NativeChatSlackPeopleContext } from '../native-chat-markdown-mentions'
 import { NativeChatToolRunWindowProvider } from '../tools/runs/native-chat-tool-run-window-context'
@@ -29,11 +30,14 @@ function returnFocusTarget(main: HTMLElement, agentId: string): HTMLElement | nu
 export function NativeChatSubagentTranscripts({
   paneKey,
   find,
+  composerRef = null,
   ...props
 }: React.ComponentProps<typeof NativeChatMessageList> & {
   /** The chat's status pane key, which also names it to the sidebar's subagent rows. */
   paneKey: string
   find: Pick<NativeChatFind, 'isOpen' | 'query'>
+  /** Where a proposed assignment card's Add puts it; null while nothing can take one. */
+  composerRef?: React.ComponentProps<typeof NativeChatOrchestrationProposalProvider>['composerRef']
 }): React.JSX.Element {
   const openId = useNativeChatOpenSubagent(paneKey)?.agentId ?? null
   const open = useCallback(
@@ -90,11 +94,16 @@ export function NativeChatSubagentTranscripts({
           inert={shown !== null}
         >
           <NativeChatSlackPeopleContext value={slackPeople}>
-            <NativeChatMessageList
-              {...props}
-              isVisible={isVisible && shown === null}
-              subagentView={main}
-            />
+            <NativeChatOrchestrationProposalProvider
+              composerRef={composerRef}
+              available={composerRef !== null}
+            >
+              <NativeChatMessageList
+                {...props}
+                isVisible={isVisible && shown === null}
+                subagentView={main}
+              />
+            </NativeChatOrchestrationProposalProvider>
           </NativeChatSlackPeopleContext>
         </div>
         {shown ? (

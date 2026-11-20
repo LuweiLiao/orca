@@ -12,6 +12,12 @@ import {
   settleWorker
 } from '../../../../../../cli/bot-orchestration-eval/bot-orchestration-eval-workers'
 
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+  (
+    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+  ).admitEveryAgentDelegation()
+)
+
 const GRACE_MS = 2 * 60_000
 const UNREACHABLE = 'SSH host build-1 is unreachable'
 const MESSAGES = ['orchestration.send', 'orchestration.reply']

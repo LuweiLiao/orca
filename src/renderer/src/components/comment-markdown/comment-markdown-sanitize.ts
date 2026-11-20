@@ -1,3 +1,4 @@
+import { parseOrchestrationReferenceUri } from '../../../../shared/native-chat-orchestration-reference'
 import { parseConversationReferenceUri } from '../../../../shared/conversation-reference'
 import { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize'
 import { defaultUrlTransform, type Options as MarkdownOptions } from 'react-markdown'
@@ -20,7 +21,10 @@ type UrlTransform = NonNullable<MarkdownOptions['urlTransform']>
 
 export const commentMarkdownUrlTransform: UrlTransform = (value, key, node) => {
   // A conversation reference opens in Orca, never a browser; the chat draws it as a pill.
-  if (key === 'href' && parseConversationReferenceUri(value)) {
+  if (
+    key === 'href' &&
+    (parseConversationReferenceUri(value) || parseOrchestrationReferenceUri(value))
+  ) {
     return value
   }
   if (key === 'src' && node?.tagName === 'img' && isTrustedCompactImageSrc(value)) {
@@ -60,7 +64,12 @@ export const commentMarkdownSanitizeSchema: SanitizeSchema = {
   protocols: {
     ...defaultSchema.protocols,
     // Allow file links through sanitize for native chat; other surfaces still strip them in URL transformation.
-    href: [...(defaultSchema.protocols?.href ?? []), 'file', 'orca-conversation'],
+    href: [
+      ...(defaultSchema.protocols?.href ?? []),
+      'file',
+      'orca-conversation',
+      'orca-orchestration'
+    ],
     src: [...(defaultSchema.protocols?.src ?? []), 'data', 'blob', 'orca-jira-image']
   }
 }

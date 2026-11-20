@@ -55,6 +55,7 @@ import {
   withPlacement,
   type AgentLaunchView
 } from './agent-launch-tab-publication'
+import { assertAgentLaunchAdmitted, asAgentCreator } from '../agent-creation-caller-admission'
 
 type HostLaunchContext = RpcContext & {
   agentLaunchPolicy?: { onSurfacePublished?: (surface: AgentLaunchResult) => void }
@@ -268,7 +269,7 @@ export const AGENT_LAUNCH_METHODS = [
       if (!supportsAgentLaunch(context)) {
         throw new Error('agent_launch_replay_unsupported')
       }
-      assertAgentLaunchTargetAuthorized(params.target, context)
+      assertAgentLaunchAdmitted(params.target, context)
       try {
         return await runReplaySafeAgentLaunch(params, context)
       } catch (error) {
@@ -296,7 +297,7 @@ export const AGENT_LAUNCH_METHODS = [
     requires: agentLaunchFeatureRequirement,
     permission: 'workspace',
     params: AgentLaunch,
-    handler: (params, context) => launchAgentOnHost(params, context)
+    handler: (params, context) => launchAgentOnHost(params, asAgentCreator(context, 'agent.launch'))
   })
 ]
 

@@ -10,6 +10,12 @@ import { isOrcaSessionId } from '../../../../shared/agent-session/identity/orca-
 import { sessionDelegationHolderKey } from '../../agent-delegation-holder'
 import { canonicalOrcaSessionId } from '../../orchestration/addressing/session-lineage/canonical-orca-session-id'
 import type { RpcContext } from '../core'
+import { CLI_AGENT_CALLER_CLIENT_CAPABILITY } from '../../../../shared/remote-runtime/cli-agent-caller-capability'
+import { AGENT_SESSION_RENAME_ONLY_CLIENT_CAPABILITY } from '../../../../shared/agent-session/capabilities/structured-agent-session-surface-capabilities'
+import {
+  REPO_SEARCH_CANONICAL_REFS_RUNTIME_CAPABILITY,
+  REPO_SEARCH_QUALIFIED_REFS_RUNTIME_CAPABILITY
+} from '../../../../shared/remote-runtime/protocol/worktree-runtime-capabilities'
 import { rpcCallerOperationKey } from '../callers/rpc-caller-identity'
 
 type PersonClientContext = Pick<RpcContext, 'caller' | 'clientKind' | 'clientCapabilities'>
@@ -17,8 +23,14 @@ type PersonClientContext = Pick<RpcContext, 'caller' | 'clientKind' | 'clientCap
 // What the `orca` CLI advertises over a paired socket, today and before it marked itself.
 const CLI_CLIENT_CAPABILITIES: ReadonlySet<string> = new Set([
   AGENT_LAUNCH_RUNTIME_CAPABILITY,
-  ORCA_CLI_RUNTIME_CLIENT_CAPABILITY
+  ORCA_CLI_RUNTIME_CLIENT_CAPABILITY,
+  CLI_AGENT_CALLER_CLIENT_CAPABILITY,
+  REPO_SEARCH_QUALIFIED_REFS_RUNTIME_CAPABILITY,
+  REPO_SEARCH_CANONICAL_REFS_RUNTIME_CAPABILITY,
+  AGENT_SESSION_RENAME_ONLY_CLIENT_CAPABILITY
 ])
+// Either marker is the CLI's own, outranking whatever else its socket negotiated.
+const CLI_MARKERS = [ORCA_CLI_RUNTIME_CLIENT_CAPABILITY, CLI_AGENT_CALLER_CLIENT_CAPABILITY]
 
 /**
  * Whether the transport proved a person's client: this host's window, a paired phone, or a paired
@@ -34,7 +46,8 @@ export function isPersonClientCaller(context: PersonClientContext): boolean {
   // The CLI also pairs with a phone's offer, so its own marker outranks the credential's scope.
   if (
     caller?.kind !== 'paired-device' ||
-    capabilities.includes(ORCA_CLI_RUNTIME_CLIENT_CAPABILITY)
+    caller.agent === true ||
+    CLI_MARKERS.some((marker) => capabilities.includes(marker))
   ) {
     return false
   }

@@ -23,7 +23,7 @@ import {
 
 import type { placeWorkerAgent } from '../../../rpc/methods/orchestration/worker/start/placement/worker-start-agent-placement'
 
-vi.mock('./orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+vi.mock('../../db/delegation-grants/agent-delegation-grant-store', async () =>
   (
     await import('../../db/delegation-grants/agent-delegation-grant-store.test-support')
   ).admitEveryAgentDelegation()

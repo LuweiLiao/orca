@@ -35,6 +35,7 @@ import {
   resolveNativeChatPastedText
 } from '../../paste/native-chat-composer-pasted-text-references'
 import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
+import { useNativeChatComposerRequestedSend } from '../../orchestration-cards/native-chat-composer-send-request'
 
 export type NativeChatComposerGoalMode = {
   /** True while the draft is an objective rather than a message. */
@@ -289,5 +290,11 @@ export function useNativeChatComposerSubmit(args: {
         structuredTransport.mcpPanel !== undefined
       )
     )
+  useNativeChatComposerRequestedSend({
+    draftScopeKey,
+    draft,
+    holdsExtra: imageAttachments.length > 0 || hasAnnotations,
+    send
+  })
   return { send, goalMode, messageDelivery, hasAnnotations }
 }

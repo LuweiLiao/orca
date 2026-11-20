@@ -19,6 +19,8 @@ import { imeComposedSegment } from '@/lib/text-input/ime/ime-composed-segment'
 import { acceptNativeChatPromptSuggestion } from './native-chat-prompt-suggestion-accept'
 import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
 import { useConversationReferenceDrop } from '../../use-conversation-reference-drop'
+import { useNativeChatTextDelegationNotice } from '../../orchestration-cards/native-chat-text-delegation-notice'
+import { NativeChatOrchestrationContext } from '../../orchestration-cards/native-chat-orchestration-context'
 
 function noop(): void {}
 
@@ -80,11 +82,27 @@ export function NativeChatComposerField({
   goalMode,
   agent,
   launchPrompt,
-  workspaceFooter
+  workspaceFooter,
+  terminalTabId,
+  structuredTransport,
+  onInsertOrchestrationInstruction
 }: NativeChatComposerFieldProps): React.JSX.Element {
   const t = useTranslate()
   const annotationComposer = useNativeChatAnnotationComposer()
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
+  // Where the picker can add cards, the person may also name the agents in words.
+  const insertOrchestration = goalMode?.active ? undefined : onInsertOrchestrationInstruction
+  const delegationNotice = useNativeChatTextDelegationNotice({
+    draftScopeKey,
+    draft,
+    terminalTabId: terminalTabId ?? '',
+    structuredTransport,
+    enabled: Boolean(terminalTabId && insertOrchestration) && !disabled
+  })
+  const orchestrationContext = useMemo(
+    () => (terminalTabId ? { terminalTabId, structuredTransport } : null),
+    [terminalTabId, structuredTransport]
+  )
   // A conversation dragged from history or the sidebar lands here as a reference pill.
   const conversationDrop = useConversationReferenceDrop({
     scope: draftScopeKey,
@@ -227,7 +245,7 @@ export function NativeChatComposerField({
             />
           ) : null}
           <NativeChatComposerNotices
-            notices={notices.map((notice) =>
+            notices={(delegationNotice ? [...notices, delegationNotice] : notices).map((notice) =>
               // A dismissed row takes its focused × with it; the message box gets focus back.
               notice.onDismiss
                 ? {
@@ -274,56 +292,58 @@ export function NativeChatComposerField({
                 ))}
               </div>
             ) : null}
-            <NativeChatPromptEditor
-              key={draftScopeKey}
-              scopeKey={draftScopeKey}
-              positionTarget={positionTarget}
-              imageRow={imageRow}
-              inputRef={textareaRef}
-              isComposing={imeEnterGesture.isComposing}
-              initialValue={draft}
-              disabled={disabled}
-              onChange={editorChange}
-              onKeyDownCapture={editorKeyDownCapture}
-              onBlur={editorBlur}
-              onCompositionStart={editorCompositionStart}
-              onCompositionEnd={editorCompositionEnd}
-              onPasteCapture={editorPaste}
-              onSelect={editorSelect}
-              aria-expanded={autocomplete.mode !== 'none'}
-              aria-controls={autocomplete.mode !== 'none' ? pickerListboxId : undefined}
-              aria-activedescendant={
-                optionCount > 0
-                  ? `${pickerListboxId}-option-${Math.min(activeSuggestion, optionCount - 1)}`
-                  : undefined
-              }
-              placeholder={
-                launchPrompt
-                  ? launchPrompt.placeholder
-                  : editSession
-                    ? t('components.native-chat.queuedMessages.editMessage', 'Edit message')
-                    : goalMode?.active
-                      ? t(
-                          'components.native-chat.goal.placeholder',
-                          'Describe your goal, define measurable outcomes for best results'
-                        )
-                      : (placeholderHint ??
-                        suggestion ??
-                        idleHint ??
-                        nativeChatComposerPlaceholder(hasPty, canSend, afterStop, t))
-              }
-              // Let layout handle wrapping and touch targets; scroll after eight lines (a launch prompt: one line growing to six) without JavaScript measurement.
-              // An empty launch prompt also grows to fit a wrapping placeholder: a paragraph-wide float that keeps its height, with a zero-width margin box so the caret line stays put.
-              className={cn(
-                'w-full bg-transparent px-2 py-1 text-sm outline-none',
-                launch
-                  ? 'min-h-7 max-h-[calc(6lh+0.5rem)] text-foreground placeholder:text-muted-foreground [&_p.is-editor-empty:only-child]:before:!h-auto [&_p.is-editor-empty:only-child]:before:w-full [&_p.is-editor-empty:only-child]:before:mr-[-100%]'
-                  : 'min-h-12 max-h-[calc(8lh+0.5rem)] text-chat-foreground-strong placeholder:text-chat-foreground-faint pointer-coarse:min-h-14',
-                'overflow-y-auto scrollbar-sleek',
-                // Why: the editor is a contenteditable, which `:disabled` never matches.
-                '[&[contenteditable=false]]:cursor-not-allowed [&[contenteditable=false]]:opacity-50'
-              )}
-            />
+            <NativeChatOrchestrationContext.Provider value={orchestrationContext}>
+              <NativeChatPromptEditor
+                key={draftScopeKey}
+                scopeKey={draftScopeKey}
+                positionTarget={positionTarget}
+                imageRow={imageRow}
+                inputRef={textareaRef}
+                isComposing={imeEnterGesture.isComposing}
+                initialValue={draft}
+                disabled={disabled}
+                onChange={editorChange}
+                onKeyDownCapture={editorKeyDownCapture}
+                onBlur={editorBlur}
+                onCompositionStart={editorCompositionStart}
+                onCompositionEnd={editorCompositionEnd}
+                onPasteCapture={editorPaste}
+                onSelect={editorSelect}
+                aria-expanded={autocomplete.mode !== 'none'}
+                aria-controls={autocomplete.mode !== 'none' ? pickerListboxId : undefined}
+                aria-activedescendant={
+                  optionCount > 0
+                    ? `${pickerListboxId}-option-${Math.min(activeSuggestion, optionCount - 1)}`
+                    : undefined
+                }
+                placeholder={
+                  launchPrompt
+                    ? launchPrompt.placeholder
+                    : editSession
+                      ? t('components.native-chat.queuedMessages.editMessage', 'Edit message')
+                      : goalMode?.active
+                        ? t(
+                            'components.native-chat.goal.placeholder',
+                            'Describe your goal, define measurable outcomes for best results'
+                          )
+                        : (placeholderHint ??
+                          suggestion ??
+                          idleHint ??
+                          nativeChatComposerPlaceholder(hasPty, canSend, afterStop, t))
+                }
+                // Let layout handle wrapping and touch targets; scroll after eight lines (a launch prompt: one line growing to six) without JavaScript measurement.
+                // An empty launch prompt also grows to fit a wrapping placeholder: a paragraph-wide float that keeps its height, with a zero-width margin box so the caret line stays put.
+                className={cn(
+                  'w-full bg-transparent px-2 py-1 text-sm outline-none',
+                  launch
+                    ? 'min-h-7 max-h-[calc(6lh+0.5rem)] text-foreground placeholder:text-muted-foreground [&_p.is-editor-empty:only-child]:before:!h-auto [&_p.is-editor-empty:only-child]:before:w-full [&_p.is-editor-empty:only-child]:before:mr-[-100%]'
+                    : 'min-h-12 max-h-[calc(8lh+0.5rem)] text-chat-foreground-strong placeholder:text-chat-foreground-faint pointer-coarse:min-h-14',
+                  'overflow-y-auto scrollbar-sleek',
+                  // Why: the editor is a contenteditable, which `:disabled` never matches.
+                  '[&[contenteditable=false]]:cursor-not-allowed [&[contenteditable=false]]:opacity-50'
+                )}
+              />
+            </NativeChatOrchestrationContext.Provider>
             <div
               className={cn(
                 'flex flex-wrap items-center gap-2 pt-0.5',
@@ -363,6 +383,9 @@ export function NativeChatComposerField({
                 focusComposer={focusComposer}
                 onExitGoalMode={goalMode?.active ? exitGoalMode : undefined}
                 launchPrompt={launch}
+                terminalTabId={terminalTabId}
+                structuredTransport={structuredTransport}
+                onInsertOrchestrationInstruction={insertOrchestration}
                 {...(agent ? { agent } : {})}
               />
             </div>

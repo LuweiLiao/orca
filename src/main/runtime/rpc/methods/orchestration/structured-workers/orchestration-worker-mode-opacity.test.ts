@@ -24,7 +24,7 @@ import { ORCHESTRATION_METHODS } from '../orchestration'
 import './orchestration-structured-worker-lifecycle'
 import '../worker/observation/worker-observation'
 
-vi.mock('../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
+vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
   (
     await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
   ).admitEveryAgentDelegation()

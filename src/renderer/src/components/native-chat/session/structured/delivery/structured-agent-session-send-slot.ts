@@ -1,3 +1,4 @@
+import type { OrchestrationAgentSelection } from '../../../../../../../shared/native-chat-orchestration-reference'
 import type { AgentJournalSkillRef } from '../../../../../../../shared/agent-session/journal/agent-session-journal-types'
 import { createStructuredAgentSessionOperationId } from '../../../../../../../shared/agent-session/lifecycle/operations/structured-agent-session-mutation'
 import {
@@ -33,6 +34,8 @@ export type StructuredAgentSessionSendInput = {
   usageLimitContinuationOfTurnItemId?: string
   /** Skills picked from the menu, by file; only to a host that takes them. */
   skills?: readonly AgentJournalSkillRef[]
+  /** The composer's assignment pills, the person's authorization for agents; never in the body. */
+  orchestrationCards?: readonly OrchestrationAgentSelection[]
   /** Made while the chat read Stopping: drawn after that turn until the host records it. */
   sentWhileStopping?: true
   onCreated?: (clientMessageId: string) => void
@@ -44,6 +47,7 @@ export type StructuredAgentSessionSendRequest = Pick<
   | 'callerKeepsText'
   | 'usageLimitContinuationOfTurnItemId'
   | 'skills'
+  | 'orchestrationCards'
   | 'onCreated'
   | 'prepareAttachments'
 > & {
@@ -73,6 +77,7 @@ export function takeStructuredAgentSessionSendSlot(
       ? { usageLimitContinuationOfTurnItemId: input.usageLimitContinuationOfTurnItemId }
       : {}),
     ...(input.callerKeepsText ? { callerKeepsText: true as const } : {}),
+    ...(input.orchestrationCards?.length ? { orchestrationCards: input.orchestrationCards } : {}),
     ...(input.sentWhileStopping ? { sentWhileStopping: true as const } : {}),
     ...(attachments.some((attachment) => attachment.connectionId)
       ? { imageConnectionIds: attachments.map((attachment) => attachment.connectionId ?? null) }

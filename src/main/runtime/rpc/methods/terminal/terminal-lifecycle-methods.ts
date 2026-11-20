@@ -19,6 +19,7 @@ import {
   TerminalWait
 } from '../../../../../shared/rpc-contract/terminal/terminal-unary-params'
 import { TerminalResizeForClient } from '../../../../../shared/rpc-contract/terminal/terminal-stream-params'
+import { assertPersonCreatesAgent } from '../agent-creation-caller-admission'
 
 export const TERMINAL_LIFECYCLE_METHODS = [
   defineMethod({
@@ -40,6 +41,9 @@ export const TERMINAL_LIFECYCLE_METHODS = [
     params: TerminalCreateParams,
     handler: async (params, context) => {
       const { runtime, pairedDeviceId, clientId, clientKind } = context
+      if (params.launchAgent || params.launchConfig) {
+        assertPersonCreatesAgent(context, 'terminal.create --agent')
+      }
       // Paired viewers create in the background; only caller-local session-tab navigation may select it, never the host renderer.
       const pairedViewer = clientKind !== undefined
       const focus = pairedViewer ? false : params.focus === true
@@ -272,20 +276,24 @@ export const TERMINAL_LIFECYCLE_METHODS = [
     name: 'agentTeams.tmuxCompat',
     permission: 'workspace',
     params: AgentTeamsTmuxCompat,
-    handler: async (params, { runtime }) => ({
-      tmux: await runtime.handleAgentTeamsTmuxCompat(params)
-    })
+    handler: async (params, context) => {
+      assertPersonCreatesAgent(context, 'agentTeams.tmuxCompat')
+      return { tmux: await context.runtime.handleAgentTeamsTmuxCompat(params) }
+    }
   }),
   defineMethod({
     name: 'agentTeams.prepareLaunch',
     permission: 'workspace',
     params: AgentTeamsPrepareLaunch,
-    handler: async (params, { runtime }) => ({
-      launch: await runtime.prepareClaudeAgentTeamsLeader({
-        paneKey: params.paneKey,
-        baseEnv: params.env,
-        prepareAuth: params.prepareAuth
-      })
-    })
+    handler: async (params, context) => {
+      assertPersonCreatesAgent(context, 'agentTeams.prepareLaunch')
+      return {
+        launch: await context.runtime.prepareClaudeAgentTeamsLeader({
+          paneKey: params.paneKey,
+          baseEnv: params.env,
+          prepareAuth: params.prepareAuth
+        })
+      }
+    }
   })
 ]

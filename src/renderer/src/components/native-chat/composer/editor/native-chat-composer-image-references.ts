@@ -16,7 +16,7 @@ import {
   imageReferenceToken,
   withoutImageReference
 } from '../../../../../../shared/native-chat/attachments/native-chat-image-reference'
-import { withoutImageReferenceNodes } from './native-chat-prompt-document-text'
+import { withoutImageReferenceNodes } from './native-chat-prompt-image-chip-removal'
 
 /** A chip for each image at the caret, or after the draft when the editor takes no input. */
 export function insertImageReferences(

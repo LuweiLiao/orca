@@ -108,6 +108,10 @@ import {
   AgentActivitySetReadParams
 } from './agent-activity/agent-activity-params'
 import { AgentListParams, AgentReadParams, AgentShowParams } from './agent-conversation-params'
+import {
+  AgentDelegationAuthorizeTerminalParams,
+  AgentDelegationSettleTerminalParams
+} from './agent-delegation-params'
 import { AgentLaunch, AgentLaunchReplay } from './agent-launch/agent-launch-params'
 import { AgentLaunchSettingsMutation } from './agent-launch/agent-launch-settings-params'
 import {
@@ -1112,6 +1116,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentActivity.setRead': AgentActivitySetReadParams,
   'agentCliUpdate.check': AgentCliUpdateCheckParams,
   'agentCliUpdate.run': AgentCliUpdateRunParams,
+  'agentDelegation.authorizeTerminal': AgentDelegationAuthorizeTerminalParams,
+  'agentDelegation.settleTerminal': AgentDelegationSettleTerminalParams,
   'agentHooks.prepareCodexForWslPane': PrepareCodexForWslPaneParams,
   'agentSession.accountUsage': OptionsParams,
   'agentSession.acknowledgeAttention': AcknowledgeAttentionParams,

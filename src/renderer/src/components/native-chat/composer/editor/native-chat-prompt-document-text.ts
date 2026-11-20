@@ -12,6 +12,11 @@ import {
   splitConversationReferences
 } from '../../../../../../shared/conversation-reference'
 import {
+  ORCHESTRATION_REFERENCE_NODE,
+  splitOrchestrationReferences
+} from '../../../../../../shared/native-chat-orchestration-reference'
+import { nativeChatOrchestrationAttributes } from '../../orchestration-cards/native-chat-orchestration-instruction'
+import {
   botMentionToken,
   splitBotMentions
 } from '../../../../../../shared/bots/bot-mention-context'
@@ -121,23 +126,36 @@ export function promptTextContent(text: string): JSONContent {
     type: 'doc',
     content: text.split('\n').map((line) => ({
       type: 'paragraph',
-      // A conversation link in restored or pasted text comes back as its reference pill.
-      content: splitConversationReferences(line).flatMap((reference) =>
-        typeof reference === 'string'
-          ? promptLineContent(reference)
-          : [
+      // An assignment card or conversation link in restored or pasted text comes back as its pill.
+      content: splitOrchestrationReferences(line).flatMap((assignment): JSONContent[] =>
+        typeof assignment !== 'string'
+          ? [
               {
-                type: CONVERSATION_REFERENCE_NODE,
-                attrs: {
-                  uri: reference.uri,
-                  title: reference.title,
-                  token: conversationReferenceToken(reference)
-                }
+                type: ORCHESTRATION_REFERENCE_NODE,
+                attrs: nativeChatOrchestrationAttributes(assignment)
               }
             ]
+          : conversationContent(assignment)
       )
     }))
   }
+}
+
+function conversationContent(line: string): JSONContent[] {
+  return splitConversationReferences(line).flatMap((reference) =>
+    typeof reference === 'string'
+      ? promptLineContent(reference)
+      : [
+          {
+            type: CONVERSATION_REFERENCE_NODE,
+            attrs: {
+              uri: reference.uri,
+              title: reference.title,
+              token: conversationReferenceToken(reference)
+            }
+          }
+        ]
+  )
 }
 
 /** Drafts saved before Shift+Enter split paragraphs hold hard breaks; initial editor content skips the hard-break plugin, which only sees transactions. */
@@ -203,30 +221,6 @@ export function seedPromptSkillReferences(
       return pieces
     })
   }
-}
-
-/** The document side of withoutImageReference: each chip goes with one space after it. */
-export function withoutImageReferenceNodes(
-  document: JSONContent,
-  attachmentId: string
-): JSONContent {
-  const isChip = (node: JSONContent | undefined): boolean =>
-    node?.type === IMAGE_REFERENCE_NODE && node.attrs?.attachmentId === attachmentId
-  return document.content
-    ? {
-        ...document,
-        content: document.content.flatMap((node, index, nodes) => {
-          if (isChip(node)) {
-            return []
-          }
-          if (isChip(nodes[index - 1]) && node.type === 'text' && node.text?.startsWith(' ')) {
-            const text = node.text.slice(1)
-            return text ? [{ ...node, text }] : []
-          }
-          return [withoutImageReferenceNodes(node, attachmentId)]
-        })
-      }
-    : document
 }
 
 /** Applies an appended text change without replacing existing picked nodes. */

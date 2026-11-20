@@ -7,6 +7,8 @@ import { useNativeChatTypedInsertion } from './use-native-chat-typed-insertion'
 import { useNativeChatPastedTextFile } from '../../paste/use-native-chat-pasted-text-file'
 import type { NativeChatComposerInput } from './native-chat-composer-input'
 import { glowNativeChatComposer } from '../../native-chat-composer-glow'
+import { readNativeChatDraftCache } from '../../drafts/native-chat-draft-views'
+import { requestNativeChatComposerSend } from '../../orchestration-cards/native-chat-composer-send-request'
 
 type UseNativeChatComposerHandleArgs = Parameters<typeof useNativeChatTypedInsertion>[0] &
   Omit<UseNativeChatComposerPasteArgs, 'insertTypedText'> & {
@@ -48,6 +50,21 @@ export function useNativeChatComposerHandle(
       }
     },
     [appendPlainText, attachmentScopeKey]
+  )
+
+  // Adding proposed cards to an empty message box sends them; with a draft there it only adds them.
+  const appendTextAndSend = useCallback(
+    (text: string): void => {
+      const wasEmpty = textareaRef.current?.value.trim() === ''
+      appendText(text)
+      if (attachmentScopeKey && wasEmpty) {
+        requestNativeChatComposerSend(
+          attachmentScopeKey,
+          readNativeChatDraftCache(attachmentScopeKey)
+        )
+      }
+    },
+    [appendText, attachmentScopeKey, textareaRef]
   )
 
   const focus = useCallback(
@@ -106,6 +123,7 @@ export function useNativeChatComposerHandle(
       insertPastedText: insertPastedTextOrFile,
       acceptsText,
       appendText,
+      appendTextAndSend,
       handlePasteEvent,
       pasteFromClipboard,
       contains
@@ -121,6 +139,7 @@ export function useNativeChatComposerHandle(
       insertPastedTextOrFile,
       acceptsText,
       appendText,
+      appendTextAndSend,
       handlePasteEvent,
       pasteFromClipboard,
       contains

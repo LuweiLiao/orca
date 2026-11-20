@@ -1,6 +1,8 @@
 import type { OrchestrationAgentReference } from '../../../../../../shared/orchestration/mailbox/orchestration-agent-reference'
 import { NativeChatFileReferencePill } from './NativeChatFileReferencePill'
 import { NativeChatConversationReferencePill } from '../../NativeChatConversationReferencePill'
+import { NativeChatOrchestrationPill } from '../../orchestration-cards/NativeChatOrchestrationPill'
+import { ORCHESTRATION_REFERENCE_NODE } from '../../../../../../shared/native-chat-orchestration-reference'
 import { CONVERSATION_REFERENCE_NODE } from '../../../../../../shared/conversation-reference'
 import { NativeChatSkillPill, skillLabel } from './NativeChatSkillPill'
 import { NativeChatImageReferencePill } from './NativeChatImageReferencePill'
@@ -55,6 +57,28 @@ export const NativeChatFileReference = Node.create({
   addAttributes: () => ({ token: { default: '' }, path: { default: '' } }),
   renderText: ({ node }) => node.attrs.token,
   renderHTML: ({ node }) => ['span', { 'data-native-chat-file-reference': node.attrs.path }]
+})
+
+/** An orchestration assignment card: which agents, how many, on which model, for what task. */
+export const NativeChatOrchestration = Node.create({
+  name: ORCHESTRATION_REFERENCE_NODE,
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addNodeView: () => ReactNodeViewRenderer(NativeChatOrchestrationPill),
+  addAttributes: () => ({
+    agent: { default: '' },
+    label: { default: '' },
+    count: { default: 1 },
+    modelId: { default: '' },
+    modelLabel: { default: '' },
+    task: { default: '' },
+    effort: { default: '' },
+    token: { default: '' }
+  }),
+  renderText: ({ node }) => node.attrs.token,
+  renderHTML: ({ node }) => ['span', { 'data-native-chat-orchestration': node.attrs.agent }]
 })
 
 /** A referenced conversation. `token` is its markdown link, which the agent reads with the CLI. */
@@ -114,6 +138,7 @@ export const nativeChatPromptPills = [
   NativeChatSkill,
   NativeChatFileReference,
   NativeChatConversationReference,
+  NativeChatOrchestration,
   NativeChatImageReference,
   NativeChatBotMention,
   NativeChatPromptPillKeys

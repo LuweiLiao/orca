@@ -294,6 +294,7 @@ export function NativeChatStructuredSession(props: Omit<NativeChatStructuredView
                               key={`${controller.epoch}:${controller.contextClear.clears}`}
                               paneKey={paneKey}
                               ref={submits.messageListRef}
+                              composerRef={composerShown && !hostHeld ? composerRef : null}
                               session={session}
                               journalItems={controller.journalItems}
                               journalSubmissions={controller.submissions}

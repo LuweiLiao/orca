@@ -18,6 +18,7 @@ import {
   NativeChatPlainCodeBlock
 } from '../../markdown/code/NativeChatCodeBlock'
 import { NativeChatAgentControls } from '../actions/NativeChatAgentControls'
+import { NativeChatOrchestrationProposalActions } from '../../orchestration-cards/NativeChatOrchestrationProposal'
 import { NativeChatImageAttachments } from '../../media/images/NativeChatImageAttachments'
 import { NativeChatForkAction } from '../actions/NativeChatForkAction'
 import type { useNativeChatWorkRun } from '../../tools/runs/use-native-chat-work-run'
@@ -118,6 +119,7 @@ export function NativeChatAssistantMessageRow({
           linkifyFilePaths
           {...(isSystem ? {} : NATIVE_CHAT_QUOTE_SOURCE_PROPS)}
           visualMessageId={message.role === 'assistant' ? message.id : undefined}
+          orchestrationProposals={message.role === 'assistant'}
           // Only the live turn’s prose frontier can be mid-sentence; structured rows have no per-row streaming flag.
           streaming={streaming}
         />
@@ -126,6 +128,9 @@ export function NativeChatAssistantMessageRow({
         <p className="text-xs text-chat-foreground-faint">
           {t('bots.chat.nothingToReport', 'Nothing to report')}
         </p>
+      ) : null}
+      {words && message.role === 'assistant' && !streaming ? (
+        <NativeChatOrchestrationProposalActions markdown={words} />
       ) : null}
       {toolRun ? <NativeChatToolRun {...toolRun} /> : null}
       {showControls ? (

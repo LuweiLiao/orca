@@ -8,6 +8,7 @@ import {
   SendSkillRef,
   MAX_SKILL_REFS
 } from './structured-agent-session-message-params'
+import { SubmittedOrchestrationCards } from '../../native-chat-orchestration-reference'
 
 const moveIdentity = {
   envelope: MutationEnvelope,
@@ -29,7 +30,9 @@ export const QueuedMessageUpdateParams = z
     /** Complete ordered images with agent-session.queued-message-image-edit.v1; absent preserves images for old clients.
      * Shared edit bounds count images with the text block. */
     images: z.array(SendImageRefBlock).max(MAX_BLOCKS).optional(),
-    skills: z.array(SendSkillRef).max(MAX_SKILL_REFS).optional()
+    skills: z.array(SendSkillRef).max(MAX_SKILL_REFS).optional(),
+    /** The edited text's assignment pills (`agent-session.orchestration-cards.v1`). */
+    orchestrationCards: SubmittedOrchestrationCards.optional()
   })
   .strict()
 

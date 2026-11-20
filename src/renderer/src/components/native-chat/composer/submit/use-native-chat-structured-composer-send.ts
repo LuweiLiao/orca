@@ -15,6 +15,8 @@ import {
 } from '../editor/native-chat-prompt-document'
 import type { StructuredAgentSessionAttachmentPreparation } from '../../session/structured/delivery/structured-agent-session-send-slot'
 import { useCallback } from 'react'
+import { promptOrchestrationCards } from '../../orchestration-cards/native-chat-prompt-orchestration-cards'
+import { withNativeChatTextDelegation } from '../../orchestration-cards/native-chat-text-delegation-store'
 import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
 import { withConversationReferenceInstructions } from '../../../../../../shared/conversation-reference'
 import {
@@ -210,17 +212,23 @@ export function useNativeChatStructuredComposerSend({
       const prepareAttachments: StructuredAgentSessionAttachmentPreparation | undefined =
         stagedInput ? (input) => stagedInput.prepare(input, structuredTransport) : undefined
       // Annotations travel under the message; a returned message hands them back to the review.
+      // Cards the person picked, or ones the composer showed for exactly the words they typed.
+      const pills = promptOrchestrationCards(submission.draft?.document)
+      const message = hostCommand
+        ? { text, cards: pills }
+        : withNativeChatTextDelegation(draftScopeKey, submittedText, { text, cards: pills })
       const annotated = hostCommand
         ? null
-        : prepareNativeChatAnnotatedMessage(annotationScopeKey, text)
+        : prepareNativeChatAnnotatedMessage(annotationScopeKey, message.text)
       const annotationHooks = nativeChatAnnotationSendHooks(annotated)
       return dispatchNativeChatStructuredComposerText(
         structuredTransport,
-        withConversationReferenceInstructions(annotated?.text ?? text),
+        withConversationReferenceInstructions(annotated?.text ?? message.text),
         attachments,
         promptSkillRefs(submission.draft?.document),
         {
           ...intent,
+          ...(message.cards.length > 0 ? { orchestrationCards: message.cards } : {}),
           ...(annotationHooks.onCreated ? { onCreated: annotationHooks.onCreated } : {}),
           ...(prepareAttachments ? { prepareAttachments } : {}),
           ...(prepareAttachments || annotationHooks.onCreated

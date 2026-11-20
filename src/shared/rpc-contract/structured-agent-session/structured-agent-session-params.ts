@@ -6,6 +6,7 @@ import {
 } from '../../agent-session/options/protocol/agent-session-chat-capabilities'
 import {
   SendBody,
+  SEND_MESSAGE_FIELDS,
   MAX_OPTION_LABEL,
   CompactInstructions,
   AgentSessionOptions
@@ -103,7 +104,7 @@ export const SendParams = z
     selection: AgentSessionSelectionSchema.optional(),
     // Strict payload: only hosts advertising the bound usage-limit send capability accept this.
     usageLimitContinuationOfTurnItemId: Identifier('Invalid source turn item id').optional(),
-    body: SendBody
+    ...SEND_MESSAGE_FIELDS
   })
   .strict()
   .refine(

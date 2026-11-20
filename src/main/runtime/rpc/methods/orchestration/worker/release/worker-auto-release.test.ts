@@ -9,6 +9,14 @@ import { WorkerAutoReleaseActivity } from '../../../../../orchestration/terminal
 import type { AgentPhase } from '../../../../../../../shared/agent-status/lifecycle/agent-transitions'
 import { removeTree } from '../../../../../../../shared/file-write/windows-transient-lock-removal'
 
+vi.mock(
+  '../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
+  async () =>
+    (
+      await import('../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
+    ).admitEveryAgentDelegation()
+)
+
 const GRACE_MS = 2 * 60_000
 
 describe('orchestration worker automatic release', () => {

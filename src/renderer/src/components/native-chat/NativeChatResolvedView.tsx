@@ -306,6 +306,7 @@ export function NativeChatResolvedView({
             find={surface.find}
             paneKey={paneKey}
             ref={messageListRef}
+            composerRef={shownPromptCard || !canSend ? null : composerRef}
             session={sessionWithPending}
             isVisible={isVisible}
             isWorking={turnActive}

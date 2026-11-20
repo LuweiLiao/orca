@@ -15,4 +15,6 @@ export type FederatedWorkerStartRequest = {
   orchestrationMutation?: WorkerStartMutation
   /** The coordinator's resolved session, when it is one; recorded as the Dispatch creator. */
   callerSession?: OrchestrationEntryCaller
+  /** Whose user authorization this start spends, on this host where the grant lives. */
+  delegationHolderKey?: string | null
 }
