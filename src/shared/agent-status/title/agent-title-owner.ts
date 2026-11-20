@@ -13,6 +13,7 @@ import {
   rebrandPiCompatibleTitle
 } from './providers/pi-compatible-synthetic-title'
 import { getWrapperTitleSegments } from './terminal-title-wrapper-segments'
+import { isClaudeLauncherAgent } from '../../agent-launch/catalog/claude-cli-launch-agents'
 
 type TitleProfileMatch = {
   profile: SyntheticAgentTitleProfile
@@ -102,6 +103,10 @@ export function resolveCompatibleAgentTypeForOwner(
 ): AgentType | undefined {
   if (!incomingAgentType) {
     return undefined
+  }
+  // Why: a launcher such as ccb runs the official binary, so its hooks and process say `claude`.
+  if (incomingAgentType === 'claude' && isClaudeLauncherAgent(ownerAgentType)) {
+    return ownerAgentType
   }
   const incomingProfile = getSyntheticAgentTitleProfile(incomingAgentType)
   const ownerProfile = getSyntheticAgentTitleProfile(ownerAgentType)
@@ -195,6 +200,12 @@ export function shareCompatibleTitleIdentityGroup(
     return false
   }
   if (left === right) {
+    return true
+  }
+  if (
+    (left === 'claude' && isClaudeLauncherAgent(right)) ||
+    (right === 'claude' && isClaudeLauncherAgent(left))
+  ) {
     return true
   }
   const leftGroup = getSyntheticAgentTitleProfile(left)?.titleIdentityGroup

@@ -14,6 +14,7 @@ import {
   type StructuredNativeChatBlocker
 } from '../../shared/agent-launch/choices/structured-native-chat-launch-route'
 import type { TuiAgent } from '../../shared/agent-launch/catalog/tui-agent'
+import { isClaudeLauncherAgent } from '../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import type {
   StructuredAgentCreateSupportReason,
   StructuredAgentCreateSupportReply
@@ -134,8 +135,9 @@ export function decideAgentLaunchMode(args: {
     }
   }
   // Federated launches create terminals; this host cannot establish the remote’s chat support.
-  if (placement.on) {
-    return blocked('remote_execution_host')
+  // Why: only the renderer maps a launcher to its Claude chat, so a launcher keeps its terminal here.
+  if (placement.on || isClaudeLauncherAgent(agent)) {
+    return blocked(placement.on ? 'remote_execution_host' : 'agent_without_structured_session')
   }
   const cwdRelation = launchCwdRelation(placement)
   const support = resolveStructuredNativeChatSupport({

@@ -1,6 +1,7 @@
 export type TuiAgent =
   | 'claude'
   | 'claude-agent-teams' // Claude Code Agent Teams via Orca native panes
+  | 'ccb' // Claude Code through a claude-code-bridge gateway (`ccb`)
   | 'codebuddy'
   | 'openclaude'
   | 'codex'

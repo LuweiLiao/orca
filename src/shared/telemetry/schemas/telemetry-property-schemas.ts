@@ -11,6 +11,7 @@ import type { GlobalSettings } from '../../settings/global-settings-types'
 export const AGENT_KIND_VALUES = [
   'claude-code',
   'claude-agent-teams',
+  'ccb',
   'codebuddy',
   'openclaude',
   'codex',

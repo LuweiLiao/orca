@@ -3,6 +3,7 @@ import { waitForPromiseWithSignal } from '../../../shared/concurrency/abort-sign
 import { delimiter, isAbsolute, posix, resolve as resolvePath, win32 } from 'node:path'
 import type { GlobalSettings } from '../../../shared/settings/global-settings-types'
 import type { TuiAgent } from '../../../shared/agent-launch/catalog/tui-agent'
+import type { ClaudeLauncherAgent } from '../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import {
   expandHomeArgs,
   isSpawnableCommand,
@@ -91,11 +92,13 @@ export type StructuredAgentCommand = {
 
 /** Read live settings on every lookup; invalid explicit commands must refuse instead of launching stock CLI. */
 export function resolveStructuredAgentCommand(
-  agent: TuiAgent,
+  requestedAgent: TuiAgent,
   settings: CommandSettings,
-  options: CommandOptions = {},
+  { launcher, ...options }: CommandOptions & { launcher?: ClaudeLauncherAgent } = {},
   stock: { command?: string; resolve?: typeof resolveCliCommand; managedCopy?: boolean } = {}
 ): StructuredAgentCommand {
+  // A Claude chat run by a launcher (ccb) resolves the launcher's own command and override.
+  const agent = requestedAgent === 'claude' && launcher ? launcher : requestedAgent
   if (!hasExplicitTuiLaunchCommand(settings, agent)) {
     // WSL PATH may contain drive-mounted Windows shims after native entries.
     const command = stock.command ?? agent

@@ -12,6 +12,7 @@ import {
 import { withCliRuntimeOnPath } from '../../../../shared/shell/command-resolution/node-cli-command-resolution'
 import { applyClaudeEnvPatch } from '../../../claude-accounts/runtime-auth/environment'
 import { resolveClaudeCommand } from '../../../codex-cli/command'
+import type { ClaudeLauncherAgent } from '../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import { withoutInheritedClaudeConfigDir } from './claude-config-dir-pin'
 import { stripInheritedAgentSessionEnv } from '../../../../shared/agent-launch/startup/parent-agent-session-env'
 import { overlayEnvironmentVariables } from '../../../../shared/shell/launch/environment-overlay'
@@ -26,13 +27,19 @@ function cloneDefinedEnv(env: NodeJS.ProcessEnv | Record<string, string>): Recor
   return next
 }
 
+export type ClaudeCommandLookup = {
+  pathEnv?: string | null
+  homePath?: string
+  /** A launcher such as ccb that runs Claude for this chat; absent for native Claude. */
+  launcher?: ClaudeLauncherAgent
+}
+
 export type ClaudeEnvDeps = {
   signal?: AbortSignal
   operation?: StructuredAgentResolutionOperation
-  resolveCommand?: (options?: {
-    pathEnv?: string | null
-    homePath?: string
-  }) => StructuredAgentCommand
+  resolveCommand?: (options?: ClaudeCommandLookup) => StructuredAgentCommand
+  /** The chat's launcher, read from its saved options. */
+  launcher?: ClaudeLauncherAgent
   /** Refresh once after command lookup misses; absent disables retry. */
   refreshEnvironmentAfterMiss?: (askedAt: number) => Promise<void>
   /** Cwd used to resolve relative PATH entries; defaults to Orca's cwd. */
@@ -85,7 +92,7 @@ async function readClaudeChildEnvSources(deps: ClaudeEnvDeps): Promise<ClaudeChi
     homePath: effectiveEnv.HOME ?? effectiveEnv.USERPROFILE
   }
   const invocation = deps.resolveCommand
-    ? deps.resolveCommand(options)
+    ? deps.resolveCommand(deps.launcher ? { ...options, launcher: deps.launcher } : options)
     : { command: resolveClaudeCommand(options), prefixArgs: [] }
   return { ...invocation, overlay: overlay ? cloneDefinedEnv(overlay) : undefined, inheritedEnv }
 }

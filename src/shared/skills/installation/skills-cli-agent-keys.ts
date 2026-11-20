@@ -5,6 +5,7 @@ import type { TuiAgent } from '../../agent-launch/catalog/tui-agent'
 export const SKILLS_CLI_AGENT_KEY_BY_TUI_AGENT = {
   claude: 'claude-code',
   'claude-agent-teams': 'claude-code',
+  ccb: 'claude-code',
   codebuddy: 'codebuddy',
   // Follow native-chat skillSourceOwner (claude); Orca’s direct installer separately targets .openclaude roots.
   openclaude: 'claude-code',

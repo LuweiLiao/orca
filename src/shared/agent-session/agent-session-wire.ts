@@ -1,4 +1,5 @@
 import type { AgentSessionForkNaming } from './conversation-naming/agent-session-fork-name'
+import type { ClaudeLauncherAgent } from '../agent-launch/catalog/claude-cli-launch-agents'
 import type { AgentSessionUnavailable } from './failures/agent-session-availability'
 import type { AgentSessionFrameFields } from './view/live-read/agent-session-frame-fields'
 import type { AgentSessionUsageLimitContinue } from './lifecycle/stopping/agent-session-usage-limit-continue-wire'
@@ -204,6 +205,9 @@ export type AgentSessionAwaitedApproval = { tool: string; input?: string }
 
 /** Host-projected list status avoids client transcript replay; older hosts lack this additive method. */
 export type AgentSessionStatusSummary = {
+  /** The launcher that runs this Claude chat's CLI (ccb); absent for native Claude and older
+   *  hosts, which a client shows as Claude. */
+  launcher?: ClaudeLauncherAgent
   usageLimitContinue?: AgentSessionUsageLimitContinue
   rewindBlockedReason?: AgentSessionRewindReason
   sessionId: string

@@ -5,6 +5,7 @@ import { agentRequiredValueOptions } from '../../agent-session/options/launch/ag
 import { agentPermissionArgs, agentPermissionChoices } from './tui-agent-permission-choice'
 import { tokenizeStartupCommand, type AgentStartupShell } from '../startup/tui-agent-startup-shell'
 import type { TuiAgent } from '../catalog/tui-agent'
+import { runsClaudeCodeCli } from '../catalog/claude-cli-launch-agents'
 
 export const CODEX_PERMISSION_CONFIG_ROOTS = [
   'approval_policy',
@@ -61,6 +62,7 @@ const CLAUDE_SWITCHES = [
 const EXTRA_CARRIERS: Partial<Record<TuiAgent, readonly string[]>> = {
   claude: CLAUDE_PERMISSION_OPTIONS,
   'claude-agent-teams': CLAUDE_PERMISSION_OPTIONS,
+  ccb: CLAUDE_PERMISSION_OPTIONS,
   codex: ['-a', '--ask-for-approval', '-s', '--sandbox', '--yolo', '--not-so-yolo', '--full-auto'],
   grok: ['--permission-mode', '--always-approve', '--yolo', '--dangerously-skip-permissions'],
   gemini: ['--approval-mode', '-y'],
@@ -132,9 +134,7 @@ export function permissionOptionInventory(agent: TuiAgent): PermissionOptionInve
   })
   const carriers = new Set(EXTRA_CARRIERS[agent])
   const values = new Set(agent === 'codex' ? CODEX_VALUES : [])
-  const switches = new Set<string>(
-    agent === 'claude' || agent === 'claude-agent-teams' ? CLAUDE_SWITCHES : []
-  )
+  const switches = new Set<string>(runsClaudeCodeCli(agent) ? CLAUDE_SWITCHES : [])
   for (const { token, next } of recipes) {
     if (!token.startsWith('-')) {
       continue
@@ -163,7 +163,7 @@ export function analyzeAgentChoiceWords(
   tokens: readonly string[],
   inventory = permissionOptionInventory(agent)
 ) {
-  const claude = agent === 'claude' || agent === 'claude-agent-teams'
+  const claude = runsClaudeCodeCli(agent)
   const required = agentRequiredValueOptions(agent)
   const roles: string[] = []
   const optionIndices = new Set<number>()
@@ -195,7 +195,7 @@ export function analyzeAgentChoiceWords(
     const knownValue =
       inventory.values.has(name) ||
       required.includes(name) ||
-      (['claude', 'claude-agent-teams', 'grok', 'codex'].includes(agent) &&
+      ((runsClaudeCodeCli(agent) || agent === 'grok' || agent === 'codex') &&
         MODEL_VALUES.includes(name))
     const known =
       knownValue ||

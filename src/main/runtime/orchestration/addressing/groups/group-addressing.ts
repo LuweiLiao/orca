@@ -6,6 +6,7 @@ import type { OrchestrationAddressableAgent } from './structured-worker-group-ad
 const AGENT_NAME_GROUPS = [
   'claude',
   'openclaude',
+  'ccb',
   'codex',
   'opencode',
   'mimo',
@@ -24,6 +25,7 @@ export function isGroupAddress(to: string): boolean {
 const GROUP_AGENT_IDS: Record<AgentNameGroup, TuiAgent> = {
   claude: 'claude',
   openclaude: 'openclaude',
+  ccb: 'ccb',
   codex: 'codex',
   opencode: 'opencode',
   mimo: 'mimo-code',

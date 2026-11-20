@@ -6,6 +6,7 @@ export type AgentPermissionMode = 'yolo' | 'manual' | 'auto' | 'mixed'
 export const AUTO_TUI_AGENT_ARGS: Partial<Record<TuiAgent, string>> = {
   claude: '--permission-mode auto',
   'claude-agent-teams': '--permission-mode auto',
+  ccb: '--permission-mode auto',
   codex: '--approve-for-me'
 }
 
@@ -13,6 +14,7 @@ export const YOLO_TUI_AGENT_ARGS: Partial<Record<TuiAgent, string>> = {
   claude: '--dangerously-skip-permissions',
   codebuddy: '--dangerously-skip-permissions',
   'claude-agent-teams': '--dangerously-skip-permissions',
+  ccb: '--dangerously-skip-permissions',
   openclaude: '--dangerously-skip-permissions',
   codex: '--dangerously-bypass-approvals-and-sandbox',
   qoder: '--dangerously-skip-permissions',

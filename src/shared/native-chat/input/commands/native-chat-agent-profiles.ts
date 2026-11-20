@@ -42,6 +42,11 @@ const OPENCODE_PROFILE: NativeChatAgentProfile = {
 // because the agent reports its own skills at rest or cannot invoke them from the chat.
 const NATIVE_CHAT_AGENT_PROFILES: Record<NativeChatAgent, NativeChatAgentProfile | null> &
   Partial<Record<AgentType, NativeChatAgentProfile | null>> = {
+  ccb: {
+    skillPrefix: '/',
+    skillSourceOwner: 'claude',
+    expandsSlashCommandsFromText: true
+  },
   codex: {
     skillPrefix: '$',
     skillSourceOwner: 'codex',

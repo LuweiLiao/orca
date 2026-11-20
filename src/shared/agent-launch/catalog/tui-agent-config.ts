@@ -4,6 +4,7 @@ import {
   skipsLinuxOrcaCliRename
 } from '../../cli/orca-cli-command-name'
 import type { TuiAgentConfig, TuiAgentConfigSource } from './tui-agent-config-types'
+import { CLAUDE_LAUNCHER_CONFIG_SOURCE } from './tui-agent-config-claude-launchers'
 
 function resolveTuiAgentConfig(source: TuiAgentConfigSource): TuiAgentConfig {
   return {
@@ -49,6 +50,7 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
     // Why: runs the same Claude binary, so Ctrl+Enter must match `claude`.
     ctrlEnterEncoding: 'csi-u'
   },
+  ...CLAUDE_LAUNCHER_CONFIG_SOURCE,
   codebuddy: {
     detectCmd: 'codebuddy',
     detectCmdAliases: ['cbc'],

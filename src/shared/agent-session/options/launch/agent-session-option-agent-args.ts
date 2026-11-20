@@ -1,5 +1,6 @@
 import { findOptionOccurrence } from '../../../cli/command-option-occurrence'
 import type { AgentType } from '../../../agent-status/contracts/agent-status-types'
+import { runsClaudeCodeCli } from '../../../agent-launch/catalog/claude-cli-launch-agents'
 
 // Required values consume dash-leading text; boolean and optional-valued options are excluded.
 // Codex (clap) and OpenCode (yargs) never take a dash-leading value, so they have no entry.
@@ -129,7 +130,7 @@ export function removeAgentArgOption(
 export function agentRequiredValueOptions(agent: string): readonly string[] {
   const value: unknown = Object.getOwnPropertyDescriptor(
     AGENT_REQUIRED_VALUE_OPTIONS,
-    agent === 'claude-agent-teams' ? 'claude' : agent
+    runsClaudeCodeCli(agent) ? 'claude' : agent
   )?.value
   return Array.isArray(value) && value.every((item): item is string => typeof item === 'string')
     ? value

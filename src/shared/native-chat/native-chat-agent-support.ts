@@ -6,6 +6,7 @@ export type NativeChatTranscriptAgent = 'claude' | 'codex' | 'grok' | 'omp' | 'o
 export const NATIVE_CHAT_SUPPORTED_AGENT_LIST: readonly TuiAgent[] = [
   'claude',
   'openclaude',
+  'ccb',
   'codex',
   'grok',
   'omp',
@@ -51,7 +52,7 @@ export function resolveNativeChatTranscriptAgent(
   agent: string | null | undefined
 ): NativeChatTranscriptAgent | null {
   // OpenClaude writes Claude transcripts but retains distinct launch/UI identity.
-  if (agent === 'claude' || agent === 'openclaude') {
+  if (agent === 'claude' || agent === 'openclaude' || agent === 'ccb') {
     return 'claude'
   }
   if (agent === 'opencode' || agent === 'opencode2' || agent === 'zcode') {
