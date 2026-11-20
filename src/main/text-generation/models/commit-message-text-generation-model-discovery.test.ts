@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { discoverCommitMessageModelsLocal } from '../commit-message-text-generation'
 import {
   answerCodexAppServer,
-  createMockDiscoveryChild
+  createMockDiscoveryChild,
+  spawnedAgentArgv
 } from '../execution/commit-message-text-generation-test-harness'
 
 const { terminateWindowsProcessTreeMock } = vi.hoisted(() => ({
@@ -90,5 +91,46 @@ describe('discoverCommitMessageModelsLocal on the Windows direct-child path', ()
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('discovers CCB models through its configured launcher and preserves its arguments', async () => {
+    const child = createMockDiscoveryChild()
+    spawnMock.mockReturnValue(child as never)
+    const pending = discoverCommitMessageModelsLocal('ccb', undefined, 'ccb --profile gateway', {
+      cwd: 'C:\\project'
+    })
+    child.stdout.emit(
+      'data',
+      Buffer.from(
+        `${JSON.stringify({
+          type: 'control_response',
+          response: {
+            subtype: 'success',
+            response: {
+              models: [
+                {
+                  value: 'gateway-model',
+                  displayName: 'Gateway Model',
+                  supportsEffort: true,
+                  supportedEffortLevels: ['low', 'high']
+                }
+              ]
+            }
+          }
+        })}
+`
+      )
+    )
+    child.emit('close', 0)
+    await expect(pending).resolves.toMatchObject({
+      success: true,
+      catalogOrigin: 'probe',
+      models: [{ id: 'gateway-model', thinkingLevels: [{ id: 'low' }, { id: 'high' }] }]
+    })
+    expect(spawnedAgentArgv(spawnMock.mock.calls[0]!)).toEqual(
+      expect.arrayContaining(['ccb', '--profile', 'gateway', '-p', '--input-format', 'stream-json'])
+    )
+    expect(child.stdin.end).toHaveBeenCalledWith(expect.stringContaining('list_models'))
+    expect(spawnMock.mock.calls[0]![2]).toMatchObject({ cwd: 'C:\\project' })
   })
 })

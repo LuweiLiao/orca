@@ -6,6 +6,7 @@ import {
  * Open dispatches retain agents through the idle sweep; settled workers rest and restart on mail. The preamble is a turn, never keystrokes. */
 
 import { randomUUID } from 'node:crypto'
+import { structuredLaunchProviderFor } from '../../../../../../shared/agent-launch/catalog/claude-cli-launch-agents'
 import { isDefinitiveAgentSessionCreateRefusal } from '../../../../../../shared/agent-session/failures/agent-session-definitive-refusal'
 import type { AgentMessageSource } from '../../../../../../shared/agent-session/journal/agent-session-message-source'
 import { readAgentSessionFailureFact } from '../../../../../../shared/agent-session/failures/agent-session-failure'
@@ -123,6 +124,8 @@ export async function createStructuredWorkerSession(args: {
   })
   let created: Awaited<ReturnType<typeof createStructuredAgentSessionForWorktree>> | undefined
   try {
+    const { agent, launcherOptions } = structuredLaunchProviderFor(args.agent)
+    const options = launcherOptions ? { ...args.options, ...launcherOptions } : args.options
     created = await createStructuredAgentSessionForWorktree({
       runtime: args.runtime,
       ensureHost: async () => {
@@ -138,10 +141,10 @@ export async function createStructuredWorkerSession(args: {
         payloadFingerprint: ''
       },
       worktree: `id:${args.worktreeId}`,
-      agent: args.agent,
+      agent,
       // Absent, the host seeds the user's saved selection — the same fallback a chat gets.
-      ...(args.options ? { options: args.options } : {}),
-      ...(structuredWorkerModelReplacesSavedSelection(args.agent, args.options?.model)
+      ...(options ? { options } : {}),
+      ...(structuredWorkerModelReplacesSavedSelection(agent, args.options?.model)
         ? { optionsMode: 'replace-model-selection' as const }
         : {}),
       // Dispatching a worker is background work; it must not pull the surface away from the user.

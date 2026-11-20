@@ -76,7 +76,7 @@ export async function discoverModelsLocal(
     input.options.wslDistro ? 'linux' : process.platform
   )
   const attempt = await runClaudeBackgroundAttempts({
-    agentId: input.agentId,
+    agentId: input.agentId === 'ccb' ? 'claude' : input.agentId,
     run: (strictMcp): ReturnType<typeof discoverModelsOnce> => {
       const rebuilt = strictMcp
         ? planned
@@ -126,7 +126,7 @@ async function discoverModelsOnce(
           commandEnv: plan.env,
           wslDistro: input.options.wslDistro,
           stdinMode: plan.stdinPayload === null && !appServer ? 'ignore' : 'pipe',
-          useCwdForNative: false
+          useCwdForNative: input.agentId === 'ccb'
         })
         if (appServer && child.stdin) {
           const stdin = child.stdin

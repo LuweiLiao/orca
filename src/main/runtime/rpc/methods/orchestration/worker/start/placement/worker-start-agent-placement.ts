@@ -255,6 +255,7 @@ function workerSurfaceFactory(
     })
   }
   return {
+    launcherChats: true,
     createStructuredSession: async ({ worktreeId }) => {
       recordSurfaceStage(worktreeId)
       const session = await createStructuredWorkerSessionForWorktree({

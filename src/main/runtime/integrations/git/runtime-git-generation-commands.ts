@@ -271,11 +271,10 @@ export class RuntimeGitGenerationCommands {
       return { success: false, error: localEnv.error }
     }
     const { wslDistro } = localGitOptionsForTarget(target)
-    return discoverCommitMessageModelsLocal(
-      typedAgentId,
-      localEnv.env,
-      agentCommandOverride,
-      wslDistro ? { cwd: target.worktree.path, wslDistro } : undefined
-    )
+    // ccb's probe runs in the workspace, where its own config lives.
+    return discoverCommitMessageModelsLocal(typedAgentId, localEnv.env, agentCommandOverride, {
+      cwd: target.worktree.path,
+      ...(wslDistro ? { wslDistro } : {})
+    })
   }
 }

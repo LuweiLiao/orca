@@ -102,7 +102,7 @@ export function planModelDiscovery(
   const args =
     'listing' in modelDiscovery
       ? CODEX_SHORT_LIVED_PROBE_APP_SERVER_ARGS
-      : spec.id === 'claude'
+      : spec.id === 'claude' || spec.id === 'ccb'
         ? buildClaudeModelListArgs(strictMcp, command.prefixArgs)
         : modelDiscovery.args
   return {
