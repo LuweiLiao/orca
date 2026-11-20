@@ -7,6 +7,7 @@ import { NativeChatFindQueryContext } from './viewport/find/native-chat-find-que
 import { NativeChatSessionHistoryScopeContext } from './native-chat-session-history-scope'
 import { NativeChatLinkClickContext } from './links/actions/native-chat-link-click-context'
 import type { NativeChatSurfaceState } from './use-native-chat-surface'
+import { NativeChatAnnotationComposerContext } from './annotations/native-chat-annotation-composer-context'
 
 /** Every chat screen's root: the surface's handlers, appearance, context menu, link popover, and
  *  the link handler its rows read, and the Session History its composer's `/resume` opens. */
@@ -39,7 +40,9 @@ export function NativeChatSurface({
       <NativeChatLinkClickContext value={surface.onLinkClick}>
         <NativeChatSessionHistoryScopeContext.Provider value={surface.sessionHistory}>
           <NativeChatFindQueryContext value={surface.find.isOpen ? surface.find.query : ''}>
-            {children}
+            <NativeChatAnnotationComposerContext value={surface.annotationComposerProps}>
+              {children}
+            </NativeChatAnnotationComposerContext>
           </NativeChatFindQueryContext>
         </NativeChatSessionHistoryScopeContext.Provider>
       </NativeChatLinkClickContext>

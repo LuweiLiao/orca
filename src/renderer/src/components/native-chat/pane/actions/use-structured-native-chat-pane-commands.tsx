@@ -11,6 +11,7 @@ import type { NativeChatSurfaceMenu } from '../../use-native-chat-surface'
 import { runNativeChatSplitTarget } from '../routing/native-chat-layout-actions'
 import type { NativeChatMessage } from '../../../../../../shared/native-chat/native-chat-types'
 import type { NativeChatComposerHandle } from '../../composer/native-chat-composer-types'
+import { structuredNativeChatAnnotationScopeKey } from '../../annotations/native-chat-annotation-scope'
 
 /** A structured chat's own menu rows and split target, for its chat surface. */
 export function useStructuredNativeChatPaneCommands({
@@ -27,7 +28,11 @@ export function useStructuredNativeChatPaneCommands({
   ownerWorktreeId: string | null
   composerRef: React.RefObject<NativeChatComposerHandle | null>
   rewind?: NativeChatSurfaceMenu['rewind']
-}): { menu: NativeChatSurfaceMenu; onSplit: (shortcut: NativeChatPaneShortcut) => boolean } {
+}): {
+  menu: NativeChatSurfaceMenu
+  onSplit: (shortcut: NativeChatPaneShortcut) => boolean
+  annotationScopeKey: string
+} {
   const { tabId, groupId, isVisible, sessionId, target } = pane
   const terminalPaneActions = pane.contextMenuActions
   const focusSource = useCallback(() => composerRef.current?.focus(), [composerRef])
@@ -77,5 +82,9 @@ export function useStructuredNativeChatPaneCommands({
         ? { tabId, worktreeId: ownerWorktreeId, groupId, sessionId }
         : undefined
   }
-  return { menu, onSplit }
+  return {
+    menu,
+    onSplit,
+    annotationScopeKey: structuredNativeChatAnnotationScopeKey(target, sessionId)
+  }
 }

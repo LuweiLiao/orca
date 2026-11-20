@@ -32,6 +32,8 @@ export function nativeChatComposerSendState(
     draft: string
     messageDelivery: boolean
     imageAttachments: readonly NativeChatComposerImageAttachment[]
+    /** Saved annotations count as a draft: Send delivers them. */
+    hasAnnotations?: boolean
     pastedTextSaving: boolean
     disabled: boolean
     structuredTransport:
@@ -84,7 +86,8 @@ export function nativeChatComposerSendState(
       ) &&
       !structuredAgentSessionCommandChangesConversation(input.draft, input.agent))
   const draftHeld = localHold || (hostHold && !runsWhileHostHolds)
-  const hasDraft = input.draft.trim() !== '' || input.imageAttachments.length > 0
+  const hasDraft =
+    input.draft.trim() !== '' || input.imageAttachments.length > 0 || input.hasAnnotations === true
   // Like Enter, a typed draft sends while the agent works; only an empty one offers Stop.
   const sendButtonDisabled = input.editSession
     ? sendHeld || !input.editSession.canSave

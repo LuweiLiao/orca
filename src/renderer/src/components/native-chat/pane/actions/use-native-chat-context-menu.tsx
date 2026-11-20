@@ -53,6 +53,7 @@ import type { NativeChatFileLinkContext } from '../../links/actions/native-chat-
 import type { NativeChatMessageListHandle } from '../../messages/actions/use-native-chat-reveal-latest'
 import type { NativeChatRewindSurface } from '../../messages/actions/use-native-chat-rewind-host'
 import { useNativeChatStandaloneMenu } from './use-native-chat-standalone-menu'
+import type * as Annotations from '../../annotations/use-native-chat-context-menu-annotations'
 import type { NativeChatSessionMenuSource } from './use-native-chat-session-context-actions'
 
 type NativeChatContextMenuState = {
@@ -63,6 +64,7 @@ type NativeChatContextMenuState = {
   image?: NativeChatCopyImage
   target: NativeChatContextMenuTarget
   returnFocusTo: Element | null
+  annotation?: Annotations.NativeChatContextMenuAnnotation
 }
 
 export type UseNativeChatContextMenuArgs = {
@@ -81,6 +83,8 @@ export type UseNativeChatContextMenuArgs = {
   chatSession?: NativeChatSessionMenuSource
   /** A structured chat tab's Orca session ID; a chat in a terminal pane is that terminal's agent. */
   resolveOrcaSessionId?: () => Promise<string | null>
+  /** Where this chat keeps annotations: its selection and menu offer to start one. */
+  annotations?: Annotations.NativeChatContextMenuAnnotations
 } & NativeChatContextMenuTargetArgs
 
 export type NativeChatContextMenuTargetArgs = {
@@ -152,7 +156,8 @@ export function useNativeChatContextMenu({
   messageListRef,
   fileLinkContext = null,
   rewind,
-  onFind
+  onFind,
+  annotations
 }: UseNativeChatContextMenuArgs): {
   onContextMenuCapture: MouseEventHandler<HTMLElement>
   onPointerDownCapture: PointerEventHandler<HTMLElement>
@@ -211,6 +216,7 @@ export function useNativeChatContextMenu({
         window.getSelection()?.removeAllRanges()
       }
       setState({
+        annotation: annotations?.capture(),
         open: true,
         point: { x: event.clientX, y: event.clientY },
         selectedText: missesSelection ? '' : selectedText,
@@ -225,7 +231,7 @@ export function useNativeChatContextMenu({
         })
       })
     },
-    [composerRef, enabled, fileLinkContext, messageListRef, rootRef]
+    [annotations, composerRef, enabled, fileLinkContext, messageListRef, rootRef]
   )
 
   const setOpen = useCallback((open: boolean) => {
@@ -250,6 +256,7 @@ export function useNativeChatContextMenu({
           rootRef={rootRef}
           composerRef={composerRef}
           enabled={enabled && !(state.open && hasItems)}
+          onAnnotate={annotations?.begin}
         />
         <DropdownMenuTrigger asChild>
           <button
@@ -301,6 +308,7 @@ export function useNativeChatContextMenu({
               composerRef.current?.appendText(formatNativeChatQuote(text))
             }}
             rewind={rewind}
+            onAnnotate={annotations?.actionFor(state.annotation)}
           />
           {state.canPaste ? (
             <DropdownMenuItem onSelect={() => actions.onPaste()}>

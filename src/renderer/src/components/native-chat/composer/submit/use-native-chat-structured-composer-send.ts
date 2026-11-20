@@ -15,6 +15,11 @@ import {
 } from '../editor/native-chat-prompt-document'
 import type { StructuredAgentSessionAttachmentPreparation } from '../../session/structured/delivery/structured-agent-session-send-slot'
 import { useCallback } from 'react'
+import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
+import {
+  nativeChatAnnotationSendHooks,
+  prepareNativeChatAnnotatedMessage
+} from '../../annotations/native-chat-annotation-delivery'
 import { completeNativeChatStructuredUserAction } from './native-chat-structured-user-action'
 import {
   isStructuredAgentSessionHostCommand,
@@ -73,6 +78,7 @@ export function useNativeChatStructuredComposerSend({
   setDraft,
   setCaret
 }: UseNativeChatStructuredComposerSendArgs): NativeChatStructuredComposerSend {
+  const { annotationScopeKey } = useNativeChatAnnotationComposer()
   return useCallback<NativeChatStructuredComposerSend>(
     async (text, attachments = imageAttachments, intent): Promise<boolean> => {
       // Picked commands must also wait for pending attachments to acquire paths.
@@ -202,15 +208,27 @@ export function useNativeChatStructuredComposerSend({
       }
       const prepareAttachments: StructuredAgentSessionAttachmentPreparation | undefined =
         stagedInput ? (input) => stagedInput.prepare(input, structuredTransport) : undefined
+      // Annotations travel under the message; a returned message hands them back to the review.
+      const annotated = hostCommand
+        ? null
+        : prepareNativeChatAnnotatedMessage(annotationScopeKey, text)
+      const annotationHooks = nativeChatAnnotationSendHooks(annotated)
       return dispatchNativeChatStructuredComposerText(
         structuredTransport,
-        text,
+        annotated?.text ?? text,
         attachments,
         promptSkillRefs(submission.draft?.document),
         {
           ...intent,
-          ...(prepareAttachments
-            ? { prepareAttachments, onSettled: () => stagedInput?.release() }
+          ...(annotationHooks.onCreated ? { onCreated: annotationHooks.onCreated } : {}),
+          ...(prepareAttachments ? { prepareAttachments } : {}),
+          ...(prepareAttachments || annotationHooks.onCreated
+            ? {
+                onSettled: (outcome) => {
+                  stagedInput?.release()
+                  annotationHooks.onSettled(outcome)
+                }
+              }
             : {})
         },
         consume
@@ -262,6 +280,7 @@ export function useNativeChatStructuredComposerSend({
     },
     [
       agent,
+      annotationScopeKey,
       clearSkillOrigin,
       draftScopeKey,
       imageAttachments,

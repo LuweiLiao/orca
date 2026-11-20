@@ -19,6 +19,9 @@ const buttonVariants = cva(
         destructive:
           'bg-destructive text-white hover:bg-destructive/90 focus-visible:border-destructive focus-visible:ring-destructive/40 dark:bg-destructive/60 dark:focus-visible:ring-destructive/50',
         outline: outlineButtonClasses,
+        // A chat annotation's numbered marker over the text it notes.
+        'annotation-marker':
+          'border border-background bg-chat-annotation text-chat-annotation-foreground shadow-xs hover:bg-chat-annotation',
         'orchestration-tab': `${outlineButtonClasses} border-(--crew-border) bg-(--crew-surface) text-card-foreground shadow-floating dark:border-(--crew-border) dark:bg-(--crew-surface) dark:hover:bg-accent dark:hover:text-accent-foreground`,
         // An outline that must read as a control on a card: its border reaches 3:1 in both themes.
         'outline-strong': `${outlineButtonClasses} border-muted-foreground/75 hover:border-muted-foreground dark:border-muted-foreground/60 dark:hover:border-muted-foreground`,

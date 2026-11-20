@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type RefObject } from 'react'
-import { Quote } from 'lucide-react'
+import { MessageSquarePlus, Quote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { addViewportSizeChangeListener } from '@/lib/window-activity/viewport-size-change-listener'
@@ -10,6 +10,7 @@ const DOUBLE_CLICK_SETTLE_MS = 500
 
 type QuoteRequest = {
   text: string
+  range: Range
   anchor: { getBoundingClientRect: () => DOMRect; contextElement?: Element }
 }
 
@@ -21,7 +22,9 @@ export function SelectionAddToChatPopover({
   enabled,
   readQuotable,
   onSelectionSettled,
-  onAdd
+  onAdd,
+  annotate,
+  addDisabled
 }: {
   rootRef: RefObject<HTMLElement | null>
   enabled: boolean
@@ -30,6 +33,10 @@ export function SelectionAddToChatPopover({
   onSelectionSettled?: (root: HTMLElement) => void
   /** `button` is where the offer was clicked, for a surface that opens a menu from it. */
   onAdd: (text: string, button: DOMRect) => void
+  /** A second action that notes the selected text where it stands, such as a chat annotation. */
+  annotate?: { label: string; onAnnotate: (range: Range) => void }
+  /** Read when drawn: the selection can still be annotated while the composer takes no text. */
+  addDisabled?: () => boolean
 }): React.JSX.Element {
   const t = useTranslate()
   const [request, setRequest] = useState<QuoteRequest | null>(null)
@@ -85,6 +92,7 @@ export function SelectionAddToChatPopover({
         const dy = (point?.y ?? end.top) - held.top
         show({
           text,
+          range,
           anchor: {
             getBoundingClientRect: () => {
               const now = range.getBoundingClientRect()
@@ -146,10 +154,24 @@ export function SelectionAddToChatPopover({
           // Never takes focus itself, so it must not keep the composer from taking it.
           data-focus-behavior="page"
         >
-          <div className="p-0.5">
+          <div className="flex items-center gap-1 p-0.5">
+            {annotate ? (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  setRequest(null)
+                  annotate.onAnnotate(request.range)
+                }}
+              >
+                <MessageSquarePlus />
+                {annotate.label}
+              </Button>
+            ) : null}
             <Button
               variant="ghost"
               size="xs"
+              disabled={addDisabled?.() === true}
               onClick={(event) => {
                 // Taken or not (the composer may have locked since), the offer is spent.
                 setRequest(null)

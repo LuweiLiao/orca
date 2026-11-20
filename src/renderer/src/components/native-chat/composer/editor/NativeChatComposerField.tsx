@@ -17,6 +17,7 @@ import { useLatestHandler } from '@/lib/use-latest-handler'
 import type { NativeChatComposerFieldProps } from '../../native-chat-composer-field-props'
 import { imeComposedSegment } from '@/lib/text-input/ime/ime-composed-segment'
 import { acceptNativeChatPromptSuggestion } from './native-chat-prompt-suggestion-accept'
+import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
 
 function noop(): void {}
 
@@ -81,6 +82,7 @@ export function NativeChatComposerField({
   workspaceFooter
 }: NativeChatComposerFieldProps): React.JSX.Element {
   const t = useTranslate()
+  const annotationComposer = useNativeChatAnnotationComposer()
   const draftNotSaved = useNativeChatComposerDraftUnsaved(draftScopeKey)
   const glowing = useNativeChatComposerGlow(draftScopeKey)
   const optionCount =
@@ -238,6 +240,7 @@ export function NativeChatComposerField({
               glowing && 'native-chat-composer-glow'
             )}
           >
+            {annotationComposer.annotations}
             {imageAttachments.length > 0 ? (
               <div className="mb-2 flex flex-wrap gap-2 px-1 pt-1.5">
                 {imageAttachments.map((attachment, index) => (

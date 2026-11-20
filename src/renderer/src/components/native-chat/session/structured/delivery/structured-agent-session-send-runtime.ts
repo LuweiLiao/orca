@@ -19,6 +19,7 @@ import {
   updateStructuredAgentSessionPendingSend,
   type StructuredAgentSessionPendingSend
 } from './structured-agent-session-pending-sends'
+import { structuredNativeChatAnnotationScopeKey } from '../../../annotations/native-chat-annotation-scope'
 
 export const STRUCTURED_AGENT_SESSION_SEND_BUDGET_MS = 30_000
 
@@ -54,14 +55,16 @@ function returnToComposer(
   expiredUploadIds?: ReadonlySet<string>
 ): boolean {
   try {
-    handBackStructuredAgentSessionMessage(
+    const target = runtimes.get(entry.clientMessageId)?.target
+    // False when the draft could not be saved durably, so the caller can say so.
+    return handBackStructuredAgentSessionMessage(
       entry.sessionId,
       entry.clientMessageId,
       entry.body,
       entry.imageConnectionIds,
-      expiredUploadIds
+      expiredUploadIds,
+      target ? structuredNativeChatAnnotationScopeKey(target, entry.sessionId) : undefined
     )
-    return true
   } catch (error) {
     console.error('[native-chat-send] a message could not be put back in the composer', error)
     return false

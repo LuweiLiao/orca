@@ -1,4 +1,14 @@
-import { Copy, ExternalLink, FileText, Globe, Quote, Search, Trash2, Undo2 } from 'lucide-react'
+import {
+  Copy,
+  ExternalLink,
+  FileText,
+  Globe,
+  MessageSquarePlus,
+  Quote,
+  Search,
+  Trash2,
+  Undo2
+} from 'lucide-react'
 import {
   useNativeChatRewindConfirm,
   useNativeChatSlackMirrorContext
@@ -10,6 +20,7 @@ import type { LinkAction } from '@/components/link-actions/link-action-request'
 import { useTranslate } from '@/i18n/use-translate'
 import type { NativeChatContextMenuTarget } from './native-chat-context-menu-target'
 import type { NativeChatRewindSurface } from '../../messages/actions/use-native-chat-rewind-host'
+import { nativeChatAnnotationCopy } from '../../annotations/native-chat-annotation-copy'
 
 function copyText(text: string): void {
   // Best-effort, as the row Copy buttons are: the clipboard can reject when unfocused.
@@ -20,11 +31,14 @@ function copyText(text: string): void {
 export function NativeChatContextMenuTargetItems({
   target,
   onQuote,
-  rewind
+  rewind,
+  onAnnotate
 }: {
   target: NativeChatContextMenuTarget
   onQuote: (text: string) => void
   rewind: NativeChatRewindSurface | undefined
+  /** Present when the right-click held a selection this chat can annotate. */
+  onAnnotate?: () => void
 }): React.JSX.Element {
   const t = useTranslate()
   const { quoteText, link, codeText, messageText, rewindItemId, slackPostedItemId } = target
@@ -32,6 +46,12 @@ export function NativeChatContextMenuTargetItems({
   const linkRows = link ? [link.primary, link.alternate, ...(link.secondaryActions ?? [])] : []
   return (
     <>
+      {onAnnotate ? (
+        <DropdownMenuItem onSelect={onAnnotate}>
+          <MessageSquarePlus />
+          {nativeChatAnnotationCopy().add}
+        </DropdownMenuItem>
+      ) : null}
       {quoteText ? (
         <DropdownMenuItem onSelect={() => onQuote(quoteText)}>
           <Quote />

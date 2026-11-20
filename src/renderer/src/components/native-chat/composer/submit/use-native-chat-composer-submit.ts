@@ -34,6 +34,7 @@ import {
   admitNativeChatPastedText,
   resolveNativeChatPastedText
 } from '../../paste/native-chat-composer-pasted-text-references'
+import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
 
 export type NativeChatComposerGoalMode = {
   /** True while the draft is an objective rather than a message. */
@@ -70,8 +71,11 @@ export function useNativeChatComposerSubmit(args: {
   send: (intent?: NativeChatComposerSendIntent) => void
   goalMode: NativeChatComposerGoalMode
   messageDelivery: boolean
+  /** Saved annotations make an empty draft sendable: they are the message. */
+  hasAnnotations: boolean
 } {
   const { caret, disabled, draft, draftScopeKey, imageAttachments, sendPty, sendStructured } = args
+  const { hasAnnotations } = useNativeChatAnnotationComposer()
   const held = args.held === true
   const {
     agent,
@@ -227,7 +231,12 @@ export function useNativeChatComposerSubmit(args: {
         }
       } else if (!structuredTransport) {
         sendPty()
-      } else if (!disabled && draft.trim() === '' && imageAttachments.length === 0) {
+      } else if (
+        !disabled &&
+        draft.trim() === '' &&
+        imageAttachments.length === 0 &&
+        !hasAnnotations
+      ) {
         submitEmpty?.()
       } else if (!disabled) {
         if (intent) {
@@ -246,6 +255,7 @@ export function useNativeChatComposerSubmit(args: {
       draftScopeKey,
       held,
       imageAttachments,
+      hasAnnotations,
       sendPty,
       sendStructured,
       setCaret,
@@ -279,5 +289,5 @@ export function useNativeChatComposerSubmit(args: {
         structuredTransport.mcpPanel !== undefined
       )
     )
-  return { send, goalMode, messageDelivery }
+  return { send, goalMode, messageDelivery, hasAnnotations }
 }

@@ -28,9 +28,10 @@ import {
   type NativeChatPaneShortcut
 } from './pane/routing/native-chat-pane-shortcut'
 import type { NativeChatFileLinkContext } from './links/actions/native-chat-file-link-context'
+import { useNativeChatContextMenuAnnotations } from './annotations/use-native-chat-context-menu-annotations'
 
 export type NativeChatSurfaceTranscript = Pick<NativeChatMessageListHandle, 'revealFindMatch'> &
-  Partial<Pick<NativeChatMessageListHandle, 'messageCopyText'>>
+  Partial<Pick<NativeChatMessageListHandle, 'messageCopyText' | 'revealAnnotationMessage'>>
 
 /** A screen's own context-menu rows; the surface supplies find, paste, and the transcript targets. */
 export type NativeChatSurfaceMenu = Omit<
@@ -67,6 +68,8 @@ export type NativeChatSurfaceArgs = {
   onKeyDown?: (event: ReactKeyboardEvent<HTMLDivElement>) => void
   /** What the composer's `/resume` opens; a conversation's own history by default. */
   sessionHistory?: NativeChatSessionHistoryScope
+  /** The conversation whose annotations this chat keeps; absent where it keeps none. */
+  annotationScopeKey?: string
 }
 
 /** Everything a chat screen's root owns, identical for every chat: find, links, context menu,
@@ -87,6 +90,7 @@ export function useNativeChatSurface({
   onSplit,
   onPointerDownCapture: screenPointerDownCapture,
   onKeyDown,
+  annotationScopeKey,
   sessionHistory = 'conversation'
 }: NativeChatSurfaceArgs) {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -110,7 +114,15 @@ export function useNativeChatSurface({
     surfaceReady
   })
   const onPaste = useNativeChatPasteBridge({ rootRef, composerRef, questionAnswerInputRef })
+  const annotations = useNativeChatContextMenuAnnotations({
+    scopeKey: annotationScopeKey,
+    rootRef,
+    composerRef,
+    messageListRef: transcriptRef,
+    enabled: isVisible
+  })
   const contextMenu = useNativeChatContextMenu({
+    annotations,
     fileLinkContext,
     ...screenMenu,
     rootRef,
@@ -162,6 +174,7 @@ export function useNativeChatSurface({
     linkActionRequest,
     closeLinkActions,
     menu: contextMenu.menu,
+    annotationComposerProps: annotations.composerProps,
     sessionHistory
   }
 }

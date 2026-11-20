@@ -9,6 +9,7 @@ import { useNativeChatRetainedSession } from './session/terminal/read/use-native
 import { selectNativeChatViewState } from './session/status/native-chat-view-state'
 import { NativeChatSubagentTranscripts } from './subagents/NativeChatSubagentTranscripts'
 import { closeNativeChatSubagentOnEscape } from './subagents/native-chat-open-subagent'
+import { terminalNativeChatAnnotationScopeKey } from './annotations/native-chat-annotation-scope'
 import {
   useNativeChatInteractiveSendReveal,
   useNativeChatRevealLatest
@@ -279,7 +280,8 @@ export function NativeChatResolvedView({
         event.stopPropagation()
       }
     },
-    onKeyDown: (event) => closeNativeChatSubagentOnEscape(event, paneKey)
+    onKeyDown: (event) => closeNativeChatSubagentOnEscape(event, paneKey),
+    annotationScopeKey: terminalNativeChatAnnotationScopeKey(runtimeEnvironmentId, agent, sessionId)
   })
 
   return (

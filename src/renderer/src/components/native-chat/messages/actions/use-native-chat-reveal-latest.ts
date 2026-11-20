@@ -60,6 +60,8 @@ export type NativeChatMessageListHandle = {
   revealFindMatch: (match: Range, bar: DOMRectReadOnly | null) => void
   /** What the row drawing this message copies from its Copy button; null when none draws it. */
   messageCopyText: (messageId: string) => string | null
+  /** Asks the transcript to bring a message into view, paging older history in; false when it cannot. */
+  revealAnnotationMessage?: (messageId: string) => boolean
 }
 
 /** This pane's own transcript; an unmounted pane's reveal reaches nothing. */
@@ -95,13 +97,15 @@ export function useNativeChatMessageListHandle(
     scrollToBottom,
     onSent,
     revealFindMatch,
-    slots
+    slots,
+    revealMessage
   }: Pick<NativeChatMessageListHandle, 'readerAtEnd' | 'revealFindMatch'> & {
     beginNavigation: () => void
     scrollToBottom: (reason: 'send') => void
     /** The reader answered, whether or not the view moves. */
     onSent: () => void
     slots: readonly NativeChatTranscriptSlot[]
+    revealMessage?: (messageId: string) => void
   }
 ): void {
   const revealLatest = useCallback(
@@ -121,8 +125,16 @@ export function useNativeChatMessageListHandle(
       revealLatest,
       readerAtEnd,
       revealFindMatch,
-      messageCopyText: (messageId) => nativeChatSlotCopyText(slots, messageId)
+      messageCopyText: (messageId) => nativeChatSlotCopyText(slots, messageId),
+      ...(revealMessage
+        ? {
+            revealAnnotationMessage: (messageId: string) => {
+              revealMessage(messageId)
+              return true
+            }
+          }
+        : {})
     }),
-    [readerAtEnd, revealLatest, revealFindMatch, slots]
+    [readerAtEnd, revealLatest, revealFindMatch, slots, revealMessage]
   )
 }

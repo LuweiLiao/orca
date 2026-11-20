@@ -31,6 +31,8 @@ import {
   answerNativeChatCommandInComposer,
   type NativeChatLocalCommandAnswer
 } from '../../session/options/terminal/use-native-chat-local-command-answer'
+import { prepareNativeChatAnnotatedMessage } from '../../annotations/native-chat-annotation-delivery'
+import { useNativeChatAnnotationComposer } from '../../annotations/native-chat-annotation-composer-context'
 
 export function useNativeChatPtyComposerSend(args: {
   agent: AgentType
@@ -59,13 +61,14 @@ export function useNativeChatPtyComposerSend(args: {
   clearImageAttachments: () => void
   setNotice: (notice: string | null) => void
 }): (retry?: { text: string; imagePaths?: string[] }) => boolean {
+  const { annotationScopeKey } = useNativeChatAnnotationComposer()
   return useCallback(
     (retry) => {
       let text = retry?.text ?? args.draft
       const imagePaths =
         retry?.imagePaths ??
         (retry ? [] : args.imageAttachments.map((attachment) => attachment.path))
-      if ((text.trim() === '' && imagePaths.length === 0) || args.disabled) {
+      if (args.disabled) {
         return false
       }
       // Why: keep option-command and prompt writes from interleaving on the PTY input line.
@@ -87,6 +90,15 @@ export function useNativeChatPtyComposerSend(args: {
       text = retry
         ? resolveNativeChatPastedText(args.draftScopeKey, text)
         : serializeNativeChatAgentReferences(text, submitted.document, submitted.pastedTextFiles)
+      // A retry resends its own text; annotations ride only the composer's first send of a message.
+      const annotated =
+        retry || classification === 'command'
+          ? null
+          : prepareNativeChatAnnotatedMessage(annotationScopeKey, text)
+      text = annotated?.text ?? text
+      if (text.trim() === '' && imagePaths.length === 0) {
+        return false
+      }
       const { sendOptions: launchSendOptions } = resolveNativeChatLaunchDraftSend({
         launchDraft: args.launchDraft,
         launchDraftResolved: args.launchDraftResolved,
@@ -98,7 +110,7 @@ export function useNativeChatPtyComposerSend(args: {
         return false
       }
       let pendingId: string | undefined
-      const sendOptions =
+      const echoOptions =
         args.agent === 'claude' && classification === 'chat'
           ? {
               ...launchSendOptions,
@@ -114,6 +126,17 @@ export function useNativeChatPtyComposerSend(args: {
               }
             }
           : launchSendOptions
+      // The terminal acknowledged the write: the annotations it carried are delivered.
+      const sendOptions = annotated?.hasAnnotations
+        ? {
+            ...echoOptions,
+            onDeliverySettled: (acknowledged: boolean) => {
+              if (acknowledged) {
+                annotated.consume()
+              }
+            }
+          }
+        : echoOptions
       let pendingHandle: NativeChatSendHandle | null = null
       // Why: slash-like text must not silently drop its attached images.
       if (classification !== 'chat' && imagePaths.length === 0) {
@@ -176,6 +199,6 @@ export function useNativeChatPtyComposerSend(args: {
       }
       return true
     },
-    [args]
+    [args, annotationScopeKey]
   )
 }

@@ -9,6 +9,7 @@ import {
   promptTextContent,
   seedPromptSkillReferences
 } from '../../../composer/editor/native-chat-prompt-document-text'
+import { restoreNativeChatAnnotationMessage } from '../../../annotations/native-chat-annotation-delivery'
 
 export function structuredAgentSessionMessageText(body: AgentJournalMessageItem): string {
   return body.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')
@@ -24,7 +25,9 @@ export function returnMessageToComposer(
   imageConnectionIds?: readonly (string | null)[],
   /** Uploads the host no longer stores: their chips come back asking to be attached again. */
   expiredUploadIds?: ReadonlySet<string>,
-  skills?: AgentJournalMessageItem['skills']
+  skills?: AgentJournalMessageItem['skills'],
+  /** The message's text with the annotations it carried taken back into the annotation review. */
+  restoredText?: string
 ): boolean {
   // Its `[Image #k]` markers become chips for its k-th image, by the ids its images get below.
   const imageIds = blocks.flatMap((block, index) =>
@@ -47,7 +50,7 @@ export function returnMessageToComposer(
       : [{ id, path: block.path, ...(connectionId ? { connectionId } : {}) }]
   })
   const text = promptMarkersToImageReferences(
-    structuredAgentSessionMessageText({ kind: 'message', role: 'user', blocks }),
+    restoredText ?? structuredAgentSessionMessageText({ kind: 'message', role: 'user', blocks }),
     imageIds
   )
   if (text === '' && images.length === 0) {
@@ -69,7 +72,8 @@ export function handBackStructuredAgentSessionMessage(
   clientMessageId: string,
   body: AgentJournalMessageItem,
   imageConnectionIds?: readonly (string | null)[],
-  expiredUploadIds?: ReadonlySet<string>
+  expiredUploadIds?: ReadonlySet<string>,
+  annotationScopeKey?: string
 ): boolean {
   return returnMessageToComposer(
     structuredAgentSessionDraftScopeKey(sessionId),
@@ -77,6 +81,13 @@ export function handBackStructuredAgentSessionMessage(
     body.blocks,
     imageConnectionIds,
     expiredUploadIds,
-    body.skills
+    body.skills,
+    annotationScopeKey
+      ? restoreNativeChatAnnotationMessage(
+          annotationScopeKey,
+          clientMessageId,
+          structuredAgentSessionMessageText(body)
+        )
+      : undefined
   )
 }

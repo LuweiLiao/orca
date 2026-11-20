@@ -95,6 +95,8 @@ export function NativeChatAssistantMessageRow({
       ref={rowRef}
       // The context menu offers Copy message only where the row's controls offer Copy.
       data-native-chat-message-id={showControls && words.length > 0 ? message.id : undefined}
+      // Annotations anchor to any reply's text, even one whose controls offer no Copy.
+      data-native-chat-annotation-message-id={isSystem ? undefined : message.id}
       data-native-chat-message-tone={isSystem ? 'faint' : undefined}
       className={cn(
         'group relative max-w-full select-text text-sm leading-relaxed text-chat-foreground',

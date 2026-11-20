@@ -21,6 +21,8 @@ import type { Translate } from '@/i18n/use-translate'
 import { structuredAgentLabel } from '@/lib/agent-session/launch/structured-agent-session-launch-label'
 import { useAppStore } from '@/store'
 import { nativeChatShowsPromptSuggestions } from '../../../../../../shared/native-chat/settings/native-chat-appearance-settings'
+import { useNativeChatAnnotationDelivery } from '../../annotations/use-native-chat-annotation-delivery'
+import { structuredNativeChatAnnotationScopeKey } from '../../annotations/native-chat-annotation-scope'
 
 function nativeChatSessionAttachmentNotReadyNotice(
   agent: AgentType,
@@ -112,6 +114,10 @@ export function useNativeChatStructuredComposerTransport(args: {
   const { revealLatest: onSubmitted, captureRevealLatest: captureAdmittedReveal } = args.reveal
   const { transportEnabled } = args
   const sendBlockedReason = args.sendBlockedReason ?? null
+  useNativeChatAnnotationDelivery(
+    structuredNativeChatAnnotationScopeKey(props.target, props.sessionId),
+    { cards: controller.queuedMessages.cards, submissions: controller.submissions }
+  )
   const hostAgent = useHostStructuredAgent(props.target, props.agent)
   const acceptsImages = structuredAgentAcceptsImages(
     hostAgent,
