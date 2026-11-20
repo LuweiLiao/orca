@@ -30,7 +30,8 @@ export function NativeChatSurface({
       {...surface.rootProps}
       className={cn(
         NATIVE_CHAT_APPEARANCE_ROOT_CLASS,
-        'flex h-full min-h-0 w-full flex-col focus:outline-none'
+        // Named so the docks below the transcript can follow an open conversation sidebar.
+        '@container/native-chat flex h-full min-h-0 w-full flex-col focus:outline-none'
       )}
       style={surface.appearance}
       data-native-chat-scheme={surface.appearance.colorScheme}

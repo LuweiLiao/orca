@@ -127,3 +127,18 @@
     --composer-gutter: calc(var(--spacing) * 4);
   }
 }
+
+/* With the conversation sidebar holding its column, the docks and composer below the transcript
+   (and the task list docked inside it) centre in the width it leaves; the Find bar moves clear. */
+@container native-chat (min-width: 48rem) {
+  [data-native-chat-root]:has([data-native-chat-sidebar-open='true'])
+    > :has([data-native-chat-sidebar-open='true'])
+    ~ *,
+  [data-native-chat-sidebar-open='true'] ~ * {
+    margin-right: calc(var(--spacing) * 72);
+  }
+
+  [data-native-chat-root]:has([data-native-chat-sidebar-open='true']) [data-native-chat-find-bar] {
+    right: calc(var(--spacing) * 76);
+  }
+}
