@@ -125,6 +125,17 @@ export async function installOnJournal(
       onState: delivery.reconcile
     })
   }
+  const onTurnCompletion = deps.onTurnCompletion
+  if (onTurnCompletion) {
+    host.subscribeTurnCompletions({
+      id: 'host-turn-completion-mail',
+      emit: (event) => {
+        if (event.type === 'completion') {
+          onTurnCompletion(event.completion)
+        }
+      }
+    })
+  }
   const turnEnded = deps.turnContext?.turnEnded
   if (turnEnded) {
     const installed = host

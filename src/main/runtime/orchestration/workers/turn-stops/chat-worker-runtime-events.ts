@@ -1,5 +1,7 @@
 import type { OrcaRuntimeWithGetPtyRecordForPaneKey } from '../../mailbox/routing/terminal-pane-mail-routing'
 import { escalateChatWorkerError } from './chat-worker-error-escalation'
+import { escalateChatWorkerUnreportedTurn } from './chat-worker-unreported-turn-escalation'
+import type { AgentSessionTurnCompletion } from '../../../../../shared/agent-session/view/agent-session-turn-completion-wire'
 import type {
   StructuredAgentSessionIdleDeath,
   StructuredAgentSessionRequestFailure
@@ -28,6 +30,11 @@ export abstract class RuntimeChatWorkerEvents extends RuntimeStructuredAgentHost
   onStructuredRequestFailureForErrorMail(failure: StructuredAgentSessionRequestFailure): void {
     void escalateChatWorkerError(failure, this.workerTurnStopReportDeps)
     this.botSessions.requestFailed(failure)
+  }
+
+  /** A chat worker whose turn ended without a report wakes the Run that dispatched it. */
+  onStructuredTurnCompletionForMail(completion: AgentSessionTurnCompletion): void {
+    escalateChatWorkerUnreportedTurn(completion, this.workerTurnStopReportDeps)
   }
 
   /** A chat worker whose provider died between turns tells the Run that dispatched it. */

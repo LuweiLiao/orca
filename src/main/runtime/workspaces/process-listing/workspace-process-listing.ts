@@ -280,6 +280,7 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends RuntimeChatWorkerEven
         this.prepareStructuredAgentLaunchAccountHome(record, launchDirectory),
       onRequestFailure: (failure) => this.onStructuredRequestFailureForErrorMail(failure),
       onIdleProviderDeath: (death) => this.onStructuredIdleProviderDeathForMail(death),
+      onTurnCompletion: (completion) => this.onStructuredTurnCompletionForMail(completion),
       // Structured chat has no CLI hooks; this projection drives first-work renaming.
       onSessionStatusChanged: (summary, options) => {
         this.crewChanges.notify(crewChatStatusChange(summary.sessionId))

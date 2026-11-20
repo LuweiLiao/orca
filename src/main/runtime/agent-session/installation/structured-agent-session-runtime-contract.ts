@@ -115,6 +115,10 @@ export type StructuredAgentSessionRuntimeDeps = StructuredAgentSessionTransportO
   assertNoTerminalWriter?: StructuredAgentSessionHostDeps['assertNoTerminalWriter']
   /** Host-owned phone delivery and reconciliation from the current journal projection. */
   attentionDelivery?: StructuredAttentionMobileDelivery
+  /** Every live settled turn, for host-side reactions such as orchestration mail. */
+  onTurnCompletion?: (
+    completion: Extract<AgentSessionTurnCompletionEvent, { type: 'completion' }>['completion']
+  ) => void
   /** Every live turn completion and pending prompt, with the host's status at that edge. */
   createTurnAttention?: () => {
     onTurnAttention: (

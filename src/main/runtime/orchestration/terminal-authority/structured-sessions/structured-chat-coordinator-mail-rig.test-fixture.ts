@@ -104,7 +104,12 @@ export function connectionFor(sessionId: string): FakeConnection {
   return connection
 }
 
-export async function settleTurn(sessionId: string, turnIndex: number): Promise<void> {
+export async function settleTurn(
+  sessionId: string,
+  turnIndex: number,
+  /** Codex's verdict on the end; absent leaves the outcome unknown. */
+  status?: 'completed'
+): Promise<void> {
   const connection = connectionFor(sessionId)
   const turn = connection.turns[turnIndex]!
   const turnId = `turn-${turnIndex + 1}`
@@ -119,7 +124,7 @@ export async function settleTurn(sessionId: string, turnIndex: number): Promise<
       content: [{ type: 'text', text: 'pointer' }]
     }
   })
-  notify('turn/completed', { turn: { id: turnId } })
+  notify('turn/completed', { turn: { id: turnId, ...(status ? { status } : {}) } })
   await host.flushStreamedEvents(sessionId)
 }
 
@@ -262,6 +267,7 @@ beforeEach(async () => {
     resolveEnvironment: async () => ({ PATH: '/usr/bin' }),
     ...scriptedCodexTransport(codex.openConnection),
     onRequestFailure: (failure) => runtime.onStructuredRequestFailureForErrorMail(failure),
+    onTurnCompletion: (completion) => runtime.onStructuredTurnCompletionForMail(completion),
     onSessionStatusChanged: (summary) => {
       runtime.onStructuredSessionStatusForMail(summary)
     },
