@@ -16,6 +16,17 @@ type QuoteRequest = {
 
 export type QuotableSelection = { text: string; range: Range }
 
+function selectionMovedSincePress(atPress: Range | null): boolean {
+  const selection = window.getSelection()
+  const range = selection?.rangeCount ? selection.getRangeAt(0) : null
+  return Boolean(
+    range &&
+    (!atPress ||
+      range.compareBoundaryPoints(Range.START_TO_START, atPress) !== 0 ||
+      range.compareBoundaryPoints(Range.END_TO_END, atPress) !== 0)
+  )
+}
+
 /** Offers "Add to chat" beside a settled selection inside `rootRef` that `readQuotable` accepts. */
 export function SelectionAddToChatPopover({
   rootRef,
@@ -52,6 +63,7 @@ export function SelectionAddToChatPopover({
       return
     }
     let selectionChanged = false
+    let selectionAtPress: Range | null = null
     let timer: number | undefined
     // The offered text, mirrored here so a selection change can compare it outside a state updater.
     let offered: string | null = null
@@ -69,6 +81,8 @@ export function SelectionAddToChatPopover({
       }
       close()
       selectionChanged = false
+      const selection = window.getSelection()
+      selectionAtPress = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null
     }
     // `point` is where the pointer was released; a keyboard selection is offered at its end.
     const offer = (point: { x: number; y: number } | null, delay = 0): void => {
@@ -106,6 +120,10 @@ export function SelectionAddToChatPopover({
     }
     const onMouseUp = (event: MouseEvent): void => {
       if (event.button === 0) {
+        // Chromium can report selectionchange after mouseup for a double or triple click.
+        if (selectionMovedSincePress(selectionAtPress)) {
+          selectionChanged = true
+        }
         offer(
           { x: event.clientX, y: event.clientY },
           event.detail === 2 ? DOUBLE_CLICK_SETTLE_MS : 0
