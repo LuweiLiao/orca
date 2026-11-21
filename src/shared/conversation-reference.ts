@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { AI_VAULT_AGENTS } from './ai-vault/contracts/ai-vault-types'
 import { parseExecutionHostId } from './execution-host/execution-host'
 

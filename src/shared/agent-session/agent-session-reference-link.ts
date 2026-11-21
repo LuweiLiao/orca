@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { isAgentSessionId } from './lifecycle/agent-session-record'
 import { SessionId } from '../rpc-contract/structured-agent-session/structured-agent-session-identifiers'
 

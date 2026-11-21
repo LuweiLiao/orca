@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import type { AgentSessionSlashCommand } from '../../agent-session-wire'
 
 export const CHAT_CAPABILITIES_OPTION = 'chatCapabilities'
