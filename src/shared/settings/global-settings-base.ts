@@ -31,7 +31,6 @@ import type { PRAutoRefreshSettings } from '../source-control/hosted-review/revi
 import type { ManagedAccountNameSettings } from '../agent-accounts/managed-account-display-names'
 import type { NewTabMenuSettings } from '../new-tab-menu/new-tab-menu-layout'
 import type { UiLanguageSettings } from '../i18n/ui-language-settings'
-import type { AgentReplyRuleSettings } from './agent-reply-rule-settings'
 import type { ProjectMapSettings } from '../project-map-settings'
 
 type DesktopWindowSettings = {
@@ -78,5 +77,4 @@ export type GlobalSettingsBase = AntigravityChatAuthSettings &
   ManagedAccountNameSettings &
   NewTabMenuSettings &
   UiLanguageSettings &
-  AgentReplyRuleSettings &
   ProjectMapSettings
