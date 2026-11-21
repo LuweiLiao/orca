@@ -24928,7 +24928,8 @@
       "1524825c2c": "切换工作区看板",
       "d286d1ab85": "清除窗格标题",
       "tabNewBrowserSplitRight": "在右侧拆分窗格中新建浏览器标签页",
-      "5468defe61": "折叠/展开所有项目"
+      "5468defe61": "折叠/展开所有项目",
+      "windowNew": "新建窗口"
     },
     "group": {
       "global": "全局",
@@ -28772,5 +28773,11 @@
       "slider": "回放时刻",
       "speed": "回放速度"
     }
+  },
+  "multiWindow": {
+    "newWindow": "新建窗口",
+    "openInNewWindow": "在新窗口打开",
+    "openFailed": "无法打开新窗口",
+    "openFailedDetail": "原因：{{reason}}"
   }
 }

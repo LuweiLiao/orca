@@ -42,6 +42,14 @@ export abstract class BrowserManagerQueries extends BrowserManagerRegistration {
     return this.webContentsIdByTabId.get(browserTabId) ?? null
   }
 
+  /** Exact guest owned by this renderer, independent of which guest is currently selected. */
+  getGuestWebContentsIdForRenderer(
+    browserTabId: string,
+    rendererWebContentsId: number
+  ): number | null {
+    return this.guestIdForRenderer(browserTabId, rendererWebContentsId) ?? null
+  }
+
   getWebContentsIdByTabId(): Map<string, number> {
     return this.webContentsIdByTabId
   }
@@ -173,8 +181,11 @@ export abstract class BrowserManagerQueries extends BrowserManagerRegistration {
     return { loading: guest.isLoadingMainFrame(), ...readGuestNavigationState(guest) }
   }
 
-  getBrowserPageCertificateFailure(browserPageId: string): BrowserCertificateFailure | null {
-    return this.certificateTrustController?.getFailure(browserPageId) ?? null
+  getBrowserPageCertificateFailure(
+    browserPageId: string,
+    webContentsId = this.webContentsIdByTabId.get(browserPageId)
+  ): BrowserCertificateFailure | null {
+    return this.certificateTrustController?.getFailure(browserPageId, webContentsId) ?? null
   }
 
   getManagedBrowserGuestContext(webContentsId: number): ManagedBrowserGuestContext | null {
@@ -229,7 +240,7 @@ export abstract class BrowserManagerQueries extends BrowserManagerRegistration {
       this.notifyBrowserGuestStateChanged(webContentsId)
       return
     }
-    const renderer = this.resolveRendererForBrowserTab(browserPageId)
+    const renderer = this.getRendererContextForGuest(webContentsId)?.renderer
     renderer?.send('browser:certificate-failure-changed', { browserPageId, failure })
   }
 

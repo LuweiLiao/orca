@@ -36,6 +36,16 @@ describe('web pairing input', () => {
     expect(readPairingInputFromLocation(location)).toBeNull()
   })
 
+  it('never reads a desktop launch-workspace fragment as a pairing code', () => {
+    const code = encodeOffer({ scope: 'runtime' })
+    const reopened = readPairingInputFromLocation({ search: '', hash: '#worktree=repo%2Fwt' })
+
+    expect(reopened).toBeNull()
+    expect(
+      readPairingInputFromLocation({ search: '', hash: `#pairing=${code}&worktree=repo%2Fwt` })
+    ).toBe(code)
+  })
+
   it('rejects orca URLs outside the exact pairing route', () => {
     expect(parseWebPairingInput(`orca://pairing?code=${encodeOffer()}`)).toBeNull()
     expect(parseWebPairingInput(`orca://pair-extra?code=${encodeOffer()}`)).toBeNull()

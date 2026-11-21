@@ -38,6 +38,7 @@ vi.mock('../../browser/guest-lifecycle/manager/browser-manager', () => ({
   browserCertificateTrustController: { proceed: vi.fn() },
   browserManager: {
     cancelGrabOp: vi.fn(),
+    selectNativeRenderer: vi.fn(),
     getWebContentsIdByTabId: vi.fn(() => new Map())
   }
 }))

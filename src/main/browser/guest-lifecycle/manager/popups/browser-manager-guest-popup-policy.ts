@@ -159,7 +159,8 @@ export abstract class BrowserManagerGuestPopupPolicy extends BrowserManagerNavig
         ownerContext.browserTabId,
         newTabUrl,
         request.disposition !== 'background-tab',
-        agentOpened
+        agentOpened,
+        ownerContext.rootGuestWebContentsId
       )
     ) {
       this.forwardOrQueuePopupEvent(guest.id, {

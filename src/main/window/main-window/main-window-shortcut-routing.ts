@@ -99,7 +99,10 @@ export function installMainWindowShortcutRouting(args: {
       return true
     }
 
-    if (action.type === 'toggleQuickCommandsMenu' && isAutoRepeat) {
+    if (
+      (action.type === 'toggleQuickCommandsMenu' || action.type === 'newWindow') &&
+      isAutoRepeat
+    ) {
       event.preventDefault()
       return true
     }

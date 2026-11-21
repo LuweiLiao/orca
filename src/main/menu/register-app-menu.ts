@@ -1,9 +1,8 @@
 import { BrowserWindow, Menu, app } from 'electron'
-import { formatKeybindingList } from '../../shared/keybindings/formatting'
-import { getEffectiveKeybindingsForAction } from '../../shared/keybindings/effective'
 import type { KeybindingActionId, KeybindingOverrides } from '../../shared/keybindings/types'
 import type { UpdateCheckOptions } from '../../shared/updater/update-status-types'
 import { translateMain } from '../i18n/main-i18n'
+import { appMenuLabelWithOptionalShortcut, formatAppMenuShortcut } from './app-menu-shortcut-label'
 import { createAppMenuSelectionItem, resolveNativeEditTarget } from './app-menu-selection-item'
 import { createAppMenuQuitItems, type AppMenuQuitHandlers } from './app-menu-quit-item'
 import { createAppMenuReloadAndDevToolsItems } from './app-menu-reload-devtools-items'
@@ -27,6 +26,7 @@ export function getNextDefaultOnAppearanceSettingValue(current: boolean | undefi
 type RegisterAppMenuOptions = AppMenuQuitHandlers & {
   onOpenSettings: () => void
   onOpenWorktreePalette: (window?: Electron.BaseWindow | null) => void
+  onNewWindow: () => void
   onOpenSetupGuide: (window?: Electron.BaseWindow | null) => void
   onOpenFeatureTour: (window?: Electron.BaseWindow | null) => void
   onOpenCrashReport: (window?: Electron.BaseWindow | null) => void
@@ -66,14 +66,8 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
 
   const isMac = process.platform === 'darwin'
   const appearance = getAppearanceState()
-  const shortcutLabel = (actionId: KeybindingActionId): string => {
-    const bindings = getEffectiveKeybindingsForAction(
-      actionId,
-      process.platform,
-      getKeybindings?.()
-    )
-    return formatKeybindingList(bindings, process.platform)
-  }
+  const shortcutLabel = (actionId: KeybindingActionId): string =>
+    formatAppMenuShortcut(actionId, getKeybindings?.())
 
   // Share modifier-click release-channel routing across platform-specific update menu locations.
   const checkForUpdatesClick: Electron.MenuItemConstructorOptions['click'] = (
@@ -98,17 +92,15 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
     click: checkForUpdatesClick
   }
 
-  const settingsBindings = getEffectiveKeybindingsForAction(
-    'app.settings',
-    process.platform,
-    getKeybindings?.()
-  )
-  const settingsShortcut = settingsBindings.length
-    ? `\t${formatKeybindingList(settingsBindings, process.platform)}`
-    : ''
+  const labelWithShortcut = (label: string, actionId: KeybindingActionId): string =>
+    appMenuLabelWithOptionalShortcut(label, actionId, getKeybindings?.())
   const settingsItem: Electron.MenuItemConstructorOptions = {
-    label: `${translateMain('menu.settings', 'Settings')}${settingsShortcut}`,
+    label: labelWithShortcut(translateMain('menu.settings', 'Settings'), 'app.settings'),
     click: () => onOpenSettings()
+  }
+  const newWindowItem: Electron.MenuItemConstructorOptions = {
+    label: labelWithShortcut(translateMain('multiWindow.newWindow', 'New Window'), 'window.new'),
+    click: () => options.onNewWindow()
   }
 
   const featureTourItem: Electron.MenuItemConstructorOptions = {
@@ -145,7 +137,13 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
 
   const fileMenu: Electron.MenuItemConstructorOptions = {
     label: translateMain('menu.file', 'File'),
-    submenu: [settingsItem, { type: 'separator' }, ...createAppMenuQuitItems(options)]
+    submenu: [
+      newWindowItem,
+      { type: 'separator' },
+      settingsItem,
+      { type: 'separator' },
+      ...createAppMenuQuitItems(options)
+    ]
   }
 
   // Keep menu hints while non-macOS Ctrl+Z/Ctrl+Y reach focused terminal or DOM controls.
@@ -275,7 +273,12 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
     ]
   }
 
-  const windowMenu = createAppWindowMenu(translateMain('menu.window', 'Window'), isMac)
+  // Why: macOS has no File menu here, so New Window leads its Window menu instead.
+  const windowMenu = createAppWindowMenu(
+    translateMain('menu.window', 'Window'),
+    isMac,
+    isMac ? [newWindowItem, { type: 'separator' }] : []
+  )
 
   const helpMenu: Electron.MenuItemConstructorOptions = {
     label: translateMain('menu.help', 'Help'),

@@ -8,7 +8,12 @@ import {
   activeRendererPtys
 } from './visibility-state'
 import { PTY_BATCH_INTERVAL_MS } from './constants'
-import { appendPendingPtyData, makeDroppedOutputPayload, toDroppedOutputSentinel } from './pending'
+import {
+  appendPendingPtyData,
+  makeDroppedOutputPayload,
+  markIncomingPtyDataAsDropped,
+  toDroppedOutputSentinel
+} from './pending'
 import {
   sendModelRestoreNeededMarker,
   sendPtyDataToRenderer,
@@ -66,6 +71,7 @@ export function acceptPtyDataForRenderer(
     data: string
     sequenceChars?: number
     transformed?: boolean
+    droppedOutput?: boolean
   },
   outputSeq: number | undefined
 ): void {
@@ -112,29 +118,33 @@ export function acceptPtyDataForRenderer(
     }
     return
   }
-  if (payload.data.length === 0 && !payload.transformed) {
+  if (payload.data.length === 0 && !payload.transformed && payload.droppedOutput !== true) {
     return
   }
   const containsBackgroundOutput = rendererPtyIsKnownHidden(payload.id)
   const overflowMarkedBeforeAppend = session.pendingOverflowMarkedPtys.has(payload.id)
   const queued = session.pendingData.get(payload.id)
-  const pending = appendPendingPtyData(
-    session,
-    payload.id,
-    // Query copies ride the drop sentinel: the renderer answers them without treating them as stream bytes.
-    isQueryCopy
-      ? queued
-        ? asDropSentinel(session, queued)
-        : { data: '', droppedOutput: true }
-      : queued,
-    payload.data,
-    startSeq,
-    preservesSeq,
-    containsBackgroundOutput,
-    rawLength,
-    payload.transformed === true,
-    startEscapeBoundary
-  )
+  // A native window's mirror receives the source's drop sentinel as already-dropped output.
+  const pending =
+    payload.droppedOutput === true
+      ? markIncomingPtyDataAsDropped(session, payload.id, payload.data)
+      : appendPendingPtyData(
+          session,
+          payload.id,
+          // Query copies ride the drop sentinel: the renderer answers them without treating them as stream bytes.
+          isQueryCopy
+            ? queued
+              ? asDropSentinel(session, queued)
+              : { data: '', droppedOutput: true }
+            : queued,
+          payload.data,
+          startSeq,
+          preservesSeq,
+          containsBackgroundOutput,
+          rawLength,
+          payload.transformed === true,
+          startEscapeBoundary
+        )
   const shouldEmitPendingCapRestoreMarker =
     pending.droppedOutput === true &&
     !overflowMarkedBeforeAppend &&

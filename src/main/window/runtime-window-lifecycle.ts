@@ -10,7 +10,9 @@ import { runWorktreeChangeInvalidators } from '../ipc/worktrees/listing/worktree
 import { requestAgentLaunchTabPublishFromRenderer } from './renderer-relays/agent-launch-tab-publish-relay'
 import { requestAgentPaneActivityFromRenderer } from './renderer-relays/agent-pane-activity-relay'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import { registerRendererDocumentNavigation } from './security/renderer-document-navigation'
+import { registerRuntimeRendererLifecycle } from './native-windows/runtime-renderer-lifecycle'
+import { bindRuntimeWindow } from './native-windows/runtime-window-binding'
+import type { RuntimeNotifier } from '../runtime/client/events/runtime-notifier-contract'
 import { createRuntimeRendererNotificationSender } from './renderer-relays/runtime-renderer-notification-sender'
 import { requestSessionTabCloseFromRenderer } from './renderer-relays/session-tab-close-request-relay'
 import { requestTerminalPaneMoveFromRenderer } from './renderer-relays/terminal-pane-move-request-relay'
@@ -29,15 +31,15 @@ export function registerRuntimeWindowLifecycle(
 ): void {
   const notifierToken = ++runtimeNotifierTokenCounter
   activeRuntimeNotifierToken = notifierToken
-  runtime.attachWindow(mainWindow.id)
   const mainWebContents = mainWindow.webContents
+  const binding = bindRuntimeWindow(mainWindow, runtime)
   const rendererNotifications = createRuntimeRendererNotificationSender({
     isWindowDestroyed: () => mainWindow.isDestroyed(),
     webContents: mainWebContents,
-    onFailure: (reason) => runtime.markGraphReloadFailed(mainWindow.id, reason)
+    onFailure: binding.renderFailed
   })
   const send = rendererNotifications.send
-  runtime.setNotifier({
+  const notifier: RuntimeNotifier = {
     worktreesChanged: (repoId, renamed, options) => {
       // Invalidate scan TTLs before notifying renderer or its immediate read can return stale mutation results.
       if (options?.invalidateGitScans !== false) {
@@ -245,7 +247,8 @@ export function registerRuntimeWindowLifecycle(
     clientHostedBrowserRowsChanged: (event) =>
       send('runtime:clientHostedBrowserRowsChanged', event),
     claudeAccountSelected: (change) => send('claudeAccounts:selectedElsewhere', change)
-  })
+  }
+  binding.installNotifier(notifier, () => send('runtime:notifierReset'))
   const detachClientNotices = runtime.onClientEvent(
     (event) => {
       if (event.type === 'linearLinkedIssueUpdated') {
@@ -269,35 +272,32 @@ export function registerRuntimeWindowLifecycle(
       }
     }
   )
-  registerRendererDocumentNavigation(mainWebContents, () => {
-    rendererNotifications.onMainFrameReloadStarted()
-    const agentListBeforeReload = runtime.readAgentListPublication()
-    runtime.setAgentListPublication(null)
-    const fence = runtime.markRendererReloading(mainWindow.id)
-    return () => {
-      if (fence && runtime.markRendererReloadCancelled(mainWindow.id, fence)) {
-        rendererNotifications.onMainFrameReloadCancelled()
-      }
+  registerRuntimeRendererLifecycle({
+    webContents: mainWebContents,
+    runtime,
+    windowId: binding.windowId,
+    native: binding.native,
+    notifications: rendererNotifications,
+    setAvailable: binding.setAvailable,
+    onReloadStarted: () => {
+      const agentListBeforeReload = runtime.readAgentListPublication()
+      runtime.setAgentListPublication(null)
       // The surviving document only re-sends on change.
-      if (runtime.readAgentListPublication() === null) {
-        runtime.setAgentListPublication(agentListBeforeReload)
+      return () => {
+        if (runtime.readAgentListPublication() === null) {
+          runtime.setAgentListPublication(agentListBeforeReload)
+        }
       }
-    }
-  })
-  mainWebContents.on('did-finish-load', () => {
-    rendererNotifications.onMainFrameLoadFinished()
-  })
-  mainWebContents.on('render-process-gone', () => {
-    rendererNotifications.onRendererProcessGone()
-    runtime.setAgentListPublication(null)
+    },
+    onProcessGone: () => runtime.setAgentListPublication(null)
   })
   mainWindow.on('closed', () => {
     detachClientNotices()
     releaseAgentListVerdicts()
     runtime.setAgentListPublication(null)
     rendererNotifications.close()
-    runtime.markGraphUnavailable(mainWindow.id)
-    if (activeRuntimeNotifierToken === notifierToken) {
+    binding.close()
+    if (!binding.native && activeRuntimeNotifierToken === notifierToken) {
       // Clear window-capturing notifier closures during windowless gaps to release destroyed graphs.
       runtime.setNotifier(null)
       activeRuntimeNotifierToken = null

@@ -13,6 +13,14 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
     const owningWorktreeId = browserPageId
       ? this.browserManager.getWorktreeIdForTab(browserPageId)
       : undefined
+    // Another native window's guest of the same page still serves the agent session.
+    const sessionGuestId = browserPageId
+      ? this.sessions.get(`${ORCA_TAB_SESSION_PREFIX}${browserPageId}`)?.webContentsId
+      : undefined
+    if (sessionGuestId !== undefined && sessionGuestId !== webContentsId) {
+      this.options.onTabsChanged?.(owningWorktreeId)
+      return
+    }
     if (browserPageId) {
       let nextWorktreePageId: string | null = null
       if (owningWorktreeId && this.routedPagePerWorktree.get(owningWorktreeId) === browserPageId) {
@@ -49,11 +57,19 @@ export abstract class AgentBrowserBridgeLifecycle extends AgentBrowserBridgeRawP
   async onProcessSwap(
     browserPageId: string,
     _newWebContentsId: number,
-    _previousWebContentsId?: number
+    previousWebContentsId?: number
   ): Promise<void> {
     // Process swaps preserve page IDs, and so routes, but replace the guest and its session.
     const sessionName = `${ORCA_TAB_SESSION_PREFIX}${browserPageId}`
     const session = this.sessions.get(sessionName)
+    const oldWebContentsId = previousWebContentsId ?? session?.webContentsId
+    // A peer native window mounting the same page adds a guest; the old one still lives.
+    if (
+      oldWebContentsId !== undefined &&
+      this.browserManager.getTabIdForWebContentsId(oldWebContentsId) === browserPageId
+    ) {
+      return
+    }
     const owningWorktreeId = this.browserManager.getWorktreeIdForTab(browserPageId)
     if (session && session.activeInterceptPatterns.length > 0) {
       this.pendingInterceptRestore.set(sessionName, [...session.activeInterceptPatterns])

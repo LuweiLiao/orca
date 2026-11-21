@@ -5,6 +5,8 @@ import {
 import type { PersistedState } from '../../../shared/orca-profiles/persisted-state-types'
 import { withCrossStoreChildKey } from '../../../shared/worktree/lineage/cross-store-lineage-records'
 import { migrateWorkspaceSessionWorktreeIdentity } from './worktree-identity-session-migration'
+import { migrateDesktopWindowWorktreeIdentity } from '../../../shared/app-lifecycle/windows/desktop-window-worktree-identity'
+import type { WorkspaceSessionState } from '../../../shared/workspace-session/workspace-session-state-types'
 import { replaceWorkspaceSessionPartitions } from '../restoring-sessions/workspace-session-partition-replacement'
 
 /** Mutate worktree references in place (sessions are replaced); return whether anything changed so callers can gate persistence. */
@@ -117,6 +119,22 @@ export function migrateWorktreeIdentity(
   if (notificationsMuted) {
     changed = moveKey(notificationsMuted) || changed
   }
+  // Each native desktop window keeps its own view of the session under the UI state.
+  changed =
+    migrateDesktopWindowWorktreeIdentity(
+      state.ui?.desktopWindows,
+      oldWorktreeId,
+      newWorktreeId,
+      (view) => {
+        // SAFETY: the session migration reads every field optionally, so a partial view is safe.
+        const session = view as WorkspaceSessionState
+        const next = migrateWorkspaceSessionWorktreeIdentity(session, oldWorktreeId, newWorktreeId)
+        if (next) {
+          Object.assign(view, next)
+        }
+        return next !== null
+      }
+    ) || changed
 
   return changed
 }

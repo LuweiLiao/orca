@@ -12,6 +12,12 @@ import { isFrozenOrcadSourceSessionPartition } from '../persistence/migrating-or
 import { isWslMoveWindowWriteHeld } from '../persistence/moving-wsl-projects/quiescence/wsl-move-window-write-hold'
 import { windowViewSaveForMain, type ReconnectFactsFor } from '../persistence/window-save-view'
 import { reportWindowSaveDrift } from '../persistence/window-save-divergence'
+import {
+  saveDesktopWindowSessionView,
+  updateDesktopWindowUI
+} from '../persistence/desktop-windows/desktop-window-state'
+import { prepareDesktopWindowSessionWrite } from '../persistence/desktop-windows/desktop-window-session-writes'
+import type { WebContents } from 'electron'
 import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../shared/workspace-layout/layout-owner-switch'
 import { formatShutdownCheckpointFailureReason } from '../../shared/app-lifecycle/shutdown/renderer-shutdown-events'
 import type { DesktopRelayWrite } from '../../shared/workspace-session/desktop-relay-write'
@@ -74,7 +80,7 @@ export type RendererCheckpointStage = {
 }
 
 export type RendererShutdownCheckpointService = {
-  stage(capture: RendererShutdownCapture): RendererCheckpointStage
+  stage(capture: RendererShutdownCapture, sender?: WebContents): RendererCheckpointStage
 }
 
 export type QuitResumeRecordsFor = (session: WorkspaceSessionState) => SleepingAgentSessionRecord[]
@@ -153,12 +159,20 @@ export function createRendererShutdownCheckpointService(
   reconnectFactsFor?: ReconnectFactsFor
 ): RendererShutdownCheckpointService {
   return {
-    stage(capture) {
+    stage(capture, sender) {
       try {
         // A window a WSL move rewrote under is stale; main reloads it and keeps what is on disk.
         const sessions = isWslMoveWindowWriteHeld() ? [] : sessionsWithDesktopRelays(store, capture)
         for (const { state, hostId } of sessions) {
           if (!isFrozenOrcadSourceSessionPartition(store, hostId)) {
+            // A native desktop window keeps its own view; only shared records reach the session.
+            const windowWrite = prepareDesktopWindowSessionWrite(
+              store,
+              sender,
+              { kind: 'set', session: state },
+              hostId
+            )
+            saveDesktopWindowSessionView(store, sender, state, hostId)
             store.stageWorkspaceSessionBeforeUnload(
               ORCA_LAYOUT_OWNER_IS_MAIN
                 ? stagedSessionForMain(
@@ -168,13 +182,14 @@ export function createRendererShutdownCheckpointService(
                     quitResumeRecordsFor,
                     reconnectFactsFor
                   )
-                : state,
+                : (windowWrite?.shared ?? state),
               hostId
             )
+            windowWrite?.commit()
           }
         }
         if (!isWslMoveWindowWriteHeld()) {
-          store.updateUI(capture.ui)
+          updateDesktopWindowUI(store, sender, capture.ui)
         }
       } catch (stagingError) {
         console.error('[app] Failed to stage renderer state before unload:', stagingError)

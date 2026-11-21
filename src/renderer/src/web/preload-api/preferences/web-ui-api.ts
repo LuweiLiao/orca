@@ -292,6 +292,8 @@ export function createWebUiApi(): NonNullable<Partial<PreloadApi>['ui']> {
     onWindowCloseRequested: () => noopUnsubscribe,
     confirmWindowClose: () => {},
     cancelWindowClose: () => {},
-    notifyWindowRevealed: () => {}
+    notifyWindowRevealed: () => {},
+    // Why: only the desktop main process can open a window; a browser tab has none.
+    openRuntimeClientWindow: async () => ({ ok: false, reason: 'unsupported_in_web_client' })
   }
 }

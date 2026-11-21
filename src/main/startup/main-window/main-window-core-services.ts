@@ -22,6 +22,8 @@ import {
 } from '../agent-accounts/codex-session-resume-launch'
 import { isRecoveryReloadInFlight } from './main-window-lifecycle-flags'
 
+import { desktopWindowId } from '../../window/native-windows/desktop-renderer-registry'
+
 let attachmentTail: Promise<void> = Promise.resolve()
 
 export function attachMainWindowCoreServices(
@@ -45,9 +47,11 @@ async function installMainWindowCoreServices(
     recordRendererReload: (ignoreCache: boolean) => void
   }
 ): Promise<void> {
-  if (window.isDestroyed() || state.mainWindow !== window || state.isQuitting) {
+  if (window.isDestroyed() || state.isQuitting) {
     throw new Error('Main window closed while preparing services')
   }
+  // Native windows share PTYs, so any one's reload is an expected reload for each.
+  const native = Boolean(desktopWindowId(window.webContents))
   const store = state.store
   const nativeSettings = state.nativeSettings
   const runtime = state.core.runtime
@@ -127,7 +131,7 @@ async function installMainWindowCoreServices(
         }
       : undefined
   )
-  if (window.isDestroyed() || state.mainWindow !== window || state.isQuitting) {
+  if (window.isDestroyed() || state.isQuitting) {
     throw new Error('Main window closed while preparing services')
   }
   automations.start()
@@ -145,7 +149,7 @@ async function installMainWindowCoreServices(
       awaitLocalPtyStartup: () => state.localPtyStartupReady,
       awaitLocalPtyProviderStartup: () => state.localPtyProviderStartupReady,
       onBeforeRendererReload: ({ ignoreCache, webContentsId }) => {
-        if (window.webContents.id === webContentsId) {
+        if (native || window.webContents.id === webContentsId) {
           deps.markExpectedRendererReload(webContentsId)
         }
         deps.recordRendererReload(ignoreCache)
@@ -160,7 +164,7 @@ async function installMainWindowCoreServices(
       onWorktreeLifecycle: emitPluginWorktreeLifecycle
     }
   )
-  if (window.isDestroyed() || state.mainWindow !== window || state.isQuitting) {
+  if (window.isDestroyed() || state.isQuitting) {
     throw new Error('Main window closed while preparing services')
   }
   // Attach durable diagnostic pulls now, defer process launch past first paint.

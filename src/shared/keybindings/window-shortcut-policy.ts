@@ -43,6 +43,7 @@ export type WindowShortcutAction =
   | { type: 'jumpToTabIndex'; index: number }
   | { type: 'worktreeHistoryNavigate'; direction: 'back' | 'forward' }
   | { type: 'dictationKeyDown' }
+  | { type: 'newWindow' }
 
 function platformPrimaryModifier(
   input: Pick<WindowShortcutInput, 'meta' | 'control'>,
@@ -213,6 +214,11 @@ export function resolveWindowShortcutAction(
     return { type: 'openNewWorkspace' }
   }
 
+  // Main opens native windows, so the chord must reach it from guests and rich editors too.
+  if (keybindingMatchesAction('window.new', input, platform, keybindings, options)) {
+    return { type: 'newWindow' }
+  }
+
   if (keybindingMatchesAction('workspace.openBoard', input, platform, keybindings, options)) {
     return { type: 'openWorkspaceBoard' }
   }
@@ -302,6 +308,8 @@ export function getWindowShortcutActionId(action: WindowShortcutAction): Keybind
       return action.direction === 'back' ? 'worktree.history.back' : 'worktree.history.forward'
     case 'dictationKeyDown':
       return 'voice.dictation'
+    case 'newWindow':
+      return 'window.new'
     case 'jumpToWorktreeIndex':
       return 'workspace.selectByIndex'
     case 'jumpToTabIndex':

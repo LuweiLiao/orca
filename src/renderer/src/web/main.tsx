@@ -1,6 +1,6 @@
 import '../assets/main.css'
 
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { lazyWithRetry as lazy } from '@/app-shell/startup/lazy-with-retry'
 import ReactDOM from 'react-dom/client'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +24,10 @@ import { useTranslate } from '@/i18n/use-translate'
 import { installOsFileDropCancellationGuard } from '../lib/files/drop/os-file-drop-cancellation-guard'
 import { installBodyOverlayAttributes } from '../lib/overlay-interaction/body-overlay-attributes'
 import { installAppKeyboardRouter } from '../lib/keyboard/app-keyboard-router'
+import {
+  activateLaunchWorktreeWhenReady,
+  consumeLaunchWorktreeTarget
+} from './pairing/web-launch-worktree-target'
 
 const disposeOsFileDropGuard = installOsFileDropCancellationGuard()
 import.meta.hot?.dispose(disposeOsFileDropGuard)
@@ -31,6 +35,8 @@ const disposeBodyOverlayAttributes = installBodyOverlayAttributes()
 import.meta.hot?.dispose(disposeBodyOverlayAttributes)
 installAppKeyboardRouter()
 const App = lazy(() => import('../App'))
+// Why before WebRoot: the pairing cleanup below clears the whole fragment, launch target included.
+let pendingLaunchWorktreeId = consumeLaunchWorktreeTarget()
 
 function WebRoot(): React.JSX.Element {
   const initialPairingInput = useMemo(() => readPairingInputFromLocation(window.location), [])
@@ -63,6 +69,13 @@ function WebRoot(): React.JSX.Element {
     }
     return startupDecision.kind === 'use-stored-environment'
   })
+  useEffect(() => {
+    if (hasEnvironment && pendingLaunchWorktreeId) {
+      const worktreeId = pendingLaunchWorktreeId
+      pendingLaunchWorktreeId = null
+      void activateLaunchWorktreeWhenReady(worktreeId)
+    }
+  }, [hasEnvironment])
 
   if (!hasEnvironment) {
     return (

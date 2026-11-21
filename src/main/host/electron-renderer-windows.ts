@@ -6,9 +6,20 @@ import type {
   RuntimeDesktopSurface
 } from '../runtime/construction/runtime-desktop-surface'
 import { rendererPublicationThrottle } from '../window/visibility/renderer-publication-throttle'
+import { preferredDesktopRenderer } from '../window/native-windows/desktop-renderer-registry'
+import { NATIVE_DESKTOP_GRAPH_ID } from '../runtime/session-graph/native-desktop-window-graphs'
+
+/** Native desktop windows share one runtime graph; its id addresses whichever window the user is in. */
+function windowById(windowId: number): BrowserWindow | null {
+  if (windowId !== NATIVE_DESKTOP_GRAPH_ID) {
+    return BrowserWindow.fromId(windowId)
+  }
+  const renderer = preferredDesktopRenderer()
+  return renderer ? BrowserWindow.fromWebContents(renderer) : null
+}
 
 function liveRenderer(windowId: number): Electron.WebContents | null {
-  const window = BrowserWindow.fromId(windowId)
+  const window = windowById(windowId)
   return window && !window.isDestroyed() && !window.webContents.isDestroyed?.()
     ? window.webContents
     : null
@@ -18,7 +29,7 @@ const requestRenderer = <T extends RendererReply>(
   windowId: number,
   request: RendererRequest
 ): Promise<T> => {
-  const window = BrowserWindow.fromId(windowId)
+  const window = windowById(windowId)
   return window
     ? requestRendererReply<T>(window, {
         requestChannel: request.channel,
@@ -43,7 +54,7 @@ export const electronRendererWindows: Pick<
   | 'rendererIdOfWindow'
 > = {
   hasWindow: (windowId) => {
-    const window = BrowserWindow.fromId(windowId)
+    const window = windowById(windowId)
     return !!window && !window.isDestroyed()
   },
   hasLiveRenderer: (windowId) => liveRenderer(windowId) !== null,

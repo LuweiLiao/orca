@@ -23126,7 +23126,8 @@
       "128cce6e6d": "Establecer título…",
       "e9da9f872a": "Enviar notas de revisión al agente",
       "1524825c2c": "Alternar tablero de espacios de trabajo",
-      "d286d1ab85": "Borrar título del panel"
+      "d286d1ab85": "Borrar título del panel",
+      "windowNew": "Nueva ventana"
     },
     "group": {
       "global": "Global",
@@ -24285,5 +24286,11 @@
   },
   "agentCliUpdate": {
     "thisComputer": "Este equipo"
+  },
+  "multiWindow": {
+    "newWindow": "Nueva ventana",
+    "openInNewWindow": "Abrir en una ventana nueva",
+    "openFailed": "No se pudo abrir una ventana nueva",
+    "openFailedDetail": "Motivo: {{reason}}"
   }
 }

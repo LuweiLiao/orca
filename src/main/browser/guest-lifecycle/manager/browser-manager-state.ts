@@ -21,7 +21,7 @@ import type {
   BrowserLoadStall
 } from '../../../../shared/browser/guest-lifecycle/browser-guest-events'
 import type { BrowserGrabCancelReason } from '../../../../shared/browser/element-grab/browser-grab-types'
-import { BrowserManagerViewportScrollState } from './viewport/browser-manager-viewport-scroll-state'
+import { BrowserManagerNativeRenderers } from './browser-manager-native-renderers'
 import { BrowserGuestDevToolsDock } from '../devtools/browser-guest-devtools-dock'
 import { createKeyedTrailingEdgeCoalescer } from '../../../runtime/client/events/keyed-trailing-edge-coalescer'
 
@@ -40,9 +40,11 @@ export type OffscreenBrowserTabOpenRequest = {
   pairedDeviceId: string | null
 }
 
-export abstract class BrowserManagerState extends BrowserManagerViewportScrollState {
+export abstract class BrowserManagerState extends BrowserManagerNativeRenderers {
   abstract invalidateGuestMemoryProtection(guest: Electron.WebContents): void
 
+  protected readonly nativeRendererByGuestId = new Map<number, number>()
+  protected abstract selectGuestForEvent(guestId: number): void
   protected abstract attachGuestPolicies(
     guest: Electron.WebContents,
     inheritedOwnerContext?: PopupOwnerContext | null,
@@ -142,12 +144,11 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     browserTabId: string,
     rawUrl: string,
     activate?: boolean,
-    agentOpened?: boolean
+    agentOpened?: boolean,
+    rootGuestWebContentsId?: number
   ): boolean
 
   protected settingsResolver: (() => BrowserManagerSettings) | null = null
-  protected readonly webContentsIdByTabId = new Map<string, number>()
-  protected readonly tabIdByWebContentsId = new Map<number, string>()
   protected readonly popupOwnerContextByGuestId = new Map<number, PopupOwnerContext>()
   // A popup chain shares its root opener quota.
   protected readonly pageInitiatedTabBudgetByRootGuestId = new Map<number, PageInitiatedTabBudget>()
@@ -155,7 +156,7 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
   protected readonly workspaceIdByPageId = new Map<string, string>()
   protected readonly sessionProfileIdByPageId = new Map<string, string | null>()
   // Serialize viewport changes so rapid toggles cannot interleave CDP commands.
-  protected readonly viewportOpsByTabId = new Map<string, Promise<unknown>>()
+  protected readonly viewportOpsByGuestId = new Map<number, Promise<unknown>>()
   // Track pending and confirmed CDP identities without treating failed writes as installed.
   protected readonly cdpUserAgentOverrideStateByGuestId = new Map<
     number,
@@ -277,17 +278,6 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     }
   }
 
-  getRendererContextForGuest(
-    guestWebContentsId: number
-  ): { browserPageId: string; renderer: Electron.WebContents } | null {
-    const browserPageId = this.resolveBrowserTabIdForGuestWebContentsId(guestWebContentsId)
-    if (!browserPageId) {
-      return null
-    }
-    const renderer = this.resolveRendererForBrowserTab(browserPageId)
-    return renderer ? { browserPageId, renderer } : null
-  }
-
   resolvePagePromptTarget(guest: Electron.WebContents): BrowserPagePromptTarget | null {
     const context = this.getRendererContextForGuest(guest.id)
     if (context) {
@@ -307,7 +297,9 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     return this.resolvePopupOwnerContext(guestWebContentsId)?.browserTabId ?? null
   }
 
-  protected resolvePopupOwnerContext(guestWebContentsId: number): PopupOwnerContext | null {
+  protected override resolvePopupOwnerContext(
+    guestWebContentsId: number
+  ): PopupOwnerContext | null {
     const browserTabId = this.tabIdByWebContentsId.get(guestWebContentsId)
     if (browserTabId) {
       return { browserTabId, rootGuestWebContentsId: guestWebContentsId }
@@ -323,7 +315,11 @@ export abstract class BrowserManagerState extends BrowserManagerViewportScrollSt
     const inherited = this.popupOwnerContextByGuestId.get(guestWebContentsId)
     if (
       inherited &&
-      this.webContentsIdByTabId.get(inherited.browserTabId) === inherited.rootGuestWebContentsId
+      (this.webContentsIdByTabId.get(inherited.browserTabId) === inherited.rootGuestWebContentsId ||
+        (this.nativeRendererByGuestId.has(inherited.rootGuestWebContentsId) &&
+          this.policyAttachedGuestIds.has(inherited.rootGuestWebContentsId) &&
+          this.tabIdByWebContentsId.get(inherited.rootGuestWebContentsId) ===
+            inherited.browserTabId))
     ) {
       return inherited
     }

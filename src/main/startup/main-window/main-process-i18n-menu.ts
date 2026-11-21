@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron'
+import type { UIZoomDirection } from '../../../shared/app-lifecycle/windows/ui-zoom-level'
 import { setMainUiLanguage } from '../../i18n/main-i18n'
 import {
   registerAppMenu,
@@ -7,6 +8,8 @@ import {
 } from '../../menu/register-app-menu'
 import { zoomDashboardPopoutIfFocused } from '../../window/dashboard-popout-window'
 import { zoomWorkspaceSpaceWindowIfFocused } from '../../window/workspace-space-window'
+import { preferredDesktopRenderer } from '../../window/native-windows/desktop-renderer-registry'
+import { openRuntimeClientWindowFromUserCommand } from '../../window/native-windows/runtime-client-window-open-command'
 import { recordCrashBreadcrumb } from '../../crash-reporting/breadcrumbs/crash-breadcrumb-store'
 import { mainProcessState as state } from '../main-process-state'
 import {
@@ -21,6 +24,17 @@ import {
 import { ensureAutoUpdaterConfigured } from '../../updater/lifecycle/main-window-updater'
 import { logStartupMilestone } from '../diagnostics/startup-diagnostics'
 import { browserManager } from '../../browser/guest-lifecycle/manager/browser-manager'
+
+// Auxiliary windows handle zoom directly; full desktop windows use their renderer.
+function zoomFocusedWindowFromMenu(direction: UIZoomDirection): void {
+  if (!zoomDashboardPopoutIfFocused(direction) && !zoomWorkspaceSpaceWindowIfFocused(direction)) {
+    preferredDesktopRenderer()?.send('terminal:zoom', direction)
+  }
+}
+
+function sendToFocusedDesktopRenderer(channel: string): void {
+  preferredDesktopRenderer()?.send(channel)
+}
 
 export async function initializeMainProcessI18nAndMenu(): Promise<void> {
   const store = state.store
@@ -46,6 +60,7 @@ export async function initializeMainProcessI18nAndMenu(): Promise<void> {
     onOpenWorktreePalette: (targetWindow) =>
       sendOpenWorktreePalette(targetWindow instanceof BrowserWindow ? targetWindow : null),
     toggleFocusedPageDevTools: (focused) => browserManager.toggleDevToolsOfFocusedPage(focused),
+    onNewWindow: openRuntimeClientWindowFromUserCommand,
     onOpenSetupGuide: (targetWindow) => {
       recordCrashBreadcrumb('setup_guide_opened')
       sendOpenSetupGuide(targetWindow instanceof BrowserWindow ? targetWindow : null)
@@ -59,28 +74,16 @@ export async function initializeMainProcessI18nAndMenu(): Promise<void> {
       // Route to the invoking renderer so hidden tests/multiple windows do not depend on global focus.
       sendOpenFeatureTour(targetWindow instanceof BrowserWindow ? targetWindow : null)
     },
-    // Zoom the focused popout rather than changing the main window behind it.
-    onZoomIn: () => {
-      if (!zoomDashboardPopoutIfFocused('in') && !zoomWorkspaceSpaceWindowIfFocused('in')) {
-        state.mainWindow?.webContents.send('terminal:zoom', 'in')
-      }
-    },
-    onZoomOut: () => {
-      if (!zoomDashboardPopoutIfFocused('out') && !zoomWorkspaceSpaceWindowIfFocused('out')) {
-        state.mainWindow?.webContents.send('terminal:zoom', 'out')
-      }
-    },
-    onZoomReset: () => {
-      if (!zoomDashboardPopoutIfFocused('reset') && !zoomWorkspaceSpaceWindowIfFocused('reset')) {
-        state.mainWindow?.webContents.send('terminal:zoom', 'reset')
-      }
-    },
-    onToggleLeftSidebar: () => state.mainWindow?.webContents.send('ui:toggleLeftSidebar'),
-    onToggleRightSidebar: () => state.mainWindow?.webContents.send('ui:toggleRightSidebar'),
+    // Zoom the focused popout rather than changing the native window behind it.
+    onZoomIn: () => zoomFocusedWindowFromMenu('in'),
+    onZoomOut: () => zoomFocusedWindowFromMenu('out'),
+    onZoomReset: () => zoomFocusedWindowFromMenu('reset'),
+    onToggleLeftSidebar: () => sendToFocusedDesktopRenderer('ui:toggleLeftSidebar'),
+    onToggleRightSidebar: () => sendToFocusedDesktopRenderer('ui:toggleRightSidebar'),
     onToggleAppearance: (key) => {
       if (key === 'statusBarVisible') {
         // Renderer owns this persisted UI-state toggle; forward it rather than write settings.
-        state.mainWindow?.webContents.send('ui:toggleStatusBar')
+        sendToFocusedDesktopRenderer('ui:toggleStatusBar')
         return
       }
       const current = store.getSettings()

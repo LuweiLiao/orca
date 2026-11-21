@@ -11,6 +11,14 @@ import type { PersistedUIState } from '../../shared/orca-profiles/persisted-ui-s
 import { isFeatureInteractionId } from '../../shared/feature-education/interactions/feature-interactions'
 import { isWslMoveWindowWriteHeld } from '../persistence/moving-wsl-projects/quiescence/wsl-move-window-write-hold'
 import { isTrustedMainRendererSender } from './renderer-requests/main-renderer-sender-trust'
+import {
+  listDesktopRenderers,
+  preferredDesktopRenderer
+} from '../window/native-windows/desktop-renderer-registry'
+import {
+  desktopWindowUI,
+  updateDesktopWindowUI
+} from '../persistence/desktop-windows/desktop-window-state'
 
 let trustedUIRendererWebContentsId: number | null = null
 
@@ -29,13 +37,16 @@ export function sendToTrustedUIRenderer(
   payload: unknown,
   excludedWebContentsId?: number
 ): void {
-  const renderer = getTrustedUIRendererWebContents(excludedWebContentsId)
-  renderer?.send(channel, payload)
+  getTrustedUIRendererWebContents(excludedWebContentsId)?.send(channel, payload)
 }
 
 export function getTrustedUIRendererWebContents(
   excludedWebContentsId?: number
 ): WebContents | null {
+  const registered = preferredDesktopRenderer(excludedWebContentsId)
+  if (registered) {
+    return registered
+  }
   // Target only trusted app UI; retained browser/utility windows cannot consume these events.
   const rendererId = trustedUIRendererWebContentsId
   if (rendererId == null || rendererId === excludedWebContentsId) {
@@ -57,7 +68,17 @@ export function registerUIHandlers(
   store: Store,
   options: { isDashboardPopoutRenderer?: (sender: WebContents) => boolean } = {}
 ): void {
-  store.onUIChanged((ui) => sendToTrustedUIRenderer('ui:stateChanged', ui))
+  // Each native desktop window reads its own bounds and view from the shared UI state.
+  store.onUIChanged((ui) => {
+    const renderers = listDesktopRenderers()
+    if (renderers.length === 0) {
+      sendToTrustedUIRenderer('ui:stateChanged', ui)
+      return
+    }
+    for (const renderer of renderers) {
+      renderer.send('ui:stateChanged', desktopWindowUI(ui, renderer))
+    }
+  })
 
   ipcMain.handle('ui:getJiraQuickFilters', () =>
     normalizeJiraQuickFilterState(store.getUI().jiraQuickFilterState)
@@ -76,14 +97,14 @@ export function registerUIHandlers(
     store.updateUI({ jiraSavedFilterState: state })
     return state
   })
-  ipcMain.handle('ui:get', () => {
-    return store.getUI()
+  ipcMain.handle('ui:get', (event) => {
+    return desktopWindowUI(store.getUI(), event?.sender)
   })
 
-  ipcMain.handle('ui:set', (_event, args: Partial<PersistedUIState>) => {
+  ipcMain.handle('ui:set', (event, args: Partial<PersistedUIState>) => {
     // A window a WSL move rewrote under is stale until main reloads it.
     if (!isWslMoveWindowWriteHeld()) {
-      store.updateUI(args)
+      updateDesktopWindowUI(store, event?.sender, args)
     }
   })
 

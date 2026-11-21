@@ -14,6 +14,7 @@ import {
   type WslMoveMainRewriteProfile
 } from './wsl-move-main-rewrite-stores'
 import { registerWslMoveOrchestrationHistoryStore } from './wsl-move-orchestration-history-rewrite'
+import { registerWslMoveDesktopWindowRewrite } from './wsl-move-desktop-windows'
 
 export type WslMoveDesktopRewriteRegistryDependencies = {
   profile: WslMoveMainRewriteProfile
@@ -26,6 +27,7 @@ export function registerWslMoveDesktopRewriteRegistry(
   dependencies: WslMoveDesktopRewriteRegistryDependencies
 ): void {
   registerWslMoveMainRewriteStores(dependencies.profile)
+  registerWslMoveDesktopWindowRewrite(dependencies.profile)
   registerWslMoveOrchestrationHistoryStore(dependencies.orchestrationDatabasePath)
   registerWslMoveRendererRewriteStores()
   registerWslMoveHostAutomationsStore(dependencies.hostAutomations)

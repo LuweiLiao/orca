@@ -12,6 +12,7 @@ export const BROWSER_WEBAUTHN_ACCOUNT_PICKER_TIMEOUT_MS = 60_000
 
 type PendingAccountRequest = {
   browserPageId: string
+  rootGuestWebContentsId: number
   browserSession: Electron.Session
   renderer: Electron.WebContents
   credentialIds: Set<string>
@@ -81,6 +82,7 @@ export function requestBrowserWebAuthnAccount(
     const onUnavailable = (): void => settle(null)
     const request: PendingAccountRequest = {
       browserPageId: context.browserPageId,
+      rootGuestWebContentsId: context.rootGuestWebContentsId ?? guest.id,
       browserSession,
       renderer: context.renderer,
       credentialIds: new Set(details.accounts.map((account) => account.credentialId)),
@@ -131,9 +133,16 @@ export function respondToBrowserWebAuthnAccountRequest(
   return true
 }
 
-export function cancelBrowserWebAuthnAccountRequests(browserPageId: string): void {
+export function cancelBrowserWebAuthnAccountRequests(
+  browserPageId: string,
+  rootGuestWebContentsId?: number
+): void {
   for (const request of pendingAccountRequests.values()) {
-    if (request.browserPageId === browserPageId) {
+    if (
+      request.browserPageId === browserPageId &&
+      (rootGuestWebContentsId === undefined ||
+        request.rootGuestWebContentsId === rootGuestWebContentsId)
+    ) {
       request.settle(null)
     }
   }

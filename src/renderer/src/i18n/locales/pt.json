@@ -23682,7 +23682,8 @@
       "128cce6e6d": "Definir Título…",
       "e9da9f872a": "Enviar Notas de Revisão ao Agente",
       "1524825c2c": "Alternar Quadro do Espaço de Trabalho",
-      "d286d1ab85": "Limpar Título do Painel"
+      "d286d1ab85": "Limpar Título do Painel",
+      "windowNew": "Nova janela"
     },
     "group": {
       "global": "Global",
@@ -24900,5 +24901,11 @@
   },
   "agentCliUpdate": {
     "thisComputer": "Este computador"
+  },
+  "multiWindow": {
+    "newWindow": "Nova janela",
+    "openInNewWindow": "Abrir em uma nova janela",
+    "openFailed": "Não foi possível abrir uma nova janela",
+    "openFailedDetail": "Motivo: {{reason}}"
   }
 }

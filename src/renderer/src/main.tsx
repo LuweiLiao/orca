@@ -34,6 +34,10 @@ import {
   trackPageFocusLossForTerminalIme,
   trackWindowActivationForTerminalDragRegions
 } from './components/terminal-pane/input/focus/regular-terminal-focus-ownership'
+import {
+  activateLaunchWorktreeWhenReady,
+  consumeLaunchWorktreeTarget
+} from './web/pairing/web-launch-worktree-target'
 
 const disposeOsFileDropGuard = installOsFileDropCancellationGuard()
 import.meta.hot?.dispose(disposeOsFileDropGuard)
@@ -102,6 +106,10 @@ getOrCreateRendererRoot(rootElement, import.meta.hot?.data).render(
   </StrictMode>
 )
 recordRendererCrashBreadcrumb('renderer_bootstrap_rendered')
+const launchWorktreeId = consumeLaunchWorktreeTarget()
+if (launchWorktreeId) {
+  void activateLaunchWorktreeWhenReady(launchWorktreeId)
+}
 
 // Defer the 243KB WebGL addon until first render; panes need it only much later, keeping it off boot’s import graph.
 void primeTerminalWebglAddon()

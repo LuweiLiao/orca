@@ -47,6 +47,12 @@ import {
 } from '../../window/activation/foreground-activation-policy'
 import type { MainWindowOpenOptions } from '../../window/main-window/main-window-contracts'
 import { argvRequestsBackgroundOpen } from '../../../shared/app-lifecycle/launch/background-open-argv'
+import {
+  configureNativeDesktopWindows,
+  preferredNativeDesktopWindow
+} from '../../window/native-windows/native-desktop-windows'
+import { isQuittingForUpdate } from '../../updater/updater-service'
+import { desktopWindowStateStore } from '../../persistence/desktop-windows/desktop-window-state'
 
 const TRAY_CREATE_FALLBACK_MS = 12_000
 const AGENT_STATE_CRASH_BREADCRUMB_MIN_INTERVAL_MS = 30_000
@@ -97,7 +103,15 @@ export async function openMainWindow(options: MainWindowOpenOptions = {}): Promi
   if (state.isServeMode) {
     applyServeDesktopWindowActivationPolicy({ warn: console.warn, background: revealInBackground })
   }
+  const desktopWindows = configureNativeDesktopWindows({
+    getStore: () => (state.nativeSettings ? desktopWindowStateStore(state.nativeSettings) : null),
+    openWindow: openMainWindow,
+    isQuitting: () => state.isQuitting || isQuittingForUpdate(),
+    isServeMode: () => state.isServeMode
+  })
+  const windowId = options.windowId ?? desktopWindows.startupId()
   const window = createMainWindow(state.nativeSettings, {
+    windowId,
     getIsQuitting: () => state.isQuitting,
     onQuitAborted: () => {
       state.isQuitting = false
@@ -169,6 +183,7 @@ export async function openMainWindow(options: MainWindowOpenOptions = {}): Promi
       recordDurableCrashBreadcrumb(`renderer_recovery_reload_${status}`, outcome)
     }
   })
+  desktopWindows.register(window, windowId)
   recordCrashBreadcrumb('main_window_created')
   logStartupMilestone('window-created')
   const createTray = createSystemTrayDeferred(window, () => logStartupMilestone('tray-created'))
@@ -197,15 +212,24 @@ export async function openMainWindow(options: MainWindowOpenOptions = {}): Promi
   window.webContents.on('did-finish-load', onFirstWindowLoad)
   state.mainWindow = window
   state.hasOpenedMainWindow = true
+  // The last focused native window is the one main-window callers address.
+  window.on('focus', () => {
+    state.mainWindow = window
+    state.core.rateLimits?.attach(window)
+  })
   window.on('closed', () => {
     if (state.mainWindow === window) {
-      state.mainWindow = null
-      if (state.isServeMode) {
+      state.mainWindow = preferredNativeDesktopWindow()
+      if (state.mainWindow) {
+        state.core.rateLimits?.attach(state.mainWindow)
+      } else if (state.isServeMode) {
         applyBackgroundActivationPolicy({ serveWithoutDesktopWindow: true, warn: console.warn })
       }
     }
     clearExpectedRendererReload(rendererWebContentsId)
-    clearMainWindowAgentStatusListeners()
+    if (!state.mainWindow) {
+      clearMainWindowAgentStatusListeners()
+    }
   })
   const hostInitialization = Promise.withResolvers<void>()
   try {
@@ -215,7 +239,7 @@ export async function openMainWindow(options: MainWindowOpenOptions = {}): Promi
       recordRendererReload: (ignoreCache) =>
         recordCrashBreadcrumb('renderer_reload_requested', { ignoreCache })
     })
-    if (window.isDestroyed() || state.mainWindow !== window || state.isQuitting) {
+    if (window.isDestroyed() || state.isQuitting) {
       throw new Error('Main window closed while preparing services')
     }
   } catch (error) {
@@ -253,8 +277,14 @@ export async function openMainWindow(options: MainWindowOpenOptions = {}): Promi
         minIntervalMs: AGENT_STATE_CRASH_BREADCRUMB_MIN_INTERVAL_MS
       })
   })
+
   logStartupMilestone('load-start')
-  loadMainWindow(window, options.loadObserver)
+  loadMainWindow(
+    window,
+    options.worktreeId
+      ? { ...options.loadObserver, worktreeId: options.worktreeId }
+      : options.loadObserver
+  )
   hostInitialization.resolve()
   return window
 }

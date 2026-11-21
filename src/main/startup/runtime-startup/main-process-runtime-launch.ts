@@ -55,6 +55,7 @@ import { emitServeBrowserIdentityActionLine } from '../../server/serve-stdout-bo
 import { getBrowserIdentityModeStatus } from '../../browser/identity/mode/browser-identity-mode-store'
 import { beginChatJournalStartup, chatJournalHostServing } from './chat-journal-startup'
 import { e2eHeadlessServeWithoutBrowser } from '../serve-launch/e2e-headless-serve-without-browser'
+import { restoreNativeDesktopWindows } from '../../window/native-windows/native-desktop-windows'
 
 type RuntimeService = NonNullable<typeof state.core.runtime>
 
@@ -247,6 +248,9 @@ async function launchDesktopMode(
     void state.mainProcessI18nReady.then(() =>
       showRuntimeRpcStartupFailureDialog(win, runtimeRpcStartResult.error)
     )
+  } else {
+    // Why after both: restored windows need the live listener, and they close with the main window.
+    restoreNativeDesktopWindows()
   }
   // Register before proxy await so concurrent token mints wait rather than fail provider_missing; installer requests are already guarded.
   startMainProcessRelayService(runtimeRpc)

@@ -32,10 +32,10 @@ function isPagePoint(value: unknown): value is { x: number; y: number } {
   )
 }
 
-// Page/session operations exclude document previews.
+// Page/session operations exclude document previews; resolve only the sender's own guest.
 const pageGuestId = (event: IpcMainInvokeEvent, browserPageId: unknown): number | null =>
   isTrustedBrowserRenderer(event.sender) && typeof browserPageId === 'string'
-    ? browserManager.getGuestWebContentsId(browserPageId)
+    ? browserManager.getGuestWebContentsIdForRenderer(browserPageId, event.sender.id)
     : null
 
 export function pageGuest(
@@ -205,7 +205,7 @@ export function registerBrowserGuestViewHandlers(): void {
           return false
         }
       }
-      return browserManager.setViewportOverride(args.browserPageId, args.override)
+      return browserManager.setViewportOverride(args.browserPageId, args.override, event.sender.id)
     }
   )
 

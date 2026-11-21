@@ -1,6 +1,7 @@
 import { BrowserManagerGuestNavigationPolicy } from '../navigation/browser-manager-guest-navigation-policy'
 import { webContents } from 'electron'
 import { clearBrowserPageMemoryInvalidation } from '../../browser-page-memory'
+import { cancelBrowserWebAuthnAccountRequests } from '../../../webauthn/browser-webauthn-account-picker'
 
 export abstract class BrowserManagerGuestCleanup extends BrowserManagerGuestNavigationPolicy {
   protected completeGuestCleanup(stage: string, cleanup: () => void): void {
@@ -18,6 +19,9 @@ export abstract class BrowserManagerGuestCleanup extends BrowserManagerGuestNavi
       clearBrowserPageMemoryInvalidation(browserTabId, guestWebContentsId)
     }
     const isPrimaryGuest = browserTabId !== undefined
+    if (browserTabId) {
+      cancelBrowserWebAuthnAccountRequests(browserTabId, guestWebContentsId)
+    }
     if (browserTabId && this.webContentsIdByTabId.get(browserTabId) === guestWebContentsId) {
       this.webContentsIdByTabId.delete(browserTabId)
     }
@@ -30,6 +34,9 @@ export abstract class BrowserManagerGuestCleanup extends BrowserManagerGuestNavi
     this.popupOwnerContextByGuestId.delete(guestWebContentsId)
     this.pageInitiatedTabBudgetByRootGuestId.delete(guestWebContentsId)
     this.cdpUserAgentOverrideStateByGuestId.delete(guestWebContentsId)
+    this.viewportPresetsByGuestId.delete(guestWebContentsId)
+    this.viewportScrollStatesByGuestId.delete(guestWebContentsId)
+    this.viewportOpsByGuestId.delete(guestWebContentsId)
     this.pendingNavigationByGuestId.delete(guestWebContentsId)
     // Revoke popup authorization as soon as the owner retires, before child destruction.
     if (isPrimaryGuest) {

@@ -157,18 +157,19 @@ export class BrowserCertificateTrustController {
     return true
   }
 
-  getFailure(browserPageId: string): BrowserCertificateFailure | null {
+  /** `guestId` names the exact guest when native windows hold several for one page. */
+  getFailure(browserPageId: string, guestId?: number): BrowserCertificateFailure | null {
     this.pruneExpired()
-    for (const pending of this.pendingByGuestId.values()) {
-      if (pending.browserPageId === browserPageId) {
-        return toBrowserCertificateFailure(pending)
-      }
-    }
-    return null
+    const webContentsId = guestId ?? this.dependencies.resolveWebContentsIdForPage(browserPageId)
+    const pending = webContentsId === null ? undefined : this.pendingByGuestId.get(webContentsId)
+    return pending?.browserPageId === browserPageId ? toBrowserCertificateFailure(pending) : null
   }
 
-  proceed(browserPageId: string, challengeId: string): BrowserCertificateProceedResult {
-    const webContentsId = this.dependencies.resolveWebContentsIdForPage(browserPageId)
+  proceed(
+    browserPageId: string,
+    challengeId: string,
+    webContentsId: number | null = this.dependencies.resolveWebContentsIdForPage(browserPageId)
+  ): BrowserCertificateProceedResult {
     if (webContentsId === null) {
       return { ok: false, reason: 'missing' }
     }

@@ -49,6 +49,17 @@ export type SerializeResult = {
 } | null
 
 export type PtyIpcSessionOptions = {
+  rendererDeliveryOnly?: true
+  outputSequenceOf?: (id: string) => number | undefined
+  nativeWindowDelivery?: {
+    sessionFor: (renderer: WebContents) => PtyIpcSession | null
+    acceptData: (payload: PtyDataPayload) => boolean
+    attachSource: (session: PtyIpcSession) => void
+    claim: (renderer: WebContents, id: string) => void
+    canResize: (renderer: WebContents, id: string) => boolean
+    canReply: (renderer: WebContents, id: string) => boolean
+    updateHint: (renderer: WebContents, id: string, hint: NativePtyHint, value: boolean) => boolean
+  }
   prepareCodexSessionResume?: PrepareCodexSessionResume
   awaitLocalPtyStartup?: () => Promise<void>
   awaitLocalPtyProviderStartup?: () => Promise<void>
@@ -64,8 +75,12 @@ export type PtyRendererDelivery = Pick<
   BrowserWindow,
   'isDestroyed' | 'isFocused' | 'isVisible' | 'isMinimized'
 > & {
-  webContents: Pick<WebContents, 'id' | 'isDestroyed' | 'send' | 'on' | 'removeListener'>
+  acceptsRenderer?: (renderer: WebContents) => boolean
+  webContents: Pick<WebContents, 'id' | 'isDestroyed' | 'send'> &
+    Pick<NodeJS.EventEmitter, 'on' | 'removeListener'>
 }
+
+export type NativePtyHint = 'active' | 'visible' | 'hidden' | 'interest'
 
 export type PtyIpcSession = {
   mainWindow?: PtyRendererDelivery
@@ -137,6 +152,7 @@ export type PtyIpcSession = {
       data: string
       sequenceChars?: number
       transformed?: boolean
+      droppedOutput?: boolean
     },
     outputSeq: number | undefined
   ) => void
@@ -219,8 +235,16 @@ export function createPtyIpcSession(args: {
     lastHiddenDropContradictionWarnAtMs: 0,
     pendingDataDropWarnedPtys: new Set(),
     producerFlowControl: new PtyProducerFlowController({
-      pauseProducer: (id) => tryGetProviderForPty(id)?.pauseProducer?.(id),
-      resumeProducer: (id) => tryGetProviderForPty(id)?.resumeProducer?.(id)
+      pauseProducer: (id) => {
+        if (!args.options?.rendererDeliveryOnly) {
+          tryGetProviderForPty(id)?.pauseProducer?.(id)
+        }
+      },
+      resumeProducer: (id) => {
+        if (!args.options?.rendererDeliveryOnly) {
+          tryGetProviderForPty(id)?.resumeProducer?.(id)
+        }
+      }
     }),
     backgroundedDeliverySyncByPty: new Map(),
     syntheticKillExitPtyIds: new Map(),

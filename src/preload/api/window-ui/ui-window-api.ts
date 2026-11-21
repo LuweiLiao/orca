@@ -1,6 +1,7 @@
 import type { AgentSessionAttachmentClipboardTarget } from '../../../shared/agent-session/agent-session-attachments'
 import type { ClipboardImageThumbnail } from '../../../shared/clipboard/clipboard-image'
 import type { ReadClipboardTextOptions } from '../../../shared/clipboard/clipboard-text'
+import type { RuntimeClientWindowOpenResult } from '../../../shared/app-lifecycle/windows/runtime-client-window-open-result'
 import type {
   RichMarkdownContextMenuCommandPayload,
   RichMarkdownContextMenuTableTarget
@@ -81,4 +82,8 @@ export type UiWindowApi = {
   /** The user kept the window after a close request, which also cancels a pending quit. */
   cancelWindowClose: () => void
   notifyWindowRevealed: () => void
+  /** Opens an extra desktop window on this computer's runtime, optionally on one workspace. */
+  openRuntimeClientWindow: (options?: {
+    worktreeId?: string
+  }) => Promise<RuntimeClientWindowOpenResult>
 }

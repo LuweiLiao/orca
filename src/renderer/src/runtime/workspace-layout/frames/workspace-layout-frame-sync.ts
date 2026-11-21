@@ -13,7 +13,8 @@ import {
 import { terminalLayoutsPatch } from '@/store/workspace-layout/frames/workspace-layout-frame-store-patch'
 import {
   layoutHoldsBoundPane,
-  onWorkspaceStartsDrawing
+  onWorkspaceStartsDrawing,
+  type HeldWorkspacesStore
 } from './workspace-layout-frame-drawn-workspaces'
 import type { TerminalTabTitleUpdate } from '@/store/terminals/tabs/presentation/terminal-tab-title-batch'
 import type { WorkspaceLayoutChangeFrame } from '../../../../../shared/workspace-layout/published-layout/workspace-layout-stream-frames'
@@ -51,11 +52,10 @@ import {
   openLayoutFrameStream,
   type LayoutFrameSource
 } from './layout-frame-stream'
+import { nativeDesktopFrameEdits } from './native-desktop-frame-edits'
 
-type FrameSyncStore = {
-  getState: () => AppState
+type FrameSyncStore = HeldWorkspacesStore & {
   setState: (patch: Partial<AppState>) => void
-  subscribe: (listener: (state: AppState) => void) => () => void
 }
 
 export type WorkspaceLayoutFrameSync = LayoutFrameTerminalQueries & {
@@ -72,6 +72,7 @@ export function openWorkspaceLayoutFrameSync(
   store: FrameSyncStore,
   source: LayoutFrameSource = LOCAL_LAYOUT_FRAMES
 ): WorkspaceLayoutFrameSync {
+  const localEdits = nativeDesktopFrameEdits(store.getState(), source.target)
   let cache: WorkspaceLayoutCache = EMPTY_WORKSPACE_LAYOUT_CACHE
   /** Workspaces the store shows from frames; any other the frames draw takes a full build. */
   const shown = new Set<string>()
@@ -135,6 +136,7 @@ export function openWorkspaceLayoutFrameSync(
     const rowFieldsTaken = new Map<string, Partial<TerminalTab>>()
     const holds: LayoutFrameBuildHolds = {
       ...FRAME_BUILD_HOLDS,
+      localEdits,
       held: eitherHeld(FRAME_BUILD_HOLDS.held, source.heldTabs),
       newRowFields: (tabId) => {
         const fields = takeTabRowFields(tabId)

@@ -7,7 +7,7 @@ import { publishBrowserGuestMetadata } from '../../navigation/browser-guest-meta
 import { webContents } from 'electron'
 import { browserDownloadDestinationReservations } from '../../../downloads/browser-download-destination'
 import { isWorkspaceDocPageId } from '../../../document-preview/doc-preview-guest-policy'
-import { BrowserManagerGuestPolicy } from './browser-manager-guest-policy'
+import { BrowserManagerNativeGuests } from '../browser-manager-native-guests'
 import {
   cancelBrowserPagePrompts,
   showBrowserPagePromptsAwaitingRegistration
@@ -23,7 +23,7 @@ export type BrowserGuestRegistration = {
   rendererWebContentsId: number
 }
 
-export abstract class BrowserManagerRegistration extends BrowserManagerGuestPolicy {
+export abstract class BrowserManagerRegistration extends BrowserManagerNativeGuests {
   registerGuest(
     {
       browserPageId,
@@ -45,15 +45,6 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     ) {
       return false
     }
-    // Cancel grabs bound to the previous surface before replacing its guest.
-    this.cancelGrabOp(browserTabId, 'evicted')
-
-    const previousCleanup = this.contextMenuCleanupByTabId.get(browserTabId)
-    if (previousCleanup) {
-      previousCleanup()
-      this.contextMenuCleanupByTabId.delete(browserTabId)
-    }
-
     const guest = webContents.fromId(webContentsId)
     if (!guest || guest.isDestroyed()) {
       return false
@@ -67,17 +58,32 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       // Trust only webviews that passed attach-time policy installation.
       return false
     }
+    // Another native window's guest of this page stays live beside this one.
+    const preservePeer = this.rememberNativeGuest(
+      browserTabId,
+      {
+        browserPageId: browserTabId,
+        workspaceId,
+        worktreeId,
+        sessionProfileId,
+        webContentsId,
+        rendererWebContentsId
+      },
+      options
+    )
+    // Cancel grabs bound to the previous surface before replacing its guest.
+    this.cancelGrabOp(browserTabId, 'evicted')
+    this.contextMenuCleanupByTabId.get(browserTabId)?.()
+    this.contextMenuCleanupByTabId.delete(browserTabId)
 
     const previousWebContentsId = this.webContentsIdByTabId.get(browserTabId)
     if (previousWebContentsId !== undefined && previousWebContentsId !== webContentsId) {
-      if (options?.retainPreviousGuestPolicies) {
+      if (!preservePeer && options?.retainPreviousGuestPolicies) {
         // A staged swap must be able to restore this still-live guest on failure.
         this.tabIdByWebContentsId.delete(previousWebContentsId)
-      } else {
+      } else if (!preservePeer) {
         this.cleanupGuestPolicyAttachment(previousWebContentsId)
       }
-      this.viewportPresetByTabId.delete(browserTabId)
-      this.viewportScrollStateByTabId.delete(browserTabId)
     }
     this.webContentsIdByTabId.set(browserTabId, webContentsId)
     this.tabIdByWebContentsId.set(webContentsId, browserTabId)
@@ -113,6 +119,7 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       webContentsId,
       this.getRendererContextForGuest(webContentsId)
     )
+    this.saveNativeGuestState(browserTabId)
     return true
   }
 
@@ -128,6 +135,13 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       closeBrowserMemoryPage(browserTabId)
     }
     const wcId = this.webContentsIdByTabId.get(browserTabId)
+    const nativeRenderer = wcId === undefined ? undefined : this.nativeRendererByGuestId.get(wcId)
+    if (wcId !== undefined) {
+      this.annotationViewportBridgeOpsByTabId.delete(
+        this.annotationViewportBridgeKey(browserTabId, wcId)
+      )
+    }
+    this.forgetNativeGuest(browserTabId)
     const disposers = [
       this.contextMenuCleanupByTabId,
       this.grabShortcutCleanupByTabId,
@@ -137,13 +151,19 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     ].map((owners) => ({ owners, dispose: owners.get(browserTabId) }))
     const downloads: string[] = []
     for (const [downloadId, download] of this.downloadsById) {
-      if (download.browserTabId === browserTabId && !download.terminalEvent) {
+      if (
+        download.browserTabId === browserTabId &&
+        !download.terminalEvent &&
+        (nativeRenderer === undefined || download.rendererWebContentsId === nativeRenderer)
+      ) {
         downloads.push(downloadId)
       }
     }
     try {
       this.completeGuestCleanup('grab', () => this.cancelGrabOp(browserTabId, 'evicted'))
-      this.completeGuestCleanup('prompts', () => cancelBrowserPagePrompts(browserTabId))
+      this.completeGuestCleanup('prompts', () =>
+        cancelBrowserPagePrompts(browserTabId, nativeRenderer === undefined ? undefined : wcId)
+      )
       this.completeGuestCleanup('audio', () => this.notifyAudioStateChanged(browserTabId, false))
       this.completeGuestCleanup('agent activity', () => this.agentActivity.end(browserTabId))
       if (wcId !== undefined) {
@@ -176,14 +196,12 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
         this.workspaceIdByPageId.delete(browserTabId)
         this.sessionProfileIdByPageId.delete(browserTabId)
         this.worktreeIdByTabId.delete(browserTabId)
-        this.viewportOpsByTabId.delete(browserTabId)
-        this.viewportPresetByTabId.delete(browserTabId)
-        this.viewportScrollStateByTabId.delete(browserTabId)
         this.annotationViewportBridgeOpsByTabId.delete(browserTabId)
       }
       if (wcId !== undefined) {
         this.pendingNavigationByGuestId.delete(wcId)
       }
+      this.restoreNativePeer(browserTabId)
     }
   }
 
@@ -212,8 +230,6 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     const previousWebContentsId = this.webContentsIdByTabId.get(browserPageId)
     if (previousWebContentsId !== undefined && previousWebContentsId !== webContentsId) {
       this.cleanupGuestPolicyAttachment(previousWebContentsId)
-      this.viewportPresetByTabId.delete(browserPageId)
-      this.viewportScrollStateByTabId.delete(browserPageId)
     }
     this.webContentsIdByTabId.set(browserPageId, webContentsId)
     this.tabIdByWebContentsId.set(webContentsId, browserPageId)
@@ -233,8 +249,17 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       this.cancelDownloadInternal(downloadId, 'Orca is shutting down.')
     }
     browserDownloadDestinationReservations.clear()
+    this.unregisterAllNativeGuests()
     for (const browserTabId of this.webContentsIdByTabId.keys()) {
-      this.unregisterGuest(browserTabId)
+      // Each pass may select a peer window's guest of the page; stop if a pass frees nothing.
+      let previous: number | undefined
+      while (
+        this.webContentsIdByTabId.has(browserTabId) &&
+        this.webContentsIdByTabId.get(browserTabId) !== previous
+      ) {
+        previous = this.webContentsIdByTabId.get(browserTabId)
+        this.unregisterGuest(browserTabId)
+      }
     }
     this.policyAttachedGuestIds.clear()
     this.agentLedGuestIds.clear()
@@ -249,8 +274,9 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
     this.pageInitiatedTabBudgetByRootGuestId.clear()
     this.worktreeIdByTabId.clear()
     this.sessionProfileIdByPageId.clear()
-    this.viewportPresetByTabId.clear()
-    this.viewportScrollStateByTabId.clear()
+    this.viewportPresetsByGuestId.clear()
+    this.viewportScrollStatesByGuestId.clear()
+    this.viewportOpsByGuestId.clear()
     this.cdpUserAgentOverrideStateByGuestId.clear()
     this.pendingNavigationByGuestId.clear()
     this.pendingLoadFailuresByGuestId.clear()

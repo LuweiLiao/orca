@@ -174,7 +174,7 @@ export abstract class BrowserManagerVisibility extends BrowserManagerState {
   holdPaintForCapture(guestWebContentsId: number): () => void {
     const releaseGuestThrottle = this.holdGuestActive(guestWebContentsId)
     const browserPageId = this.resolveBrowserTabIdForGuestWebContentsId(guestWebContentsId)
-    const renderer = browserPageId ? this.resolveRendererForBrowserTab(browserPageId) : null
+    const renderer = this.getRendererContextForGuest(guestWebContentsId)?.renderer
     if (!browserPageId || !renderer || renderer.isDestroyed()) {
       return releaseGuestThrottle
     }
@@ -224,7 +224,7 @@ export abstract class BrowserManagerVisibility extends BrowserManagerState {
     if (!browserPageId) {
       return Promise.reject(focusGuardUnavailableError('missing_page'))
     }
-    const renderer = this.resolveRendererForBrowserTab(browserPageId)
+    const renderer = this.getRendererContextForGuest(guestWebContentsId)?.renderer
     if (!renderer) {
       return Promise.reject(focusGuardUnavailableError('missing_renderer'))
     }

@@ -15,8 +15,13 @@ export function reconcileHydratedWorkspaceTabModels(
     reconcileWorktreeTabModels(reconciled)
   }
   // After initial frames, each main/server stream owns its workspaces’ layout. Restore retains view and frame-absent records: sleeping agents, closed tabs, default-tab marks and reconnect plans; main tracks later resume changes.
-  if (ORCA_LAYOUT_OWNER_IS_MAIN) {
+  if (
+    ORCA_LAYOUT_OWNER_IS_MAIN ||
+    (typeof window !== 'undefined' && window.__ORCA_NATIVE_WINDOW_ID__)
+  ) {
     showStartupLayoutFrames()
+  }
+  if (ORCA_LAYOUT_OWNER_IS_MAIN) {
     showServerLayoutFrames()
     followSleepingRecordsInLayoutOwner()
   }

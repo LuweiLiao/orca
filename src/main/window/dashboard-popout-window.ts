@@ -9,17 +9,9 @@ import {
 import { rectHasVisibleAreaOnAnyDisplay } from './presentation/window-bounds-validation'
 import { sendToTrustedUIRenderer } from '../ipc/ui'
 import { installPrivilegedWindowNavigationPolicy } from './security/privileged-window-navigation'
-import {
-  stepUIZoomLevel,
-  type UIZoomDirection
-} from '../../shared/app-lifecycle/windows/ui-zoom-level'
-import { nativeZoomCommandMatchesKeybindings } from '../../shared/keybindings/window-shortcut-policy'
-import { keybindingMatchesAction } from '../../shared/keybindings/matching'
-import type {
-  KeybindingActionId,
-  KeybindingInput,
-  KeybindingOverrides
-} from '../../shared/keybindings/types'
+import type { UIZoomDirection } from '../../shared/app-lifecycle/windows/ui-zoom-level'
+import { installWindowLocalZoomShortcuts, stepWebContentsZoom } from './window-zoom-shortcuts'
+import type { KeybindingOverrides } from '../../shared/keybindings/types'
 import { wslHostsWindowArguments } from '../wsl/host-lifecycle/wsl-host-gate'
 import { isMacAppPasteInput } from './editing/mac-app-paste-input'
 
@@ -45,39 +37,13 @@ export function isDashboardPopoutRenderer(sender: WebContents): boolean {
   return getDashboardPopoutWindow()?.webContents === sender
 }
 
-function zoomDashboardPopout(window: BrowserWindow, direction: UIZoomDirection): void {
-  const webContents = window.webContents
-  webContents.setZoomLevel(stepUIZoomLevel(webContents.getZoomLevel(), direction))
-}
-
-const ZOOM_SHORTCUTS: readonly [KeybindingActionId, UIZoomDirection][] = [
-  ['zoom.in', 'in'],
-  ['zoom.out', 'out'],
-  ['zoom.reset', 'reset']
-]
-
-function resolveZoomShortcut(
-  input: KeybindingInput,
-  keybindings: KeybindingOverrides | undefined
-): UIZoomDirection | null {
-  // This runs per keydown; inspect only zoom shortcuts.
-  for (const [actionId, direction] of ZOOM_SHORTCUTS) {
-    if (
-      keybindingMatchesAction(actionId, input, process.platform, keybindings, { context: 'app' })
-    ) {
-      return direction
-    }
-  }
-  return null
-}
-
 /** Zoom the focused popout; return false so menu actions can fall back to the main window. */
 export function zoomDashboardPopoutIfFocused(direction: UIZoomDirection): boolean {
   const popout = getDashboardPopoutWindow()
   if (!popout || !popout.isFocused()) {
     return false
   }
-  zoomDashboardPopout(popout, direction)
+  stepWebContentsZoom(popout.webContents, direction)
   return true
 }
 
@@ -199,36 +165,16 @@ export function createOrFocusDashboardPopout(
     }
   })
 
-  // No renderer shortcut routing exists here; handle paste and zoom chords and yield everything else.
+  // No renderer shortcut routing exists here; handle paste here; zoom chords are installed below.
   window.webContents.on('before-input-event', (event, input) => {
     if (isMacAppPasteInput(input)) {
       // Kitty-mode xterm encodes Cmd+V as CSI u and consumes it, so the Edit menu accelerator never fires.
       event.preventDefault()
       window.webContents.send('ui:appMenuPaste')
-      return
-    }
-    if (input.type !== 'keyDown') {
-      return
-    }
-    const direction = resolveZoomShortcut(input, options.getKeybindings?.())
-    if (direction) {
-      event.preventDefault()
-      zoomDashboardPopout(window, direction)
     }
   })
 
-  window.webContents.on('zoom-changed', (event, direction) => {
-    // Ctrl/Cmd+wheel arrives outside keyboard input routing.
-    if (
-      (direction === 'in' || direction === 'out') &&
-      nativeZoomCommandMatchesKeybindings(direction, process.platform, options.getKeybindings?.(), {
-        context: 'app'
-      })
-    ) {
-      event.preventDefault()
-      zoomDashboardPopout(window, direction)
-    }
-  })
+  installWindowLocalZoomShortcuts(window.webContents, () => options.getKeybindings?.())
 
   window.once('ready-to-show', () => {
     showWindowWithoutStealingFocus(window)

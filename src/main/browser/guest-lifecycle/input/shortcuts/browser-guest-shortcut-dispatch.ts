@@ -12,6 +12,7 @@ import type { BrowserPageTabShortcut } from '../../../../../shared/browser/guest
 import type { ResolveRenderer } from '../../browser-guest-renderer-target'
 import { matchesGuestTabShortcut } from './browser-guest-tab-shortcut'
 import { textInputOwnsComposition } from '../../../../../shared/keybindings/text-input-shortcut-policy'
+import { openRuntimeClientWindowFromUserCommand } from '../../../../window/native-windows/runtime-client-window-open-command'
 
 export type ShouldForwardDictationShortcut = () => boolean
 export type IsMobileEmulatorEnabled = () => boolean
@@ -92,6 +93,7 @@ export function forwardGuestShortcutInput(
     if (
       forwardsDictation ||
       matchesPlugins ||
+      action?.type === 'newWindow' ||
       // Why: Orca claims a held tab chord on every repeat but acts once, so repeats never reach the page.
       matchesGuestTabShortcut(
         input,
@@ -117,6 +119,13 @@ export function forwardGuestShortcutInput(
     event.preventDefault()
     const renderer = resolveRenderer(browserTabId)
     renderer?.send('ui:toggleFloatingTerminal')
+    return true
+  }
+
+  if (action?.type === 'newWindow') {
+    // Main-process-only capability; skip the renderer lookup below entirely.
+    event.preventDefault()
+    openRuntimeClientWindowFromUserCommand()
     return true
   }
 

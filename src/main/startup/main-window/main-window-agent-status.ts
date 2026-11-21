@@ -7,6 +7,14 @@ import { stopSyntheticTitleSpinnerTimer } from './synthetic-title-runtime'
 import { mainProcessState as state } from '../main-process-state'
 import { pickHostTurnEnd } from '../../../shared/agent-status/contracts/agent-status-types'
 import { cliWriterTopology } from '../../agent-hooks/server/cli-writer-topology'
+import { broadcastDesktopRendererEvent } from '../../window/native-windows/desktop-renderer-registry'
+
+// Every native desktop window shows agent status; the main window is the fallback.
+function sendAgentStatus(channel: string, value: unknown): void {
+  if (broadcastDesktopRendererEvent(channel, value) === 0) {
+    state.mainWindow?.webContents.send(channel, value)
+  }
+}
 
 export type MainWindowAgentStatusOptions = {
   window: BrowserWindow
@@ -62,7 +70,7 @@ export function installMainWindowAgentStatusListeners(options: MainWindowAgentSt
         return
       }
       // Idle Pi session_start only refreshes resume identity; skip titles, telemetry and status UI.
-      state.mainWindow?.webContents.send('agentStatus:set', {
+      sendAgentStatus('agentStatus:set', {
         ...payload,
         paneKey,
         ...(launchToken ? { launchToken } : {}),
@@ -116,7 +124,7 @@ export function installMainWindowAgentStatusListeners(options: MainWindowAgentSt
       // Mark reconnect replays so cached completions do not notify again.
       ...(isReplay === true ? { isReplay: true } : {})
     }
-    state.mainWindow?.webContents.send('agentStatus:set', statusEvent)
+    sendAgentStatus('agentStatus:set', statusEvent)
     getDashboardPopoutWindow()?.webContents.send('agentStatus:set', statusEvent)
     // A facet-only republish (progress tick) or a settled id is not a state the agent entered.
     if (programStatusOnly !== true && identityOnly !== true) {
@@ -127,7 +135,7 @@ export function installMainWindowAgentStatusListeners(options: MainWindowAgentSt
     if (state.mainWindow?.isDestroyed()) {
       return
     }
-    state.mainWindow?.webContents.send('agentStatus:clear', clear)
+    sendAgentStatus('agentStatus:clear', clear)
     getDashboardPopoutWindow()?.webContents.send('agentStatus:clear', clear)
   })
   setMigrationUnsupportedPtyListener((event) => {
@@ -135,9 +143,9 @@ export function installMainWindowAgentStatusListeners(options: MainWindowAgentSt
       return
     }
     if (event.type === 'set') {
-      state.mainWindow?.webContents.send('agentStatus:migrationUnsupported', event.entry)
+      sendAgentStatus('agentStatus:migrationUnsupported', event.entry)
     } else {
-      state.mainWindow?.webContents.send('agentStatus:migrationUnsupportedClear', {
+      sendAgentStatus('agentStatus:migrationUnsupportedClear', {
         ptyId: event.ptyId
       })
     }

@@ -26274,7 +26274,8 @@
       "d286d1ab85": "Clear pane title",
       "botItemBack": "Back to items",
       "botItemPrevious": "Previous item",
-      "botItemNext": "Next item"
+      "botItemNext": "Next item",
+      "windowNew": "New window"
     },
     "group": {
       "global": "Global",
@@ -30205,5 +30206,11 @@
       "speed": "Replay speed",
       "toggle": "Replay"
     }
+  },
+  "multiWindow": {
+    "newWindow": "New Window",
+    "openInNewWindow": "Open in New Window",
+    "openFailed": "Could not open a new window",
+    "openFailedDetail": "Reason: {{reason}}"
   }
 }

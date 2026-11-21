@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
+import { getDefaultWorkspaceSession } from '../../../shared/orca-profiles/constants'
 import type { PersistedUIState } from '../../../shared/orca-profiles/persisted-ui-state-types'
 import type { TerminalTab } from '../../../shared/workspace-layout/terminal-tab-types'
 import type { WorkspaceSessionState } from '../../../shared/workspace-session/workspace-session-state-types'
+import type { DesktopLayoutView } from '../../../shared/workspace-layout/persistence/workspace-layout-beside'
 import {
   migrateUiHostScopeSshTargetId,
   migrateWorkspaceSessionSshTargetId
@@ -98,5 +100,31 @@ describe('migrateUiHostScopeSshTargetId', () => {
       { hostId: `ssh:${NEW_ID}`, repoId: 'remote-repo' },
       { hostId: 'local', repoId: 'local-repo' }
     ])
+  })
+
+  it('moves native window selections and views to the renamed SSH host', () => {
+    const view: DesktopLayoutView = {
+      ...getDefaultWorkspaceSession(),
+      groups: {},
+      panes: {},
+      lastFocusedAt: {},
+      editorDrafts: {},
+      activeWorkspaceExecutionHostId: `ssh:${OLD_ID}`
+    }
+    const ui = makeUi({
+      desktopWindows: {
+        native: {
+          open: true,
+          ui: { lastActiveWorktreeId: `ssh:${OLD_ID}|r::/workspace` },
+          viewsByHostId: { [`ssh:${OLD_ID}`]: view }
+        }
+      }
+    })
+    expect(migrateUiHostScopeSshTargetId(ui, OLD_ID, NEW_ID)).toBe(true)
+    expect(ui.desktopWindows?.native.ui?.lastActiveWorktreeId).toBe(`ssh:${NEW_ID}|r::/workspace`)
+    expect(
+      ui.desktopWindows?.native.viewsByHostId?.[`ssh:${NEW_ID}`]?.activeWorkspaceExecutionHostId
+    ).toBe(`ssh:${NEW_ID}`)
+    expect(ui.desktopWindows?.native.viewsByHostId).not.toHaveProperty(`ssh:${OLD_ID}`)
   })
 })

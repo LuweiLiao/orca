@@ -38,6 +38,15 @@ import {
   type WorkspaceSessionEntriesPatch,
   type WorkspaceSessionEntriesPatchResult
 } from '../../shared/workspace-session/workspace-session-entries-patch'
+import type { WebContents } from 'electron'
+import {
+  desktopWindowSession,
+  saveDesktopWindowSessionView
+} from '../persistence/desktop-windows/desktop-window-state'
+import {
+  prepareDesktopWindowSessionWrite,
+  readDesktopWindowSession
+} from '../persistence/desktop-windows/desktop-window-session-writes'
 
 export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeService): void {
   // Why: renderer saves would change a fenced host's frozen source partition, or write back what a
@@ -46,8 +55,9 @@ export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeServic
     isFrozenOrcadSourceSessionPartition(store, hostId) || isWslMoveWindowWriteHeld()
 
   // Optional hostId preserves local-partition behavior for older renderers.
-  ipcMain.handle('session:get', (_event, hostId?: string | null) => {
-    return store.getWorkspaceSession(hostId)
+  // Native desktop windows each read their own view over the shared session.
+  ipcMain.handle('session:get', (event, hostId?: string | null) => {
+    return readDesktopWindowSession(store, event?.sender, hostId)
   })
 
   // Repo catalogs omit folder-only SSH hosts; enumerate session partitions directly (#12723).
@@ -86,7 +96,7 @@ export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeServic
   ipcMain.handle(
     'session:set',
     (
-      _event,
+      event,
       args: WorkspaceSessionState,
       hostId?: string | null,
       options?: WindowSessionSetOptions
@@ -94,8 +104,20 @@ export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeServic
       if (isFenced(hostId)) {
         return { status: 'skipped' }
       }
+      const windowWrite = prepareDesktopWindowSessionWrite(
+        store,
+        event?.sender,
+        { kind: 'set', session: args },
+        hostId
+      )
+      saveDesktopWindowSessionView(store, event?.sender, args, hostId)
       const stored = store.getWorkspaceSession(hostId)
-      const save = windowSaveKeepingRelayOwnership(stored, args, 'set', options)
+      const save = windowSaveKeepingRelayOwnership(
+        stored,
+        ORCA_LAYOUT_OWNER_IS_MAIN ? args : (windowWrite?.shared ?? args),
+        'set',
+        options
+      )
       const next = ORCA_LAYOUT_OWNER_IS_MAIN
         ? sessionForMain(save, hostId)
         : windowSaveKeepingMainSleepRecords(stored, save, 'set')
@@ -108,6 +130,7 @@ export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeServic
       // One publish for the snapshot and the relay ids that ride with it.
       store.setWorkspaceSession({ ...next, ...applied?.patch }, hostId)
       applied?.stored()
+      windowWrite?.commit()
       const status = carriedRelayStatus(applied)
       return status ? { status: 'applied', relays: status } : { status: 'applied' }
     }
@@ -118,13 +141,29 @@ export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeServic
     toPatch: (stored: WorkspaceSessionState) => WorkspaceSessionPatch,
     hostId: string | null | undefined,
     entries?: WorkspaceSessionEntriesPatch,
-    relays?: DesktopRelayHostWrite | null
+    relays?: DesktopRelayHostWrite | null,
+    sender?: WebContents
   ): Omit<WorkspaceSessionEntriesPatchResult, 'normalizedFields'> => {
     if (isFenced(hostId)) {
       return { status: 'skipped' }
     }
     const stored = store.getWorkspaceSession(hostId)
-    const args = windowSaveKeepingRelayOwnership(stored, toPatch(stored), 'patch')
+    const requested = toPatch(sender ? desktopWindowSession(store, sender, hostId) : stored)
+    const windowWrite = prepareDesktopWindowSessionWrite(
+      store,
+      sender,
+      { kind: 'patch', patch: requested },
+      hostId
+    )
+    saveDesktopWindowSessionView(
+      store,
+      sender,
+      windowWrite?.window ?? { ...desktopWindowSession(store, sender, hostId), ...requested },
+      hostId
+    )
+    // A native window's patch reaches the shared session only through its shared records.
+    const windowPatch = windowWrite && !ORCA_LAYOUT_OWNER_IS_MAIN ? windowWrite.shared : requested
+    const args = windowSaveKeepingRelayOwnership(stored, windowPatch, 'patch')
     const { save, written } = ORCA_LAYOUT_OWNER_IS_MAIN
       ? patchForMain(args, hostId, entries)
       : { save: windowSaveKeepingMainSleepRecords(stored, args, 'patch'), written: undefined }
@@ -140,26 +179,29 @@ export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeServic
       if (applied?.patch) {
         store.patchWorkspaceSessionRelays(applied.patch, hostId, applied.changedTabIds)
         applied.stored()
+        windowWrite?.commit()
         return { status: 'applied', ...withRelays }
       }
+      windowWrite?.commit()
       noteWindowSessionSaveUnchanged(hostId)
       return { status: 'unchanged', ...withRelays }
     }
     // One publish for the entries and the relay ids that ride with them.
     store.patchWorkspaceSession({ ...save, ...applied?.patch }, hostId, written)
     applied?.stored()
+    windowWrite?.commit()
     return { status: 'applied', ...withRelays }
   }
 
-  ipcMain.handle('session:patch', (_event, args: WorkspaceSessionPatch, hostId?: string | null) => {
-    patchWindowSession(() => args, hostId)
+  ipcMain.handle('session:patch', (event, args: WorkspaceSessionPatch, hostId?: string | null) => {
+    patchWindowSession(() => args, hostId, undefined, undefined, event?.sender)
   })
 
   // Changed keys only: rebuilt into whole fields from the stored partition, then saved as a patch.
   ipcMain.handle(
     'session:patch-entries',
     (
-      _event,
+      event,
       args: WorkspaceSessionEntriesPatch,
       hostId?: string | null,
       relays?: unknown
@@ -168,13 +210,17 @@ export function registerSessionHandlers(store: Store, runtime: OrcaRuntimeServic
         (stored) => applyWorkspaceSessionEntriesPatch(stored, args),
         hostId,
         args,
-        parseCarriedDesktopRelays(relays, hostId)
+        parseCarriedDesktopRelays(relays, hostId),
+        event?.sender
       )
       if (result.status === 'skipped') {
         return result
       }
       // Normalization, fences and main's sleep records can store something else, saved or not.
-      const normalizedFields = fieldsStoredDifferently(store.getWorkspaceSession(hostId), args)
+      const normalizedFields = fieldsStoredDifferently(
+        desktopWindowSession(store, event?.sender, hostId),
+        args
+      )
       return normalizedFields.length > 0 ? { ...result, normalizedFields } : result
     }
   )

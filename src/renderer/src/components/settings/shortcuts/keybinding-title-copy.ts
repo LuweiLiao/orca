@@ -28,6 +28,7 @@ const STATIC_TITLE_COPY = {
   'worktree.navigateDown': () =>
     translate('keybindings.title.worktreeNavigateDown', 'Next worktree'),
   'workspace.create': () => translate('keybindings.title.workspaceCreate', 'Create worktree'),
+  'window.new': () => translate('keybindings.title.windowNew', 'New window'),
   'workspace.rename': () => translate('keybindings.title.workspaceRename', 'Rename worktree'),
   'workspace.delete': () => translate('keybindings.title.1d2c86248c', 'Delete workspace'),
   'workspace.openBoard': () => translate('keybindings.title.1524825c2c', 'Toggle workspace board'),

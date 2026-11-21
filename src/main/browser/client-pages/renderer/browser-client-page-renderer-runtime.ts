@@ -3,6 +3,7 @@ import { BROWSER_CLIENT_PAGE_RENDERER_REPLY_CHANNEL } from '../../../../shared/b
 import type { BrowserClientPageRenderer } from './browser-client-page-renderer-contract'
 import { BrowserClientPageRendererBridgeRegistry } from './browser-client-page-renderer-bridge'
 import type { BrowserClientPageRendererEndpoint } from './browser-client-page-renderer-reply-admission'
+import { preferredDesktopRenderer } from '../../../window/native-windows/desktop-renderer-registry'
 
 let rendererBridges: BrowserClientPageRendererBridgeRegistry | null = null
 
@@ -17,7 +18,7 @@ export function retireBrowserClientPageRenderer(
 }
 
 export function selectBrowserClientPageRenderer(): BrowserClientPageRenderer {
-  return getRendererBridges().selectRenderer()
+  return getRendererBridges().selectRenderer(preferredDesktopRenderer()?.id)
 }
 
 function getRendererBridges(): BrowserClientPageRendererBridgeRegistry {

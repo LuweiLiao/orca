@@ -148,6 +148,7 @@ export function registerPtyHandlers(
   })
   wirePtyIpcSession(session)
   bindTerminalPaneStatusLifecycle(runtime, store)
+  options?.nativeWindowDelivery?.attachSource(session)
   configureLocalPtyProvider({
     runtime,
     getSettings,
@@ -294,7 +295,11 @@ export function registerPtyHandlers(
     syncPtyBackgroundedDelivery: session.syncPtyBackgroundedDelivery,
     stopReplacedPty: (id) => stopReplacedPanePty(killDeps, id)
   })
-  installPtyWriteIpcHandlers({ mainWindow, runtime })
+  installPtyWriteIpcHandlers({
+    mainWindow,
+    runtime,
+    nativeWindowDelivery: options?.nativeWindowDelivery
+  })
   installPtyResizeVisibilityIpc(session)
   installPtyInspectIpcHandlers({ getLocalPtyProviderStartupPromise })
   installPtyCodexSharedServerIpcHandler({ getLocalPtyProviderStartupPromise })

@@ -14,13 +14,13 @@ export abstract class BrowserManagerViewport extends BrowserManagerDevTools {
   /** Sizes the pane's page box to an agent's viewport as a preset does: wider pages scroll, not crop. */
   showAgentViewportInPane(guestWebContentsId: number, override: BrowserViewportOverride): void {
     const browserPageId = this.resolveBrowserTabIdForGuestWebContentsId(guestWebContentsId)
-    const renderer = browserPageId ? this.resolveRendererForBrowserTab(browserPageId) : null
+    const renderer = this.getRendererContextForGuest(guestWebContentsId)?.renderer
     if (!browserPageId || !renderer || renderer.isDestroyed()) {
       return
     }
     // Requested, so the wheel pans the box as for a preset; the pane's next reset clears it.
-    const previous = this.viewportPresetByTabId.get(browserPageId)
-    this.viewportPresetByTabId.set(browserPageId, {
+    const previous = this.viewportPresetsByGuestId.get(guestWebContentsId)
+    this.viewportPresetsByGuestId.set(guestWebContentsId, {
       guestWebContentsId,
       requested: override,
       applied: previous?.guestWebContentsId === guestWebContentsId ? previous.applied : null
@@ -39,31 +39,36 @@ export abstract class BrowserManagerViewport extends BrowserManagerDevTools {
   // Never detach here: other CDP clients, including the agent bridge, would lose their state.
   async setViewportOverride(
     browserTabId: string,
-    override: BrowserViewportOverride | null
+    override: BrowserViewportOverride | null,
+    rendererWebContentsId?: number
   ): Promise<boolean> {
-    const expectedWebContentsId = this.webContentsIdByTabId.get(browserTabId)
-    if (expectedWebContentsId !== undefined) {
-      // Record intent now for panning; update applied metrics only after CDP accepts them.
-      const previous = this.viewportPresetByTabId.get(browserTabId)
-      this.viewportPresetByTabId.set(browserTabId, {
-        guestWebContentsId: expectedWebContentsId,
-        requested: override,
-        applied: previous?.guestWebContentsId === expectedWebContentsId ? previous.applied : null
-      })
+    const expectedWebContentsId =
+      rendererWebContentsId === undefined
+        ? this.webContentsIdByTabId.get(browserTabId)
+        : this.guestIdForRenderer(browserTabId, rendererWebContentsId)
+    if (expectedWebContentsId === undefined) {
+      return false
     }
+    // Record intent now for panning; update applied metrics only after CDP accepts them.
+    const previous = this.viewportPresetsByGuestId.get(expectedWebContentsId)
+    this.viewportPresetsByGuestId.set(expectedWebContentsId, {
+      guestWebContentsId: expectedWebContentsId,
+      requested: override,
+      applied: previous?.guestWebContentsId === expectedWebContentsId ? previous.applied : null
+    })
     // Host resize precedes CDP completion; discard stale wheel bounds until the renderer updates them.
-    this.viewportScrollStateByTabId.delete(browserTabId)
-    const prev = this.viewportOpsByTabId.get(browserTabId) ?? Promise.resolve()
+    this.viewportScrollStatesByGuestId.delete(expectedWebContentsId)
+    const prev = this.viewportOpsByGuestId.get(expectedWebContentsId) ?? Promise.resolve()
     const next = prev
       .catch(() => {})
       .then(() => this.doSetViewportOverrideImpl(browserTabId, override, expectedWebContentsId))
-    this.viewportOpsByTabId.set(browserTabId, next)
+    this.viewportOpsByGuestId.set(expectedWebContentsId, next)
     try {
       return await next
     } finally {
       // A later request may own the tail; deleting it would break serialization.
-      if (this.viewportOpsByTabId.get(browserTabId) === next) {
-        this.viewportOpsByTabId.delete(browserTabId)
+      if (this.viewportOpsByGuestId.get(expectedWebContentsId) === next) {
+        this.viewportOpsByGuestId.delete(expectedWebContentsId)
       }
     }
   }
@@ -73,22 +78,27 @@ export abstract class BrowserManagerViewport extends BrowserManagerDevTools {
     options: BrowserAnnotationViewportBridgeOptions,
     resolveGuest: () => Electron.WebContents | null
   ): Promise<boolean> {
-    const prev = this.annotationViewportBridgeOpsByTabId.get(browserTabId) ?? Promise.resolve()
+    const guest = resolveGuest()
+    if (!guest) {
+      return false
+    }
+    const key = this.annotationViewportBridgeKey(browserTabId, guest.id)
+    const prev = this.annotationViewportBridgeOpsByTabId.get(key) ?? Promise.resolve()
     const next = prev
       .catch(() => {})
       .then(() => {
         // Document invalidation retires queued geometry.
-        if (this.annotationViewportBridgeOpsByTabId.get(browserTabId) !== next) {
+        if (this.annotationViewportBridgeOpsByTabId.get(key) !== next) {
           return false
         }
         return this.doSetAnnotationViewportBridgeImpl(options, resolveGuest)
       })
-    this.annotationViewportBridgeOpsByTabId.set(browserTabId, next)
+    this.annotationViewportBridgeOpsByTabId.set(key, next)
     try {
       return await next
     } finally {
-      if (this.annotationViewportBridgeOpsByTabId.get(browserTabId) === next) {
-        this.annotationViewportBridgeOpsByTabId.delete(browserTabId)
+      if (this.annotationViewportBridgeOpsByTabId.get(key) === next) {
+        this.annotationViewportBridgeOpsByTabId.delete(key)
       }
     }
   }
@@ -120,14 +130,14 @@ export abstract class BrowserManagerViewport extends BrowserManagerDevTools {
   protected async doSetViewportOverrideImpl(
     browserTabId: string,
     override: BrowserViewportOverride | null,
-    expectedWebContentsId: number | undefined
+    webContentsId: number
   ): Promise<boolean> {
-    const webContentsId = this.webContentsIdByTabId.get(browserTabId)
-    if (!webContentsId || webContentsId !== expectedWebContentsId) {
+    if (!this.isRegisteredPageGuest(browserTabId, webContentsId)) {
       return false
     }
     const guest = webContents.fromId(webContentsId)
     if (!guest || guest.isDestroyed()) {
+      this.selectGuestForEvent(webContentsId)
       this.unregisterGuest(browserTabId)
       return false
     }
@@ -164,6 +174,9 @@ export abstract class BrowserManagerViewport extends BrowserManagerDevTools {
         : dbg.sendCommand('Emulation.clearDeviceMetricsOverride', {})
     )
     // Record before awaiting again so a later detach cannot be overwritten by stale applied metrics.
+    if (!this.isRegisteredPageGuest(browserTabId, webContentsId)) {
+      return false
+    }
     if (metricsApplied) {
       this.recordAppliedViewportOverride(browserTabId, webContentsId, override)
     }
@@ -173,7 +186,7 @@ export abstract class BrowserManagerViewport extends BrowserManagerDevTools {
         touchEmulationParams(override?.mobile === true)
       )
     )
-    if (this.webContentsIdByTabId.get(browserTabId) !== webContentsId) {
+    if (!this.isRegisteredPageGuest(browserTabId, webContentsId)) {
       return false
     }
     // Match identity to accepted device metrics even when the requested preset fails.
@@ -184,7 +197,7 @@ export abstract class BrowserManagerViewport extends BrowserManagerDevTools {
       metricsApplied &&
       touchApplied &&
       identityApplied &&
-      this.webContentsIdByTabId.get(browserTabId) === webContentsId
+      this.isRegisteredPageGuest(browserTabId, webContentsId)
     )
   }
 

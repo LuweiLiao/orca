@@ -37,11 +37,26 @@ import type { WorkspaceStatusDefinition } from '../worktree/types'
 import type { PersistedAutomationHostFilter } from '../automations/ownership/automation-host-filter'
 import type { PendingRuntimeRepoRemoval } from '../remote-runtime/host-catalog/pending-runtime-repo-removal'
 import type { BotSidebarView } from '../bots/bot-sidebar-view'
+import type { PersistedDesktopWindowState } from '../app-lifecycle/windows/desktop-window-state-types'
+
+/** One extra desktop window that runs the bundled web client against this computer's runtime. */
+export type PersistedRuntimeClientWindow = {
+  slot: number
+  /** Pairing grant minted for this slot's browser profile; reused while it stays authorized. */
+  deviceId?: string
+  /** Origin the slot's pairing is stored under; a different runtime port needs a fresh pairing. */
+  webClientOrigin?: string
+  /** Reopened on the next launch; cleared only when the user closes this window. */
+  open?: boolean
+  bounds?: { x: number; y: number; width: number; height: number }
+  isMaximized?: boolean
+}
 
 export type PersistedUIState = {
   gitGraphFiltersByWorktree?: Record<string, GitHistoryRefs>
   /** Paired-server project removals still owed to their server; optional so older builds ignore it. */
   pendingRuntimeRepoRemovals?: PendingRuntimeRepoRemoval[]
+  desktopWindows?: Record<string, PersistedDesktopWindowState>
   jiraSavedFilterState?: JiraSavedFilterState
   jiraQuickFilterState?: JiraQuickFilterState
   lastActiveRepoId: string | null
@@ -252,6 +267,8 @@ export type PersistedUIState = {
   windowFullScreen?: boolean
   /** Dashboard popout bounds, independent of main-window bounds. */
   dashboardPopoutBounds?: { x: number; y: number; width: number; height: number } | null
+  /** Extra runtime client windows by slot: pairing reuse, bounds, and whether to reopen at launch. */
+  runtimeClientWindows?: PersistedRuntimeClientWindow[]
   /** Migrate legacy recent→smart once so later activity-based recent selections survive. */
   _sortBySmartMigrated?: boolean
   /** Rollback field only: every load stamps it, so it cannot gate migration; use _inlineAgentsDefaultedForAllUsers. */

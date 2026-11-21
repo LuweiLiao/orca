@@ -23,7 +23,7 @@ export abstract class BrowserManagerEventForwarding extends BrowserManagerBindin
       this.pendingLoadFailuresByGuestId.set(guestWebContentsId, loadError)
       return
     }
-    this.sendGuestLoadFailure(browserTabId, loadError)
+    this.sendGuestLoadFailure(browserTabId, loadError, guestWebContentsId)
   }
 
   protected forwardOrQueuePermissionDenied(
@@ -40,7 +40,7 @@ export abstract class BrowserManagerEventForwarding extends BrowserManagerBindin
       this.pendingPermissionEventsByGuestId.set(guestWebContentsId, pending)
       return
     }
-    this.sendPermissionDenied(browserTabId, event)
+    this.sendPermissionDenied(browserTabId, event, guestWebContentsId)
   }
 
   protected flushPendingPermissionEvents(browserTabId: string, guestWebContentsId: number): void {
@@ -50,12 +50,19 @@ export abstract class BrowserManagerEventForwarding extends BrowserManagerBindin
     }
     this.pendingPermissionEventsByGuestId.delete(guestWebContentsId)
     for (const event of pending) {
-      this.sendPermissionDenied(browserTabId, event)
+      this.sendPermissionDenied(browserTabId, event, guestWebContentsId)
     }
   }
 
-  protected sendPermissionDenied(browserTabId: string, event: PendingPermissionEvent): void {
-    const renderer = this.resolveRendererForBrowserTab(browserTabId)
+  protected sendPermissionDenied(
+    browserTabId: string,
+    event: PendingPermissionEvent,
+    guestWebContentsId?: number
+  ): void {
+    const renderer =
+      guestWebContentsId === undefined
+        ? this.resolveRendererForBrowserTab(browserTabId)
+        : this.getRendererContextForGuest(guestWebContentsId)?.renderer
     if (!renderer) {
       return
     }
@@ -76,7 +83,7 @@ export abstract class BrowserManagerEventForwarding extends BrowserManagerBindin
       this.pendingPopupEventsByGuestId.set(guestWebContentsId, pending)
       return
     }
-    this.sendPopupEvent(browserTabId, event)
+    this.sendPopupEvent(browserTabId, event, guestWebContentsId)
   }
 
   protected flushPendingPopupEvents(browserTabId: string, guestWebContentsId: number): void {
@@ -86,11 +93,15 @@ export abstract class BrowserManagerEventForwarding extends BrowserManagerBindin
     }
     this.pendingPopupEventsByGuestId.delete(guestWebContentsId)
     for (const event of pending) {
-      this.sendPopupEvent(browserTabId, event)
+      this.sendPopupEvent(browserTabId, event, guestWebContentsId)
     }
   }
 
-  protected sendPopupEvent(browserTabId: string, event: PendingPopupEvent): void {
+  protected sendPopupEvent(
+    browserTabId: string,
+    event: PendingPopupEvent,
+    guestWebContentsId?: number
+  ): void {
     // An Orca tab is reported where it is requested and a child window where it opens.
     if (event.action !== 'opened-in-orca') {
       this.pageEvents.emit(browserTabId, {
@@ -99,7 +110,10 @@ export abstract class BrowserManagerEventForwarding extends BrowserManagerBindin
         origin: event.origin
       })
     }
-    const renderer = this.resolveRendererForBrowserTab(browserTabId)
+    const renderer =
+      guestWebContentsId === undefined
+        ? this.resolveRendererForBrowserTab(browserTabId)
+        : this.getRendererContextForGuest(guestWebContentsId)?.renderer
     if (!renderer) {
       return
     }
@@ -136,14 +150,18 @@ export abstract class BrowserManagerEventForwarding extends BrowserManagerBindin
       return
     }
     this.pendingLoadFailuresByGuestId.delete(guestWebContentsId)
-    this.sendGuestLoadFailure(browserTabId, pending)
+    this.sendGuestLoadFailure(browserTabId, pending, guestWebContentsId)
   }
 
   protected sendGuestLoadFailure(
     browserTabId: string,
-    loadError: { code: number; description: string; validatedUrl: string }
+    loadError: { code: number; description: string; validatedUrl: string },
+    guestWebContentsId?: number
   ): void {
-    const renderer = this.resolveRendererForBrowserTab(browserTabId)
+    const renderer =
+      guestWebContentsId === undefined
+        ? this.resolveRendererForBrowserTab(browserTabId)
+        : this.getRendererContextForGuest(guestWebContentsId)?.renderer
     if (!renderer) {
       return
     }

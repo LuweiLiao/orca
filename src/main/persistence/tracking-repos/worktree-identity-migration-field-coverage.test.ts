@@ -7,6 +7,8 @@ import type { PersistedState } from '../../../shared/orca-profiles/persisted-sta
 import type { WorkspaceSessionState } from '../../../shared/workspace-session/workspace-session-state-types'
 
 import { migrateWorktreeIdentity } from './worktree-identity-migration'
+import { loadWorkspaceLayoutWithoutReport } from '../../../shared/workspace-layout/persistence/workspace-layout-load'
+import { nameBasedLoadContext } from '../../../shared/workspace-layout/persistence/workspace-layout-minted-ids'
 
 const REPO = 'repo'
 const OLD = `${REPO}::/old/path`
@@ -41,6 +43,32 @@ function persistedState(session: WorkspaceSessionState): PersistedState {
 }
 
 describe('migrateWorktreeIdentity worktree-reference coverage', () => {
+  it('rekeys each native window selection and view without changing its identity', () => {
+    const session = { ...getDefaultWorkspaceSession(), activeWorktreeId: OLD }
+    const view = loadWorkspaceLayoutWithoutReport(
+      'local',
+      session,
+      nameBasedLoadContext()
+    ).desktopView
+    view.groups[OLD] = { group: { activeTabId: 'tab', recentTabIds: ['tab'] } }
+    view.editorDrafts[OLD] = { file: { dirtyDraftContent: 'unsaved' } }
+    const state = persistedState(session)
+    state.ui.desktopWindows = {
+      first: {
+        open: true,
+        ui: { lastActiveWorktreeId: `local|${OLD}` },
+        viewsByHostId: { local: view }
+      }
+    }
+    expect(migrateWorktreeIdentity(state, OLD, NEW)).toBe(true)
+    const window = state.ui.desktopWindows.first
+    expect(window.ui?.lastActiveWorktreeId).toBe(`local|${NEW}`)
+    expect(window.viewsByHostId?.local.activeWorktreeId).toBe(NEW)
+    expect(window.viewsByHostId?.local.groups[NEW]?.group.activeTabId).toBe('tab')
+    expect(window.viewsByHostId?.local.editorDrafts[NEW]?.file.dirtyDraftContent).toBe('unsaved')
+    expect(window.viewsByHostId?.local.groups).not.toHaveProperty(OLD)
+  })
+
   // Collector checks keys only; rehydration also requires each row's workspaceId to match.
   it('re-points the workspaceId inside each client-hosted browser page row', () => {
     const session: WorkspaceSessionState = {

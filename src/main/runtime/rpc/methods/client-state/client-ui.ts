@@ -31,12 +31,14 @@ import {
   assertTerminalQuickCommandMutationReadableForClient,
   projectTerminalQuickCommandsForClient
 } from '../terminal/terminal-quick-command-client-capabilities'
+import { omitStoredFields } from '../../../../../shared/workspace-layout/persistence/stored-record-fields'
 
 function uiForCaller(
   state: PersistedUIState,
   context: Pick<RpcContext, 'clientKind' | 'pairedDeviceParentId'>
 ): PairedUiState & Pick<PersistedUIState, 'hideWorkspacesFromOtherDevices'> {
-  const ui = omitPairingLocalUiFields(state)
+  // Native desktop window records are per-window; paired clients never receive them.
+  const ui = omitPairingLocalUiFields(omitStoredFields(state, ['desktopWindows']))
   // Presence tells the phone this host shares the filter; older hosts omit it, preserving the phone's local value.
   return isHostOwnPhone(context)
     ? { ...ui, hideWorkspacesFromOtherDevices: state.hideWorkspacesFromOtherDevices === true }

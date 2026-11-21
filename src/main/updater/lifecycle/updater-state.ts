@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/updater/update-status-types'
 import type { ReleaseChannel } from '../../../shared/updater/release-channel'
 import type { PrimaryEventSuppression, UpdateCheckVariant } from './updater-types'
+import { getRuntimeDesktopSurface } from '../../runtime/construction/runtime-desktop-surface'
 
 // LLW polls its fork releases every minute; a failing feed retries after 2 minutes, backing off to 12.
 export const AUTO_UPDATE_CHECK_INTERVAL_MS = 60_000
@@ -144,6 +145,12 @@ export abstract class UpdaterState {
   protected sendToMainWindow(channel: string, ...args: unknown[]): void {
     const win = this.getMainWindow()
     if (!win || win.isDestroyed() || win.webContents.isDestroyed()) {
+      return
+    }
+    // LLW: every native desktop window shows update state; updater channels carry at most one payload.
+    const sendToRenderers = getRuntimeDesktopSurface().sendToRenderers
+    if (sendToRenderers && args.length <= 1) {
+      sendToRenderers(channel, args[0])
       return
     }
     try {

@@ -1,5 +1,4 @@
 import { isTrustedBrowserRenderer } from '../../../ipc/browser/browser-renderer-trust'
-import { resolveRendererWebContents } from '../browser-guest-renderer-target'
 // oxlint-disable-next-line import/no-cycle -- browser subsystem singleton hub (browserManager); breaking it needs DI and test-mock updates, left for a human
 import { setupGuestContextMenu } from '../input/browser-guest-context-menu'
 import { setupGrabShortcutForwarding } from '../input/shortcuts/browser-guest-grab-shortcuts'
@@ -15,7 +14,7 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGuestContextMenu({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) => this.resolveRendererForBrowserTab(tabId)
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null
       })
     )
   }
@@ -32,8 +31,7 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGrabShortcutForwarding({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) =>
-          resolveRendererWebContents(this.rendererWebContentsIdByTabId, tabId),
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null,
         hasActiveGrabOp: (tabId) => this.hasActiveGrabOp(tabId),
         getKeybindings: () => this.settingsResolver?.().keybindings
       })
@@ -52,8 +50,7 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGuestShortcutForwarding({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) =>
-          resolveRendererWebContents(this.rendererWebContentsIdByTabId, tabId),
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null,
         isLocalRenderer: isTrustedBrowserRenderer,
         shouldForwardDictationShortcut: () => this.shouldForwardDictationShortcut?.() ?? false,
         isMobileEmulatorEnabled: () => this.settingsResolver?.().mobileEmulatorEnabled !== false,
@@ -76,12 +73,11 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGuestMouseWheelZoomForwarding({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) =>
-          resolveRendererWebContents(this.rendererWebContentsIdByTabId, tabId),
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null,
         isViewportPresetActive: () => this.isViewportPresetActive(browserTabId, guest.id),
-        canViewportScroll: (mouse) => this.canViewportScroll(browserTabId, mouse),
+        canViewportScroll: (mouse) => this.canViewportScroll(guest.id, mouse),
         onViewportWheelConsumed: (deltaX, deltaY) =>
-          this.recordViewportScrollDelta(browserTabId, deltaX, deltaY)
+          this.recordViewportScrollDelta(guest.id, deltaX, deltaY)
       })
     )
   }
@@ -93,7 +89,7 @@ export abstract class BrowserManagerBindings extends BrowserManagerGrab {
       setupGuestTargetUrlForwarding({
         browserTabId,
         guest,
-        resolveRenderer: (tabId) => this.resolveRendererForBrowserTab(tabId)
+        resolveRenderer: () => this.getRendererContextForGuest(guest.id)?.renderer ?? null
       })
     )
   }

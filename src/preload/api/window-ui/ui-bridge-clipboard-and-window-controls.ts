@@ -250,5 +250,7 @@ export const uiClipboardAndWindowControlsApi = {
   },
   notifyWindowRevealed: (): void => {
     ipcRenderer.send('ui:window-revealed')
-  }
+  },
+  openRuntimeClientWindow: (options) =>
+    ipcRenderer.invoke('window:openRuntimeClientWindow', { worktreeId: options?.worktreeId })
 } satisfies Partial<PreloadApi['ui']>

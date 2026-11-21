@@ -14,9 +14,20 @@ export class BrowserManager extends BrowserManagerEventForwarding {
     rawUrl: string,
     activate?: boolean,
     // Opened while an agent drives the page, not by the desktop user's own click.
-    agentOpened = false
+    agentOpened = false,
+    rootGuestWebContentsId?: number
   ): boolean {
-    const renderer = this.resolveRendererForBrowserTab(browserTabId)
+    const owner =
+      rootGuestWebContentsId === undefined
+        ? null
+        : this.getRendererContextForGuest(rootGuestWebContentsId)
+    // A popup opens its tab in the window whose guest asked, not whichever window is selected.
+    const renderer =
+      rootGuestWebContentsId === undefined
+        ? this.resolveRendererForBrowserTab(browserTabId)
+        : owner?.browserPageId === browserTabId
+          ? owner.renderer
+          : null
     const open: OpenLinkInTab | null = renderer
       ? // The renderer owns Orca's tab model; forward the validated URL for materialization.
         (url, activateTab) =>

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { HIDDEN_WINDOW_FRAME_PUMP_STOP_CHANNEL } from '../shared/app-lifecycle/windows/hidden-window-frame-pump'
 import { installHiddenWindowFramePump } from './renderer/hidden-window-frame-pump'
+import { readNativeDesktopWindowArgument } from '../shared/app-lifecycle/windows/native-desktop-window-argument'
 import type { PreloadApi } from './api-types'
 import { installBrowserFindListener } from './renderer/renderer-runtime'
 import { appApi } from './api/app-bridge'
@@ -102,6 +103,10 @@ import { agentSudoApi } from './api/agent-sudo-bridge'
 import { languageServerApi } from './api/language-server-bridge'
 
 installBrowserFindListener()
+const nativeDesktopWindowId = readNativeDesktopWindowArgument(process.argv)
+if (nativeDesktopWindowId) {
+  contextBridge.exposeInMainWorld('__ORCA_NATIVE_WINDOW_ID__', nativeDesktopWindowId)
+}
 
 const telemetryTrackApi: PreloadApi['telemetryTrack'] = (name, props) =>
   ipcRenderer.invoke('telemetry:track', name, props)

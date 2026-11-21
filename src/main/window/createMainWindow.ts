@@ -51,6 +51,13 @@ import { installWindowsPathRegistryChangeListener } from '../pty/environment/win
 import { recordAgentSessionRuntimeEnd } from '../runtime/agent-session/records/agent-session-runtime-end-record'
 import { installNativeUnloadCoordinator } from './renderer-relays/native-unload-coordinator'
 import { WEB_CONTENTS_MAX_LISTENERS_PER_EVENT } from './web-contents-listener-budget'
+import { formatNativeDesktopWindowArgument } from '../../shared/app-lifecycle/windows/native-desktop-window-argument'
+import {
+  listDesktopRenderers,
+  registerDesktopRenderer,
+  setDesktopRendererFocusResolver,
+  unregisterDesktopRenderer
+} from './native-windows/desktop-renderer-registry'
 
 export function loadMainWindow(mainWindow: BrowserWindow, observer?: MainWindowLoadObserver): void {
   installRendererHangStackPolicy(
@@ -61,8 +68,16 @@ export function loadMainWindow(mainWindow: BrowserWindow, observer?: MainWindowL
   )
   const load =
     !app.isPackaged && process.env.ELECTRON_RENDERER_URL
-      ? mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
-      : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+      ? mainWindow.loadURL(
+          observer?.worktreeId
+            ? `${process.env.ELECTRON_RENDERER_URL}#worktree=${encodeURIComponent(observer.worktreeId)}`
+            : process.env.ELECTRON_RENDERER_URL
+        )
+      : observer?.worktreeId
+        ? mainWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+            hash: `worktree=${encodeURIComponent(observer.worktreeId)}`
+          })
+        : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   // Observe each load promise so failures cannot leave recovery waiting silently.
   load.then(
     () => observer?.onLoaded?.(),
@@ -83,7 +98,10 @@ export function createMainWindow(
   nativeSettings: NativeSettingsProjection | null,
   opts?: CreateMainWindowOptions
 ): BrowserWindow {
-  const rawSavedBounds = nativeSettings?.getUI().windowBounds
+  const savedWindow = opts?.windowId
+    ? nativeSettings?.getUI().desktopWindows?.[opts.windowId]
+    : undefined
+  const rawSavedBounds = savedWindow?.bounds ?? nativeSettings?.getUI().windowBounds
   // Reject tiny/off-screen saved bounds so the titlebar stays reachable after display changes.
   const savedBounds =
     rawSavedBounds &&
@@ -98,7 +116,7 @@ export function createMainWindow(
       rawSavedBounds
     )
   }
-  const savedMaximized = nativeSettings?.getUI().windowMaximized ?? false
+  const savedMaximized = savedWindow?.maximized ?? nativeSettings?.getUI().windowMaximized ?? false
   const savedFullScreen = nativeSettings?.getUI().windowFullScreen ?? false
   // Fill the primary work area on first launch; later launches honor saved bounds.
   const defaultBounds = (() => {
@@ -168,14 +186,30 @@ export function createMainWindow(
         formatBrowserClientHostIdArgument(getBrowserClientHostId()),
         ...(windowMaterial === 'off' ? [] : [formatWindowMaterialArgument(windowMaterial)]),
         ...(pumpHiddenFrames ? [formatHiddenWindowFramePumpArgument()] : []),
-        ...wslHostsWindowArguments()
+        ...wslHostsWindowArguments(),
+        ...(opts?.windowId ? [formatNativeDesktopWindowArgument(opts.windowId)] : [])
       ]
     }
   })
   rememberWindowMaterial(mainWindow, windowMaterial)
   mainWindow.setMaxListeners(WEB_CONTENTS_MAX_LISTENERS_PER_EVENT)
   mainWindow.webContents.setMaxListeners(WEB_CONTENTS_MAX_LISTENERS_PER_EVENT)
-  const rendererWebContentsId = mainWindow.webContents.id
+  const desktopRenderer = mainWindow.webContents
+  // Windows applies a restored native window's frame size once short; correct by the difference.
+  if (opts?.windowId && savedBounds && process.platform === 'win32') {
+    mainWindow.setBounds(savedBounds)
+    const restored = mainWindow.getBounds()
+    if (restored.width !== savedBounds.width || restored.height !== savedBounds.height) {
+      mainWindow.setBounds({
+        ...savedBounds,
+        width: savedBounds.width * 2 - restored.width,
+        height: savedBounds.height * 2 - restored.height
+      })
+    }
+  }
+  const rendererWebContentsId = desktopRenderer.id
+  setDesktopRendererFocusResolver(() => BrowserWindow.getFocusedWindow()?.webContents ?? null)
+  registerDesktopRenderer(desktopRenderer, opts?.windowId)
   installWindowsPathRegistryChangeListener(mainWindow)
   // Native paste fallback is privileged; trust only the top-level renderer.
   setTrustedUIRendererWebContentsId(rendererWebContentsId)
@@ -215,6 +249,7 @@ export function createMainWindow(
 
   const state = installMainWindowStateLifecycle({
     mainWindow,
+    windowId: opts?.windowId,
     revealOnDidFinishLoad: opts?.revealOnDidFinishLoad === true,
     revealInBackground: opts?.revealInBackground,
     savedMaximized,
@@ -247,13 +282,16 @@ export function createMainWindow(
   })
 
   mainWindow.on('closed', () => {
-    closeDashboardPopout()
-    closeWorkspaceSpaceWindow()
+    unregisterDesktopRenderer(desktopRenderer)
+    if (!opts?.windowId || listDesktopRenderers().length === 0) {
+      closeDashboardPopout()
+      closeWorkspaceSpaceWindow()
+      browserManager.setDictationShortcutForwardingPredicate(null)
+    }
     state.clearInitialRevealFallbackTimer()
     closeLifecycle.dispose()
     activity.dispose()
     focus.dispose()
-    browserManager.setDictationShortcutForwardingPredicate(null)
     powerMonitor.removeListener('resume', onSystemResume)
     clearTrustedUIRendererWebContentsId(rendererWebContentsId)
     state.dispose()

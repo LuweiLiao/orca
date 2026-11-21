@@ -1,4 +1,5 @@
 import type { MobileRelayStatusDetail } from '../../../shared/remote-runtime/relay/mobile-relay-status'
+import { broadcastDesktopRendererEvent } from '../../window/native-windows/desktop-renderer-registry'
 import { mainProcessState as state } from '../main-process-state'
 
 export function getDesktopRelayStatus(): MobileRelayStatusDetail {
@@ -15,5 +16,6 @@ export function publishDesktopRelayStatus(
     ...(cellUrl === undefined ? {} : { cellUrl }),
     ...(clockOffsetMs === undefined ? {} : { clockOffsetMs })
   }
-  state.mainWindow?.webContents.send('mobile:relayStatusChanged', getDesktopRelayStatus())
+  // Every native window shows relay status; a destroyed window is skipped, not sent to.
+  broadcastDesktopRendererEvent('mobile:relayStatusChanged', getDesktopRelayStatus())
 }

@@ -1,5 +1,6 @@
 import type { LocalAccountRuntimeTarget } from '../../../shared/agent-accounts/local-account-runtime'
 import type { BrowserWindow } from 'electron'
+import { broadcastDesktopRendererEvent } from '../../window/native-windows/desktop-renderer-registry'
 import type {
   AntigravityAccountUsage,
   InactiveAccountUsage,
@@ -266,7 +267,11 @@ export abstract class RateLimitServiceState {
             // One failing listener must not interrupt delivery.
           }
         }
-        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        if (
+          broadcastDesktopRendererEvent('rateLimits:update', state) === 0 &&
+          this.mainWindow &&
+          !this.mainWindow.isDestroyed()
+        ) {
           this.mainWindow.webContents.send('rateLimits:update', state)
         }
       }

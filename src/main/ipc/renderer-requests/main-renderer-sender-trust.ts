@@ -1,4 +1,8 @@
 import type { WebContents } from 'electron'
+import {
+  hasDesktopRenderers,
+  isRegisteredDesktopRenderer
+} from '../../window/native-windows/desktop-renderer-registry'
 
 export function isTrustedMainRendererSender(
   sender: WebContents,
@@ -6,6 +10,10 @@ export function isTrustedMainRendererSender(
 ): boolean {
   if (sender.isDestroyed() || sender.getType() !== 'window') {
     return false
+  }
+  // With native desktop windows open, each registered window is a main renderer.
+  if (hasDesktopRenderers()) {
+    return isRegisteredDesktopRenderer(sender)
   }
   if (pinnedWebContentsId != null) {
     return sender.id === pinnedWebContentsId

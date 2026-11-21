@@ -20,11 +20,12 @@ export class BrowserPopupCompatibilityManager extends BrowserManager {
     pageId: string,
     url: string,
     activate?: boolean,
-    agentOpened?: boolean
+    agentOpened?: boolean,
+    rootGuestWebContentsId?: number
   ): boolean {
     this.tabOpens.push({ url, activate })
     this.writeStatus()
-    return super.openLinkInOrcaTab(pageId, url, activate, agentOpened)
+    return super.openLinkInOrcaTab(pageId, url, activate, agentOpened, rootGuestWebContentsId)
   }
   protected override createPopupChildWindowWithOriginBar(
     opener: WebContents,

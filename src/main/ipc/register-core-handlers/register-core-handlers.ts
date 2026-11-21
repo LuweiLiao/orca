@@ -41,6 +41,7 @@ import { registerDashboardPopoutHandlers } from '../dashboard/dashboard-popout'
 import { registerWorkspaceSpaceWindowHandlers } from '../workspace-space/workspace-space-window'
 import { registerTerminalPreviewHandlers } from '../terminal-views/terminal-preview'
 import { registerDeveloperPermissionHandlers } from '../developer-permissions/developer-permissions'
+import { registerRuntimeClientWindowHandlers } from '../runtime-client-window'
 import { registerComputerUsePermissionHandlers } from '../computer-use-permissions'
 import { setAgentBrowserBridgeRef, registerBrowserHandlers } from '../browser/browser'
 import { setTrustedBrowserRendererWebContentsId } from '../browser/browser-renderer-trust'
@@ -180,6 +181,7 @@ export async function registerCoreHandlers(
     registerOnboardingHandlers(store)
     registerDashboardPopoutHandlers(store, keybindings)
     registerWorkspaceSpaceWindowHandlers(store)
+    registerRuntimeClientWindowHandlers()
     registerTerminalPreviewHandlers(runtime)
     registerDeveloperPermissionHandlers()
     // Diagnostics and telemetry register independent channels and keep separate data paths.

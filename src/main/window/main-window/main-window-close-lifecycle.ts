@@ -1,4 +1,4 @@
-import { ipcMain, Menu, Notification, type BrowserWindow } from 'electron'
+import { ipcMain, Notification, type BrowserWindow } from 'electron'
 import { QUIT_RENDERER_ACK_TIMEOUT_MS } from '../../../shared/app-lifecycle/shutdown/quit-teardown-deadline'
 import { translateMain } from '../../i18n/main-i18n'
 import type { NativeSettingsProjection } from '../../core-desktop/native-settings-projection'
@@ -13,6 +13,7 @@ import {
   settleRendererPreparationBeforeClose,
   setWindowCloseInFlight
 } from '../renderer-relays/native-unload-coordinator'
+import { installNativeWindowControls } from '../native-windows/native-window-controls'
 
 export function installMainWindowCloseLifecycle(args: {
   focus: MainWindowFocusLifecycle
@@ -25,7 +26,6 @@ export function installMainWindowCloseLifecycle(args: {
   const { focus, mainWindow, opts, rendererWebContentsId, state, nativeSettings } = args
   // Renderer confirms save/process guards through window:confirm-close.
   let windowCloseConfirmed = false
-  const confirmCloseChannel = 'window:confirm-close'
   const closeRequestReceivedChannel = 'window:close-request-received'
   const closeCancelledChannel = 'window:close-cancelled'
   let closeRequestSequence = 0
@@ -221,32 +221,7 @@ export function installMainWindowCloseLifecycle(args: {
       mainWindow.close()
     }
   }
-  const trafficLightChannel = 'ui:sync-traffic-lights'
-  const onSyncTrafficLights = (_event: Electron.IpcMainEvent, zoomFactor: number): void => {
-    syncTrafficLightPosition(mainWindow, zoomFactor)
-  }
-  ipcMain.on(trafficLightChannel, onSyncTrafficLights)
-
-  // Custom Windows/Linux controls replace hidden native titlebar buttons.
-  const minimizeChannel = 'window:minimize'
-  const onMinimize = (): void => {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.minimize()
-    }
-  }
-  const maximizeChannel = 'window:maximize'
-  const onMaximize = (): void => {
-    if (mainWindow.isDestroyed()) {
-      return
-    }
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize()
-    } else {
-      mainWindow.maximize()
-    }
-  }
   // Windows close from IPC can misfire; send the renderer close request directly.
-  const requestCloseChannel = 'window:request-close'
   const onRequestClose = (): void => {
     if (mainWindow.isDestroyed()) {
       return
@@ -260,35 +235,19 @@ export function installMainWindowCloseLifecycle(args: {
       mainWindow.webContents.send('window:close-requested', { isQuitting: false, requestId })
     })
   }
-  // Custom titlebar menu replaces Alt reveal of the hidden Windows/Linux menu.
-  const popupMenuChannel = 'menu:popup'
-  const onPopupMenu = (): void => {
-    Menu.getApplicationMenu()?.popup({ window: mainWindow })
-  }
-  // Controls mount after the first maximize event; expose current state for their initial icon.
-  const isMaximizedChannel = 'window:isMaximized'
-  const onIsMaximized = (): boolean => {
-    return !mainWindow.isDestroyed() && mainWindow.isMaximized()
-  }
-  ipcMain.on(minimizeChannel, onMinimize)
-  ipcMain.on(maximizeChannel, onMaximize)
-  ipcMain.on(requestCloseChannel, onRequestClose)
-  ipcMain.on(popupMenuChannel, onPopupMenu)
-  ipcMain.handle(isMaximizedChannel, onIsMaximized)
-
-  ipcMain.on(confirmCloseChannel, onConfirmClose)
+  // Native windows share these channels; each window answers only its own renderer.
+  const disposeControls = installNativeWindowControls({
+    window: mainWindow,
+    requestClose: onRequestClose,
+    confirmClose: onConfirmClose,
+    syncTrafficLights: (zoomFactor) => syncTrafficLightPosition(mainWindow, zoomFactor)
+  })
   ipcMain.on(closeRequestReceivedChannel, onCloseRequestReceived)
   ipcMain.on(closeCancelledChannel, onCloseCancelled)
 
   const dispose = (): void => {
     clearQuitRendererAckTimer()
-    ipcMain.removeListener(trafficLightChannel, onSyncTrafficLights)
-    ipcMain.removeListener(minimizeChannel, onMinimize)
-    ipcMain.removeListener(maximizeChannel, onMaximize)
-    ipcMain.removeListener(requestCloseChannel, onRequestClose)
-    ipcMain.removeListener(popupMenuChannel, onPopupMenu)
-    ipcMain.removeHandler(isMaximizedChannel)
-    ipcMain.removeListener(confirmCloseChannel, onConfirmClose)
+    disposeControls()
     ipcMain.removeListener(closeRequestReceivedChannel, onCloseRequestReceived)
     ipcMain.removeListener(closeCancelledChannel, onCloseCancelled)
   }

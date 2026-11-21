@@ -1,5 +1,10 @@
 import { app, type BrowserWindow, type Event } from 'electron'
 import type { NativeSettingsProjection } from '../../core-desktop/native-settings-projection'
+import {
+  desktopWindowStateStore,
+  desktopWindowUI,
+  saveDesktopWindowGeometry
+} from '../../persistence/desktop-windows/desktop-window-state'
 import { uiZoomFactorFromLevel } from '../../../shared/app-lifecycle/windows/ui-zoom-level'
 import {
   isBackgroundLaunch,
@@ -23,6 +28,7 @@ export function installMainWindowStateLifecycle(args: {
   savedMaximized: boolean
   savedFullScreen: boolean
   nativeSettings: NativeSettingsProjection | null
+  windowId?: string
 }): MainWindowStateLifecycle {
   const {
     mainWindow,
@@ -30,10 +36,22 @@ export function installMainWindowStateLifecycle(args: {
     revealInBackground = false,
     savedMaximized,
     savedFullScreen,
-    nativeSettings
+    nativeSettings,
+    windowId
   } = args
+  // Each native desktop window saves its own bounds and maximized state.
+  const persistGeometry = (updates: {
+    windowBounds?: Electron.Rectangle
+    windowMaximized?: boolean
+  }): void => {
+    if (nativeSettings) {
+      saveDesktopWindowGeometry(desktopWindowStateStore(nativeSettings), windowId, updates)
+    }
+  }
   mainWindow.webContents.on('dom-ready', () => {
-    const level = nativeSettings?.getUI().uiZoomLevel ?? 0
+    const level = nativeSettings
+      ? (desktopWindowUI(nativeSettings.getUI(), mainWindow.webContents).uiZoomLevel ?? 0)
+      : 0
     mainWindow.webContents.setZoomLevel(level)
     // Native traffic lights do not scale with CSS zoom; align them with the titlebar on startup.
     if (process.platform === 'darwin') {
@@ -113,20 +131,17 @@ export function installMainWindowStateLifecycle(args: {
       // Persist maximized state and bounds atomically, including near-minimum rejection.
       const isMaximized = mainWindow.isMaximized()
       if (isMaximized) {
-        void nativeSettings?.requestCoreWrite({ kind: 'ui', updates: { windowMaximized: true } })
+        persistGeometry({ windowMaximized: true })
         return
       }
       const bounds = mainWindow.getBounds()
       // Reject teardown's shrink-to-minimum bounds even after freeze races; default next launch (#1269).
       if (bounds.width <= MIN_WIDTH || bounds.height <= MIN_HEIGHT) {
         console.warn('[window] Skipping persist of near-minimum windowBounds:', bounds)
-        void nativeSettings?.requestCoreWrite({ kind: 'ui', updates: { windowMaximized: false } })
+        persistGeometry({ windowMaximized: false })
         return
       }
-      void nativeSettings?.requestCoreWrite({
-        kind: 'ui',
-        updates: { windowMaximized: false, windowBounds: bounds }
-      })
+      persistGeometry({ windowMaximized: false, windowBounds: bounds })
     }, 500)
   }
   mainWindow.on('resize', saveBounds)
@@ -149,7 +164,7 @@ export function installMainWindowStateLifecycle(args: {
     if (windowClosing) {
       return
     }
-    void nativeSettings?.requestCoreWrite({ kind: 'ui', updates: { windowMaximized: true } })
+    persistGeometry({ windowMaximized: true })
     mainWindow.webContents.send('window:maximize-changed', true)
   })
   mainWindow.on('unmaximize', () => {
@@ -165,13 +180,10 @@ export function installMainWindowStateLifecycle(args: {
     // Teardown unmaximize can emit minimum bounds; apply the same persistence guard.
     if (bounds.width <= MIN_WIDTH || bounds.height <= MIN_HEIGHT) {
       console.warn('[window] Skipping unmaximize-time persist of near-min bounds:', bounds)
-      void nativeSettings?.requestCoreWrite({ kind: 'ui', updates: { windowMaximized: false } })
+      persistGeometry({ windowMaximized: false })
       return
     }
-    void nativeSettings?.requestCoreWrite({
-      kind: 'ui',
-      updates: { windowMaximized: false, windowBounds: bounds }
-    })
+    persistGeometry({ windowMaximized: false, windowBounds: bounds })
   })
 
   mainWindow.on('enter-full-screen', () => {

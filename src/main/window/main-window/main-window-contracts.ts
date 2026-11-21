@@ -9,16 +9,22 @@ import type { RendererLivenessAtDeath } from '../renderer-recovery/renderer-live
 
 /** Per-load outcome from Electron's load promise, which is scoped to that one load unlike `did-finish-load`. */
 export type MainWindowLoadObserver = {
+  worktreeId?: string
   onLoaded?: () => void
   onError?: (error: Error) => void
 }
 
 export type MainWindowOpenOptions = Pick<
   CreateMainWindowOptions,
-  'revealOnDidFinishLoad' | 'revealInBackground'
-> & { loadObserver?: MainWindowLoadObserver }
+  'revealOnDidFinishLoad' | 'revealInBackground' | 'windowId'
+> & {
+  loadObserver?: MainWindowLoadObserver
+  /** Workspace a native desktop window opens on; the renderer reads it from the URL hash. */
+  worktreeId?: string
+}
 
 export type CreateMainWindowOptions = {
+  windowId?: string
   /** Returns true when a manual app.quit() (Cmd+Q) is in progress, so the renderer skips the running-process confirm dialog. */
   getIsQuitting?: () => boolean
   /** Clear the quit latch if renderer beforeunload vetoes app.quit. */

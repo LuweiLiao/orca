@@ -11,6 +11,7 @@ import {
   type SparsePresetFailure
 } from '../../../shared/worktree/creation/sparse-preset-failure'
 import { assertWslMoveProjectWritable } from '../../persistence/moving-wsl-projects/quiescence/wsl-move-scope-guard'
+import { broadcastDesktopRendererEvent } from '../../window/native-windows/desktop-renderer-registry'
 
 export function registerSparsePresetHandlers(mainWindow: BrowserWindow, store: Store): void {
   ipcMain.handle('sparsePresets:list', (_event, args: { repoId: string }) => {
@@ -69,7 +70,10 @@ export function registerSparsePresetHandlers(mainWindow: BrowserWindow, store: S
 }
 
 function notifySparsePresetsChanged(mainWindow: BrowserWindow, repoId: string): void {
-  if (!mainWindow.isDestroyed()) {
+  if (
+    broadcastDesktopRendererEvent('sparsePresets:changed', { repoId }) === 0 &&
+    !mainWindow.isDestroyed()
+  ) {
     mainWindow.webContents.send('sparsePresets:changed', { repoId })
   }
 }

@@ -23948,7 +23948,8 @@
       "128cce6e6d": "タイトルを設定…",
       "e9da9f872a": "レビューノートを Agent に送信",
       "1524825c2c": "ワークスペースボードの切り替え",
-      "d286d1ab85": "ペインのタイトルをクリア"
+      "d286d1ab85": "ペインのタイトルをクリア",
+      "windowNew": "新しいウィンドウ"
     },
     "group": {
       "global": "グローバル",
@@ -25203,5 +25204,11 @@
   },
   "agentCliUpdate": {
     "thisComputer": "このコンピューター"
+  },
+  "multiWindow": {
+    "newWindow": "新しいウィンドウ",
+    "openInNewWindow": "新しいウィンドウで開く",
+    "openFailed": "新しいウィンドウを開けませんでした",
+    "openFailedDetail": "理由: {{reason}}"
   }
 }

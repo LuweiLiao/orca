@@ -1,6 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import type { WindowShortcutAction } from '../../../shared/keybindings/window-shortcut-policy'
 import { reloadWithRendererCheckpoint } from '../renderer-relays/native-unload-coordinator'
+import { openRuntimeClientWindowFromUserCommand } from '../native-windows/runtime-client-window-open-command'
 
 export function sendResolvedWindowShortcutAction(
   mainWindow: BrowserWindow,
@@ -64,5 +65,9 @@ export function sendResolvedWindowShortcutAction(
       return
     case 'worktreeHistoryNavigate':
       mainWindow.webContents.send('ui:worktreeHistoryNavigate', action.direction)
+      return
+    case 'newWindow':
+      // No renderer involved: this opens a BrowserWindow, a main-process-only capability.
+      openRuntimeClientWindowFromUserCommand()
   }
 }

@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
 import { wakeFolderRepoGitUpgradeWatch } from '../worktrees/listing/folder-repo-git-upgrade-wake'
 import { scheduleCurrentWorktreeBaseDirectoryWatcherSync } from '../worktrees/creation/worktree-base-directory-watcher'
+import { broadcastDesktopRendererEvent } from '../../window/native-windows/desktop-renderer-registry'
 
 type RepoRemoteClientNotifier = Pick<
   OrcaRuntimeService,
@@ -16,7 +17,11 @@ export function setRepoRemoteClientNotifier(notifier: RepoRemoteClientNotifier):
 
 export function notifyReposChanged(mainWindow: BrowserWindow | null): void {
   wakeFolderRepoGitUpgradeWatch()
-  if (mainWindow && !mainWindow.isDestroyed()) {
+  if (
+    broadcastDesktopRendererEvent('repos:changed') === 0 &&
+    mainWindow &&
+    !mainWindow.isDestroyed()
+  ) {
     mainWindow.webContents.send('repos:changed')
   }
   // Paired clients refetch only on this event, including host-side deletes and renames (#11994).

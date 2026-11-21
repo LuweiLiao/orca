@@ -1,4 +1,4 @@
-import { ipcMain, nativeTheme, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 
 // oxlint-disable-next-line no-restricted-imports -- application handlers installed here move with the IPC registry, not the native window
 import type { Store } from '../persistence/loading-store/store'
@@ -9,19 +9,6 @@ import {
   dismissTccPromptNotice,
   releasePendingTccPromptNotice
 } from '../macos-permissions/macos-tcc-prompt-notice'
-import { registerRepoHandlers } from '../ipc/repos'
-import { setRepoRemoteClientNotifier } from '../ipc/repos/repos-changed-notification'
-import { setWorktreeCatalogRemoteClientNotifier } from '../ipc/worktrees/listing/watched-worktree-catalog-notification'
-import { registerWorktreeHandlers } from '../ipc/worktrees'
-import { registerWorkspaceCleanupHandlers } from '../ipc/workspace-cleanup/workspace-cleanup'
-import { registerPtyHandlers } from '../ipc/pty/register-handlers'
-import type {
-  CodexHomePtySpawnedLifecycleArgs,
-  GetSelectedCodexHomePath,
-  PrepareCodexSessionResume
-} from '../ipc/pty/host-env/types'
-import { registerDaemonManagementHandlers } from '../ipc/pty/ipc/pty-management'
-import { registerSshHandlers } from '../ipc/ssh/ssh'
 import { browserManager } from '../browser/guest-lifecycle/manager/browser-manager'
 import {
   hasSystemMediaAccess,
@@ -29,25 +16,18 @@ import {
 } from '../browser/site-settings/permissions/browser-media-access'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import { reloadWithRendererCheckpoint } from './renderer-relays/native-unload-coordinator'
-import type { RuntimeWorktreeLifecycleEvent } from '../runtime/workspaces/lifecycle/worktree-lifecycle-event'
-import type {
-  PreQuitCleanupFailureMode,
-  UpdateInstallMode
-} from '../updater/lifecycle/updater-state'
-import { scheduleHistoryGc } from '../pty/history/terminal-history-gc'
-import { openCodeHookService, openCode2HookService } from '../opencode/status-hooks/hook-service'
-import { listLiveDaemonPtyIds } from '../daemon/providers/lifecycle/daemon-provider-state'
-import { hydrateLocalPtyRegistryAtBoot } from '../memory/hydrate-local-pty-registry'
 import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth/runtime-auth-types'
-import { getKnownWorktreeIdsForHistoryGc } from '../pty/history/history-gc-worktree-ids'
 import type { ClaudeAccountSelectionTarget } from '../claude-accounts/selection/runtime-selection'
-import {
-  scheduleWorktreeBaseDirectoryWatcherSync,
-  setWorktreeBaseDirectoryWatcherSyncContext
-} from '../ipc/worktrees/creation/worktree-base-directory-watcher'
-import { startFolderRepoGitUpgradeWatch } from '../ipc/worktrees/listing/folder-repo-git-upgrade'
-import { scheduleMainWindowAutoUpdaterSetup } from '../updater/lifecycle/main-window-updater'
+import type { GetSelectedCodexHomePath } from '../ipc/pty/host-env/types'
 import { registerRuntimeWindowLifecycle } from './runtime-window-lifecycle'
+import {
+  attachRuntimeServicesOnce,
+  type MainWindowServiceOptions
+} from '../startup/main-window/main-window-runtime-services'
+import { attachMainWindowWorktreeWatchers } from '../ipc/worktrees/main-window-worktree-watchers'
+import { desktopWindowId, listDesktopRenderers } from './native-windows/desktop-renderer-registry'
+import { registerNativeWindowServiceHandlers } from './native-windows/native-window-service-handlers'
+import { NativeDesktopPtyDelivery } from '../ipc/pty/delivery/native-desktop-delivery'
 import { ensureStructuredAgentSessionHostUnlessRefused } from '../runtime/agent-session/installation/structured-agent-session-host-refusal'
 import { getAgentSessionAttachmentStore } from '../native-chat/agent-session-attachments/agent-session-attachment-store-registry'
 import { registerDroppedPathPreparation } from './file-drop/dropped-path-preparation-ipc'
@@ -58,6 +38,9 @@ let appReloadHandlerTokenCounter = 0
 let activeAppReloadHandlerToken: number | null = null
 let tccPromptHandlerTokenCounter = 0
 let activeTccPromptHandlerToken: number | null = null
+// Native desktop windows share one runtime: its handlers and PTY source attach once.
+const attachedNativeRuntimes = new WeakSet<OrcaRuntimeService>()
+const nativeDeliveries = new WeakMap<OrcaRuntimeService, NativeDesktopPtyDelivery>()
 
 export async function attachMainWindowServices(
   mainWindow: BrowserWindow,
@@ -68,92 +51,29 @@ export async function attachMainWindowServices(
   prepareClaudeAuth?: (
     target?: ClaudeAccountSelectionTarget
   ) => Promise<ClaudeRuntimeAuthPreparation>,
-  options?: {
-    deferSshInitialization?: boolean
-    hostInitialization?: Promise<void>
-    prepareCodexSessionResume?: PrepareCodexSessionResume
-    awaitLocalPtyStartup?: () => Promise<void>
-    awaitLocalPtyProviderStartup?: () => Promise<void>
-    onBeforeRendererReload?: (args: { webContentsId: number; ignoreCache: boolean }) => void
-    // Skip the crash-recovery reload in PTY orphan sweeping (#5787).
-    isRecoveryReloadInFlight?: (webContentsId: number) => boolean
-    onCodexHomePtySpawned?: (args: CodexHomePtySpawnedLifecycleArgs) => void
-    onPtyExit?: (id: string, exitSequence: number) => void
-    onBeforeUpdateQuit?: () => void | Promise<void>
-    onBeforeUpdateQuitFailure?: PreQuitCleanupFailureMode
-    updateInstallMode?: UpdateInstallMode
-    onWorktreeLifecycle?: (event: RuntimeWorktreeLifecycleEvent) => void
-  }
+  options?: MainWindowServiceOptions
 ): Promise<void> {
-  registerAppReloadHandler(mainWindow, options?.onBeforeRendererReload)
-  registerRepoHandlers(mainWindow, store, runtime)
-  // Repo IPC mutations must invalidate paired-client catalogs too (#11994).
-  setRepoRemoteClientNotifier(runtime)
-  setWorktreeCatalogRemoteClientNotifier(runtime)
-  registerWorktreeHandlers(mainWindow, store, runtime, {
-    onWorktreeLifecycle: options?.onWorktreeLifecycle
-  })
-  // Repo/settings mutations resync watchers through this window context.
-  setWorktreeBaseDirectoryWatcherSyncContext(store, mainWindow)
-  scheduleWorktreeBaseDirectoryWatcherSync(store, mainWindow)
-  // Folder projects have no watcher target; poll for external git init so they upgrade without restart (#11477).
-  startFolderRepoGitUpgradeWatch(store, mainWindow)
-  registerWorkspaceCleanupHandlers(store, () => runtime.getExistingOrchestrationDb())
-  registerPtyHandlers(
-    mainWindow,
-    runtime,
-    getSelectedCodexHomePath,
-    () => store.getSettings(),
-    prepareClaudeAuth,
-    store,
-    {
-      prepareCodexSessionResume: options?.prepareCodexSessionResume,
-      awaitLocalPtyStartup: options?.awaitLocalPtyStartup,
-      awaitLocalPtyProviderStartup: options?.awaitLocalPtyProviderStartup,
-      isRecoveryReloadInFlight: options?.isRecoveryReloadInFlight,
-      onCodexHomePtySpawned: options?.onCodexHomePtySpawned,
-      onPtyExit: options?.onPtyExit,
-      systemPrefersDark: () => nativeTheme.shouldUseDarkColors
-    }
-  )
-  // Register after PTY handlers so macOS reactivation reinstalls management IPC (docs/daemon-staleness-ux.md §Phase 1).
-  registerDaemonManagementHandlers()
-  // Background git worktree list can trigger protected-folder prompts on macOS; use remembered IDs.
-  scheduleHistoryGc(async () => {
-    // An unknown daemon inventory keeps every session folder but still runs the rest of the GC.
-    const liveSessionIds = await listLiveDaemonPtyIds().catch(() => null)
-    return {
-      ...getKnownWorktreeIdsForHistoryGc(store),
-      liveSessionIds: liveSessionIds && new Set(liveSessionIds)
-    }
-  })
-  openCodeHookService.configDirGc.schedule(listLiveDaemonPtyIds)
-  openCode2HookService.configDirGc.schedule(listLiveDaemonPtyIds)
-  const localPtyProviderStartupReady = options?.awaitLocalPtyProviderStartup?.()
-  if (localPtyProviderStartupReady) {
-    void localPtyProviderStartupReady
-      .then(() => hydrateLocalPtyRegistryAtBoot(store))
-      .catch((error) => {
-        console.warn(
-          '[memory] Deferred pty-registry hydration skipped:',
-          error instanceof Error ? error.message : String(error)
-        )
-      })
+  const native = Boolean(desktopWindowId(mainWindow.webContents))
+  let delivery = nativeDeliveries.get(runtime)
+  if (native) {
+    delivery ??= new NativeDesktopPtyDelivery(runtime, () => store.getSettings())
+    nativeDeliveries.set(runtime, delivery)
+    delivery.add(mainWindow)
+    registerNativeWindowServiceHandlers(mainWindow, options?.onBeforeRendererReload)
   } else {
-    void hydrateLocalPtyRegistryAtBoot(store)
+    registerAppReloadHandler(mainWindow, options?.onBeforeRendererReload)
   }
-  const sshReady = registerSshHandlers(
-    store,
-    () => mainWindow,
-    runtime,
-    options?.hostInitialization
-  )
-  if (options?.deferSshInitialization) {
-    void sshReady.catch((error: unknown) =>
-      console.warn('[startup] SSH initialization failed:', error)
-    )
-  } else {
-    await sshReady
+  attachMainWindowWorktreeWatchers(store, mainWindow)
+  if (!native || !attachedNativeRuntimes.has(runtime)) {
+    // Window attachment is serialized, so a failed attach leaves the next window to retry.
+    await attachRuntimeServicesOnce(mainWindow, store, nativeSettings, runtime, delivery, {
+      getSelectedCodexHomePath,
+      prepareClaudeAuth,
+      options
+    })
+    if (native) {
+      attachedNativeRuntimes.add(runtime)
+    }
   }
   registerDroppedPathPreparation(mainWindow, async () => {
     await ensureStructuredAgentSessionHostUnlessRefused(() =>
@@ -161,8 +81,11 @@ export async function attachMainWindowServices(
     )
     return getAgentSessionAttachmentStore()
   })
-  registerTccPromptNoticeHandlers(mainWindow)
-  scheduleMainWindowAutoUpdaterSetup(mainWindow, nativeSettings, options)
+  if (!native) {
+    registerTccPromptNoticeHandlers(mainWindow)
+  } else {
+    mainWindow.on('focus', () => browserManager.selectNativeRenderer(mainWindow.webContents.id))
+  }
   registerRuntimeWindowLifecycle(mainWindow, runtime)
 
   installPluginDesktopFrameServices(mainWindow, store)
@@ -201,7 +124,9 @@ export async function attachMainWindowServices(
 
   mainWindow.on('closed', () => {
     // Drop guest registrations so stale tab/webContents IDs cannot survive close or hot reload.
-    browserManager.unregisterAll()
+    if (!native || listDesktopRenderers().length === 0) {
+      browserManager.unregisterAll()
+    }
   })
 }
 

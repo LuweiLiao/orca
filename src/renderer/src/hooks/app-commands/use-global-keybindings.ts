@@ -41,6 +41,8 @@ import type { FloatingWorkspacePanelState } from '../../components/floating-term
 import { addAppKeyListener, removeAppKeyListener } from '@/lib/keyboard/app-keyboard-router'
 import { textInputOwnsComposition } from '../../../../shared/keybindings/text-input-shortcut-policy'
 import { isAgentTerminalPreviewTarget } from '../../components/dashboard/terminal-preview/agent-terminal-preview-target'
+import { isWebClientLocation } from '@/app-shell/platform/web-client-location'
+import { openRuntimeClientWindowFromRenderer } from '@/lib/open-runtime-client-window'
 
 /** Register window listeners once; each key event reads the latest committed shortcut state through a ref. */
 export function useGlobalKeybindings(args: {
@@ -222,6 +224,14 @@ export function useGlobalKeybindings(args: {
           })
           return
         }
+      }
+
+      // Why: a web client (including an extra desktop window) has no main process to open one.
+      if (matchShortcut('window.new') && !isWebClientLocation()) {
+        input.preventDefault()
+        notifyTerminalCapture('window.new')
+        void openRuntimeClientWindowFromRenderer()
+        return
       }
 
       const handlers = createAppCommandHandlers(state, input, context)
