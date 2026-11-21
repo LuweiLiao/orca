@@ -1,17 +1,13 @@
-import { execFileSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Page } from '@stablyai/playwright-test'
 import { test } from '../../desktop/electron-fixtures/orca-app'
 import { expect } from '@stablyai/playwright-test'
+import { resolveCommandOnLocalPath } from '../../../../src/main/ipc/command-path/command-path-resolver'
 
-function hasProgram(program: string): boolean {
-  try {
-    execFileSync(program, ['--version'], { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
+// Why the app's own lookup: it honors PATHEXT, so Windows finds npm's .cmd shims as Orca does.
+async function hasProgram(program: string): Promise<boolean> {
+  return (await resolveCommandOnLocalPath(program)) !== null
 }
 
 const MAIN_C = [
@@ -76,7 +72,7 @@ test('clangd answers diagnostics, hover, completion, definition and references',
   seededRepoPath,
   registerPostElectronShutdownCleanup
 }, testInfo) => {
-  test.skip(!hasProgram('clangd'), 'clangd is not installed')
+  test.skip(!(await hasProgram('clangd')), 'clangd is not installed')
   const dir = path.join(seededRepoPath, 'clang-demo')
   const buildDir = path.join(dir, 'build', 'demo')
   mkdirSync(buildDir, { recursive: true })
@@ -170,7 +166,7 @@ test('clangd answers diagnostics, hover, completion, definition and references',
   await orcaPage.keyboard.press('F12')
   await expect
     .poll(() => activeFilePath(orcaPage), { timeout: 15_000 })
-    .toMatch(/clang-demo\/math\.[ch]$/)
+    .toMatch(/clang-demo[\\/]math\.[ch]$/)
   await orcaPage.screenshot({
     path: testInfo.outputPath('4-definition.png'),
     animations: 'disabled'
@@ -182,8 +178,7 @@ test('clangd answers diagnostics, hover, completion, definition and references',
 const OTHER_SERVERS = [
   {
     name: 'pyright',
-    // Why the CLI: the server binary exits non-zero on --version.
-    program: 'pyright',
+    program: 'pyright-langserver',
     language: 'python',
     dir: 'py-demo',
     file: 'main.py',
@@ -193,7 +188,7 @@ const OTHER_SERVERS = [
       'main.py': 'from helpers import greet\n\nmessage: int = greet("x")\n'
     },
     line: 'message: int = greet',
-    definition: /py-demo\/helpers\.py$/
+    definition: /py-demo[\\/]helpers\.py$/
   },
   {
     name: 'typescript-language-server',
@@ -210,7 +205,7 @@ const OTHER_SERVERS = [
         "import { greet } from './helpers'\n\nconst message: number = greet('x')\nconsole.log(message)\n"
     },
     line: 'const message: number = greet',
-    definition: /ts-demo\/helpers\.ts$/,
+    definition: /ts-demo[\\/]helpers\.ts$/,
     // Why: Monaco's own TS service must step aside, or every hover and completion shows twice.
     ownedLanguage: 'orca-lsp-typescript'
   }
@@ -222,7 +217,7 @@ for (const server of OTHER_SERVERS) {
     seededRepoPath,
     registerPostElectronShutdownCleanup
   }, testInfo) => {
-    test.skip(!hasProgram(server.program), `${server.program} is not installed`)
+    test.skip(!(await hasProgram(server.program)), `${server.program} is not installed`)
     const dir = path.join(seededRepoPath, server.dir)
     for (const [name, text] of Object.entries(server.files)) {
       mkdirSync(path.dirname(path.join(dir, name)), { recursive: true })
