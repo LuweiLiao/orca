@@ -195,7 +195,7 @@ export function EditorEditFileSurface({
               preferenceKey={pdfPreferenceKey}
               scrollCacheKey={pdfViewStateKey}
               editFileId={isEditorWritableView(activeFile) ? activeFile.id : null}
-              synctexFileId={activeFile.id}
+              editorFileId={activeFile.id}
             />
           </div>
         </div>

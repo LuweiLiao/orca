@@ -37,8 +37,8 @@ type ImageViewerProps = {
   scrollCacheKey?: string | null
   /** A writable tab's id; only then can a PDF's form fields be filled in and saved. */
   editFileId?: string | null
-  /** The editor tab a PDF belongs to, for SyncTeX navigation. */
-  synctexFileId?: string
+  /** The editor tab a PDF belongs to, for SyncTeX navigation and review notes. */
+  editorFileId?: string
 }
 
 function formatByteSize(bytes: number): string {
@@ -62,7 +62,7 @@ export default function ImageViewer({
   preferenceKey,
   scrollCacheKey = null,
   editFileId = null,
-  synctexFileId
+  editorFileId
 }: ImageViewerProps): JSX.Element {
   const t = useTranslate()
   const [loaded, setLoaded] = useState<{ key: string | null; size: PanZoomSize } | null>(null)
@@ -113,7 +113,7 @@ export default function ImageViewer({
         preferenceKey={preferenceKey}
         scrollCacheKey={scrollCacheKey}
         editFileId={editFileId}
-        synctexFileId={synctexFileId}
+        editorFileId={editorFileId}
       />
     )
   }

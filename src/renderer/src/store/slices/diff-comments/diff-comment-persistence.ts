@@ -11,7 +11,8 @@ import { parseWorkspaceKey } from '../../../../../shared/workspace/identity/work
 
 export function normalizeDiffComment(comment: DiffComment): DiffComment {
   const rawSource = (comment as { source?: unknown }).source
-  const source = rawSource === 'markdown' || rawSource === 'diff' ? rawSource : undefined
+  const source =
+    rawSource === 'markdown' || rawSource === 'diff' || rawSource === 'pdf' ? rawSource : undefined
   const rawStartLine = (comment as { startLine?: unknown }).startLine
   const startLine =
     Number.isInteger(rawStartLine) &&

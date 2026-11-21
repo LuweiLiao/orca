@@ -14387,7 +14387,8 @@
             "keepFile": "保留文件",
             "keepDeletion": "保留删除",
             "refreshAll": "全部刷新",
-            "statusReadFailed": "Git 无法读取此工作区，显示的更改可能不是最新的"
+            "statusReadFailed": "Git 无法读取此工作区，显示的更改可能不是最新的",
+            "pdfTag": "PDF"
           },
           "SourceControlAgentActionDialog": {
             "8e856842d1": "无法启动选定的代理",
@@ -16886,7 +16887,11 @@
           "loadFailed": "无法加载 PDF 预览",
           "decodeFailed": "无法解码 PDF 内容",
           "synctexMissing": "这个 PDF 没有 SyncTeX 数据。编译时加上 -synctex=1。",
-          "synctexOutsideWorkspace": "源文件不在这个工作区里：{{path}}"
+          "synctexOutsideWorkspace": "源文件不在这个工作区里：{{path}}",
+          "annotate": "框选区域添加批注",
+          "annotateHint": "在页面上拖动，框出要批注的内容",
+          "nextNote": "下一条批注",
+          "openNote": "打开第 {{index}} 条批注"
         },
         "ReviewNotesSendMenuContent": {
           "a49800405b": "新代理",
@@ -25919,7 +25924,8 @@
   },
   "diffComments": {
     "lineRangeMeta": "第 {{start}}-{{end}} 行",
-    "lineMeta": "第 {{line}} 行"
+    "lineMeta": "第 {{line}} 行",
+    "pageMeta": "第 {{page}} 页"
   },
   "agentSendTargets": {
     "disabledReason": {

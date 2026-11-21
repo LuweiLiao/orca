@@ -19,12 +19,28 @@ export const MobileDiffReviewSchema = z.object({
   )
 })
 
+const PdfNoteRegionSchema = z.object({
+  page: z.number().int().positive(),
+  left: z.number().finite(),
+  top: z.number().finite(),
+  width: z.number().finite().positive(),
+  height: z.number().finite().positive()
+})
+
+const PdfNoteTexSourceSchema = z.object({
+  filePath: z.string().min(1),
+  startLine: z.number().int().positive(),
+  endLine: z.number().int().positive()
+})
+
 export const DiffCommentSchema = z.object({
   id: z.string(),
   worktreeId: z.string(),
   filePath: z.string(),
-  source: z.enum(['diff', 'markdown']).optional(),
+  source: z.enum(['diff', 'markdown', 'pdf']).optional(),
   selectedText: z.string().optional(),
+  pdfRegion: PdfNoteRegionSchema.optional(),
+  pdfTexSource: PdfNoteTexSourceSchema.optional(),
   startLine: z.number().int().positive().optional(),
   // 0 is a whole-file note (the phone's File Note; formatDiffComment prints "Scope: file").
   lineNumber: z.number().int().nonnegative(),

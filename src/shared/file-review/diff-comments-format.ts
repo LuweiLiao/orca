@@ -1,4 +1,4 @@
-import type { DiffComment } from './diff-comment-types'
+import type { DiffComment, PdfNoteTexSource } from './diff-comment-types'
 
 function isMarkdownComment(comment: Pick<DiffComment, 'source'>): boolean {
   return comment.source === 'markdown'
@@ -17,6 +17,9 @@ export function formatDiffComment(c: DiffComment): string {
       : c.startLine !== undefined && c.startLine !== c.lineNumber
         ? `Lines: ${c.startLine}-${c.lineNumber}`
         : `Line: ${c.lineNumber}`
+  if (c.source === 'pdf') {
+    return formatPdfComment(c, escaped)
+  }
   if (!isMarkdownComment(c)) {
     return [`File: ${c.filePath}`, locationLabel, `User comment: "${escaped}"`].join('\n')
   }
@@ -28,6 +31,32 @@ export function formatDiffComment(c: DiffComment): string {
     locationLabel,
     ...(excerpt ? [`Excerpt:\n${quoteMarkdownNoteExcerpt(excerpt)}`] : []),
     `User comment: "${escaped}"`
+  ].join('\n')
+}
+
+export function formatPdfNoteTexLocation(tex: PdfNoteTexSource): string {
+  return tex.startLine === tex.endLine
+    ? `${tex.filePath}:${tex.startLine}`
+    : `${tex.filePath}:${tex.startLine}-${tex.endLine}`
+}
+
+function formatPdfComment(c: DiffComment, escapedBody: string): string {
+  const region = c.pdfRegion
+  const tex = c.pdfTexSource
+  const excerpt = c.selectedText?.trim()
+  const round = (value: number): number => Math.round(value)
+  return [
+    `File: ${c.filePath}`,
+    'Source: pdf',
+    `Page: ${region?.page ?? c.lineNumber}`,
+    ...(region
+      ? [
+          `Region (PDF points from the page's top-left): x ${round(region.left)}-${round(region.left + region.width)}, y ${round(region.top)}-${round(region.top + region.height)}`
+        ]
+      : []),
+    ...(tex ? [`TeX source (SyncTeX): ${formatPdfNoteTexLocation(tex)}`] : []),
+    ...(excerpt ? [`Excerpt:\n${quoteMarkdownNoteExcerpt(excerpt)}`] : []),
+    `User comment: "${escapedBody}"`
   ].join('\n')
 }
 

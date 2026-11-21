@@ -1,5 +1,17 @@
 // Persist line review notes on WorktreeMeta for existing orca-data.json storage and later agent handoff.
-export type DiffCommentSource = 'diff' | 'markdown'
+export type DiffCommentSource = 'diff' | 'markdown' | 'pdf'
+
+/** A PDF note's region in PDF points from the page's top-left, as SyncTeX measures. */
+export type PdfNoteRegion = {
+  page: number
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/** The TeX lines SyncTeX maps a PDF note's region to, captured when the note is made. */
+export type PdfNoteTexSource = { filePath: string; startLine: number; endLine: number }
 export type DiffReviewScope = 'unstaged' | 'staged' | 'branch'
 
 export type MobileDiffReviewFileState = {
@@ -28,6 +40,9 @@ export type DiffComment = {
   source?: DiffCommentSource
   /** Exact text selected when creating a markdown note, when available. */
   selectedText?: string
+  /** PDF notes only; their lineNumber is the page. */
+  pdfRegion?: PdfNoteRegion
+  pdfTexSource?: PdfNoteTexSource
   /** Inclusive range start. Must be <= lineNumber when present. */
   startLine?: number
   lineNumber: number

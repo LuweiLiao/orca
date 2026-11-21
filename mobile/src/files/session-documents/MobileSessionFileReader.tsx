@@ -88,7 +88,10 @@ function FileReaderDocument({
   const diffCommentsForFile = useMemo(
     () =>
       diffCommentActions?.comments.filter(
-        (comment) => comment.filePath === relativePath && comment.source !== 'markdown'
+        (comment) =>
+          comment.filePath === relativePath &&
+          comment.source !== 'markdown' &&
+          comment.source !== 'pdf'
       ) ?? [],
     [diffCommentActions?.comments, relativePath]
   )

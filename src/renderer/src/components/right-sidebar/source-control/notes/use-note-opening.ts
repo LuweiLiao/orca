@@ -2,6 +2,7 @@ import { useCallback, useRef, type RefObject } from 'react'
 import { detectLanguage } from '../../../../../../shared/editor-language/editor-language-detect'
 import { getDiffCommentSource } from '@/lib/source-control/review/comments/diff-comment-compat'
 import { joinPath } from '@/lib/path'
+import { requestPdfReveal } from '../../../editor/pdf/pdf-reveal-request'
 import { useAppStore } from '@/store'
 import type {
   GitBranchChangeEntry,
@@ -82,6 +83,23 @@ export function useSourceControlNoteOpening({
       // Clear any dangling prior scroll request; only the diff branches below re-stamp it.
       cancelSourceControlEditorRevealFrames(pendingCommentEditorRevealFrameIdsRef)
       useAppStore.getState().setScrollToDiffCommentId(null)
+      if (getDiffCommentSource(comment) === 'pdf') {
+        const fileId = useAppStore.getState().openFile(
+          {
+            filePath: joinPath(worktreePath, filePath),
+            relativePath: filePath,
+            worktreeId: activeWorktreeId,
+            language: detectLanguage(filePath),
+            mode: 'edit',
+            ...scopedRuntime
+          },
+          placement
+        )
+        if (comment.pdfRegion) {
+          requestPdfReveal(fileId, comment.pdfRegion)
+        }
+        return
+      }
       if (getDiffCommentSource(comment) === 'markdown') {
         const absPath = joinPath(worktreePath, filePath)
         const language = detectLanguage(filePath)

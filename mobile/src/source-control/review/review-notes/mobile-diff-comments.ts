@@ -50,8 +50,16 @@ export function normalizeMobileDiffComments(value: unknown, worktreeId: string):
       id,
       worktreeId: typeof candidate.worktreeId === 'string' ? candidate.worktreeId : worktreeId,
       filePath,
-      source: candidate.source === 'markdown' ? 'markdown' : 'diff',
+      source:
+        candidate.source === 'markdown' || candidate.source === 'pdf' ? candidate.source : 'diff',
       selectedText: typeof candidate.selectedText === 'string' ? candidate.selectedText : undefined,
+      // Why pass through: the host schema validates them, and a phone save must not strip a PDF note's anchor.
+      ...(isRecord(candidate.pdfRegion)
+        ? { pdfRegion: candidate.pdfRegion as DiffComment['pdfRegion'] }
+        : {}),
+      ...(isRecord(candidate.pdfTexSource)
+        ? { pdfTexSource: candidate.pdfTexSource as DiffComment['pdfTexSource'] }
+        : {}),
       startLine: typeof candidate.startLine === 'number' ? candidate.startLine : undefined,
       lineNumber,
       body,

@@ -10,20 +10,10 @@ import {
   relativePathInsideRoot
 } from '../../../../../shared/file-access/cross-platform-path'
 import type { SynctexRect } from './pdf-synctex-parser'
-import { synctexForward, synctexReverse } from './pdf-synctex-lookup'
+import type { PdfNoteTexSource } from '../../../../../shared/file-review/diff-comment-types'
+import { synctexForward, synctexRegionSource, synctexReverse } from './pdf-synctex-lookup'
 import { loadPdfSynctex } from './pdf-synctex-source'
-
-export const PDF_SYNCTEX_REVEAL_EVENT = 'orca:pdf-synctex-reveal'
-// Why: a reveal whose PDF never mounts (closed meanwhile) must not fire on a later open.
-const PENDING_REVEAL_TTL_MS = 10_000
-const pendingReveals = new Map<string, { rect: SynctexRect; expiresAt: number }>()
-
-/** The reveal waiting for PDF tab `fileId`, consumed once its viewer can show it. */
-export function takePendingPdfSynctexReveal(fileId: string): SynctexRect | null {
-  const pending = pendingReveals.get(fileId)
-  pendingReveals.delete(fileId)
-  return pending && pending.expiresAt > Date.now() ? pending.rect : null
-}
+import { requestPdfReveal } from './pdf-reveal-request'
 
 function editorTabOf(state: AppState, file: OpenFile) {
   return state.unifiedTabsByWorktree[file.worktreeId]?.find(
@@ -155,6 +145,28 @@ function showPdfAt(pdf: OpenFile, rect: SynctexRect, notOpenYet: boolean, tex: O
     },
     { targetGroupId: pdfTab?.groupId ?? groupBeside(state, pdf.worktreeId, texGroupId) }
   )
-  pendingReveals.set(fileId, { rect, expiresAt: Date.now() + PENDING_REVEAL_TTL_MS })
-  window.dispatchEvent(new CustomEvent(PDF_SYNCTEX_REVEAL_EVENT, { detail: { fileId } }))
+  requestPdfReveal(fileId, rect)
+}
+
+/** The TeX lines behind a region of PDF tab `pdfFileId`, as a workspace path when inside it. */
+export async function pdfRegionTexSource(
+  pdfFileId: string,
+  rect: SynctexRect
+): Promise<PdfNoteTexSource | null> {
+  const pdf = openFileById(useAppStore.getState(), pdfFileId)
+  if (!pdf) {
+    return null
+  }
+  const data = await loadPdfSynctex(pdf).catch(() => null)
+  const source = data ? synctexRegionSource(data, rect) : null
+  if (!source) {
+    return null
+  }
+  const root = useAppStore.getState().getKnownWorktreeById(pdf.worktreeId)?.path
+  const relativePath = root ? relativePathInsideRoot(root, source.file) : null
+  return {
+    filePath: relativePath ?? source.file,
+    startLine: source.startLine,
+    endLine: source.endLine
+  }
 }

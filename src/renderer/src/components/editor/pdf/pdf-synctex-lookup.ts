@@ -134,3 +134,46 @@ export function synctexReverse(
   const file = tag === null ? undefined : data.inputs.get(tag)
   return file && line > 0 ? { file, line } : null
 }
+
+export type SynctexSourceRange = { file: string; startLine: number; endLine: number }
+
+/**
+ * The source lines behind a region of `page`: the lines of the points inside it, from the file
+ * most of them come from, else the source under its centre.
+ */
+export function synctexRegionSource(
+  data: SynctexData,
+  rect: SynctexRect
+): SynctexSourceRange | null {
+  const inside = data.points.filter(
+    (point) =>
+      point.page === rect.page &&
+      point.line > 0 &&
+      point.x >= rect.left &&
+      point.x <= rect.left + rect.width &&
+      point.y >= rect.top &&
+      point.y <= rect.top + rect.height
+  )
+  const counts = new Map<number, number>()
+  for (const point of inside) {
+    counts.set(point.tag, (counts.get(point.tag) ?? 0) + 1)
+  }
+  let tag: number | null = null
+  for (const [candidate, count] of counts) {
+    if (tag === null || count > (counts.get(tag) ?? 0)) {
+      tag = candidate
+    }
+  }
+  const file = tag === null ? undefined : data.inputs.get(tag)
+  if (file) {
+    const lines = inside.filter((point) => point.tag === tag).map((point) => point.line)
+    return { file, startLine: Math.min(...lines), endLine: Math.max(...lines) }
+  }
+  const centre = synctexReverse(
+    data,
+    rect.page,
+    rect.left + rect.width / 2,
+    rect.top + rect.height / 2
+  )
+  return centre ? { file: centre.file, startLine: centre.line, endLine: centre.line } : null
+}

@@ -26,11 +26,8 @@ import {
   type PdfSidebarPreference
 } from './PdfSidebar'
 import type { SynctexRect } from './pdf-synctex-parser'
-import {
-  openPdfSynctexSource,
-  PDF_SYNCTEX_REVEAL_EVENT,
-  takePendingPdfSynctexReveal
-} from './pdf-synctex-navigation'
+import { openPdfSynctexSource } from './pdf-synctex-navigation'
+import { PDF_REVEAL_EVENT, takePendingPdfReveal } from './pdf-reveal-request'
 import { createPdfViewerSession } from './pdf-viewer-session'
 import { usePdfFormEditing } from './use-pdf-form-editing'
 import {
@@ -41,6 +38,7 @@ import {
 import { readPdfScalePreference, writePdfScalePreference } from './pdf-scale-preference-storage'
 import { EditorCommandOwnerContext } from '../commands/editor-command-owner-context'
 import { listenForViewerZoomRequests } from '../viewer-viewport/viewer-zoom-request'
+import { usePdfViewerNotes } from './use-pdf-viewer-notes'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -63,8 +61,8 @@ type PdfViewerProps = {
   scrollCacheKey?: string | null
   /** The writable tab whose form fields this viewer fills in; without it forms are read-only. */
   editFileId?: string | null
-  // Only an editor tab's own viewer navigates SyncTeX; diff and conflict panes pass nothing.
-  synctexFileId?: string
+  // Only an editor tab's own viewer navigates SyncTeX and takes notes; diff and conflict panes pass nothing.
+  editorFileId?: string
 }
 
 export default function PdfViewer(props: PdfViewerProps): JSX.Element {
@@ -85,7 +83,7 @@ function PdfDocumentViewer({
   preferenceKey = null,
   scrollCacheKey = null,
   editFileId = null,
-  synctexFileId
+  editorFileId
 }: PdfViewerProps): JSX.Element {
   const t = useTranslate()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -103,6 +101,8 @@ function PdfDocumentViewer({
   const [page, setPage] = useState<{ number: number; count: number } | null>(null)
   const [shown, setShown] = useState<{
     doc: pdfjsLib.PDFDocumentProxy
+    viewer: InstanceType<typeof PdfJsViewer>
+    eventBus: InstanceType<typeof EventBus>
     goToPage: (pageNumber: number) => void
     goToDestination: (dest: string | unknown[]) => void
     revealRect: (rect: SynctexRect) => void
@@ -172,6 +172,8 @@ function PdfDocumentViewer({
         pdfViewerRef.current = session.viewer
         setShown({
           doc,
+          viewer: session.viewer,
+          eventBus: session.eventBus,
           goToPage: session.goToPage,
           goToDestination: session.goToDestination,
           revealRect: session.revealRect,
@@ -260,29 +262,31 @@ function PdfDocumentViewer({
 
   const goToPage = useCallback((pageNumber: number) => shown?.goToPage(pageNumber), [shown])
 
+  const notes = usePdfViewerNotes({ editorFileId, filePath, containerRef, shown })
+
   useEffect(() => {
-    if (!shown || !synctexFileId) {
+    if (!shown || !editorFileId) {
       return
     }
     const reveal = (): void => {
-      const rect = takePendingPdfSynctexReveal(synctexFileId)
+      const rect = takePendingPdfReveal(editorFileId)
       if (rect) {
         shown.revealRect(rect)
       }
     }
     reveal()
     const onRequest = (event: Event): void => {
-      if (event instanceof CustomEvent && event.detail?.fileId === synctexFileId) {
+      if (event instanceof CustomEvent && event.detail?.fileId === editorFileId) {
         reveal()
       }
     }
-    window.addEventListener(PDF_SYNCTEX_REVEAL_EVENT, onRequest)
-    return () => window.removeEventListener(PDF_SYNCTEX_REVEAL_EVENT, onRequest)
-  }, [shown, synctexFileId])
+    window.addEventListener(PDF_REVEAL_EVENT, onRequest)
+    return () => window.removeEventListener(PDF_REVEAL_EVENT, onRequest)
+  }, [shown, editorFileId])
 
   useEffect(() => {
     const container = containerRef.current
-    if (!container || !shown || !synctexFileId) {
+    if (!container || !shown || !editorFileId) {
       return
     }
     const isMac = navigator.userAgent.includes('Mac')
@@ -297,11 +301,11 @@ function PdfDocumentViewer({
       }
       event.preventDefault()
       event.stopPropagation()
-      void openPdfSynctexSource(synctexFileId, point)
+      void openPdfSynctexSource(editorFileId, point)
     }
     container.addEventListener('click', onClick, { capture: true })
     return () => container.removeEventListener('click', onClick, { capture: true })
-  }, [shown, synctexFileId])
+  }, [shown, editorFileId])
 
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
@@ -334,6 +338,7 @@ function PdfDocumentViewer({
               <div ref={viewerDivRef} className="pdfViewer" />
             </div>
           </div>
+          {notes.layer}
           {pdfError && !pdfError.stale ? (
             <div
               role="alert"
@@ -372,6 +377,7 @@ function PdfDocumentViewer({
         onScalePreference={applyScalePreference}
         onGoToPage={goToPage}
         onFind={openFind}
+        notesControls={notes.toolbar}
       />
     </div>
   )

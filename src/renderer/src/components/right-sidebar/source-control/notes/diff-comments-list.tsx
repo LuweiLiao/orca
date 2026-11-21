@@ -11,9 +11,12 @@ import type { DiffComment } from '../../../../../../shared/file-review/diff-comm
 import { useCopyFeedbackState } from './copy-feedback'
 
 function getLocalizedDiffCommentLineLabel(
-  comment: Pick<DiffComment, 'lineNumber' | 'startLine'>,
+  comment: Pick<DiffComment, 'lineNumber' | 'startLine' | 'source'>,
   t: Translate = translate
 ): string {
+  if (comment.source === 'pdf') {
+    return t('diffComments.pageMeta', 'page {{page}}', { page: comment.lineNumber })
+  }
   // Line zero is the file-level note sentinel, not a real line.
   if (comment.lineNumber === 0) {
     return t(
@@ -155,7 +158,9 @@ export function DiffCommentsInlineList({
                   <span className="shrink-0 rounded bg-muted/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">
                     {getDiffCommentSource(c) === 'markdown'
                       ? t('auto.components.right.sidebar.SourceControl.94c42b252e', 'MD')
-                      : t('auto.components.right.sidebar.SourceControl.c56ba7fa06', 'Diff')}
+                      : getDiffCommentSource(c) === 'pdf'
+                        ? t('auto.components.right.sidebar.SourceControl.pdfTag', 'PDF')
+                        : t('auto.components.right.sidebar.SourceControl.c56ba7fa06', 'Diff')}
                   </span>
                   {c.sentAt ? (
                     <span className="shrink-0 rounded bg-muted/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">

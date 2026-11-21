@@ -1,4 +1,4 @@
-import { type JSX, useState } from 'react'
+import { type JSX, type ReactNode, useState } from 'react'
 import { ChevronDown, PanelLeft, Search, ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,6 +24,8 @@ type Props = {
   onScalePreference: (preference: PdfScalePreference) => void
   onGoToPage: (pageNumber: number) => void
   onFind: () => void
+  /** Review-note controls, for a PDF open in an editor tab of a workspace. */
+  notesControls?: ReactNode
 }
 
 /** The PDF viewer's footer: zoom, the page it is on and a box to jump to another, and find. */
@@ -37,7 +39,8 @@ export function PdfToolbar({
   onZoom,
   onScalePreference,
   onGoToPage,
-  onFind
+  onFind,
+  notesControls
 }: Props): JSX.Element {
   const findShortcut = useShortcutKeyDetails('editor.find')
   const zoomInShortcut = useShortcutKeyDetails('zoom.in')
@@ -120,6 +123,7 @@ export function PdfToolbar({
       >
         <Search />
       </ViewerToolbarButton>
+      {notesControls}
       <span className="min-w-0 truncate" title={filename}>
         {filename}
       </span>

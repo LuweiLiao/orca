@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { parseSynctex } from './pdf-synctex-parser'
-import { synctexForward, synctexIncludesSource, synctexReverse } from './pdf-synctex-lookup'
+import {
+  synctexForward,
+  synctexIncludesSource,
+  synctexRegionSource,
+  synctexReverse
+} from './pdf-synctex-lookup'
 
 // Trimmed from a pdflatex -synctex=1 build: line 4 wraps onto two output lines (the second
 // line box is tagged with the paragraph's end, line 7), and method.tex is \input on page 1.
@@ -86,5 +91,27 @@ describe('SyncTeX', () => {
     expect(synctexReverse(data, 2, bp(9000000), y)?.line).toBe(12)
     // Outside every line box: the nearest point on that page.
     expect(synctexReverse(data, 2, bp(15624374), bp(10300473) + 30)?.line).toBe(12)
+  })
+
+  it('maps a marked region to the source lines inside it', () => {
+    const twoLines = {
+      page: 1,
+      left: bp(8000000),
+      top: bp(10300473) - 10,
+      width: bp(16000000),
+      height: bp(11087721 - 10300473) + 12
+    }
+    expect(synctexRegionSource(data, twoLines)).toEqual({
+      file: '/work/paper/main.tex',
+      startLine: 4,
+      endLine: 5
+    })
+    // No point inside: the source under the region's centre.
+    const blank = { page: 1, left: bp(14000000) - 2, top: bp(10300473) - 4, width: 4, height: 2 }
+    expect(synctexRegionSource(data, blank)).toEqual({
+      file: '/work/paper/main.tex',
+      startLine: 4,
+      endLine: 4
+    })
   })
 })

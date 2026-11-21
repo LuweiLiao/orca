@@ -137,6 +137,7 @@ export function mobileDiffReviewCommentMatchesItem(
   if (
     item.scope === 'commit' ||
     comment.source === 'markdown' ||
+    comment.source === 'pdf' ||
     comment.filePath !== item.filePath
   ) {
     return false
