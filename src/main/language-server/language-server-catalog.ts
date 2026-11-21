@@ -1,5 +1,6 @@
 import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { parseWindowsCmdShim } from '@orca/process-host/windows-cmd-shim-resolution'
 import type { LanguageServerId } from '../../shared/language-server-types'
 import { isDescendantOrEqual } from '../filesystem/local-file-io/filesystem-path-containment'
 import { resolveCommandOnLocalPath } from '../ipc/command-path/command-path-resolver'
@@ -156,10 +157,20 @@ export async function compilerDrivers(databaseFile: string, rootPath: string): P
 /** The tsserver of the `tsc` on the login PATH (a global or version-manager install). */
 async function installedTsserver(): Promise<string | null> {
   const tsc = await resolveCommandOnLocalPath('tsc')
-  const real = tsc ? await realpath(tsc).catch(() => null) : null
+  const script = tsc ? await tscScript(tsc) : null
+  const real = script ? await realpath(script).catch(() => null) : null
   // <typescript>/bin/tsc -> <typescript>/lib/tsserver.js
   const candidate = real ? path.join(path.dirname(path.dirname(real)), 'lib', 'tsserver.js') : null
   return candidate && (await isFile(candidate)) ? candidate : null
+}
+
+/** Windows npm puts a `tsc.cmd` shim beside `node_modules`; the script it runs is the real tsc. */
+async function tscScript(tsc: string): Promise<string | null> {
+  if (!/\.cmd$/i.test(tsc)) {
+    return tsc
+  }
+  const shim = parseWindowsCmdShim(await readFile(tsc, 'utf8').catch(() => ''))
+  return shim?.kind === 'node' ? path.win32.resolve(path.win32.dirname(tsc), shim.script) : null
 }
 
 async function isFile(filePath: string): Promise<boolean> {

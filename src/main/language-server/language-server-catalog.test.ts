@@ -1,8 +1,17 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import { compilerDrivers, findCompilationDatabase } from './language-server-catalog'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { resolveCommandOnLocalPath } from '../ipc/command-path/command-path-resolver'
+import {
+  compilerDrivers,
+  findCompilationDatabase,
+  languageServerLaunch
+} from './language-server-catalog'
+
+vi.mock('../ipc/command-path/command-path-resolver', () => ({
+  resolveCommandOnLocalPath: vi.fn()
+}))
 
 const dirs: string[] = []
 function tempDir(): string {
@@ -58,6 +67,46 @@ describe('clangd launch', () => {
     expect(await findCompilationDatabase(root)).toEqual({
       file: path.join(root, 'build', 'compile_commands.json'),
       nested: false
+    })
+  })
+})
+
+describe('typescript launch', () => {
+  it('finds the tsserver behind a Windows npm tsc.cmd shim', async () => {
+    const prefix = tempDir()
+    const typescript = path.join(prefix, 'node_modules', 'typescript')
+    mkdirSync(path.join(typescript, 'bin'), { recursive: true })
+    mkdirSync(path.join(typescript, 'lib'), { recursive: true })
+    writeFileSync(path.join(typescript, 'bin', 'tsc'), '')
+    writeFileSync(path.join(typescript, 'lib', 'tsserver.js'), '')
+    const shim = path.join(prefix, 'tsc.cmd')
+    writeFileSync(
+      shim,
+      [
+        '@ECHO off',
+        'GOTO start',
+        ':find_dp0',
+        'SET dp0=%~dp0',
+        'EXIT /b',
+        ':start',
+        'SETLOCAL',
+        'CALL :find_dp0',
+        '',
+        'IF EXIST "%dp0%\\node.exe" (',
+        '  SET "_prog=%dp0%\\node.exe"',
+        ') ELSE (',
+        '  SET "_prog=node"',
+        '  SET PATHEXT=%PATHEXT:;.JS;=;%',
+        ')',
+        '',
+        'endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\node_modules\\typescript\\bin\\tsc" %*',
+        ''
+      ].join('\r\n')
+    )
+    vi.mocked(resolveCommandOnLocalPath).mockResolvedValue(shim)
+    const launch = await languageServerLaunch('typescript', tempDir())
+    expect(launch.initializationOptions).toEqual({
+      tsserver: { path: path.join(typescript, 'lib', 'tsserver.js') }
     })
   })
 })
