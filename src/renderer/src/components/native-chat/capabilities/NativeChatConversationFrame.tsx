@@ -10,7 +10,7 @@ import type { NativeChatMessageRailState } from '../viewport/rail/use-native-cha
 import type { NativeChatRailItem } from '../viewport/rail/native-chat-message-rail-items'
 import { NativeChatConversationSidebar } from './NativeChatConversationSidebar'
 
-/** The transcript beside its Skill/MCP and timeline sidebar; the rail draws only while it is closed. */
+/** The transcript beside its Skill/MCP and timeline sidebar; starts closed, the rail draws while closed. */
 export function NativeChatConversationFrame({
   shown,
   controls,
@@ -30,7 +30,7 @@ export function NativeChatConversationFrame({
   onReveal: (messageId: string) => void
   children: (sidebarOpen: boolean) => ReactNode
 }): React.JSX.Element {
-  const [open, setOpen] = useState(controls !== undefined)
+  const [open, setOpen] = useState(false)
   const label = translate('components.native-chat.conversationSidebar', 'Skills, MCP and timeline')
   if (!shown) {
     return <>{children(false)}</>
