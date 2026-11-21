@@ -2,9 +2,6 @@ import * as z from 'zod'
 import { AI_VAULT_AGENTS } from './ai-vault/contracts/ai-vault-types'
 import { parseExecutionHostId } from './execution-host/execution-host'
 
-export const CONVERSATION_REFERENCE_CAPABILITY = 'conversation.references.v1' as const
-// Why: create params are strict, so an older host refuses a `range` outright; send one only here.
-export const CONVERSATION_REFERENCE_RANGE_CAPABILITY = 'conversation.references.range.v1' as const
 export const CONVERSATION_REFERENCE_DRAG_TYPE = 'application/x-orca-conversation-reference'
 export const CONVERSATION_REFERENCE_NODE = 'nativeChatConversationReference'
 export const CONVERSATION_REFERENCE_SCHEME = 'orca-conversation:'

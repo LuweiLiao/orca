@@ -1,5 +1,5 @@
 import { AI_VAULT_CHAT_FORK_SOURCE_CAPABILITY } from '../resume/ai-vault-resume-preparation'
-import { CONVERSATION_REFERENCE_CAPABILITY } from '../../conversation-reference'
+import { CONVERSATION_REFERENCE_CAPABILITY } from '../../conversation-reference-capability'
 
 // aiVault.listSessions is unconditional, so getStatus advertises this statically rather than as a runtime-dependent capability.
 export const AI_VAULT_RUNTIME_CAPABILITY = 'aiVault.v1' as const
