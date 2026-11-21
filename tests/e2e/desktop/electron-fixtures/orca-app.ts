@@ -182,6 +182,7 @@ export const test = base.extend<OrcaTestFixtures, OrcaWorkerFixtures>({
       // Use development/E2E helpers inside an isolated profile; background launch policy keeps automated desktop windows hidden.
       env: {
         ...homeIsolation.env,
+        ELECTRON_RENDERER_URL: '',
         NODE_ENV: 'development',
         ...(headful ? { ORCA_E2E_HEADFUL: '1' } : { ORCA_E2E_HEADLESS: '1' })
       }
