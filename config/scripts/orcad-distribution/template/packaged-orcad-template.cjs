@@ -202,7 +202,7 @@ module.exports = {
 if (require.main === module) {
   const [flag, appDir, signedListFile] = process.argv.slice(2)
   if (flag === '--verify-build') {
-    assertOrcadTemplateBuilt(resolve(appDir ?? join(__dirname, '..', '..')), {
+    assertOrcadTemplateBuilt(appDir ? resolve(appDir) : undefined, {
       ...process.env,
       ORCA_REQUIRE_ORCAD_TEMPLATE: '1'
     })
