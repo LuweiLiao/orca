@@ -1,11 +1,12 @@
 import { copyFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { runProcess } from '@orca/process-host'
-import { test, expect } from './helpers/orca-app'
-import { createChatOnHost } from './helpers/structured-claude-stub'
-import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
-import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
-import type { AgentImageDisplayReceipt } from '../../src/shared/agent-image-display'
+import { test } from '../../desktop/electron-fixtures/orca-app'
+import { expect } from '@stablyai/playwright-test'
+import { createChatOnHost } from '../session-fixtures/structured-claude-stub'
+import { waitForActiveWorktree, waitForSessionReady } from '../../desktop/renderer-probes/store'
+import { startHiddenRendererFrameCapture } from '../../desktop/electron-fixtures/hidden-renderer-frame-capture'
+import type { AgentImageDisplayReceipt } from '../../../../src/shared/agent-session/image-display/agent-image-display'
 
 test.use({ orcaAppExtraEnv: { ORCA_BACKGROUND_LAUNCH: '1' } })
 
@@ -23,9 +24,7 @@ test('image CLI publishes without an agent turn and receives a real renderer ack
   copyFileSync(path.resolve('package.json'), corrupt)
   try {
     await page.evaluate(async () => {
-      await window
-        .__store!.getState()
-        .updateSettingsOrThrow({ uiLanguage: 'en', experimentalNativeChat: true })
+      await window.__store!.getState().updateSettingsOrThrow({ uiLanguage: 'en' })
     })
     const sessionId = await createChatOnHost(page, worktreeId)
     const userDataDir = await electronApp.evaluate(({ app }) => app.getPath('userData'))

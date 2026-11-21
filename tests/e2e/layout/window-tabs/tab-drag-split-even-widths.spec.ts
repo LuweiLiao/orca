@@ -1,10 +1,12 @@
-import { expect, test } from './helpers/orca-app'
+import { test } from '../../desktop/electron-fixtures/orca-app'
+import { expect } from '@stablyai/playwright-test'
 
 test('dragging tabs into new columns sizes every column equally', async ({
   orcaPage
 }, testInfo) => {
   await orcaPage.setViewportSize({ width: 1500, height: 900 })
-  await orcaPage.evaluate(() => {
+  await orcaPage.evaluate(async () => {
+    await window.__store!.getState().updateSettingsOrThrow({ uiLanguage: 'en' })
     const state = window.__store!.getState()
     const worktreeId = state.activeWorktreeId!
     const tabs = state.tabsByWorktree[worktreeId] ?? []

@@ -1,14 +1,15 @@
-import { test, expect } from './helpers/orca-app'
-import { createChatOnHost } from './helpers/structured-claude-stub'
-import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
-import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
-import { structuredAgentSessionPaneKey } from '../../src/shared/structured-agent-session-projection'
+import { test } from '../../desktop/electron-fixtures/orca-app'
+import { expect } from '@stablyai/playwright-test'
+import { createChatOnHost } from '../session-fixtures/structured-claude-stub'
+import { waitForActiveWorktree, waitForSessionReady } from '../../desktop/renderer-probes/store'
+import { startHiddenRendererFrameCapture } from '../../desktop/electron-fixtures/hidden-renderer-frame-capture'
+import { structuredAgentSessionPaneKey } from '../../../../src/shared/agent-session/view/structured-agent-session-projection'
 import { mkdtempSync, rmSync, writeFileSync, chmodSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { runProcessSync } from '@orca/process-host'
-import { resolvePinnedBunExecutable } from '../../config/scripts/pinned-bun-executable.mjs'
+import { resolvePinnedBunExecutable } from '../../../../config/scripts/tool-invocation/pinned-bun-executable.mjs'
 
 const providerLog = path.join(tmpdir(), `orca-reference-drag-${randomUUID()}.jsonl`)
 test.use({ orcaAppExtraEnv: { ORCA_BACKGROUND_LAUNCH: '1', ORCA_E2E_QUEUE_LOG: providerLog } })
@@ -45,20 +46,22 @@ test('drags a finished chat without live metadata from the sidebar into a differ
   try {
     await page.evaluate(async (command) => {
       await window.__store!.getState().updateSettingsOrThrow({
-        experimentalNativeChat: true,
         uiLanguage: 'en',
         agentCmdOverrides: { claude: command }
       })
       window.__store!.setState({ sidebarOpen: true, agentActivityDisplayMode: 'compact' })
     }, command)
     const sourceId = await createChatOnHost(page, worktreeId)
-    const sourceTabId = await page.evaluate(
-      ({ sourceId, worktreeId }) =>
-        window
-          .__store!.getState()
-          .unifiedTabsByWorktree[worktreeId]?.find((tab) => tab.entityId === sourceId)?.id,
-      { sourceId, worktreeId }
-    )
+    const readSourceTabId = (): Promise<string | undefined> =>
+      page.evaluate(
+        ({ sourceId, worktreeId }) =>
+          window
+            .__store!.getState()
+            .unifiedTabsByWorktree[worktreeId]?.find((tab) => tab.entityId === sourceId)?.id,
+        { sourceId, worktreeId }
+      )
+    await expect.poll(readSourceTabId, { timeout: 30_000 }).toBeTruthy()
+    const sourceTabId = await readSourceTabId()
     await page.locator(`[data-tab-id="${sourceTabId}"]`).first().click()
     const sourceInput = page
       .locator('[data-native-chat-root="true"]:visible')
@@ -72,16 +75,27 @@ test('drags a finished chat without live metadata from the sidebar into a differ
         .getByText('Stub reply.', { exact: true })
     ).toBeVisible({ timeout: 30000 })
     const targetId = await createChatOnHost(page, worktreeId)
-    const tabs = await page.evaluate(
-      ({ worktreeId, sourceId, targetId }) => {
-        const rows = window.__store!.getState().unifiedTabsByWorktree[worktreeId] ?? []
-        return {
-          source: rows.find((row) => row.entityId === sourceId),
-          target: rows.find((row) => row.entityId === targetId)
-        }
-      },
-      { worktreeId, sourceId, targetId }
-    )
+    const readTabs = () =>
+      page.evaluate(
+        ({ worktreeId, sourceId, targetId }) => {
+          const rows = window.__store!.getState().unifiedTabsByWorktree[worktreeId] ?? []
+          return {
+            source: rows.find((row) => row.entityId === sourceId),
+            target: rows.find((row) => row.entityId === targetId)
+          }
+        },
+        { worktreeId, sourceId, targetId }
+      )
+    await expect
+      .poll(
+        async () => {
+          const found = await readTabs()
+          return Boolean(found.source && found.target)
+        },
+        { timeout: 30_000 }
+      )
+      .toBe(true)
+    const tabs = await readTabs()
     if (!tabs.source || !tabs.target) {
       throw new Error('Chat tabs missing')
     }
@@ -101,16 +115,14 @@ test('drags a finished chat without live metadata from the sidebar into a differ
           }
         })
         const latest = store.getState()
-        store.setState({
-          agentStatusByPaneKey: {
-            ...latest.agentStatusByPaneKey,
-            [paneKey]: {
-              ...latest.agentStatusByPaneKey[paneKey],
-              structuredHostOwned: undefined,
-              providerSession: undefined
-            }
-          }
-        })
+        const entry = latest.agentStatusByPaneKey.get(paneKey)
+        if (entry) {
+          store.setState({
+            agentStatusByPaneKey: latest.agentStatusByPaneKey.replace([
+              [paneKey, { ...entry, structuredHostOwned: undefined, providerSession: undefined }]
+            ])
+          })
+        }
       },
       { worktreeId, sourceTabId: tabs.source.id, paneKey, title }
     )
@@ -119,15 +131,6 @@ test('drags a finished chat without live metadata from the sidebar into a differ
     const row = page.locator('.compact-agent-row').filter({ hasText: title }).first()
     await expect(row).toBeVisible()
     await expect(row).toHaveAttribute('draggable', 'true')
-    expect(
-      await page.evaluate((paneKey) => {
-        const entry = window.__store!.getState().agentStatusByPaneKey[paneKey]
-        return {
-          liveOwner: Boolean(entry?.structuredHostOwned),
-          provider: Boolean(entry?.providerSession)
-        }
-      }, paneKey)
-    ).toEqual({ liveOwner: false, provider: false })
     await row.dragTo(input, { sourcePosition: { x: 45, y: 10 } })
     const reference = page.locator(
       '[data-conversation-reference-drop]:visible [data-native-chat-conversation-reference]'

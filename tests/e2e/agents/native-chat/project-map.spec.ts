@@ -1,16 +1,17 @@
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { expect } from './helpers/orca-app'
-import { SUPPORTED, createChatOnHost, test } from './helpers/structured-claude-stub'
-import { buildFakeAgentCommandOverride } from './helpers/fake-agent-command-override'
-import { waitForActiveWorktree, waitForSessionReady } from './helpers/store'
-import { startHiddenRendererFrameCapture } from './helpers/hidden-renderer-frame-capture'
-import { RuntimeClient } from '../../src/cli/runtime-client'
-import { orchestrationReferenceToken } from '../../src/shared/native-chat-orchestration-reference'
+import '../../desktop/electron-fixtures/orca-app'
+import { expect } from '@stablyai/playwright-test'
+import { SUPPORTED, createChatOnHost, test } from '../session-fixtures/structured-claude-stub'
+import { buildFakeAgentCommandOverride } from '../session-fixtures/fake-agent-command-override'
+import { waitForActiveWorktree, waitForSessionReady } from '../../desktop/renderer-probes/store'
+import { startHiddenRendererFrameCapture } from '../../desktop/electron-fixtures/hidden-renderer-frame-capture'
+import { RuntimeClient } from '../../../../src/cli/runtime/client'
+import { orchestrationReferenceToken } from '../../../../src/shared/native-chat-orchestration-reference'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
-} from '../../src/shared/structured-agent-session-projection'
+} from '../../../../src/shared/agent-session/view/structured-agent-session-projection'
 
 function sessionClient(userDataDir: string, sessionId: string): RuntimeClient {
   const previousCaller = process.env.ORCA_AGENT_SESSION_ID
@@ -45,7 +46,6 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
       await window.__store!.getState().updateSettings({
         // Why: the copy asserted below is English; the host locale may not be.
         uiLanguage: 'en',
-        experimentalNativeChat: true,
         defaultTuiAgent: 'claude',
         tabAutoGenerateTitle: false,
         agentCmdOverrides: { claude: command }

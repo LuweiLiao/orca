@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { test, expect } from './helpers/orca-app'
-import { ensureTerminalVisible, waitForActiveWorktree, waitForSessionReady } from './helpers/store'
-import { waitForActivePaneHookDescriptor, waitForActiveTerminalManager } from './helpers/terminal'
-import { claudeTranscriptLines } from './helpers/native-chat-transcript-fixture'
+import { test } from '../../desktop/electron-fixtures/orca-app'
+import { expect } from '@stablyai/playwright-test'
+import {
+  ensureTerminalVisible,
+  waitForActiveWorktree,
+  waitForSessionReady
+} from '../../desktop/renderer-probes/store'
+import { waitForActivePaneHookDescriptor } from '../../terminal/input/terminal-active-pane'
+import { waitForActiveTerminalManager } from '../../terminal/layout/terminal-pane-operations'
+import { claudeTranscriptLines } from '../session-fixtures/native-chat-transcript-fixture'
 
 test('real sidebar and history menus insert readable references without sending or resuming', async ({
   orcaPage,
@@ -35,16 +41,12 @@ test('real sidebar and history menus insert readable references without sending 
   )
   await orcaPage.evaluate(
     async ({ paneKey, worktreeId, sessionId, transcriptPath, tabId, sourceTitle }) => {
-      const settings = await window.api.settings.set({
-        experimentalNativeChat: true,
-        uiLanguage: 'en',
-        theme: 'dark'
-      })
       const store = window.__store
       if (!store) {
         throw new Error('Store unavailable')
       }
-      store.setState({ settings, sidebarOpen: true, agentActivityDisplayMode: 'compact' })
+      await store.getState().updateSettingsOrThrow({ uiLanguage: 'en', theme: 'dark' })
+      store.setState({ sidebarOpen: true, agentActivityDisplayMode: 'compact' })
       const state = store.getState()
       state.setAgentStatus(
         paneKey,
@@ -65,6 +67,7 @@ test('real sidebar and history menus insert readable references without sending 
     },
     { ...descriptor, sessionId, transcriptPath, tabId, sourceTitle }
   )
+  await expect(orcaPage.getByRole('button', { name: 'Toggle sidebar' })).toBeVisible()
   const root = orcaPage.locator('[data-native-chat-root="true"]')
   await expect(root.getByText(sourceAnswer, { exact: true })).toBeVisible()
   const input = root.getByRole('textbox').last()

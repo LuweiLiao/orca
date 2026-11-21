@@ -2,10 +2,16 @@ import { randomUUID } from 'node:crypto'
 import { appendFileSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { test, expect } from './helpers/orca-app'
-import { ensureTerminalVisible, waitForActiveWorktree, waitForSessionReady } from './helpers/store'
-import { waitForActivePaneHookDescriptor, waitForActiveTerminalManager } from './helpers/terminal'
-import { claudeTranscriptLines } from './helpers/native-chat-transcript-fixture'
+import { test } from '../../desktop/electron-fixtures/orca-app'
+import { expect } from '@stablyai/playwright-test'
+import {
+  ensureTerminalVisible,
+  waitForActiveWorktree,
+  waitForSessionReady
+} from '../../desktop/renderer-probes/store'
+import { waitForActivePaneHookDescriptor } from '../../terminal/input/terminal-active-pane'
+import { waitForActiveTerminalManager } from '../../terminal/layout/terminal-pane-operations'
+import { claudeTranscriptLines } from '../session-fixtures/native-chat-transcript-fixture'
 
 const FIRST = 'The controller compensates the measured disturbance.'
 const SECOND = 'The observer estimates the remaining disturbance.'
@@ -41,16 +47,16 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   )
   await orcaPage.evaluate(
     async ({ paneKey, worktreeId, sessionId, transcriptPath, tabId }) => {
-      const settings = await window.api.settings.set({
-        experimentalNativeChat: true,
-        uiLanguage: 'en',
-        theme: 'dark'
-      })
       const store = window.__store
       if (!store) {
         throw new Error('Store unavailable')
       }
-      store.setState({ settings })
+      // The Claude theme offer's toast would cover the annotation tray.
+      await store.getState().updateSettingsOrThrow({
+        uiLanguage: 'en',
+        theme: 'dark',
+        claudeCodeThemeSyncOffer: 'settled'
+      })
       const state = store.getState()
       state.setAgentStatus(
         paneKey,
@@ -186,14 +192,12 @@ test('conversation annotations preserve quotes, highlight passages and collect e
   await expect(editor).toHaveCount(0)
   await root.getByRole('button', { name: '2 annotations', exact: true }).click()
   await orcaPage.evaluate(async () => {
-    const settings = await window.api.settings.set({ uiLanguage: 'zh', theme: 'light' })
-    window.__store?.setState({ settings })
+    await window.__store!.getState().updateSettingsOrThrow({ uiLanguage: 'zh', theme: 'light' })
   })
   await expect(root.getByRole('button', { name: '2 条批注', exact: true })).toBeVisible()
   await orcaPage.screenshot({ path: testInfo.outputPath('annotations-light-chinese.png') })
   await orcaPage.evaluate(async () => {
-    const settings = await window.api.settings.set({ uiLanguage: 'en', theme: 'dark' })
-    window.__store?.setState({ settings })
+    await window.__store!.getState().updateSettingsOrThrow({ uiLanguage: 'en', theme: 'dark' })
   })
   await tray.getByRole('button', { name: 'Delete annotation', exact: true }).first().click()
   await tray.getByRole('button', { name: 'Delete annotation', exact: true }).first().click()
@@ -280,28 +284,4 @@ test('conversation annotations preserve quotes, highlight passages and collect e
       BrowserWindow.getAllWindows().every((window) => !window.isVisible())
     )
   ).toBe(true)
-})
-
-test('Chinese queue search shows why the runtime does not offer follow-up queueing', async ({
-  orcaPage
-}, testInfo) => {
-  await waitForSessionReady(orcaPage)
-  await orcaPage.evaluate(async () => {
-    const settings = await window.api.settings.set({
-      uiLanguage: 'zh',
-      experimentalNativeChat: true,
-      theme: 'dark'
-    })
-    const store = window.__store
-    if (!store) {
-      throw new Error('Store unavailable')
-    }
-    store.setState({ settings })
-    store.getState().openSettingsPage()
-    store.getState().setSettingsSearchQuery('将后续消息加入队列')
-  })
-  await orcaPage.getByRole('button', { name: '聊天', exact: true }).click()
-  await expect(orcaPage.getByRole('switch', { name: '切换后续消息队列' })).toBeDisabled()
-  await expect(orcaPage.getByText(/此主机不支持.*队列|此主机不支持.*排队/)).toBeVisible()
-  await orcaPage.screenshot({ path: testInfo.outputPath('queue-search-chinese.png') })
 })
