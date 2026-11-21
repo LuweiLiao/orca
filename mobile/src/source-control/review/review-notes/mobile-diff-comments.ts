@@ -2,7 +2,11 @@ import type {
   DiffComment,
   DiffReviewScope
 } from '../../../../../src/shared/file-review/diff-comment-types'
-import { DiffCommentSchema } from '../../../../../src/shared/file-review/diff-comment-schema'
+import {
+  DiffCommentSchema,
+  PdfNoteRegionSchema,
+  PdfNoteTexSourceSchema
+} from '../../../../../src/shared/file-review/diff-comment-schema'
 import {
   mobileDiffReviewCommentMatchesItem,
   type MobileDiffReviewQueueItem
@@ -54,12 +58,8 @@ export function normalizeMobileDiffComments(value: unknown, worktreeId: string):
         candidate.source === 'markdown' || candidate.source === 'pdf' ? candidate.source : 'diff',
       selectedText: typeof candidate.selectedText === 'string' ? candidate.selectedText : undefined,
       // Why pass through: the host schema validates them, and a phone save must not strip a PDF note's anchor.
-      ...(isRecord(candidate.pdfRegion)
-        ? { pdfRegion: candidate.pdfRegion as DiffComment['pdfRegion'] }
-        : {}),
-      ...(isRecord(candidate.pdfTexSource)
-        ? { pdfTexSource: candidate.pdfTexSource as DiffComment['pdfTexSource'] }
-        : {}),
+      pdfRegion: PdfNoteRegionSchema.safeParse(candidate.pdfRegion).data,
+      pdfTexSource: PdfNoteTexSourceSchema.safeParse(candidate.pdfTexSource).data,
       startLine: typeof candidate.startLine === 'number' ? candidate.startLine : undefined,
       lineNumber,
       body,

@@ -2,9 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { EventBus, PDFViewer as PdfJsViewer } from 'pdfjs-dist/web/pdf_viewer.mjs'
 import { pdfPageGeometry } from './pdf-page-geometry'
 
-// Why these: pdf.js empties a page's div when it re-renders or evicts it, and reports both here.
-const REATTACH_EVENTS = ['pagerender', 'pagerendered', 'pagesinit', 'updateviewarea'] as const
-
 /**
  * One overlay element per page in `pages`, kept inside that page's div so it scrolls and zooms with
  * the page. React portals render into them; they are put back each time pdf.js clears the page.
@@ -50,13 +47,16 @@ export function usePdfPageHosts(
       }
     }
     attach()
-    for (const name of REATTACH_EVENTS) {
-      eventBus.on(name, attach)
-    }
+    // Why these: pdf.js empties a page's div when it re-renders or evicts it, and reports both here.
+    eventBus.on('pagerender', attach)
+    eventBus.on('pagerendered', attach)
+    eventBus.on('pagesinit', attach)
+    eventBus.on('updateviewarea', attach)
     return () => {
-      for (const name of REATTACH_EVENTS) {
-        eventBus.off(name, attach)
-      }
+      eventBus.off('pagerender', attach)
+      eventBus.off('pagerendered', attach)
+      eventBus.off('pagesinit', attach)
+      eventBus.off('updateviewarea', attach)
     }
   }, [eventBus, pagesKey, viewer])
 

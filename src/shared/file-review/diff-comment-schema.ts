@@ -19,7 +19,7 @@ export const MobileDiffReviewSchema = z.object({
   )
 })
 
-const PdfNoteRegionSchema = z.object({
+export const PdfNoteRegionSchema = z.object({
   page: z.number().int().positive(),
   left: z.number().finite(),
   top: z.number().finite(),
@@ -27,7 +27,7 @@ const PdfNoteRegionSchema = z.object({
   height: z.number().finite().positive()
 })
 
-const PdfNoteTexSourceSchema = z.object({
+export const PdfNoteTexSourceSchema = z.object({
   filePath: z.string().min(1),
   startLine: z.number().int().positive(),
   endLine: z.number().int().positive()

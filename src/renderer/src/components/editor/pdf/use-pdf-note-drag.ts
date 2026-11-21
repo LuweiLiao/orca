@@ -1,7 +1,12 @@
 import { type RefObject, useEffect, useRef, useState } from 'react'
 import type { PDFViewer as PdfJsViewer } from 'pdfjs-dist/web/pdf_viewer.mjs'
 import type { SynctexRect } from './pdf-synctex-parser'
-import { pagePixelsAt, pagePixelsToPdfRect, pdfPageGeometry } from './pdf-page-geometry'
+import {
+  pagePixelsAt,
+  pagePixelsToPdfRect,
+  pdfPageGeometry,
+  type PdfPageGeometry
+} from './pdf-page-geometry'
 
 // Why: a click or a shaky press is not a region.
 const MIN_REGION_PX = 6
@@ -41,7 +46,27 @@ export function usePdfNoteDrag({
       return
     }
     container.setAttribute('data-pdf-annotating', '')
-    let stopDrag: (() => void) | null = null
+    let active: {
+      page: PdfPageGeometry
+      pageNumber: number
+      start: { x: number; y: number }
+      box: PdfNoteDrag['box']
+    } | null = null
+    const boxTo = (clientX: number, clientY: number): PdfNoteDrag['box'] | null => {
+      if (!active) {
+        return null
+      }
+      const { page, start } = active
+      const at = pagePixelsAt(page, clientX, clientY)
+      const x = Math.min(Math.max(at.x, 0), page.div.clientWidth)
+      const y = Math.min(Math.max(at.y, 0), page.div.clientHeight)
+      return {
+        left: Math.min(start.x, x),
+        top: Math.min(start.y, y),
+        width: Math.abs(x - start.x),
+        height: Math.abs(y - start.y)
+      }
+    }
     const onPointerDown = (event: PointerEvent): void => {
       if (event.button !== 0 || !(event.target instanceof Element)) {
         return
@@ -61,47 +86,45 @@ export function usePdfNoteDrag({
       event.preventDefault()
       callbacks.current.onStart()
       const start = pagePixelsAt(page, event.clientX, event.clientY)
-      const boxTo = (clientX: number, clientY: number): PdfNoteDrag['box'] => {
-        const at = pagePixelsAt(page, clientX, clientY)
-        const x = Math.min(Math.max(at.x, 0), page.div.clientWidth)
-        const y = Math.min(Math.max(at.y, 0), page.div.clientHeight)
-        return {
-          left: Math.min(start.x, x),
-          top: Math.min(start.y, y),
-          width: Math.abs(x - start.x),
-          height: Math.abs(y - start.y)
-        }
+      active = {
+        page,
+        pageNumber,
+        start,
+        box: { left: start.x, top: start.y, width: 0, height: 0 }
       }
-      let box = boxTo(event.clientX, event.clientY)
-      setDrag({ page: pageNumber, box })
-      const onMove = (moveEvent: PointerEvent): void => {
-        box = boxTo(moveEvent.clientX, moveEvent.clientY)
-        setDrag({ page: pageNumber, box })
-      }
-      const finish = (commit: boolean): void => {
-        stopDrag?.()
-        setDrag(null)
-        if (commit && box.width >= MIN_REGION_PX && box.height >= MIN_REGION_PX) {
-          callbacks.current.onRegion(pagePixelsToPdfRect(page, pageNumber, box))
-        }
-      }
-      const onUp = (): void => finish(true)
-      const onCancel = (): void => finish(false)
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
-      window.addEventListener('pointercancel', onCancel)
-      stopDrag = () => {
-        stopDrag = null
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        window.removeEventListener('pointercancel', onCancel)
+      setDrag({ page: pageNumber, box: active.box })
+    }
+    const onPointerMove = (event: PointerEvent): void => {
+      const box = boxTo(event.clientX, event.clientY)
+      if (active && box) {
+        active.box = box
+        setDrag({ page: active.pageNumber, box })
       }
     }
+    const finish = (commit: boolean): void => {
+      const done = active
+      active = null
+      if (!done) {
+        return
+      }
+      setDrag(null)
+      const { box } = done
+      if (commit && box.width >= MIN_REGION_PX && box.height >= MIN_REGION_PX) {
+        callbacks.current.onRegion(pagePixelsToPdfRect(done.page, done.pageNumber, box))
+      }
+    }
+    const onPointerUp = (): void => finish(true)
+    const onPointerCancel = (): void => finish(false)
     container.addEventListener('pointerdown', onPointerDown, { capture: true })
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
     return () => {
       container.removeAttribute('data-pdf-annotating')
       container.removeEventListener('pointerdown', onPointerDown, { capture: true })
-      stopDrag?.()
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
       setDrag(null)
     }
   }, [containerRef, enabled, viewer])

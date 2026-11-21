@@ -1,4 +1,4 @@
-import { type CSSProperties, type JSX, type RefObject, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type JSX, type RefObject, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { EventBus, PDFViewer as PdfJsViewer } from 'pdfjs-dist/web/pdf_viewer.mjs'
@@ -98,7 +98,7 @@ export function PdfNotesLayer({
   onActiveNoteChange: (noteId: string | null) => void
   onAddNote: AddPdfNote
 }): JSX.Element {
-  const [draft, setDraft] = useState<Draft | null>(null)
+  const [markedDraft, setDraft] = useState<Draft | null>(null)
   const draftDirtyRef = useRef(false)
   const drag = usePdfNoteDrag({
     viewer,
@@ -125,11 +125,8 @@ export function PdfNotesLayer({
     }
   })
 
-  useEffect(() => {
-    if (!annotating && !draftDirtyRef.current) {
-      setDraft(null)
-    }
-  }, [annotating])
+  // Leaving marking mode hides the draft; a typed one comes back with the mode.
+  const draft = annotating ? markedDraft : null
 
   const pages = [
     ...notes.map((note) => note.pdfRegion.page),
@@ -194,7 +191,7 @@ export function PdfNotesLayer({
               <PopoverContent
                 side="bottom"
                 align="start"
-                className="w-80 p-3"
+                className="w-80"
                 data-pdf-note-ui=""
                 // Why: a typed note must survive a stray click on the page.
                 onInteractOutside={(event) => {
@@ -203,28 +200,30 @@ export function PdfNotesLayer({
                   }
                 }}
               >
-                <PdfNoteComposer
-                  page={draft.region.page}
-                  excerpt={draft.excerpt}
-                  texSource={draft.texSource}
-                  onDirtyChange={(dirty) => {
-                    draftDirtyRef.current = dirty
-                  }}
-                  onCancel={cancelDraft}
-                  onSubmit={async (body) => {
-                    const { excerpt, texSource } = await draft.details
-                    const added = await onAddNote({
-                      region: draft.region,
-                      body,
-                      selectedText: excerpt,
-                      texSource
-                    })
-                    if (added) {
-                      cancelDraft()
-                    }
-                    return added
-                  }}
-                />
+                <div className="p-3">
+                  <PdfNoteComposer
+                    page={draft.region.page}
+                    excerpt={draft.excerpt}
+                    texSource={draft.texSource}
+                    onDirtyChange={(dirty) => {
+                      draftDirtyRef.current = dirty
+                    }}
+                    onCancel={cancelDraft}
+                    onSubmit={async (body) => {
+                      const { excerpt, texSource } = await draft.details
+                      const added = await onAddNote({
+                        region: draft.region,
+                        body,
+                        selectedText: excerpt,
+                        texSource
+                      })
+                      if (added) {
+                        cancelDraft()
+                      }
+                      return added
+                    }}
+                  />
+                </div>
               </PopoverContent>
             </Popover>,
             hostFor(draft.region.page),
@@ -288,55 +287,59 @@ function PdfNoteMark({
       <PopoverContent
         side="bottom"
         align="end"
-        className="w-80 p-1"
+        className="w-80"
         data-pdf-note-ui=""
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <DiffCommentCard
-          lineNumber={note.lineNumber}
-          label={getDiffCommentLineMetaLabel(note, t)}
-          quote={formatMarkdownReviewCardQuote(note.selectedText)}
-          body={note.body}
-          sentAt={note.sentAt}
-          onDelete={
-            owner
-              ? () => {
-                  onActiveChange(false)
-                  void useAppStore.getState().deleteDiffComment(owner, note.id)
+        <div className="p-1">
+          <DiffCommentCard
+            lineNumber={note.lineNumber}
+            label={getDiffCommentLineMetaLabel(note, t)}
+            quote={formatMarkdownReviewCardQuote(note.selectedText)}
+            body={note.body}
+            sentAt={note.sentAt}
+            onDelete={
+              owner
+                ? () => {
+                    onActiveChange(false)
+                    void useAppStore.getState().deleteDiffComment(owner, note.id)
+                  }
+                : undefined
+            }
+            onSubmitEdit={
+              owner
+                ? (body) => useAppStore.getState().updateDiffComment(owner, note.id, body)
+                : undefined
+            }
+            headerActions={
+              <NotesSendMenu
+                owner={owner}
+                worktreeId={worktreeId}
+                groupId={worktreeId}
+                modeIdParts={['pdf-notes', worktreeId, note.filePath, note.id]}
+                scopes={[
+                  {
+                    id: 'note',
+                    label: t('auto.components.editor.MarkdownPreview.f37b98999e', 'This note'),
+                    notes: note.sentAt ? [] : [note],
+                    formatPrompt: formatDiffComments
+                  }
+                ]}
+                targetModeLabel={t('auto.components.editor.NotesSendMenu.thisNote', 'This note')}
+                triggerClassName="orca-diff-comment-pill-btn"
+                disabledTooltip={t(
+                  'auto.components.editor.NotesSendMenu.noteAlreadySent',
+                  'Note already sent'
+                )}
+                onDelivered={(delivered) =>
+                  void (
+                    owner && useAppStore.getState().clearDeliveredDiffComments(owner, delivered)
+                  )
                 }
-              : undefined
-          }
-          onSubmitEdit={
-            owner
-              ? (body) => useAppStore.getState().updateDiffComment(owner, note.id, body)
-              : undefined
-          }
-          headerActions={
-            <NotesSendMenu
-              owner={owner}
-              worktreeId={worktreeId}
-              groupId={worktreeId}
-              modeIdParts={['pdf-notes', worktreeId, note.filePath, note.id]}
-              scopes={[
-                {
-                  id: 'note',
-                  label: t('auto.components.editor.MarkdownPreview.f37b98999e', 'This note'),
-                  notes: note.sentAt ? [] : [note],
-                  formatPrompt: formatDiffComments
-                }
-              ]}
-              targetModeLabel={t('auto.components.editor.NotesSendMenu.thisNote', 'This note')}
-              triggerClassName="orca-diff-comment-pill-btn"
-              disabledTooltip={t(
-                'auto.components.editor.NotesSendMenu.noteAlreadySent',
-                'Note already sent'
-              )}
-              onDelivered={(delivered) =>
-                void (owner && useAppStore.getState().clearDeliveredDiffComments(owner, delivered))
-              }
-            />
-          }
-        />
+              />
+            }
+          />
+        </div>
       </PopoverContent>
     </Popover>
   )
