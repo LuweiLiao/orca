@@ -20082,10 +20082,10 @@
         "addAllProposalsAndSend": "全部 {{count}} 张加入并发送",
         "addProposalsAndSendHint": "把卡片作为你的消息发出。输入框里已有内容时只加入、不发送。",
         "textDelegation": {
-          "ready": "发送即授权",
+          "ready": "发送时附上",
           "pending": "正在读取本主机的智能体和模型，确认你要的智能体…",
-          "dismiss": "这条消息不授权智能体",
-          "unresolved": "{{reason}}发送不会授权任何智能体，智能体可以提议卡片让你发送。",
+          "dismiss": "这条消息不附智能体卡片",
+          "unresolved": "{{reason}}消息按原文发送，不附智能体卡片。",
           "agentUnavailable": "{{agent}} 在这个对话的主机上不可用。",
           "modelNotFound": "没有和“{{query}}”对应的 {{agent}} 模型。",
           "modelNotFoundAnyAgent": "本主机上没有智能体提供和“{{query}}”对应的模型。",

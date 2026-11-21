@@ -15,14 +15,6 @@ import { ORCHESTRATION_METHODS } from '../../../orchestration'
 import '../launch/worker-opencode-model-preflight'
 import '../../../../../../../../shared/rpc-contract/orchestration/orchestration-federation-start-params'
 
-vi.mock(
-  '../../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
-  async () =>
-    (
-      await import('../../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
-    ).admitEveryAgentDelegation()
-)
-
 describe('orchestration new-worktree workers', () => {
   const coordinatorPaneKey = 'tab_coord:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   let db: OrchestrationDb

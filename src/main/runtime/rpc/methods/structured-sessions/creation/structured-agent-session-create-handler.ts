@@ -31,7 +31,6 @@ import {
   structuredAgentSessionClosedBeforeCreateRefusal
 } from './structured-agent-session-close-before-create'
 import { recordFirstMessageReferenceLinks } from '../../../../../native-chat/agent-session-reference-links'
-import { assertPersonCreatesAgent } from '../../agent-creation-caller-admission'
 
 /** Attach-shaped requests bypass workspace create-support; ask the execution host directly so client-supplied locations cannot forge support. */
 async function resolveClientSuppliedAttach(params: z.infer<typeof AttachParams>, ctx: RpcContext) {
@@ -59,7 +58,6 @@ export async function attachClientSuppliedLocation(
   params: z.infer<typeof AttachParams>,
   ctx: RpcContext
 ): Promise<unknown> {
-  assertPersonCreatesAgent(ctx, 'agentSession.ensure')
   const { host, attachParams } = await resolveClientSuppliedAttach(params, ctx)
   return projectReceiptDeviceAttach(await host.attach(callerFor(ctx), attachParams), ctx)
 }
@@ -70,7 +68,6 @@ export async function handleStructuredAgentSessionCreate(
   capture?: (surface: StructuredSessionSurface) => void
 ) {
   requireStructuredAgentAudience(ctx, params.agent)
-  assertPersonCreatesAgent(ctx, 'agentSession.create')
   if (params.envelope.expectedRuntimeFence !== null) {
     throw agentSessionRefusalError('agent_session_operation_invalid', {
       reason: 'requestMalformed'

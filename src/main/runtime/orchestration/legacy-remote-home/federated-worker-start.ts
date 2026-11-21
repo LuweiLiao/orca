@@ -31,7 +31,7 @@ import {
   federatedUnknownReceipt,
   isKnownRemoteStartFailure
 } from './federated-worker-start-receipts'
-import { prepareWorkerStartDelegation } from '../../rpc/methods/orchestration/worker/worker-start-delegation-claim'
+import { releaseRetriedWorkerTerminal } from '../../rpc/methods/orchestration/worker/release/retried-worker-terminal-release'
 import { withWorkerStartNext } from '../../rpc/methods/orchestration/receipt-next'
 import { recordReadyFederatedDispatch } from './federated-worker-ready-record'
 import { federatedAttachParent, resolveFederatedChildParent } from './federated-worker-child-parent'
@@ -125,8 +125,6 @@ export async function startFederatedWorker(args: FederatedWorkerStartRequest): P
         : 1
 
   const setupDecision = createsWorktree ? (params.setup ?? 'inherit') : 'not_applicable'
-  // A remote retry can replace a failed local attempt whose terminal is still live here.
-  const delegation = await prepareWorkerStartDelegation(runtime, db, { ...args, remote: true })
   const runId = args.bindRunId()
   const started = db.createStartingWorkerDispatch({
     creator: resolveDispatchCreator(runtime, params.from, args.callerSession),
@@ -163,9 +161,10 @@ export async function startFederatedWorker(args: FederatedWorkerStartRequest): P
       environmentName: server.name,
       peerFingerprint: server.peerFingerprint,
       protocolVersion: federationProtocolVersion
-    },
-    ...(delegation ? { delegation } : {})
+    }
   })
+  // A remote retry can replace a failed local attempt whose terminal is still live here.
+  releaseRetriedWorkerTerminal(runtime, db, { retryOf: params.retryOf })
   const createdTask = started.task
   const taskForRemote = task ?? createdTask
   // An unknown outcome may yet be a running worker: a bot records it, with no card.

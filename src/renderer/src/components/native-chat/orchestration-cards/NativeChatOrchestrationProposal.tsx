@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
-import { assignmentCardsInSubmittedText } from '../../../../../shared/agent-delegation-grant'
+import { assignmentCardsInSubmittedText } from '../../../../../shared/native-chat-orchestration-reference'
 import type { NativeChatComposerHandle } from '../composer/native-chat-composer-types'
 import {
   nativeChatOrchestrationAssignment,

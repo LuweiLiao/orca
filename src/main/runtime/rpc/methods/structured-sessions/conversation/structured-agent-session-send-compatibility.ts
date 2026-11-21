@@ -14,42 +14,25 @@ import { readsQueuedImageCards } from '../attachments/structured-agent-session-q
 import { recordMobileChatSend } from '../../../../../telemetry/mobile-client-telemetry'
 import { typedByOf } from '../../../callers/rpc-caller-typed-by'
 import { recordConversationReferenceLinks } from '../../../../../native-chat/agent-session-reference-links'
-import { withSubmittedAgentDelegationGrants } from '../../agent-delegation-grant-recording'
-import type { OrchestrationAgentSelection } from '../../../../../../shared/native-chat-orchestration-reference'
 
 /** Older clients wait past acceptance until handoff/rejection because they cannot show later failure.
  * Command-queued replies avoid request timeout; clients predating pending replies still wait for provider response. */
 export async function sendStructuredAgentSessionForClient(
-  requested: Parameters<StructuredAgentSessionHost['send']>[1] & {
-    orchestrationCards?: readonly OrchestrationAgentSelection[]
-  },
+  params: Parameters<StructuredAgentSessionHost['send']>[1],
   context: RpcContext
 ) {
-  // The cards are authorization metadata: the host's send, and so the agent, never sees them.
-  const { orchestrationCards, ...params } = requested
   if (params.envelope.sessionId.startsWith('bot-group-')) {
     throw new Error('Send through the group conversation to preserve its audience and provenance.')
   }
   const host = requireStructuredSessionHost(context, params.envelope.sessionId)
   // Person provenance lets undelivered text recover as an ordinary queued card.
   const typedBy = typedByOf(context)
-  const result = await withSubmittedAgentDelegationGrants(
-    context,
-    {
-      sessionId: params.envelope.sessionId,
-      operationId: params.envelope.clientOperationId,
-      messageId: params.envelope.clientOperationId,
-      blocks: params.body.blocks,
-      cards: orchestrationCards
-    },
-    () =>
-      host.send(structuredCallerFor(context), {
-        ...params,
-        body: { ...params.body, ...(typedBy ? { typedBy } : {}) },
-        userSend: true,
-        queuedImageCards: readsQueuedImageCards(context)
-      })
-  )
+  const result = await host.send(structuredCallerFor(context), {
+    ...params,
+    body: { ...params.body, ...(typedBy ? { typedBy } : {}) },
+    userSend: true,
+    queuedImageCards: readsQueuedImageCards(context)
+  })
   if (result.ok) {
     await recordConversationReferenceLinks(host, {
       sessionId: params.envelope.sessionId,

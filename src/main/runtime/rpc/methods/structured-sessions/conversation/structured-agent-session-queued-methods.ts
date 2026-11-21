@@ -19,17 +19,16 @@ import {
 } from '../../../../../../shared/rpc-contract/structured-agent-session/structured-agent-session-queued-edit-params'
 import { typedByOf } from '../../../callers/rpc-caller-typed-by'
 import { readsQueuedImageCards } from '../attachments/structured-agent-session-queued-image-capability'
-import { revokeQueuedMessageAgentDelegation } from '../../agent-delegation-grant-recording'
 
 export const STRUCTURED_AGENT_SESSION_QUEUED_METHODS = [
   defineMethod({
     name: 'agentSession.queuedMessageUpdate',
     permission: 'workspace',
     params: QueuedMessageUpdateParams,
-    handler: async ({ orchestrationCards, ...params }, ctx) => {
+    handler: async (params, ctx) => {
       // A changed card is the editor's words now: it posts as whoever typed the edit.
       const typedBy = typedByOf(ctx)
-      const result = await requireSessionHost(ctx, params.envelope.sessionId).queuedMessageUpdate(
+      return requireSessionHost(ctx, params.envelope.sessionId).queuedMessageUpdate(
         callerFor(ctx),
         {
           ...params,
@@ -37,16 +36,6 @@ export const STRUCTURED_AGENT_SESSION_QUEUED_METHODS = [
           queuedImageCards: readsQueuedImageCards(ctx)
         }
       )
-      // A replay changed nothing now; a later edit may already have replaced what it recorded.
-      if (result.ok && !result.replayed) {
-        revokeQueuedMessageAgentDelegation(ctx, {
-          sessionId: params.envelope.sessionId,
-          messageId: params.messageId,
-          operationId: params.envelope.clientOperationId,
-          edited: { text: params.text, cards: orchestrationCards }
-        })
-      }
-      return result
     }
   }),
   defineMethod({
@@ -73,20 +62,8 @@ export const STRUCTURED_AGENT_SESSION_QUEUED_METHODS = [
     name: 'agentSession.queuedMessageDelete',
     permission: 'workspace',
     params: QueuedMessageActionParams,
-    handler: async (params, ctx) => {
-      const result = await requireSessionHost(ctx, params.envelope.sessionId).queuedMessageDelete(
-        callerFor(ctx),
-        params
-      )
-      if (result.ok && !result.replayed && result.value.deleted) {
-        revokeQueuedMessageAgentDelegation(ctx, {
-          sessionId: params.envelope.sessionId,
-          messageId: params.messageId,
-          operationId: params.envelope.clientOperationId
-        })
-      }
-      return result
-    }
+    handler: async (params, ctx) =>
+      requireSessionHost(ctx, params.envelope.sessionId).queuedMessageDelete(callerFor(ctx), params)
   }),
   defineMethod({
     name: 'agentSession.queuedMessageMove',

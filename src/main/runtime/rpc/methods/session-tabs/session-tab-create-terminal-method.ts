@@ -2,7 +2,6 @@ import { terminalCreateFeatureRequirement } from '../../startup/agent-launch-fea
 import { terminalImageViewerSupported } from '../../../terminal/launch/terminal-image-viewer-env'
 import { resolveRuntimeNavigationTarget } from '../../../../../shared/remote-runtime/session-graph/runtime-navigation'
 import { defineMethod } from '../../core'
-import { assertPersonCreatesAgent } from '../agent-creation-caller-admission'
 import { CreateTerminalTab } from '../../../../../shared/rpc-contract/session-tabs/session-tabs-schemas-params'
 import { assertLegacyAiVaultResumeCommandAllowed } from '../../../../ai-vault/structured-sessions/structured-session-ownership'
 import '../../../../../shared/remote-runtime/protocol/protocol-version'
@@ -15,9 +14,6 @@ export const SESSION_TAB_CREATE_TERMINAL_METHOD = defineMethod({
   params: CreateTerminalTab,
   handler: async (params, context) => {
     const { runtime, signal, clientKind, pairedDeviceId, clientCapabilities } = context
-    if (params.agent || params.launchAgent || params.launchConfig) {
-      assertPersonCreatesAgent(context, 'session.tabs.createTerminal --agent')
-    }
     if (params.command) {
       await assertLegacyAiVaultResumeCommandAllowed(params.command, () =>
         runtime.ensureStructuredAgentSessionHost()

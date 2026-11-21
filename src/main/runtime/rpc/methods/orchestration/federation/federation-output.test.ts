@@ -18,12 +18,6 @@ import { ORCHESTRATION_METHODS } from '../orchestration'
 import { registerFederatedAutoReleaseScenarios } from './testing/federation-auto-release-scenarios.test-support'
 import { olderPeerStatusResponse } from './testing/federation-peer-capabilities.test-support'
 
-vi.mock('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store', async () =>
-  (
-    await import('../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
-  ).admitEveryAgentDelegation()
-)
-
 describe('orchestration federated worker output', () => {
   const databases: OrchestrationDb[] = []
   let homeDb: OrchestrationDb

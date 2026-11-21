@@ -10,7 +10,7 @@ import {
 } from './native-chat-orchestration-instruction'
 import { useNativeChatTextDelegation } from './use-native-chat-text-delegation'
 
-/** The row above the composer that says which agents sending this draft authorizes, if any. */
+/** The row above the composer that says which agent cards sending this draft adds, if any. */
 export function useNativeChatTextDelegationNotice(
   args: Parameters<typeof useNativeChatTextDelegation>[0]
 ): NativeChatComposerNotice | null {
@@ -33,22 +33,19 @@ export function useNativeChatTextDelegationNotice(
       ...base,
       text: translate(
         'components.native-chat.composer.textDelegation.unresolved',
-        '{{reason}} Sending authorizes no agents; the agent can propose a card for you to send.',
+        '{{reason}} The message is sent as typed, without agent cards.',
         { reason: unresolvedReason(resolution.detail) }
       )
     }
   }
-  const lead = translate(
-    'components.native-chat.composer.textDelegation.ready',
-    'Sending authorizes'
-  )
+  const lead = translate('components.native-chat.composer.textDelegation.ready', 'Sending adds')
   const pills = pillsOf(resolution.cards)
   return {
     ...base,
     text: `${lead} ${pills.map((pill) => pill.assignment).join(nativeChatOrchestrationSeparator())}`,
     dismissLabel: translate(
       'components.native-chat.composer.textDelegation.dismiss',
-      "Don't authorize agents with this message"
+      "Don't add agent cards to this message"
     ),
     content: (
       <span className="inline-flex flex-wrap items-center gap-1">

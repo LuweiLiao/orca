@@ -132,9 +132,6 @@ export function useStructuredAgentSessionSends(args: {
         ...(delivery ? { delivery } : {}),
         ...captured,
         ...(takesSkills && request?.skills?.length ? { skills: request.skills } : {}),
-        ...(request?.orchestrationCards?.length
-          ? { orchestrationCards: request.orchestrationCards }
-          : {}),
         ...(stopping ? { sentWhileStopping: true as const } : {})
       })
       if (!sent) {

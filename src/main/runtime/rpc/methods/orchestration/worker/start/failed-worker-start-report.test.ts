@@ -1,14 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createOrchestrationWorkerReleaseHarness } from '../testing/worker-release.test-support'
 
-vi.mock(
-  '../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
-  async () =>
-    (
-      await import('../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
-    ).admitEveryAgentDelegation()
-)
-
 describe('a worker-start that fails', () => {
   const h = createOrchestrationWorkerReleaseHarness()
 

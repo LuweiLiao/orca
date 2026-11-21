@@ -10,7 +10,6 @@ import { BOT_RUN_RESEND_SCHEMA_SQL } from '../bot-requests/bot-run-resend-store'
 import { REMOTE_OWNED_SCHEMA_SQL } from '../remote-owned/remote-owned-schema-sql'
 import { PEER_RUN_SCHEMA_SQL } from '../peer-runs/peer-run-queue-sql'
 import { WORKER_PRESENCE_SCHEMA_SQL } from '../worker-presence/worker-presence-store'
-import { AGENT_DELEGATION_GRANT_TABLES_SQL } from '../delegation-grants/agent-delegation-grant-store'
 import { PROJECT_FLOW_LOG_TABLES_SQL } from '../project-flow/project-flow-log-tables'
 
 export function createTables(this: OrchestrationDb): void {
@@ -40,7 +39,6 @@ export function createTables(this: OrchestrationDb): void {
   }
   this.createMailboxDeliveryIndexesIfPossible()
   this.db.exec(DERIVED_DELIVERY_SCHEMA_SQL)
-  this.db.exec(AGENT_DELEGATION_GRANT_TABLES_SQL)
   this.db.exec(PROJECT_FLOW_LOG_TABLES_SQL)
 }
 

@@ -15,12 +15,6 @@ import {
   runtime
 } from './structured-chat-coordinator-mail-rig.test-fixture'
 
-vi.mock('../../db/delegation-grants/agent-delegation-grant-store', async () =>
-  (
-    await import('../../db/delegation-grants/agent-delegation-grant-store.test-support')
-  ).admitEveryAgentDelegation()
-)
-
 it('keeps a minted worker start unknown after one preamble handover without an echo', async () => {
   await openChat(COORDINATOR)
   const { taskId } = await coordinatorRunAndTask()

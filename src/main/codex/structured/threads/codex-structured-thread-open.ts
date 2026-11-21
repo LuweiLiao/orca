@@ -87,14 +87,7 @@ export async function openCodexThread(
   signal?: AbortSignal
 ): Promise<CodexOpenedThread> {
   const resumeThreadId = launch.resumeThreadId
-  const config = {
-    ...launch.threadConfig,
-    // Delegation must create an Orca worker, not a provider-native child hidden inside this chat.
-    'agents.enabled': false,
-    'features.multi_agent': false,
-    'features.multi_agent_v2': false,
-    ...shellEnvironmentSetConfig(launch.commandEnv)
-  }
+  const config = { ...launch.threadConfig, ...shellEnvironmentSetConfig(launch.commandEnv) }
   const threadSettings = {
     cwd: launch.cwd,
     ...launch.permissionPolicy,

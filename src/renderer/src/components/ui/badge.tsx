@@ -32,7 +32,7 @@ const badgeVariants = cva(
         /** A skill, file or bot sitting inline in the chat message box, ringed while selected. */
         promptPill:
           'max-w-full border-border bg-secondary px-1.5 py-0 align-baseline text-muted-foreground data-[selected=true]:ring-1 data-[selected=true]:ring-ring data-[muted=true]:border-dashed data-[muted=true]:opacity-70',
-        /** An orchestration agent card in the chat message box: the agents sending it authorizes. */
+        /** An orchestration agent card in the chat message box: the agents the message asks for. */
         orchestrationPill:
           'max-w-full rounded-md border-border/70 bg-transparent px-1.5 py-0 align-baseline text-foreground hover:border-ring hover:bg-accent/50 data-[selected=true]:ring-1 data-[selected=true]:ring-ring',
         /** Something listed but not offered yet, such as a coming-soon connector. */

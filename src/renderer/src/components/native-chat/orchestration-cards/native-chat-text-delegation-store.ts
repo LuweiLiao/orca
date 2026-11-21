@@ -1,6 +1,8 @@
 import { useCallback, useSyncExternalStore } from 'react'
-import type { OrchestrationAgentSelection } from '../../../../../shared/native-chat-orchestration-reference'
-import { assignmentCardsInSubmittedText } from '../../../../../shared/agent-delegation-grant'
+import {
+  assignmentCardsInSubmittedText,
+  type OrchestrationAgentSelection
+} from '../../../../../shared/native-chat-orchestration-reference'
 import {
   nativeChatOrchestrationAttributes,
   nativeChatOrchestrationSeparator
@@ -61,24 +63,22 @@ export function useNativeChatTextDelegationDismissal(scopeKey: string): string |
 }
 
 /**
- * The message a send carries: the person's words, plus the cards their composer showed for exactly
- * these words, as pills the agent and the host both read. Cards the composer already holds win.
+ * The text a send carries: the person's words, plus the cards their composer showed for exactly
+ * these words, as pills the agent reads. Cards the composer already holds win.
  */
 export function withNativeChatTextDelegation(
   scopeKey: string,
   typed: string,
-  message: { text: string; cards: readonly OrchestrationAgentSelection[] }
-): { text: string; cards: readonly OrchestrationAgentSelection[] } {
+  message: { text: string; holdsCards: boolean }
+): string {
   const shown = shownByScope.get(scopeKey)
-  if (message.cards.length > 0 || !shown || shown.typed !== typed || shown.cards.length === 0) {
-    return message
+  if (message.holdsCards || !shown || shown.typed !== typed || shown.cards.length === 0) {
+    return message.text
   }
   const tokens = shown.cards
     .map((card) => nativeChatOrchestrationAttributes(card).token)
     .join(nativeChatOrchestrationSeparator())
   const text = `${message.text.trimEnd()}\n\n${tokens}`
-  // A token the host would not find (an unclosed code fence before it) must not ride along unread.
-  return assignmentCardsInSubmittedText(text).length === shown.cards.length
-    ? { text, cards: shown.cards }
-    : message
+  // A token inside an unclosed code fence would show as raw text, not as a card.
+  return assignmentCardsInSubmittedText(text).length === shown.cards.length ? text : message.text
 }

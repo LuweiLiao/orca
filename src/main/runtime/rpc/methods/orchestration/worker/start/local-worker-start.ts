@@ -34,7 +34,7 @@ import {
 import { resolveDispatchAssigneeParty } from '../../../../../orchestration/addressing/orchestration-party'
 import { chatAssigneeOf, chatWorkerMode } from '../../chat-assignee-admission'
 import { recordCreatedWorkerTerminalCustody } from './placement/created-worker-terminal-custody'
-import { prepareWorkerStartDelegation } from '../worker-start-delegation-claim'
+import { releaseRetriedWorkerTerminal } from '../release/retried-worker-terminal-release'
 import { requireWorkerAuthority, type WorkerEffect } from './placement/worker-placement-topology'
 import { prepareLocalWorkerStart } from './launch/worker-start-validation'
 import { deliverAndSettleWorkerStartReadiness } from './readiness/worker-start-readiness-settlement'
@@ -59,8 +59,6 @@ export async function startLocalWorker(args: {
   /** Set when a worker starts its own helper; the helper reports to this Dispatch. */
   helperCreator?: DispatchContextRow
   followUp?: WorkerFollowUp
-  /** Whose user authorization this start spends; null when the caller proved no conversation. */
-  delegationHolderKey?: string | null
 }): Promise<unknown> {
   const { runtime, db, coordinator, callerSession, orchestrationMutation } = args
   const recordStart = prepareWorkerStartCard(runtime, callerSession)
@@ -132,12 +130,6 @@ export async function startLocalWorker(args: {
   const hostMode = resolveWorkerStartModeOnHost(runtime, args.mode, resolvedWorktree?.id, agent)
   let mode = chatWorkerMode(await hostMode, chat)
 
-  // Checked, and a retried attempt's agent released, before the synchronous claim below.
-  const delegation = await prepareWorkerStartDelegation(runtime, db, {
-    ...args,
-    params,
-    agent
-  })
   // Synchronous through the Dispatch insert, so nothing else claims the terminal in between.
   refuseClaimedWorkerTerminal(db, params.terminal, runtime, args.followUp?.of)
   const run = args.bindRun()
@@ -150,9 +142,9 @@ export async function startLocalWorker(args: {
     resolvedWorktreeId: resolvedWorktree?.id,
     repoSelector: creationTarget?.repoSelector,
     agent,
-    launchReceipt: launch.receipt,
-    delegation
+    launchReceipt: launch.receipt
   })
+  releaseRetriedWorkerTerminal(runtime, db, params)
   const effects: WorkerEffect[] = []
   const task = started.task
   if (resolvedWorktree) {

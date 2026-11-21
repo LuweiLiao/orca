@@ -37,7 +37,7 @@ export const CJK_FILLERS = [
   '子'
 ]
 export const CJK_LINKS = ['使用', '采用', '用']
-// A count of these is a count of things to open, not of agents to authorize.
+// A count of these is a count of things to open, not of agents to start.
 export const CJK_BLOCKERS = [
   '标签页',
   '工作树',

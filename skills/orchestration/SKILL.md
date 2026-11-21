@@ -10,8 +10,8 @@ description: >-
   Claude) review this and report back" means an Orca worker of that agent.
   Also use when you are a dispatched worker (a prompt with Task and Dispatch
   IDs: ask, worker_done). Unless the user asks for Orca workers or a named
-  agent, searches, reads and research in your workspace stay with you. New
-  workers need an assignment card the user submits. Use `orca-cli` to hand work off
+  agent, searches, reads and research in your workspace stay with your own
+  subagents, even in parallel. Use `orca-cli` to hand work off
   with nothing expected back ("hand off", "handover", "give this to another
   agent", "another worktree"), and for terminal control, shell commands,
   worktree management, and reading or waiting on terminals.

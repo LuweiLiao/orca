@@ -9,7 +9,6 @@ import type { WorkerStartInput } from './worker-start-input'
 import type { RunRow } from '../../../../../orchestration/db/orchestration-records'
 import type { startLocalWorker } from './local-worker-start'
 import { resolveDispatchCreator } from '../../runs/dispatch-creator'
-import type { WorkerStartDelegation } from '../worker-start-delegation-claim'
 
 export function createLocalWorkerStartDispatch(
   {
@@ -32,8 +31,7 @@ export function createLocalWorkerStartDispatch(
     resolvedWorktreeId,
     repoSelector,
     agent,
-    launchReceipt,
-    delegation
+    launchReceipt
   }: {
     params: WorkerStartInput
     run: RunRow
@@ -44,7 +42,6 @@ export function createLocalWorkerStartDispatch(
     repoSelector: string | undefined
     agent: TuiAgent | undefined
     launchReceipt: OrchestrationWorkerLaunchReceipt
-    delegation: WorkerStartDelegation | undefined
   }
 ) {
   const startOptions = {
@@ -98,7 +95,6 @@ export function createLocalWorkerStartDispatch(
     followUpOf: followUp?.of,
     acceptedBy: followUp?.acceptedBy,
     takesMailOf: followUp?.takesMailOf,
-    ...(params.origin ? { originRef: params.origin } : {}),
-    ...(delegation ? { delegation } : {})
+    ...(params.origin ? { originRef: params.origin } : {})
   })
 }

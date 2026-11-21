@@ -149,15 +149,9 @@ export const AGENT_SESSION_PROMPT_SUGGESTIONS_RUNTIME_CAPABILITY =
 // The host appends CI result lines to chats that opened or pushed to a PR; older hosts write none.
 export const AGENT_SESSION_PR_EVENTS_RUNTIME_CAPABILITY = 'agent-session.pr-events.v1' as const
 
-// Send, create's first message and queued edit params are strict, so an older host rejects
-// `orchestrationCards`; one advertising this records them as the person's agent authorization.
-export const AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY =
-  'agent-session.orchestration-cards.v1' as const
-
 // Individual client flags must not retain the unused host capability aggregate.
 export const AGENT_SESSION_RUNTIME_CAPABILITIES = /* @__PURE__ */ (() =>
   [
-    AGENT_SESSION_ORCHESTRATION_CARDS_RUNTIME_CAPABILITY,
     AGENT_IMAGE_DISPLAY_CAPABILITY,
     AGENT_SESSION_RESTORE_SOURCE_PANE_RUNTIME_CAPABILITY,
     AGENT_SESSION_TEXT_ATTACHMENT_READ_CAPABILITY,

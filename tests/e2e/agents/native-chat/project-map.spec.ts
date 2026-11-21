@@ -7,7 +7,6 @@ import { buildFakeAgentCommandOverride } from '../session-fixtures/fake-agent-co
 import { waitForActiveWorktree, waitForSessionReady } from '../../desktop/renderer-probes/store'
 import { startHiddenRendererFrameCapture } from '../../desktop/electron-fixtures/hidden-renderer-frame-capture'
 import { RuntimeClient } from '../../../../src/cli/runtime/client'
-import { orchestrationReferenceToken } from '../../../../src/shared/native-chat-orchestration-reference'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
@@ -68,34 +67,8 @@ test('maps derived worktrees and delegated chats, and opens a chat beside its no
     ]
     // Started only after the map is open, so its delegation is a live event.
     const lateWorker = { displayName: 'Docs', worktree: 'current' }
-    // Only an assignment card the user sends authorizes the coordinator to start workers.
-    const cards = [...placements, lateWorker]
-      .map(({ displayName }) =>
-        orchestrationReferenceToken(
-          {
-            agent: 'claude',
-            label: 'Claude',
-            count: 1,
-            task: `Implement ${displayName}.`,
-            model: { id: 'sonnet', label: 'sonnet' },
-            effort: 'medium'
-          },
-          displayName
-        )
-      )
-      .join('\n')
     const chat = page.locator('[data-native-chat-root="true"]')
-    const composer = chat.getByRole('textbox')
-    await composer.fill('Coordinate the export work\n')
-    await composer.press('End')
-    await composer.evaluate((element, text) => {
-      const clipboardData = new DataTransfer()
-      clipboardData.setData('text/plain', text)
-      element.dispatchEvent(
-        new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true })
-      )
-    }, cards)
-    await expect(composer.locator('[data-native-chat-orchestration="claude"]')).toHaveCount(3)
+    await chat.getByRole('textbox').fill('Coordinate the export work')
     await chat.getByRole('button', { name: 'Send', exact: true }).click()
     await expect(chat.getByText('Stub reply.', { exact: true })).toBeVisible()
 

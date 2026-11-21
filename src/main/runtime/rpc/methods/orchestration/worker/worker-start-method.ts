@@ -29,8 +29,6 @@ import { ORCA_SESSION_ADDRESS_PREFIX } from '../../../../../../shared/agent-sess
 import { ORCHESTRATION_SESSION_CALLER_ERROR_CODES as SESSION_CODES } from '../../../../../../shared/orchestration/orchestration-session-caller-codes'
 import { resolveDispatchCreator } from '../runs/dispatch-creator'
 import { checkedWorkerOrigin } from '../../bots-items-worker-origin'
-import { resolveAgentDelegationHolderKey } from '../../../../agent-delegation-holder'
-import { sessionCallerOf } from '../../../../orchestration/addressing/orchestration-caller-identity'
 
 type WorkerStartContext = Pick<
   RpcContext,
@@ -87,16 +85,6 @@ export async function startWorker(
   const { params, followUp, coordinator, bindRun, helperCreator, taskDeps, existingTask, withRun } =
     prepared
   const db = runtime.getOrchestrationDb()
-  // A follow-up continues work the user already authorized, and a paired Orca's coordinator spends
-  // its own host's grants; every other start spends this conversation's.
-  const delegationHolderKey =
-    startFollowUp || orchestrationCaller?.kind === 'peer'
-      ? undefined
-      : resolveAgentDelegationHolderKey(runtime, {
-          from: params.from,
-          session: sessionCallerOf(orchestrationCaller),
-          evidence: ctx.orchestrationCompatibilityEvidence
-        })
   const mode = decideWorkerStartMode({
     params,
     settings: readWorkerStartModeSettings(runtime)
@@ -111,8 +99,7 @@ export async function startWorker(
       task: existingTask,
       taskDeps,
       orchestrationMutation,
-      callerSession: orchestrationCaller,
-      delegationHolderKey
+      callerSession: orchestrationCaller
     })
     await stopHelperAfterStart(runtime, receipt, orchestrationMutation)
     return withRun(receipt && typeof receipt === 'object' ? { ...receipt, mode } : receipt)
@@ -129,8 +116,7 @@ export async function startWorker(
     orchestrationMutation,
     mode,
     helperCreator,
-    followUp,
-    delegationHolderKey
+    followUp
   })
   await stopHelperAfterStart(runtime, receipt, orchestrationMutation)
   const started = withRun(withWorkerStartNext(receipt))

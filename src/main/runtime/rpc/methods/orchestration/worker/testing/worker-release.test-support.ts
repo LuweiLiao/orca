@@ -49,11 +49,7 @@ export type OrchestrationWorkerReleaseHarness = {
   /** Close the database and open it again from a fresh runtime; file-backed setups only. */
   restart: () => void
   cleanup: () => void
-  call: (
-    name: string,
-    params: Record<string, unknown>,
-    context?: Partial<RpcContext>
-  ) => Promise<unknown>
+  call: (name: string, params: Record<string, unknown>) => Promise<unknown>
   startWorker: (options?: WorkerStartOptions) => Promise<{ taskId: string; dispatchId: string }>
   settle: (taskId: string, dispatchId: string, outcome: 'succeeded' | 'failed') => void
   startSettledWorker: (
@@ -238,14 +234,10 @@ export function createOrchestrationWorkerReleaseHarness(): OrchestrationWorkerRe
     return method
   }
 
-  async function call(
-    name: string,
-    params: Record<string, unknown>,
-    context: Partial<RpcContext> = {}
-  ) {
+  async function call(name: string, params: Record<string, unknown>) {
     const method = findMethod(name)
     const parsed = method.params ? method.params.parse(params) : undefined
-    return method.handler(parsed, { ...ctx, ...context })
+    return method.handler(parsed, ctx)
   }
 
   async function startWorker(options: WorkerStartOptions = {}): Promise<{

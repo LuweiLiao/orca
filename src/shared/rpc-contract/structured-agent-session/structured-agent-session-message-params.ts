@@ -1,7 +1,6 @@
 import * as z from 'zod'
 import { isAgentSessionOptions } from '../../agent-session/lifecycle/agent-session-record'
 import { measureUtf8ByteLength } from '../../text/utf8-byte-limits'
-import { SubmittedOrchestrationCards } from '../../native-chat-orchestration-reference'
 
 export const AgentSessionOptions = z.record(z.string(), z.string()).refine(isAgentSessionOptions)
 
@@ -62,13 +61,3 @@ export const SendBody = SendBodyStructure.refine(
   (value) => Buffer.byteLength(JSON.stringify(value.blocks), 'utf8') <= MAX_PROMPT_BYTES,
   'Message is too large'
 )
-
-/**
- * A send's message, and the composer's assignment pills beside it
- * (`agent-session.orchestration-cards.v1`): authorization metadata only, which neither
- * fingerprint covers and the agent never receives.
- */
-export const SEND_MESSAGE_FIELDS = {
-  body: SendBody,
-  orchestrationCards: SubmittedOrchestrationCards.optional()
-}

@@ -21355,10 +21355,10 @@
         "addAllProposalsAndSend": "Add all {{count}} and send",
         "addProposalsAndSendHint": "Sends the cards as your message. With a draft in the message box, they are added to it instead.",
         "textDelegation": {
-          "ready": "Sending authorizes",
+          "ready": "Sending adds",
           "pending": "Reading this host's agents and models for the agents you asked for…",
-          "dismiss": "Don't authorize agents with this message",
-          "unresolved": "{{reason}} Sending authorizes no agents; the agent can propose a card for you to send.",
+          "dismiss": "Don't add agent cards to this message",
+          "unresolved": "{{reason}} The message is sent as typed, without agent cards.",
           "agentUnavailable": "{{agent}} isn't available on this chat's host.",
           "modelNotFound": "No {{agent}} model matches \"{{query}}\".",
           "modelNotFoundAnyAgent": "No agent on this host offers a model matching \"{{query}}\".",

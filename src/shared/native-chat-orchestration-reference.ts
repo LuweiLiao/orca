@@ -13,9 +13,6 @@ export const OrchestrationAgentSelectionSchema = z.object({
 
 export type OrchestrationAgentSelection = z.infer<typeof OrchestrationAgentSelectionSchema>
 
-/** The composer's assignment pills in one message, as a person submitted them. */
-export const SubmittedOrchestrationCards = z.array(OrchestrationAgentSelectionSchema).min(1).max(16)
-
 export function orchestrationReferenceToken(
   selection: OrchestrationAgentSelection,
   label: string
@@ -75,4 +72,39 @@ export function splitOrchestrationReferences(
     parts.push(text.slice(offset))
   }
   return parts
+}
+
+const FENCE = /^(`{3,}|~{3,})/
+const INLINE_CODE = /`+[^`]*`+/g
+
+/**
+ * The lines of a message in the sender's own words. Quoted lines and code are text being shown,
+ * such as an agent's reply pasted back.
+ */
+export function ownWordsLines(text: string): string[] {
+  const lines: string[] = []
+  let fence: string | null = null
+  for (const line of text.split('\n')) {
+    const trimmed = line.trimStart()
+    const marker = trimmed.match(FENCE)?.[1]
+    if (marker) {
+      if (fence === null) {
+        fence = marker[0]!
+      } else if (marker[0] === fence) {
+        fence = null
+      }
+      continue
+    }
+    if (fence === null && !trimmed.startsWith('>')) {
+      lines.push(line.replace(INLINE_CODE, ''))
+    }
+  }
+  return lines
+}
+
+/** The assignment cards in one message's own words; quoted lines and code hold none. */
+export function assignmentCardsInSubmittedText(text: string): OrchestrationAgentSelection[] {
+  return ownWordsLines(text).flatMap((line) =>
+    splitOrchestrationReferences(line).flatMap((part) => (typeof part === 'string' ? [] : [part]))
+  )
 }

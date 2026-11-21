@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { assignmentCardsInSubmittedText } from '../../../../../shared/agent-delegation-grant'
+import { assignmentCardsInSubmittedText } from '../../../../../shared/native-chat-orchestration-reference'
 import {
   hideNativeChatTextDelegation,
   showNativeChatTextDelegation,
@@ -15,43 +15,38 @@ const card = {
   model: { id: 'opus', label: 'claude-opus-5-5' }
 }
 
-it('sends the cards a composer showed only with the exact draft it showed them for', () => {
+it('adds the cards a composer showed only to the exact draft it showed them for', () => {
   const owner = {}
   showNativeChatTextDelegation('scope', { owner, typed, cards: [card] })
 
-  const sent = withNativeChatTextDelegation('scope', typed, { text: typed, cards: [] })
-  expect(sent.cards).toEqual([card])
-  expect(sent.text.startsWith(typed)).toBe(true)
-  // The host authorizes a pill only when the agent will read the same card in the text.
-  expect(assignmentCardsInSubmittedText(sent.text)).toEqual([card])
+  const sent = withNativeChatTextDelegation('scope', typed, { text: typed, holdsCards: false })
+  expect(sent.startsWith(typed)).toBe(true)
+  expect(assignmentCardsInSubmittedText(sent)).toEqual([card])
 
   const edited = `${typed}，再加点细节`
-  expect(withNativeChatTextDelegation('scope', edited, { text: edited, cards: [] })).toEqual({
-    text: edited,
-    cards: []
-  })
-  const picked = { ...card, count: 1 }
-  expect(withNativeChatTextDelegation('scope', typed, { text: typed, cards: [picked] })).toEqual({
-    text: typed,
-    cards: [picked]
-  })
-  // A token after an unclosed fence would reach the agent as code, so it is not sent at all.
+  expect(withNativeChatTextDelegation('scope', edited, { text: edited, holdsCards: false })).toBe(
+    edited
+  )
+  expect(withNativeChatTextDelegation('scope', typed, { text: typed, holdsCards: true })).toBe(
+    typed
+  )
+  // A token after an unclosed fence would reach the agent as code, so it is not added at all.
   const unclosedFence = `${typed}\n\`\`\`ts`
   showNativeChatTextDelegation('scope', { owner, typed: unclosedFence, cards: [card] })
   expect(
-    withNativeChatTextDelegation('scope', unclosedFence, { text: unclosedFence, cards: [] })
-  ).toEqual({ text: unclosedFence, cards: [] })
+    withNativeChatTextDelegation('scope', unclosedFence, { text: unclosedFence, holdsCards: false })
+  ).toBe(unclosedFence)
 })
 
 it('keeps what one composer of a chat showed when another composer of the chat goes away', () => {
   const owner = {}
   showNativeChatTextDelegation('shared', { owner, typed, cards: [card] })
   hideNativeChatTextDelegation('shared', {})
-  expect(withNativeChatTextDelegation('shared', typed, { text: typed, cards: [] }).cards).toEqual([
-    card
-  ])
+  expect(
+    withNativeChatTextDelegation('shared', typed, { text: typed, holdsCards: false })
+  ).not.toBe(typed)
   hideNativeChatTextDelegation('shared', owner)
-  expect(withNativeChatTextDelegation('shared', typed, { text: typed, cards: [] }).cards).toEqual(
-    []
+  expect(withNativeChatTextDelegation('shared', typed, { text: typed, holdsCards: false })).toBe(
+    typed
   )
 })

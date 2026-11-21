@@ -3,14 +3,6 @@ import { getFollowUpDispatch } from '../../../../../../orchestration/db/dispatch
 import { getWorkerTerminalAutoReleaseScheduler } from '../../../../../../orchestration/terminal-authority/release/worker-terminal-auto-release-scheduler'
 import { createOrchestrationWorkerReleaseHarness } from '../../testing/worker-release.test-support'
 
-vi.mock(
-  '../../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store',
-  async () =>
-    (
-      await import('../../../../../../orchestration/db/delegation-grants/agent-delegation-grant-store.test-support')
-    ).admitEveryAgentDelegation()
-)
-
 describe('worker-start onto a terminal another Dispatch holds', () => {
   const h = createOrchestrationWorkerReleaseHarness()
 

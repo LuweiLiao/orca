@@ -211,24 +211,25 @@ export function useNativeChatStructuredComposerSend({
       }
       const prepareAttachments: StructuredAgentSessionAttachmentPreparation | undefined =
         stagedInput ? (input) => stagedInput.prepare(input, structuredTransport) : undefined
+      // Cards the composer showed for exactly the words they typed, unless it already holds some.
+      const messageText = hostCommand
+        ? text
+        : withNativeChatTextDelegation(draftScopeKey, submittedText, {
+            text,
+            holdsCards: promptOrchestrationCards(submission.draft?.document).length > 0
+          })
       // Annotations travel under the message; a returned message hands them back to the review.
-      // Cards the person picked, or ones the composer showed for exactly the words they typed.
-      const pills = promptOrchestrationCards(submission.draft?.document)
-      const message = hostCommand
-        ? { text, cards: pills }
-        : withNativeChatTextDelegation(draftScopeKey, submittedText, { text, cards: pills })
       const annotated = hostCommand
         ? null
-        : prepareNativeChatAnnotatedMessage(annotationScopeKey, message.text)
+        : prepareNativeChatAnnotatedMessage(annotationScopeKey, messageText)
       const annotationHooks = nativeChatAnnotationSendHooks(annotated)
       return dispatchNativeChatStructuredComposerText(
         structuredTransport,
-        withConversationReferenceInstructions(annotated?.text ?? message.text),
+        withConversationReferenceInstructions(annotated?.text ?? messageText),
         attachments,
         promptSkillRefs(submission.draft?.document),
         {
           ...intent,
-          ...(message.cards.length > 0 ? { orchestrationCards: message.cards } : {}),
           ...(annotationHooks.onCreated ? { onCreated: annotationHooks.onCreated } : {}),
           ...(prepareAttachments ? { prepareAttachments } : {}),
           ...(prepareAttachments || annotationHooks.onCreated

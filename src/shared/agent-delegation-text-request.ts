@@ -1,4 +1,4 @@
-import { ownWordsLines } from './agent-delegation-grant'
+import { ownWordsLines } from './native-chat-orchestration-reference'
 import {
   AGENT_DELEGATION_COUNT_HINT,
   AGENT_DELEGATION_COUNT_START,

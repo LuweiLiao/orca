@@ -69,7 +69,7 @@ export function agentDelegationTextSignature(
 /**
  * Turns parsed requests into the cards a send would carry. Every request must resolve to exactly
  * one agent, model and effort the host lists; anything less makes no cards, so a partial reading
- * never authorizes a smaller or different team than the person asked for.
+ * never adds a smaller or different team than the person asked for.
  */
 export function resolveAgentDelegationText(
   groups: readonly AgentDelegationTextGroup[],

@@ -87,7 +87,6 @@ import { AGENT_CLI_UPDATE_METHODS } from './host-management/agent-cli-update'
 import { ARTIFACT_METHODS } from './artifacts/artifacts'
 import { AGENT_HOOK_METHODS } from './agent-hooks/agent-hooks'
 import { AGENT_LAUNCH_METHODS } from './agent-launch/agent-launch'
-import { AGENT_DELEGATION_METHODS } from './agent-delegation-methods'
 import { AGENT_CONVERSATION_METHODS } from './agent-conversations/agent-conversation-methods'
 import { CONNECTOR_METHODS } from './connectors/connector'
 import { CONNECTOR_SLACK_MIRROR_METHODS } from './connectors/connector-slack-mirror'
@@ -155,7 +154,6 @@ const CORE_RPC_METHODS = [
   ...MANAGED_RUNTIME_INSTALL_METHODS,
   ...AGENT_CLI_UPDATE_METHODS,
   ...AGENT_LAUNCH_METHODS,
-  ...AGENT_DELEGATION_METHODS,
   ...AGENT_CONVERSATION_METHODS,
   ...CONNECTOR_METHODS,
   ...CONNECTOR_SLACK_MIRROR_METHODS

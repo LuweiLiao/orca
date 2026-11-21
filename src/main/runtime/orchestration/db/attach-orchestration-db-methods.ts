@@ -1,5 +1,4 @@
 import { attachCrewMutationNotifications } from '../crew/crew-mutation-notifications'
-import { attachAgentDelegationGrantStore } from './delegation-grants/agent-delegation-grant-store'
 import { attachProjectFlowLogStore } from './project-flow/project-flow-log-store'
 import { attachAttemptObservationStore } from './attempt-observation-store'
 import { attachBotRequestStore } from './bot-requests/bot-request-store'
@@ -74,7 +73,6 @@ export function attachOrchestrationDbMethods(ctor: { prototype: object }): void 
   attachBotConversationActsForStore(ctor)
   attachBotRunResendStore(ctor)
   attachBotRequestOutcomes(ctor)
-  attachAgentDelegationGrantStore(ctor)
   attachProjectFlowLogStore(ctor)
   attachCreateTables(ctor)
   attachSchemaMigrate(ctor)
