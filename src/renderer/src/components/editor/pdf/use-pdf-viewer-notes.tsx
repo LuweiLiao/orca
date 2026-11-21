@@ -89,7 +89,7 @@ export function usePdfViewerNotes({
             data-pdf-annotate-hint=""
             className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-md border bg-popover py-1 pl-3 pr-1 text-xs text-popover-foreground shadow-floating"
           >
-            <span>
+            <span className="whitespace-nowrap">
               {t(
                 'auto.components.editor.PdfViewer.annotateHint',
                 'Drag over the page to mark what the note is about'
