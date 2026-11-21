@@ -1,8 +1,11 @@
 import WorktreeContextMenu from '@/components/sidebar/workspace-actions/context-menu/WorktreeContextMenu'
+import { useMemo } from 'react'
 import type { Worktree } from '../../../../shared/worktree/types'
+import type { ConversationReferenceCreate } from '../../../../shared/conversation-reference'
 import type { ProjectMapCollapsedView } from './project-map-collapse'
 import type { ProjectMapGraph } from './project-map-graph'
 import type { ProjectMapLayout } from './project-map-layout'
+import { projectMapNodeReferences } from './project-map-node-references'
 import { ProjectMapAgentNode, ProjectMapGroupNode, ProjectMapWorkspaceNode } from './ProjectMapNode'
 
 type Props = {
@@ -15,6 +18,7 @@ type Props = {
   worktreeById: ReadonlyMap<string, Worktree>
   onSelect: (id: string) => void
   onHover: (id: string | null) => void
+  onReferenceDrop: (target: string, source: ConversationReferenceCreate) => void
 }
 
 /** Every node the layout placed; a workspace node carries the sidebar's workspace menu. */
@@ -27,8 +31,13 @@ export function ProjectMapNodeLayer({
   activeWorktreeId,
   worktreeById,
   onSelect,
-  onHover
+  onHover,
+  onReferenceDrop
 }: Props): React.JSX.Element {
+  const referencesOf = useMemo(
+    () => projectMapNodeReferences(collapsed.graph.agents, layout.wires),
+    [collapsed.graph.agents, layout.wires]
+  )
   return (
     <>
       {[...layout.nodes.values()].map((box) => {
@@ -73,6 +82,8 @@ export function ProjectMapNodeLayer({
             {...common}
             // The real chat, so a stacked parent still counts every chat it delegated.
             agent={graph.agents.get(box.id) ?? agent}
+            references={referencesOf.get(box.id)}
+            onReferenceDrop={onReferenceDrop}
             onHover={onHover}
             graphAgents={graph.agents}
           />

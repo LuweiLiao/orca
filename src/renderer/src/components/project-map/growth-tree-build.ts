@@ -12,6 +12,7 @@ import {
 import { projectMapHideKey } from './project-map-hidden-filter'
 import { clampRelationTime, resolveGrowthStarts, type GrowthTimedBar } from './growth-tree-times'
 import { buildGrowthLanes } from './growth-tree-lanes'
+import { buildGrowthReferences } from './growth-tree-references'
 import type {
   GrowthTree,
   GrowthTreeBar,
@@ -149,7 +150,8 @@ export function buildGrowthTree(input: GrowthTreeInput): GrowthTree {
   edges.push(...deriveEdges)
   edges.sort((a, b) => cmp(a.id, b.id))
   crossLinks.sort((a, b) => cmp(a.id, b.id))
-  return { now, projects: groups, lanes, bars, edges, crossLinks, references: [] }
+  const references = buildGrowthReferences(forks.references ?? [], barBySession, bars)
+  return { now, projects: groups, lanes, bars, edges, crossLinks, references }
 }
 
 /** The project each pane belongs to: where its own session lives, else the first that lists it. */

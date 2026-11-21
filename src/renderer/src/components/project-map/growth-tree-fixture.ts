@@ -4,10 +4,30 @@ import type {
   DashboardSnapshot,
   DashboardWorkspace
 } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
+import type { AgentSessionReferenceLink } from '../../../../shared/agent-session/agent-session-reference-link'
 import type { ProjectMapForkInput } from './project-map-graph'
 import type { GrowthTreeInput } from './growth-tree-build'
 
 export const GROWTH_NOW = 10_000_000
+
+function reference(
+  carrier: string,
+  source: string,
+  workspaceId: string,
+  createdAt: number,
+  sourceMessageCount: number | null
+): AgentSessionReferenceLink {
+  return {
+    targetSessionId: carrier,
+    messageId: `m-${createdAt}`,
+    messageIndex: 0,
+    referenceUri: `orca-conversation://reference/${source}`,
+    title: source,
+    source: { sessionId: source, workspaceId },
+    sourceMessageCount,
+    createdAt
+  }
+}
 
 const workspace = (
   repoId: string,
@@ -114,6 +134,11 @@ export function growthFixture(hidden: ReadonlySet<string> = new Set()): GrowthTr
   const forks: ProjectMapForkInput = {
     chatsByPaneKey,
     lineage,
+    references: [
+      reference('sess_feat-chat', 'sess_lead', 'a-main', 6_100_000, 3),
+      reference('sess_merged', 'sess_s3', 'a-main', 5_100_000, 2),
+      reference('sess_merged', 'sess_s3', 'a-main', 5_200_000, null)
+    ],
     history: new Map([
       ['sess_closed', { ...chat('sess_closed'), workspaceId: 'a-main', title: 'closed source' }]
     ]),

@@ -99,6 +99,21 @@ describe('layoutGrowthTree', () => {
     }
   })
 
+  it('draws references without moving any chat', () => {
+    const layout = draw()
+    expect(layout.wires.find((wire) => wire.id === 'reference:feat-chat>lead')).toMatchObject({
+      kind: 'reference',
+      from: 'feat-chat',
+      to: 'lead'
+    })
+    const bare = layoutGrowthTree({
+      tree: { ...tree, references: [] },
+      collapsed: new Set(),
+      projectIds: null
+    })
+    expect([...layout.rows.values()]).toEqual([...bare.rows.values()])
+  })
+
   it('keeps every row in place while a replay shows only part of the tree', () => {
     const full = draw()
     const shown = growthTreeAt(tree, 4_150_000)

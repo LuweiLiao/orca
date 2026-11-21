@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { GitFork, XIcon } from 'lucide-react'
+import { NativeChatConversationReference } from '@/components/native-chat/NativeChatConversationReference'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { translate } from '@/i18n/i18n'
@@ -8,7 +9,8 @@ import { dashboardCardDisplayState } from '../../../../shared/agent-status/prese
 import type { ProjectMapAgent } from './project-map-graph'
 import { projectMapAgentTitle } from './project-map-labels'
 import { forkProjectMapChat } from './project-map-native-fork'
-import { projectMapForkSources } from './project-map-fork-sources'
+import { projectMapForkSources, projectMapReachableChat } from './project-map-fork-sources'
+import { useProjectMapForkReferences } from './use-project-map-fork-references'
 import { placeProjectMapWindow, type ProjectMapRect } from './project-map-window-placement'
 
 const SIZE = { width: 400, height: 560 }
@@ -49,6 +51,10 @@ export function ProjectMapForkPanel({
   const [instruction, setInstruction] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dropped = useProjectMapForkReferences(
+    projectMapReachableChat(source?.agent)?.executionHostId,
+    setError
+  )
   const sourceWorking = source ? dashboardCardDisplayState(source.agent.card) === 'working' : false
   const busyNeighbours = useMemo(
     () =>
@@ -71,7 +77,11 @@ export function ProjectMapForkPanel({
     setPending(true)
     setError(null)
     try {
-      const result = await forkProjectMapChat({ source: source.agent, origin, instruction })
+      const result = await forkProjectMapChat({
+        source: source.agent,
+        origin,
+        instruction: dropped.firstInstruction(instruction)
+      })
       if (result.kind === 'started') {
         // A failed launch already said why in a toast; the panel stays for another try.
         if (result.outcome.chat) {
@@ -100,6 +110,7 @@ export function ProjectMapForkPanel({
       aria-label={translate('projectMap.fork.title', 'New child chat')}
       data-project-map-window=""
       data-project-map-fork-panel=""
+      {...dropped.panelProps}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
@@ -195,6 +206,18 @@ export function ProjectMapForkPanel({
           <span className="text-[11px] font-semibold text-muted-foreground">
             {translate('projectMap.fork.instruction', 'First instruction (optional)')}
           </span>
+          {dropped.references.length > 0 ? (
+            <span className="flex flex-wrap gap-1">
+              {dropped.references.map((reference) => (
+                <NativeChatConversationReference
+                  key={reference.uri}
+                  uri={reference.uri}
+                  title={reference.title}
+                  onRemove={() => dropped.remove(reference.uri)}
+                />
+              ))}
+            </span>
+          ) : null}
           <Textarea
             rows={3}
             value={instruction}
@@ -204,6 +227,12 @@ export function ProjectMapForkPanel({
               'Empty: the chat opens and waits for you.'
             )}
           />
+          <span className="text-[11px] text-muted-foreground">
+            {translate(
+              'projectMap.fork.referenceHint',
+              'Drag other chats from the map here to have this one read them too.'
+            )}
+          </span>
         </label>
         {sourceWorking ? (
           <p className="text-[11px] text-muted-foreground">

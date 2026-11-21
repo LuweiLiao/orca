@@ -4,12 +4,14 @@ import type {
   DashboardSnapshot,
   DashboardWorkspace
 } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
+import type { AgentSessionReferenceLink } from '../../../../shared/agent-session/agent-session-reference-link'
 import type {
   ProjectMapChat,
   ProjectMapHistoryChat,
   ProjectMapLineage
 } from './project-map-lineage'
 import { closedChatsForGraph, projectMapHistoryCard } from './project-map-closed-chats'
+import { addReferenceEdges } from './project-map-reference-edges'
 import { applyProjectMapHidden } from './project-map-hidden-filter'
 import type { ProjectMapClosedChat } from '@/lib/project-map-closed-by-map'
 
@@ -38,8 +40,10 @@ export type ProjectMapAgent = {
   /** The card's delegator or fork source is known but outside this project or not loaded. */
   hasUnresolvedParent: boolean
   childPaneKeys: string[]
-  /** A chat whose tab is closed, drawn because a fork still connects it to the map. */
+  /** A chat whose tab is closed, drawn because a fork or reference still connects it. */
   history?: true
+  /** Conversations its sent messages referenced; `external` ones have no node on this map. */
+  referencesIn?: { count: number; external: number }
   /** Its fork source is hidden by the person, so the node shows it as not loaded. */
   sourceHidden?: true
   /** Set when this chat was forked from another; its parent above is that source. */
@@ -49,20 +53,24 @@ export type ProjectMapAgent = {
   }
 }
 
-export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork'
+export type ProjectMapEdgeKind = 'derive' | 'delegate' | 'fork' | 'reference'
 
 export type ProjectMapEdge = {
   kind: ProjectMapEdgeKind
   from: string
   to: string
+  /** References only: the newest one between these chats reads its source live. */
+  live?: true
 }
 
 /** Each chat's fork source, as its host names it, and the chat behind each card. */
 export type ProjectMapForkInput = {
   chatsByPaneKey: ReadonlyMap<string, ProjectMapChat>
   lineage: ProjectMapLineage
-  /** Chats at fork ends the hosts still record; the closed ones become history nodes. */
+  /** Chats at fork and reference ends the hosts still record; closed ones become history nodes. */
   history?: ReadonlyMap<string, ProjectMapHistoryChat>
+  /** References sent messages carried; drawn as wires that never change the layout's columns. */
+  references?: readonly AgentSessionReferenceLink[]
   /** Chats closed from this map on this desktop, drawn as history nodes even with no fork. */
   closedByMap?: readonly ProjectMapClosedChat[]
   /** Hide keys (session id, else pane key) of nodes taken off the map. */
@@ -227,6 +235,9 @@ export function buildProjectMapGraph(
       from: parentKey,
       to: agent.card.paneKey
     })
+  }
+  if (forks?.references) {
+    addReferenceEdges(forks.references, agents, paneKeyBySession, edges)
   }
   const hiddenKeys = applyProjectMapHidden(agents, workspaces, edges, forks?.hidden ?? new Set())
   return { projectId, workspaces, agents, edges, ...(hiddenKeys.length > 0 ? { hiddenKeys } : {}) }

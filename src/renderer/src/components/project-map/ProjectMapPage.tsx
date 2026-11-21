@@ -33,6 +33,7 @@ import { projectMapAgentTitle } from './project-map-labels'
 import { projectMapChatSessions, projectMapChatsByPaneKey } from './project-map-lineage'
 import { projectMapAgentHasTab } from './project-map-node-actions'
 import { useProjectMapLineage } from './use-project-map-lineage'
+import { useProjectMapReferences } from './use-project-map-references'
 import { useProjectMapUndoKey } from './use-project-map-undo'
 import { useProjectMapViewport } from './use-project-map-viewport'
 import { ProjectMapCanvas } from './ProjectMapCanvas'
@@ -59,7 +60,18 @@ export default function ProjectMapPage(): React.JSX.Element {
     () => projectMapChatsByPaneKey(snapshot.cards, tabsByWorktree, sessions),
     [sessions, snapshot.cards, tabsByWorktree]
   )
-  const { lineage, history } = useProjectMapLineage(chats)
+  const { lineage, history: forkHistory } = useProjectMapLineage(chats)
+  // A sent message records its references; every send moves some chat's state.
+  const lastStateChange = useMemo(
+    () => snapshot.cards.reduce((latest, card) => Math.max(latest, card.stateChangedAt), 0),
+    [snapshot.cards]
+  )
+  const references = useProjectMapReferences(chats, lastStateChange)
+  const history = useMemo(
+    () =>
+      references.history.size > 0 ? new Map([...references.history, ...forkHistory]) : forkHistory,
+    [forkHistory, references.history]
+  )
   const [searchOpen, setSearchOpen] = useState(false)
   const closedByMap = useSyncExternalStore(subscribeToProjectMapClosedChats, projectMapClosedChats)
   const hidden = useSyncExternalStore(subscribeToProjectMapHidden, projectMapHiddenKeys)
@@ -81,11 +93,12 @@ export default function ProjectMapPage(): React.JSX.Element {
       chatsByPaneKey: chats,
       lineage,
       history,
+      references: references.links,
       closedByMap,
       hidden,
       titleOf: projectMapAgentTitle
     }),
-    [chats, closedByMap, hidden, history, lineage]
+    [chats, closedByMap, hidden, history, lineage, references.links]
   )
   const graph = useMemo(
     () => (projectId ? buildProjectMapGraph(snapshot, projectId, sessions, forks) : null),

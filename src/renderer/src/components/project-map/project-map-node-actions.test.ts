@@ -56,6 +56,7 @@ describe('projectMapAgentActions', () => {
   it('offers an open chat everything its tab and host allow', () => {
     const actions = byId(projectMapAgentActions(agent(), idle))
     expect(actions['open-tab']).toEqual({ id: 'open-tab', enabled: true })
+    expect(actions.reference?.enabled).toBe(true)
     expect(actions['new-child']?.enabled).toBe(true)
     expect(actions.rename?.enabled).toBe(true)
     expect(actions['show-terminal']).toMatchObject({ enabled: false, reason: 'no-terminal' })
@@ -66,11 +67,12 @@ describe('projectMapAgentActions', () => {
     expect(actions['show-terminal']?.enabled).toBe(true)
   })
 
-  it('greys a closed chat: it can only be reopened or read', () => {
+  it('greys a closed chat: it can only be reopened, referenced or read', () => {
     const actions = byId(
       projectMapAgentActions(agent({ history: true }), { ...idle, hasTab: false })
     )
     expect(actions['open-tab']?.enabled).toBe(true)
+    expect(actions.reference?.enabled).toBe(true)
     expect(actions['new-child']).toMatchObject({ enabled: false, reason: 'closed' })
     expect(actions.rename).toMatchObject({ enabled: false, reason: 'no-tab' })
     expect(actions['mark-read']).toBeUndefined()
@@ -82,9 +84,10 @@ describe('projectMapAgentActions', () => {
     expect(actions.rename).toMatchObject({ enabled: false, reason: 'no-tab' })
   })
 
-  it('explains why a terminal agent or a remote chat cannot fork', () => {
+  it('explains why a terminal agent or a remote chat cannot fork or be referenced', () => {
     const terminal = byId(projectMapAgentActions(agent({ chat: undefined }, { ptyId: 'p' }), idle))
     expect(terminal['new-child']).toMatchObject({ enabled: false, reason: 'no-chat' })
+    expect(terminal.reference).toMatchObject({ enabled: false, reason: 'no-chat' })
     const ssh = byId(projectMapAgentActions(agent({}, { hostKind: 'ssh' }), idle))
     expect(ssh['new-child']).toMatchObject({ enabled: false, reason: 'remote-host' })
     const old = byId(projectMapAgentActions(agent(), { ...idle, hostTooOld: true }))

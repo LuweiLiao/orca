@@ -6,10 +6,12 @@ import { AgentStateDot } from '@/components/agent/status/AgentStateDot'
 import { AgentTypeIcon } from '@/components/agent/icons/agent-type-icon'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/class-names'
+import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
 import { dashboardCardDisplayState } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
 import type { ProjectMapAgent } from './project-map-graph'
 import type { ProjectMapGroup } from './project-map-collapse'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
+import { projectMapConversationReference } from './project-map-reference'
 import {
   placeProjectMapWindow,
   type ProjectMapAvoidRect,
@@ -197,11 +199,18 @@ export function ProjectMapGroupTray({
       <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto py-1 scrollbar-sleek">
         {shown.map(({ agent, depth }) => {
           const state = dashboardCardDisplayState(agent.card)
+          const reference = projectMapConversationReference(agent)
           return (
             <li key={agent.card.paneKey}>
               <button
                 type="button"
                 data-project-map-tray-row={agent.card.paneKey}
+                draggable={reference ? true : undefined}
+                onDragStart={(event) => {
+                  if (reference) {
+                    writeConversationReferenceDrag(event.dataTransfer, reference)
+                  }
+                }}
                 onClick={() => onOpenMember(agent.card.paneKey)}
                 className={cn(
                   'flex w-full items-center gap-2 py-1.5 pr-3 text-left text-[12.5px] hover:bg-accent/50 focus-visible:bg-accent/60 focus-visible:outline-none',

@@ -38,6 +38,7 @@ import { useProjectMapKeyboard } from './use-project-map-keyboard'
 import { useProjectMapRowMoves } from './use-project-map-row-moves'
 import { projectMapDropSlot } from './project-map-drop-slot'
 import { noteProjectMapChatRow } from './project-map-chat-rows'
+import { useProjectMapReferenceDrop } from './use-project-map-reference-drop'
 import { projectMapDeleteKey, useProjectMapNodeCommands } from './use-project-map-node-commands'
 
 type Props = {
@@ -137,6 +138,16 @@ export function ProjectMapCanvas({
     }
   })
   const dropSelection = useCallback(() => setSelectedId(null), [])
+  const dropReference = useProjectMapReferenceDrop(
+    graph,
+    useCallback(
+      (target: string) => {
+        setForkFor(null)
+        windows.open(target)
+      },
+      [windows]
+    )
+  )
   const rowMoves = useProjectMapRowMoves(graph, layout)
   const commands = useProjectMapNodeCommands(graph)
   // A plain click opens its window, a second one closes it.
@@ -322,6 +333,7 @@ export function ProjectMapCanvas({
               worktreeById={worktreeById}
               onSelect={toggleNode}
               onHover={hoverNode}
+              onReferenceDrop={dropReference}
             />
             {handleFor && handleBox ? (
               <ProjectMapForkHandle

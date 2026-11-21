@@ -3,6 +3,7 @@
 import type { z } from 'zod'
 import { AntigravityChatAuthConfigSchema } from '../agent-accounts/antigravity/antigravity-chat-auth-config'
 import { HostAccountLaunchEnvParams } from '../agent-launch/startup/host-account-launch-env'
+import { ReferencesParams } from '../agent-session/agent-session-reference-link'
 import {
   AiVaultSearchRequestSchema,
   AiVaultSearchStatusRequestSchema,
@@ -1151,6 +1152,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.queuedMessageUpdate': QueuedMessageUpdateParams,
   'agentSession.queuedMessagesResume': QueuedMessagesResumeParams,
   'agentSession.readVisual': ReadVisualParams,
+  'agentSession.references': ReferencesParams,
   'agentSession.regenerateName': OptionsParams,
   'agentSession.release': HoldParams,
   'agentSession.rename': RenameParams,

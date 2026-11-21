@@ -7,6 +7,7 @@
   --pm-wire-derive: color-mix(in srgb, var(--pm-kind-workspace) 85%, var(--muted-foreground));
   --pm-wire-delegate: color-mix(in srgb, var(--pm-kind-agent) 85%, var(--muted-foreground));
   --pm-wire-fork: color-mix(in srgb, var(--callout-note) 90%, var(--muted-foreground));
+  --pm-wire-reference: color-mix(in srgb, var(--callout-note) 45%, var(--status-success));
   --pm-grid-minor: color-mix(in srgb, var(--foreground) 4%, transparent);
   --pm-grid-major: color-mix(in srgb, var(--foreground) 8%, transparent);
   --pm-lane: color-mix(in srgb, var(--foreground) 2.5%, transparent);
@@ -92,6 +93,11 @@
     4px 4px 0 0 var(--border),
     8px 8px 0 -1px var(--card),
     8px 8px 0 0 var(--border);
+}
+.project-map-fork-window[data-reference-drop='true'],
+.project-map-node[data-reference-drop='true'] {
+  outline: 2px solid var(--pm-wire-reference);
+  outline-offset: 3px;
 }
 .project-map-node:hover {
   border-color: color-mix(in srgb, var(--pm-kind) 45%, var(--border));
@@ -207,6 +213,38 @@
 }
 .project-map-wire[data-kind='fork'] {
   stroke: var(--pm-wire-fork);
+}
+/* Thin: a message pointed at another conversation; nothing was handed over. */
+.project-map-wire[data-kind='reference'] {
+  stroke: var(--pm-wire-reference);
+  stroke-width: 1.6;
+  stroke-opacity: 0.7;
+}
+/* Live: the target reads its source as it is at the time, not as it was. */
+.project-map-wire[data-kind='reference'][data-live='true'] {
+  stroke-opacity: 1;
+}
+.project-map-reference-pin {
+  position: absolute;
+  top: 58px;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--pm-wire-reference);
+  box-shadow: 0 0 0 2px var(--background);
+}
+.project-map-reference-pin[data-side='in'] {
+  left: -4px;
+}
+.project-map-reference-pin[data-side='out'] {
+  right: -4px;
+}
+.project-map-reference-pin[data-legend] {
+  position: static;
+  flex-shrink: 0;
+}
+.project-map-reference-count {
+  color: color-mix(in srgb, var(--pm-wire-reference) 80%, var(--foreground));
 }
 .project-map-wire[data-highlighted='true'] {
   stroke-width: 3.2;

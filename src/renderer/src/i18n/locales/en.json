@@ -29962,7 +29962,8 @@
       "delegate": "Delegated",
       "unresolved": "Source not loaded",
       "fork": "Forked",
-      "history": "Closed"
+      "history": "Closed",
+      "reference": "Referenced"
     },
     "window": {
       "openInTab": "Open in tab",
@@ -29989,7 +29990,10 @@
       "forkedFrom": "Forked from {{source}}",
       "closed": "Closed",
       "needsInput": "Waiting for you",
-      "unseen": "Finished, not read yet"
+      "unseen": "Finished, not read yet",
+      "referenceCount": "Referenced {{count}} conversations",
+      "referenceCount_one": "Referenced {{count}} conversation",
+      "referenceFolded": "{{count}} of them are elsewhere or to the right; select to see them"
     },
     "title": "Project Map",
     "project": "Project",
@@ -30039,7 +30043,8 @@
       "handleHint": "Click, or drag onto the map to place the new chat",
       "dropHint": "Release to place it here",
       "dropBlocked": "Drop it on an empty spot",
-      "hostUnsupported": "This chat's host or agent cannot fork chats."
+      "hostUnsupported": "This chat's host or agent cannot fork chats.",
+      "referenceHint": "Drag other chats from the map here to have this one read them too."
     },
     "group": {
       "title": "{{count}} delegated chats",
@@ -30103,7 +30108,8 @@
       "removeFromMap": "Remove from the map",
       "reopen": "Reopen",
       "showHidden": "Show hidden ({{count}})",
-      "stop": "Stop"
+      "stop": "Stop",
+      "reference": "Reference in current chat"
     },
     "stop": {
       "title": "Stop \"{{title}}\"?",

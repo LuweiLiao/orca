@@ -28535,7 +28535,8 @@
       "delegate": "委派",
       "unresolved": "来源未加载",
       "fork": "分叉",
-      "history": "已关闭"
+      "history": "已关闭",
+      "reference": "引用"
     },
     "window": {
       "openInTab": "在标签页中打开",
@@ -28559,7 +28560,9 @@
       "forkedFrom": "分叉自 {{source}}",
       "closed": "已关闭",
       "needsInput": "在等你回复",
-      "unseen": "已完成，还没看"
+      "unseen": "已完成，还没看",
+      "referenceCount": "引用了 {{count}} 个对话",
+      "referenceFolded": "其中 {{count}} 个来源在别处或右侧，选中后显示连线"
     },
     "title": "项目关系图",
     "project": "项目",
@@ -28609,7 +28612,8 @@
       "handleHint": "点击，或拖到地图空白处放置新对话",
       "dropHint": "松开即放在这里",
       "dropBlocked": "请放在空白处",
-      "hostUnsupported": "这个对话的主机或 Agent 不支持分叉。"
+      "hostUnsupported": "这个对话的主机或 Agent 不支持分叉。",
+      "referenceHint": "把地图上的其他对话拖到这里，新对话也会去读它们。"
     },
     "group": {
       "title": "{{count}} 个子 agent",
@@ -28671,7 +28675,8 @@
       "removeFromMap": "从图上移除",
       "reopen": "重新打开",
       "showHidden": "显示已隐藏（{{count}}）",
-      "stop": "停止"
+      "stop": "停止",
+      "reference": "引用到当前聊天"
     },
     "stop": {
       "title": "停止“{{title}}”？",

@@ -19,11 +19,12 @@ export const GROWTH_TREE_EDGE_KINDS: readonly GrowthTreeEdgeKind[] = [
 /** Every kind of line the tree draws; a reference is a pointer, so it is not an edge. */
 export type GrowthTreeLineKind = GrowthTreeEdgeKind | 'reference'
 
-// Merges and references are not drawn on this branch, so the filters do not offer them.
+// Merges are not drawn on this branch, so the filters do not offer them.
 export const GROWTH_TREE_LINE_KINDS: readonly GrowthTreeLineKind[] = [
   'derive',
   'delegate',
-  'handoff'
+  'handoff',
+  'reference'
 ]
 
 export type GrowthTreeBar = {

@@ -127,6 +127,7 @@ export function ProjectMapChatWindow({
       data-kind={kind}
       data-project-map-window=""
       data-project-map-node-window=""
+      data-project-map-chat-window=""
       onPointerDownCapture={layer.onRaise}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}

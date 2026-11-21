@@ -2901,6 +2901,7 @@
     "node": {
       "conversationCount_one": "{{count}} conversation",
       "forkCount_one": "{{count}} fork",
+      "referenceCount_one": "Referenced {{count}} conversation",
       "subagentCount_one": "{{count}} subagent"
     },
     "search": {

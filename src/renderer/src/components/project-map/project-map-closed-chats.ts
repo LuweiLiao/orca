@@ -1,11 +1,11 @@
-// Chats whose tabs are closed but that a fork still connects to the map, or that were closed from it.
+// Chats whose tabs are closed but that a fork or reference still connects to the map, or that were closed from it.
 
 import type { DashboardCard } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
 import { structuredAgentSessionTabId } from '../../../../shared/agent-session/view/structured-agent-session-projection'
 import type { ProjectMapForkInput, ProjectMapWorkspace } from './project-map-graph'
 import type { ProjectMapHistoryChat } from './project-map-lineage'
 
-/** Fork ends with no open card, sources before the children forked from them. */
+/** Fork and reference ends with no open card, sources before what came from them. */
 export function closedForkEnds(
   forks: ProjectMapForkInput,
   open: ReadonlyMap<string, string>
@@ -27,6 +27,12 @@ export function closedForkEnds(
   for (const [child, source] of forks.lineage) {
     place(source, new Set())
     place(child, new Set())
+  }
+  for (const link of forks.references ?? []) {
+    if (link.source) {
+      place(link.source.sessionId, new Set())
+    }
+    place(link.targetSessionId, new Set())
   }
   return order.flatMap((sessionId) => {
     const chat = open.has(sessionId) ? undefined : forks.history?.get(sessionId)

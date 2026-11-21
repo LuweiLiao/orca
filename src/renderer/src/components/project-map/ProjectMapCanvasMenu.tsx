@@ -7,6 +7,7 @@ import {
   EyeOff,
   GitFork,
   LayoutGrid,
+  MessageSquareQuote,
   Pencil,
   RotateCcw,
   Trash2,
@@ -18,6 +19,7 @@ import {
   SquareTerminal
 } from 'lucide-react'
 import { useAppStore } from '@/store'
+import { referenceConversationInFocusedChat } from '@/components/native-chat/conversation-reference-insertion'
 import { translate } from '@/i18n/i18n'
 import {
   ContextMenu,
@@ -38,6 +40,7 @@ import {
   type ProjectMapNodeAction
 } from './project-map-node-actions'
 import { projectMapNodeIdOf } from './project-map-node-target'
+import { projectMapConversationReference } from './project-map-reference'
 import { useProjectMapForkable } from './project-map-native-fork'
 import { useProjectMapNodeCommands } from './use-project-map-node-commands'
 import { useProjectMapStopCommand } from './use-project-map-stop-command'
@@ -62,6 +65,7 @@ const stopPropagation = (event: React.SyntheticEvent): void => event.stopPropaga
 const AGENT_LABELS: Record<ProjectMapAgentActionId, () => string> = {
   'open-tab': () => translate('projectMap.menu.openTab', 'Open in tab'),
   'show-terminal': () => translate('projectMap.menu.showTerminal', 'Show in terminal'),
+  reference: () => translate('projectMap.menu.reference', 'Reference in current chat'),
   'new-child': () => translate('projectMap.menu.newChild', 'New child conversation'),
   rename: () => translate('projectMap.menu.rename', 'Rename'),
   'mark-read': () => translate('projectMap.menu.markRead', 'Mark as read'),
@@ -78,6 +82,7 @@ const AGENT_LABELS: Record<ProjectMapAgentActionId, () => string> = {
 const AGENT_ICONS: Record<ProjectMapAgentActionId, typeof Pencil> = {
   'open-tab': SquareArrowOutUpRight,
   'show-terminal': SquareTerminal,
+  reference: MessageSquareQuote,
   'new-child': GitFork,
   rename: Pencil,
   'mark-read': Eye,
@@ -192,6 +197,8 @@ export function ProjectMapCanvasMenu({
       case 'open-tab':
       case 'show-terminal':
         return onOpenAgent(chat)
+      case 'reference':
+        return void referenceConversationInFocusedChat(projectMapConversationReference(chat))
       case 'new-child':
         return onNewChild(chat.card.paneKey)
       case 'rename':

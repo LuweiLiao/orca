@@ -48,6 +48,10 @@ export function ProjectMapLegend(): React.JSX.Element {
         {translate('projectMap.legend.fork', 'Forked')}
       </span>
       <span className={item}>
+        <span className="project-map-reference-pin" data-legend />
+        {translate('projectMap.legend.reference', 'Referenced')}
+      </span>
+      <span className={item}>
         <span className="project-map-pin" data-legend data-wire="unresolved" />
         {translate('projectMap.legend.unresolved', 'Source not loaded')}
       </span>

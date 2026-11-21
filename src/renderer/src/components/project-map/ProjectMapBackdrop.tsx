@@ -48,15 +48,20 @@ export function ProjectMapBackdrop({
         width={layout.width}
         height={layout.height}
       >
-        {layout.wires.map((wire) => (
-          <path
-            key={`${wire.kind}:${wire.from}:${wire.to}`}
-            className="project-map-wire"
-            data-kind={wire.kind}
-            data-highlighted={wire.from === selectedShown || wire.to === selectedShown}
-            d={wire.path}
-          />
-        ))}
+        {layout.wires.map((wire) => {
+          const highlighted = wire.from === selectedShown || wire.to === selectedShown
+          // A backward reference would cross the map; it shows only beside its selected end.
+          return wire.backward && !highlighted ? null : (
+            <path
+              key={`${wire.kind}:${wire.from}:${wire.to}`}
+              className="project-map-wire"
+              data-kind={wire.kind}
+              data-live={wire.live || undefined}
+              data-highlighted={highlighted}
+              d={wire.path}
+            />
+          )
+        })}
       </svg>
     </>
   )

@@ -147,6 +147,21 @@ describe('buildGrowthTree', () => {
     expect(buildGrowthTree(input).lanes.get('a-empty')!.start).toBe(GROWTH_NOW)
   })
 
+  it('keeps one pointer per pair, from the carrier, reading live if the newest does', () => {
+    const tree = buildGrowthTree(growthFixture())
+    expect(tree.references.map((reference) => reference.id)).toEqual([
+      'reference:feat-chat>lead',
+      'reference:merged>s3'
+    ])
+    const merged = tree.references.find((reference) => reference.from === 'merged')!
+    expect(merged.live).toBe(true)
+    const bar = tree.bars.get('merged')!
+    expect(merged.at).toBeGreaterThanOrEqual(bar.start)
+    expect(merged.at).toBeLessThanOrEqual(bar.end)
+    expect(tree.references.find((reference) => reference.from === 'feat-chat')!.live).toBe(false)
+    expect(tree.edges.map((edge) => edge.kind)).not.toContain('reference')
+  })
+
   it('begins a derived lane where its workspace was made', () => {
     const tree = buildGrowthTree(growthFixture())
     expect(tree.edges.find((edge) => edge.id === 'derive:a-main>a-feat')!.at).toBe(5_500_000)

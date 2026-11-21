@@ -9,6 +9,13 @@ import type { ProjectMapAgent, ProjectMapWorkspace } from './project-map-graph'
 import { PROJECT_MAP_NODE, type ProjectMapNodeBox } from './project-map-layout'
 import { projectMapAgentTitle, projectMapStateLabel } from './project-map-labels'
 import type { ProjectMapGroup } from './project-map-collapse'
+import { writeConversationReferenceDrag } from '@/lib/conversation-reference-drag'
+import type { ConversationReferenceCreate } from '../../../../shared/conversation-reference'
+import { projectMapConversationReference } from './project-map-reference'
+import type { ProjectMapNodeReferences } from './project-map-node-references'
+import { ProjectMapReferenceCount } from './ProjectMapReferenceCount'
+import { forkChildCount, forkSourceLabel } from './project-map-node-labels'
+import { useProjectMapNodeReferenceDrop } from './use-project-map-node-reference-drop'
 
 type PinKind = 'derive' | 'delegate' | 'unresolved'
 type HeaderPinKind = 'fork' | 'unresolved'
@@ -33,6 +40,11 @@ type NodeShellProps = {
   onHover?: (id: string | null) => void
   /** Corner marker: waiting on the person, or finished and not looked at yet. */
   badge?: { tone: 'attention' | 'unseen'; title: string }
+  /** Present when the node can be dropped into a composer as a conversation reference. */
+  onDragStart?: (event: React.DragEvent<HTMLButtonElement>) => void
+  references?: ProjectMapNodeReferences
+  /** Present when a conversation reference dropped here goes into this chat's next message. */
+  onReferenceDrop?: (source: ConversationReferenceCreate) => void
 }
 
 function NodeShell({
@@ -51,8 +63,12 @@ function NodeShell({
   headerOutPin,
   history,
   onHover,
-  badge
+  badge,
+  onDragStart,
+  references,
+  onReferenceDrop
 }: NodeShellProps): React.JSX.Element {
+  const { dropping, handlers: drop } = useProjectMapNodeReferenceDrop(onReferenceDrop)
   return (
     <button
       type="button"
@@ -63,10 +79,14 @@ function NodeShell({
       data-selected={selected}
       data-linked={linked}
       data-history={history || undefined}
+      data-reference-drop={dropping || undefined}
       data-attention={badge?.tone === 'attention' || undefined}
       {...(onHover
         ? { onPointerEnter: () => onHover(box.id), onPointerLeave: () => onHover(null) }
         : {})}
+      draggable={onDragStart ? true : undefined}
+      onDragStart={onDragStart}
+      {...drop}
       aria-pressed={selected}
       aria-label={label}
       // Why: the canvas pans on background presses; a node press is a selection.
@@ -101,6 +121,9 @@ function NodeShell({
         ) : null}
       </span>
       <span className="relative flex h-[26px] w-full items-center gap-1.5 px-3 text-[11px] text-muted-foreground">
+        {references?.pinIn ? (
+          <span aria-hidden className="project-map-reference-pin" data-side="in" />
+        ) : null}
         {inPin ? (
           <span aria-hidden className="project-map-pin" data-side="in" data-wire={inPin} />
         ) : null}
@@ -108,6 +131,9 @@ function NodeShell({
         {rowRight ? <span className="ml-auto shrink-0">{rowRight}</span> : null}
         {outPin ? (
           <span aria-hidden className="project-map-pin" data-side="out" data-wire={outPin} />
+        ) : null}
+        {references?.pinOut || references?.pinInRight ? (
+          <span aria-hidden className="project-map-reference-pin" data-side="out" />
         ) : null}
       </span>
     </button>
@@ -181,6 +207,8 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   box,
   agent,
   graphAgents,
+  references,
+  onReferenceDrop,
   onHover,
   selected,
   linked,
@@ -189,6 +217,8 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   box: ProjectMapNodeBox
   agent: ProjectMapAgent
   graphAgents: ReadonlyMap<string, ProjectMapAgent>
+  references?: ProjectMapNodeReferences
+  onReferenceDrop?: (target: string, source: ConversationReferenceCreate) => void
   onHover?: (id: string | null) => void
   selected: boolean
   linked: boolean
@@ -200,6 +230,7 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   const subagentCount = card.subagents?.length ?? 0
   const forkChildren = forkChildCount(agent, graphAgents)
   const delegates = agent.childPaneKeys.length - forkChildren
+  const reference = projectMapConversationReference(agent)
   const rowLeft = agent.sourceHidden ? (
     translate('projectMap.node.sourceNotLoaded', 'Source not loaded')
   ) : agent.fork ? (
@@ -211,14 +242,19 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
   ) : (
     projectMapStateLabel(state)
   )
-  const rowRight =
+  // Every relation it has, so a fork never hides the fleet a coordinator still delegates.
+  const counts = [
     subagentCount > 0
       ? translate('projectMap.node.subagentCount', '{{count}} subagents', { count: subagentCount })
-      : forkChildren > 0
-        ? translate('projectMap.node.forkCount', '{{count}} forks', { count: forkChildren })
-        : delegates > 0
-          ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', { count: delegates })
-          : undefined
+      : null,
+    delegates > 0
+      ? translate('projectMap.node.delegateCount', 'Delegates {{count}}', { count: delegates })
+      : null,
+    forkChildren > 0
+      ? translate('projectMap.node.forkCount', '{{count}} forks', { count: forkChildren })
+      : null
+  ].filter(Boolean)
+  const rowRight = counts.length > 0 ? counts.join(' · ') : undefined
   const badge = agent.history ? undefined : agentBadge(card, state)
   return (
     <NodeShell
@@ -241,6 +277,9 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
                 : projectMapStateLabel(state)
             }`}
           />
+          {references && references.count > 0 ? (
+            <ProjectMapReferenceCount references={references} />
+          ) : null}
           {agent.history ? null : <AgentStateDot state={state} title={null} />}
         </>
       }
@@ -249,6 +288,19 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
       history={agent.history}
       {...(badge ? { badge } : {})}
       {...(onHover ? { onHover } : {})}
+      {...(references ? { references } : {})}
+      {...(onReferenceDrop && reference
+        ? {
+            onReferenceDrop: (source: ConversationReferenceCreate) =>
+              onReferenceDrop(box.id, source)
+          }
+        : {})}
+      {...(reference
+        ? {
+            onDragStart: (event: React.DragEvent<HTMLButtonElement>) =>
+              writeConversationReferenceDrag(event.dataTransfer, reference)
+          }
+        : {})}
       inPin={
         agent.fork
           ? undefined
@@ -264,19 +316,6 @@ export const ProjectMapAgentNode = memo(function ProjectMapAgentNode({
     />
   )
 })
-
-function forkChildCount(
-  agent: ProjectMapAgent,
-  agents: ReadonlyMap<string, ProjectMapAgent>
-): number {
-  return agent.childPaneKeys.filter((paneKey) => agents.get(paneKey)?.fork).length
-}
-
-function forkSourceLabel(fork: NonNullable<ProjectMapAgent['fork']>): string {
-  return translate('projectMap.node.forkedFrom', 'Forked from {{source}}', {
-    source: fork.sourceTitle ?? translate('projectMap.node.closedSource', 'a closed chat')
-  })
-}
 
 /** Stands in for a busy parent's delegated chats until the person opens them. */
 export const ProjectMapGroupNode = memo(function ProjectMapGroupNode({

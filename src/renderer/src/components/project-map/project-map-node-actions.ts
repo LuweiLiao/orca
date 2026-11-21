@@ -2,12 +2,14 @@ import type { Tab } from '../../../../shared/workspace-layout/tab-groups/tab-typ
 import type { DashboardCard } from '../../../../shared/agent-status/presentation/dashboard-snapshot'
 import { findRenamableUnifiedTab } from '@/store/terminals/tabs/presentation/renamable-unified-tab'
 import type { ProjectMapAgent, ProjectMapEdge } from './project-map-graph'
+import { projectMapConversationReference } from './project-map-reference'
 import { projectMapAgentForkable } from './project-map-window-subject'
 import { projectMapHideKey } from './project-map-hidden-filter'
 
 export type ProjectMapAgentActionId =
   | 'open-tab'
   | 'show-terminal'
+  | 'reference'
   | 'new-child'
   | 'rename'
   | 'mark-read'
@@ -102,6 +104,7 @@ export function projectMapAgentActions(
   return [
     { id: 'open-tab', enabled: true },
     available('show-terminal', agent.card.ptyId && !agent.history ? null : 'no-terminal'),
+    available('reference', projectMapConversationReference(agent) ? null : 'no-chat'),
     available('new-child', forkBlock(agent, context)),
     // Names live on tabs: a closed chat or a background worker has none to write to.
     available('rename', !agent.history && context.hasTab ? null : 'no-tab'),

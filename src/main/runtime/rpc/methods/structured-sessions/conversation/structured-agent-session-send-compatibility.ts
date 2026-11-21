@@ -13,6 +13,7 @@ import {
 import { readsQueuedImageCards } from '../attachments/structured-agent-session-queued-image-capability'
 import { recordMobileChatSend } from '../../../../../telemetry/mobile-client-telemetry'
 import { typedByOf } from '../../../callers/rpc-caller-typed-by'
+import { recordConversationReferenceLinks } from '../../../../../native-chat/agent-session-reference-links'
 import { withSubmittedAgentDelegationGrants } from '../../agent-delegation-grant-recording'
 import type { OrchestrationAgentSelection } from '../../../../../../shared/native-chat-orchestration-reference'
 
@@ -49,6 +50,13 @@ export async function sendStructuredAgentSessionForClient(
         queuedImageCards: readsQueuedImageCards(context)
       })
   )
+  if (result.ok) {
+    await recordConversationReferenceLinks(host, {
+      sessionId: params.envelope.sessionId,
+      messageId: params.envelope.clientOperationId,
+      blocks: params.body.blocks
+    })
+  }
   recordMobileChatSend(context.clientKind, host.sessionAgent(params.envelope.sessionId), result)
   const capabilities = context.clientCapabilities ?? []
   if (

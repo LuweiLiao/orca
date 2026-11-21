@@ -30,6 +30,7 @@ import {
   structuredAgentSessionClosedBeforeCreate,
   structuredAgentSessionClosedBeforeCreateRefusal
 } from './structured-agent-session-close-before-create'
+import { recordFirstMessageReferenceLinks } from '../../../../../native-chat/agent-session-reference-links'
 import { assertPersonCreatesAgent } from '../../agent-creation-caller-admission'
 
 /** Attach-shaped requests bypass workspace create-support; ask the execution host directly so client-supplied locations cannot forge support. */
@@ -139,20 +140,23 @@ async function resolveAndCommitStructuredAgentSessionCreate(
     ) {
       return { ok: false, refusal: structuredAgentSessionClosedBeforeCreateRefusal() }
     }
-    return projectReceiptDeviceAttach(
-      await commitStructuredAgentSessionCreate({
-        runtime: ctx.runtime,
-        caller: callerFor(ctx),
-        prepared,
-        activate: true,
-        placedByWindow: ctx.caller?.kind === 'desktop',
-        ...(capture ? { capture } : {}),
-        ...('tabPlacement' in params && params.tabPlacement
-          ? { tabPlacement: params.tabPlacement }
-          : {})
-      }),
-      ctx
+    const committed = await commitStructuredAgentSessionCreate({
+      runtime: ctx.runtime,
+      caller: callerFor(ctx),
+      prepared,
+      activate: true,
+      placedByWindow: ctx.caller?.kind === 'desktop',
+      ...(capture ? { capture } : {}),
+      ...('tabPlacement' in params && params.tabPlacement
+        ? { tabPlacement: params.tabPlacement }
+        : {})
+    })
+    await recordFirstMessageReferenceLinks(
+      prepared.host,
+      committed.ok ? committed.value.sessionId : null,
+      prepared.atRest?.firstMessage
     )
+    return projectReceiptDeviceAttach(committed, ctx)
   } finally {
     await prepared.attachParams.fork?.prepared.close()
   }
