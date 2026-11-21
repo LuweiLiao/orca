@@ -309,6 +309,19 @@ function PdfDocumentViewer({
 
   return (
     <div ref={rootRef} className="flex h-full min-h-0 flex-col">
+      <PdfToolbar
+        sidebarOpen={sidebar.open}
+        onToggleSidebar={() => updateSidebar({ ...sidebar, open: !sidebar.open })}
+        filename={filename}
+        scale={scale}
+        scaleBounds={SCALE_BOUNDS}
+        page={page}
+        onZoom={stepZoom}
+        onScalePreference={applyScalePreference}
+        onGoToPage={goToPage}
+        onFind={openFind}
+        notesControls={notes.toolbar}
+      />
       <div className="flex min-h-0 flex-1">
         {sidebar.open && shown ? (
           <PdfSidebar
@@ -366,19 +379,6 @@ function PdfDocumentViewer({
           ) : null}
         </div>
       </div>
-      <PdfToolbar
-        sidebarOpen={sidebar.open}
-        onToggleSidebar={() => updateSidebar({ ...sidebar, open: !sidebar.open })}
-        filename={filename}
-        scale={scale}
-        scaleBounds={SCALE_BOUNDS}
-        page={page}
-        onZoom={stepZoom}
-        onScalePreference={applyScalePreference}
-        onGoToPage={goToPage}
-        onFind={openFind}
-        notesControls={notes.toolbar}
-      />
     </div>
   )
 }

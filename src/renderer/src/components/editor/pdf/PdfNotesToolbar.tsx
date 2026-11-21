@@ -9,7 +9,7 @@ import { NotesSendMenu } from '../review-note-delivery/NotesSendMenu'
 import { ViewerToolbarButton } from '../viewer-viewport/ViewerToolbarButton'
 import type { PdfNote } from './use-pdf-notes'
 
-/** The PDF footer's note controls: mark a region, step through the notes, send them to an agent. */
+/** The PDF toolbar's note controls: mark a region, step through the notes, send them to an agent. */
 export function PdfNotesToolbar({
   owner,
   worktreeId,

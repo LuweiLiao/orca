@@ -28,7 +28,7 @@ type Props = {
   notesControls?: ReactNode
 }
 
-/** The PDF viewer's footer: zoom, the page it is on and a box to jump to another, and find. */
+/** The PDF viewer's toolbar above the pages: zoom, the page it is on and a box to jump to another, and find. */
 export function PdfToolbar({
   sidebarOpen,
   onToggleSidebar,
@@ -60,7 +60,7 @@ export function PdfToolbar({
     }
   ]
   return (
-    <div className="flex items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
+    <div className="flex items-center gap-3 border-b px-3 py-1 text-xs text-muted-foreground">
       <ViewerToolbarButton
         label={
           sidebarOpen
@@ -95,7 +95,7 @@ export function PdfToolbar({
               </span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top">
+          <DropdownMenuContent align="start">
             {scaleModes.map((mode) => (
               <DropdownMenuItem
                 key={String(mode.preference)}

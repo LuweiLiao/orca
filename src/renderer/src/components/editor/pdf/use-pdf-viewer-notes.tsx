@@ -10,7 +10,7 @@ import { usePdfNotes } from './use-pdf-notes'
 
 /**
  * Review notes for the PDF in editor tab `editorFileId`: the layer over the pages (with the hint
- * shown while marking) and the footer controls. Both are null outside a workspace's editor tab.
+ * shown while marking) and the toolbar controls. Both are null outside a workspace's editor tab.
  */
 export function usePdfViewerNotes({
   editorFileId,
