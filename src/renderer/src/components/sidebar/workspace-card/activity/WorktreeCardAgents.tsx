@@ -274,7 +274,7 @@ const AgentBranch = React.memo(function AgentBranch({
     return null
   }
   const compact = context.agentActivityDisplayMode === 'compact',
-    expanded = Boolean(context.targets) || context.expansion.expandedLineageParents.has(paneKey)
+    expanded = Boolean(context.targets) || context.expansion.isLineageParentExpanded(paneKey)
   const hasChildren = children.keys.length > 0,
     idleExpanded = context.expansion.expandedIdleChildGroups.has(paneKey)
   const target = context.targets

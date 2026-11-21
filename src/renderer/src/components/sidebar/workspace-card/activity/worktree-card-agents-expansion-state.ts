@@ -10,6 +10,9 @@ export type WorktreeAgentExpansionState = {
   expandedLineageParents: ReadonlySet<string>
   expandedIdleChildGroups: ReadonlySet<string>
   compactRootListExpanded: boolean
+  // Set by "Expand all": every parent is unfolded except the ones in `collapsedLineageParents`.
+  allLineageParentsExpanded?: boolean
+  collapsedLineageParents?: ReadonlySet<string>
 }
 
 const EMPTY_PANE_KEYS: ReadonlySet<string> = new Set()
@@ -18,6 +21,28 @@ const DEFAULT_EXPANSION_STATE: WorktreeAgentExpansionState = {
   expandedLineageParents: EMPTY_PANE_KEYS,
   expandedIdleChildGroups: EMPTY_PANE_KEYS,
   compactRootListExpanded: false
+}
+
+const BULK_EXPANDED_STATE: WorktreeAgentExpansionState = {
+  expandedLineageParents: EMPTY_PANE_KEYS,
+  expandedIdleChildGroups: EMPTY_PANE_KEYS,
+  compactRootListExpanded: true,
+  allLineageParentsExpanded: true
+}
+
+// "Collapse all" / "Expand all" must reach unmounted cards, so they replace the default unvisited cards read.
+let bulkCollapsed: boolean | null = null
+const bulkListeners = new Set<() => void>()
+
+function subscribeBulkCollapsed(listener: () => void): () => void {
+  bulkListeners.add(listener)
+  return () => bulkListeners.delete(listener)
+}
+
+const readBulkCollapsed = (): boolean | null => bulkCollapsed
+
+function currentDefaultState(): WorktreeAgentExpansionState {
+  return bulkCollapsed === false ? BULK_EXPANDED_STATE : DEFAULT_EXPANSION_STATE
 }
 
 // Retain disclosures across virtualizer/lineage remounts in a bounded renderer-session cache; reload resets them.
@@ -47,7 +72,45 @@ function trimPersistedExpansions(): void {
 }
 
 function readExpansionState(key: HostScopedWorktreeKey): WorktreeAgentExpansionState {
-  return expansionByKey.get(key) ?? DEFAULT_EXPANSION_STATE
+  return expansionByKey.get(key) ?? currentDefaultState()
+}
+
+function isDefaultExpansionState(state: WorktreeAgentExpansionState): boolean {
+  const defaults = currentDefaultState()
+  return (
+    state.compactRootListExpanded === defaults.compactRootListExpanded &&
+    (state.allLineageParentsExpanded ?? false) === (defaults.allLineageParentsExpanded ?? false) &&
+    state.expandedLineageParents.size === 0 &&
+    state.expandedIdleChildGroups.size === 0 &&
+    (state.collapsedLineageParents?.size ?? 0) === 0
+  )
+}
+
+export function isLineageParentExpanded(
+  state: WorktreeAgentExpansionState,
+  paneKey: string
+): boolean {
+  return state.allLineageParentsExpanded
+    ? !(state.collapsedLineageParents?.has(paneKey) ?? false)
+    : state.expandedLineageParents.has(paneKey)
+}
+
+/** Folds (or unfolds) every card's agent list, including cards that are not mounted now. */
+export function setAllWorktreeAgentListsCollapsed(collapsed: boolean): void {
+  const keys = new Set([...expansionByKey.keys(), ...expansionListeners.keys()])
+  expansionByKey.clear()
+  bulkCollapsed = collapsed
+  for (const listener of bulkListeners) {
+    listener()
+  }
+  for (const key of keys) {
+    notifyExpansion(key)
+  }
+}
+
+/** Null until the user has used "Collapse all" / "Expand all" this session. */
+export function useWorktreeAgentListsBulkCollapsed(): boolean | null {
+  return useSyncExternalStore(subscribeBulkCollapsed, readBulkCollapsed, readBulkCollapsed)
 }
 
 function persistExpansionState(
@@ -56,11 +119,7 @@ function persistExpansionState(
 ): void {
   // Refresh LRU order and retain only non-default disclosures.
   expansionByKey.delete(key)
-  if (
-    state.compactRootListExpanded ||
-    state.expandedLineageParents.size > 0 ||
-    state.expandedIdleChildGroups.size > 0
-  ) {
+  if (!isDefaultExpansionState(state)) {
     expansionByKey.set(key, state)
     trimPersistedExpansions()
   }
@@ -112,7 +171,7 @@ function toggleKey(keys: ReadonlySet<string>, key: string): ReadonlySet<string> 
 }
 
 export type WorktreeAgentExpansionControls = {
-  expandedLineageParents: ReadonlySet<string>
+  isLineageParentExpanded: (paneKey: string) => boolean
   expandedIdleChildGroups: ReadonlySet<string>
   compactRootListExpanded: boolean
   toggleLineageParent: (paneKey: string) => void
@@ -141,7 +200,17 @@ export function useWorktreeAgentExpansionState(
   const toggleLineageParent = useCallback(
     (paneKey: string) => {
       const base = readExpansionState(key)
-      commit({ ...base, expandedLineageParents: toggleKey(base.expandedLineageParents, paneKey) })
+      commit(
+        base.allLineageParentsExpanded
+          ? {
+              ...base,
+              collapsedLineageParents: toggleKey(
+                base.collapsedLineageParents ?? EMPTY_PANE_KEYS,
+                paneKey
+              )
+            }
+          : { ...base, expandedLineageParents: toggleKey(base.expandedLineageParents, paneKey) }
+      )
     },
     [commit, key]
   )
@@ -162,8 +231,13 @@ export function useWorktreeAgentExpansionState(
     commit({ ...base, compactRootListExpanded: !base.compactRootListExpanded })
   }, [commit, key])
 
+  const isParentExpanded = useCallback(
+    (paneKey: string) => isLineageParentExpanded(current, paneKey),
+    [current]
+  )
+
   return {
-    expandedLineageParents: current.expandedLineageParents,
+    isLineageParentExpanded: isParentExpanded,
     expandedIdleChildGroups: current.expandedIdleChildGroups,
     compactRootListExpanded: current.compactRootListExpanded,
     toggleLineageParent,
@@ -174,6 +248,7 @@ export function useWorktreeAgentExpansionState(
 
 export function clearWorktreeAgentExpansionStateForTests(): void {
   expansionByKey.clear()
+  bulkCollapsed = null
 }
 
 export function seedWorktreeAgentExpansionStateForTests(

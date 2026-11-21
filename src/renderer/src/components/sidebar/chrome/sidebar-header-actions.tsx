@@ -9,6 +9,7 @@ import { openWorkspaceCreationComposerWithTourHandoff } from '../../contextual-t
 import type { AddRepoDialogEntryRequest } from '../project-admission/dialog/add-repo-dialog-types'
 import { AddProjectMenu } from '../project-admission/menu/AddProjectMenu'
 import SidebarWorkspaceOptionsMenu from '../worktree-list/controls/SidebarWorkspaceOptionsMenu'
+import { SidebarCollapseAllButton } from './sidebar-collapse-all-button'
 
 function AddProjectButton({
   preserveWorkspaceBoardOpen,
@@ -112,6 +113,7 @@ export function SidebarHeaderActions({
 
   return (
     <div className="flex shrink-0 items-center gap-1" data-sidebar-header-actions="">
+      {agentsViewActive ? null : <SidebarCollapseAllButton preserveWorkspaceBoardOpen />}
       <div ref={activityOptionsTarget} className="flex size-6 shrink-0 items-center">
         {agentsViewActive ? null : (
           <SidebarWorkspaceOptionsMenu
