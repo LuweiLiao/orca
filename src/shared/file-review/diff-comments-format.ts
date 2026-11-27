@@ -4,6 +4,11 @@ function isMarkdownComment(comment: Pick<DiffComment, 'source'>): boolean {
   return comment.source === 'markdown'
 }
 
+/** Line notes on any text file are stored as source 'markdown'; tell the agent which kind it is. */
+export function textNoteSourceLabel(filePath: string): string {
+  return /\.(md|mdx|markdown)$/i.test(filePath) ? 'Source: markdown' : 'Source: text'
+}
+
 // Keep the pasted review-note contract deterministic and quote-safe across clients/agents.
 export function formatDiffComment(c: DiffComment): string {
   const escaped = c.body
@@ -27,7 +32,7 @@ export function formatDiffComment(c: DiffComment): string {
   const excerpt = c.selectedText?.trim()
   return [
     `File: ${c.filePath}`,
-    'Source: markdown',
+    textNoteSourceLabel(c.filePath),
     locationLabel,
     ...(excerpt ? [`Excerpt:\n${quoteMarkdownNoteExcerpt(excerpt)}`] : []),
     `User comment: "${escaped}"`

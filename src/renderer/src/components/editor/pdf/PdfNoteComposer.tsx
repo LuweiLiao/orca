@@ -13,7 +13,8 @@ export function PdfNoteComposer({
   page,
   excerpt,
   texSource,
-  onDirtyChange,
+  body,
+  onBodyChange,
   onCancel,
   onSubmit
 }: {
@@ -21,12 +22,13 @@ export function PdfNoteComposer({
   /** null while the region's text is still being read. */
   excerpt: string | null
   texSource: PdfNoteTexSource | null
-  onDirtyChange: (dirty: boolean) => void
+  /** Held by the draft, so text typed survives leaving and re-entering marking mode. */
+  body: string
+  onBodyChange: (body: string) => void
   onCancel: () => void
   onSubmit: (body: string) => Promise<boolean>
 }): JSX.Element {
   const t = useTranslate()
-  const [body, setBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const mountedRef = useMountedRef()
   const trimmed = body.trim()
@@ -41,16 +43,11 @@ export function PdfNoteComposer({
       return
     }
     setSubmitting(true)
-    try {
-      if ((await onSubmit(trimmed)) && mountedRef.current) {
-        setBody('')
-        onDirtyChange(false)
-      }
-    } finally {
+    await onSubmit(trimmed).finally(() => {
       if (mountedRef.current) {
         setSubmitting(false)
       }
-    }
+    })
   }
 
   return (
@@ -74,8 +71,7 @@ export function PdfNoteComposer({
         placeholder={t('auto.components.editor.MarkdownPreview.d737791433', 'Add note for the AI')}
         value={body}
         onChange={(event) => {
-          setBody(event.target.value)
-          onDirtyChange(event.target.value.trim().length > 0)
+          onBodyChange(event.target.value)
           const el = event.currentTarget
           el.style.height = 'auto'
           el.style.height = `${Math.min(el.scrollHeight, 240)}px`

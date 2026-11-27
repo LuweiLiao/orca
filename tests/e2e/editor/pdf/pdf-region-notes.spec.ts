@@ -25,6 +25,8 @@ test.describe('PDF region notes', () => {
         if (!state) {
           throw new Error('Missing fixture store')
         }
+        // Button names below are the English copy, whatever the machine's language.
+        await state.updateSettingsOrThrow({ uiLanguage: 'en' })
         const group = await window.api.projectGroups.create({
           name: 'PDF notes fixture',
           parentPath: folderPath,

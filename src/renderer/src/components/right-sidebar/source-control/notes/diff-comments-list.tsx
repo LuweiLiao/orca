@@ -10,6 +10,13 @@ import { useTranslate, type Translate } from '@/i18n/use-translate'
 import type { DiffComment } from '../../../../../../shared/file-review/diff-comment-types'
 import { useCopyFeedbackState } from './copy-feedback'
 
+// Text-file notes share source 'markdown'; the extension tells a .tex note from a .md one.
+function getTextNoteTag(filePath: string): string {
+  const name = filePath.slice(filePath.lastIndexOf('/') + 1)
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(dot + 1).toUpperCase() : 'TXT'
+}
+
 function getLocalizedDiffCommentLineLabel(
   comment: Pick<DiffComment, 'lineNumber' | 'startLine' | 'source'>,
   t: Translate = translate
@@ -157,7 +164,7 @@ export function DiffCommentsInlineList({
                   </span>
                   <span className="shrink-0 rounded bg-muted/70 px-1 py-0.5 text-[10px] leading-none text-muted-foreground">
                     {getDiffCommentSource(c) === 'markdown'
-                      ? t('auto.components.right.sidebar.SourceControl.94c42b252e', 'MD')
+                      ? getTextNoteTag(c.filePath)
                       : getDiffCommentSource(c) === 'pdf'
                         ? t('auto.components.right.sidebar.SourceControl.pdfTag', 'PDF')
                         : t('auto.components.right.sidebar.SourceControl.c56ba7fa06', 'Diff')}

@@ -1,5 +1,8 @@
 import type { DiffComment } from '../../../../../../shared/file-review/diff-comment-types'
-import { quoteMarkdownNoteExcerpt } from '../../../../../../shared/file-review/diff-comments-format'
+import {
+  quoteMarkdownNoteExcerpt,
+  textNoteSourceLabel
+} from '../../../../../../shared/file-review/diff-comments-format'
 import { getDiffCommentLineLabel } from '../../../source-control/review/comments/diff-comment-compat'
 
 const MAX_EXCERPT_LINES = 8
@@ -209,7 +212,7 @@ export function formatMarkdownReviewNotes(
       // Why: agents need the file once; repeated markdown note blocks waste prompt context.
       return [
         `File: ${filePath}`,
-        'Source: markdown',
+        textNoteSourceLabel(filePath),
         '',
         fileNotes.map((note) => formatMarkdownReviewNoteDetails(note, content)).join('\n\n')
       ].join('\n')

@@ -59,7 +59,6 @@ export function useMonacoMarkdownAnnotations(params: {
   editorContainerRef: MutableRefObject<HTMLDivElement | null>
   relativePath: string
   content: string
-  language: string
   worktreeId: string | undefined
   noteSource: WorkspaceResource
   markdownAnnotationsEnabled: boolean
@@ -70,7 +69,6 @@ export function useMonacoMarkdownAnnotations(params: {
     editorContainerRef,
     relativePath,
     content,
-    language,
     worktreeId,
     noteSource,
     markdownAnnotationsEnabled
@@ -102,8 +100,9 @@ export function useMonacoMarkdownAnnotations(params: {
     commentPopoverRef.current = commentPopover
   }, [commentPopover])
 
+  // Any text file takes line notes; they keep source 'markdown' so older hosts accept them.
   const shouldShowMarkdownAnnotations =
-    markdownAnnotationsEnabled && language === 'markdown' && Boolean(worktreeId && commentOwner)
+    markdownAnnotationsEnabled && Boolean(worktreeId && commentOwner)
   // Why: the mount closure installs keydown listeners once, so the shortcut reads current enablement through a ref.
   const shouldShowMarkdownAnnotationsRef = useRef(shouldShowMarkdownAnnotations)
   useEffect(() => {

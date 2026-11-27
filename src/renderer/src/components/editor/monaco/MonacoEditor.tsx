@@ -180,7 +180,6 @@ export default function MonacoEditor({
     editorContainerRef,
     relativePath,
     content,
-    language,
     worktreeId,
     noteSource,
     markdownAnnotationsEnabled

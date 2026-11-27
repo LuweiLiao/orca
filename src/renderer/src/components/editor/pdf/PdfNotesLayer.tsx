@@ -29,6 +29,7 @@ type Draft = {
   details: Promise<DraftDetails>
   excerpt: string | null
   texSource: PdfNoteTexSource | null
+  body: string
 }
 
 /** A box on a page as percentages of the page, so it stays put through zooms between renders. */
@@ -116,7 +117,7 @@ export function PdfNotesLayer({
         readPdfRegionText(doc, region).catch(() => ''),
         pdfRegionTexSource(fileId, region).catch(() => null)
       ]).then(([excerpt, texSource]) => ({ excerpt, texSource }))
-      setDraft({ region, details, excerpt: null, texSource: null })
+      setDraft({ region, details, excerpt: null, texSource: null, body: '' })
       void details.then(({ excerpt, texSource }) =>
         setDraft((current) =>
           current?.region === region ? { ...current, excerpt, texSource } : current
@@ -205,8 +206,10 @@ export function PdfNotesLayer({
                     page={draft.region.page}
                     excerpt={draft.excerpt}
                     texSource={draft.texSource}
-                    onDirtyChange={(dirty) => {
-                      draftDirtyRef.current = dirty
+                    body={draft.body}
+                    onBodyChange={(body) => {
+                      draftDirtyRef.current = body.trim().length > 0
+                      setDraft((current) => (current ? { ...current, body } : current))
                     }}
                     onCancel={cancelDraft}
                     onSubmit={async (body) => {

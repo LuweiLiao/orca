@@ -31,6 +31,33 @@ describe('formatDiffComments', () => {
     )
   })
 
+  it('labels a line note on a non-markdown file as text', () => {
+    expect(
+      formatDiffComments([
+        {
+          id: 'n3',
+          worktreeId: 'w1',
+          filePath: 'paper/method.tex',
+          source: 'markdown',
+          selectedText: 'We fix the bar',
+          lineNumber: 12,
+          body: 'Cite this',
+          createdAt: 1,
+          side: 'modified'
+        }
+      ])
+    ).toBe(
+      [
+        'File: paper/method.tex',
+        'Source: text',
+        'Line: 12',
+        'Excerpt:',
+        '> We fix the bar',
+        'User comment: "Cite this"'
+      ].join('\n')
+    )
+  })
+
   it('sends where a PDF note sits and the TeX lines behind it', () => {
     expect(
       formatDiffComments([
