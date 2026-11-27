@@ -14,6 +14,7 @@ import { NativeChatRewindAction } from '../actions/NativeChatRewindAction'
 import type { NativeChatRewindSurface } from '../actions/use-native-chat-rewind-host'
 import { NativeChatMarkdown } from '../../markdown/NativeChatMarkdown'
 import { NativeChatUserMessageFold } from './NativeChatUserMessageFold'
+import { NativeChatReviewNotesText } from '../../review-notes/NativeChatReviewNotesText'
 import { NativeChatCodeBlock } from '../../markdown/code/NativeChatCodeBlock'
 import { NativeChatCopyButton } from '../actions/NativeChatCopyButton'
 import { NativeChatMessageTimestamp } from './NativeChatMessageTimestamp'
@@ -156,13 +157,18 @@ export function NativeChatUserMessageRow({
                   structured={structuredAttachments}
                   runtimeContext={runtimeContext}
                   renderText={(text) => (
-                    <NativeChatMarkdown
-                      rowKey={message.id}
-                      content={text}
-                      variant="document"
-                      slackMentions={drawn !== undefined}
-                      className="text-sm"
-                      renderCodeBlock={NativeChatCodeBlock}
+                    <NativeChatReviewNotesText
+                      text={text}
+                      renderText={(prose) => (
+                        <NativeChatMarkdown
+                          rowKey={message.id}
+                          content={prose}
+                          variant="document"
+                          slackMentions={drawn !== undefined}
+                          className="text-sm"
+                          renderCodeBlock={NativeChatCodeBlock}
+                        />
+                      )}
                     />
                   )}
                 />

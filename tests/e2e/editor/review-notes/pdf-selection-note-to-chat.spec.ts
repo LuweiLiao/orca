@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from '../../desktop/electron-fixtures/orca-app'
-import { expect } from '@stablyai/playwright-test'
+import { expect, type Page, type TestInfo } from '@stablyai/playwright-test'
 import {
   ensureTerminalVisible,
   waitForActiveWorktree,
@@ -13,12 +13,27 @@ import { waitForActivePaneHookDescriptor } from '../../terminal/input/terminal-a
 import { waitForActiveTerminalManager } from '../../terminal/layout/terminal-pane-operations'
 import { claudeTranscriptLines } from '../../agents/session-fixtures/native-chat-transcript-fixture'
 import { createPdfFindFixture } from '../pdf/pdf-find-fixture'
+import { startHiddenRendererFrameCapture } from '../../desktop/electron-fixtures/hidden-renderer-frame-capture'
 
 test('a note on selected PDF text goes, unsent, to the chat used last', async ({
   orcaPage,
   seededRepoPath
 }, testInfo) => {
   await waitForSessionReady(orcaPage)
+  // A hidden window paints no frames on its own, and pdf.js lays out its text layer on one.
+  const stopCapture = await startHiddenRendererFrameCapture(orcaPage)
+  try {
+    await runPdfSelectionNoteJourney(orcaPage, seededRepoPath, testInfo)
+  } finally {
+    await stopCapture()
+  }
+})
+
+async function runPdfSelectionNoteJourney(
+  orcaPage: Page,
+  seededRepoPath: string,
+  testInfo: TestInfo
+): Promise<void> {
   await orcaPage.setViewportSize({ width: 1280, height: 900 })
   const worktreeId = await waitForActiveWorktree(orcaPage)
   await ensureTerminalVisible(orcaPage)
@@ -76,7 +91,7 @@ test('a note on selected PDF text goes, unsent, to the chat used last', async ({
 
   await orcaPage.evaluate(
     ({ worktreeId, pdfPath }) => {
-      window.__store?.getState().openFile({
+      window.__store!.getState().openFile({
         filePath: pdfPath,
         relativePath: 'paper.pdf',
         worktreeId,
@@ -86,9 +101,12 @@ test('a note on selected PDF text goes, unsent, to the chat used last', async ({
     },
     { worktreeId, pdfPath }
   )
+  // The chat tab can keep the front, and a PDF behind it never renders its pages.
+  await orcaPage.getByRole('button', { name: /^paper\.pdf.*Close tab$/ }).click()
   const firstPage = orcaPage.locator('.pdfViewer .page').first()
   const target = firstPage.locator('.textLayer span', { hasText: 'needle result 1' })
-  await expect(target).toBeVisible()
+  // The PDF tab opens after the chat has loaded, so its first render waits behind it.
+  await expect(target).toBeVisible({ timeout: 30_000 })
   // Select exactly one text run; a triple click would take the whole text block.
   await target.evaluate((span) => {
     const range = document.createRange()
@@ -135,9 +153,19 @@ test('a note on selected PDF text goes, unsent, to the chat used last', async ({
     },
     { worktreeId, terminalTabId }
   )
+  // The note waits folded into one pill; its text shows only when the pill is opened.
   const draft = chatRoot.getByRole('textbox').last()
-  await expect(draft).toContainText('File: paper.pdf')
-  await expect(draft).toContainText('needle result 1')
-  await expect(draft).toContainText('Reword this result')
+  const pill = draft.getByRole('button', { name: '1 annotation', exact: true })
+  await expect(pill).toBeVisible()
+  await expect(draft).not.toContainText('File: paper.pdf')
+  await expect(draft).not.toContainText('Reword this result')
   await orcaPage.screenshot({ path: testInfo.outputPath('chat-draft-with-pdf-note.png') })
-})
+  await pill.click()
+  const list = orcaPage.getByRole('region', { name: 'Annotations', exact: true })
+  await expect(list).toContainText('paper.pdf · page 1')
+  await expect(list).toContainText('needle result 1')
+  await expect(list).toContainText('Reword this result')
+  await orcaPage.screenshot({ path: testInfo.outputPath('chat-draft-note-opened.png') })
+  await orcaPage.keyboard.press('Escape')
+  await expect(list).toHaveCount(0)
+}

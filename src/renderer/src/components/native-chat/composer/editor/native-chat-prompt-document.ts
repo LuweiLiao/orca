@@ -8,6 +8,8 @@ import { NativeChatSkillPill, skillLabel } from './NativeChatSkillPill'
 import { NativeChatImageReferencePill } from './NativeChatImageReferencePill'
 import { NativeChatBotMentionPill } from './NativeChatBotMentionPill'
 import { NativeChatPromptPillKeys } from './native-chat-prompt-pill-keys'
+import { NativeChatReviewNotesNodeView } from '../../review-notes/NativeChatReviewNotesNodeView'
+import { REVIEW_NOTES_NODE } from './native-chat-prompt-review-notes'
 import { formatNativeChatFileReference } from '../../../../../../shared/native-chat/input/composer/agent-image-paste'
 import { imageReferenceToken } from '../../../../../../shared/native-chat/attachments/native-chat-image-reference'
 import {
@@ -133,6 +135,19 @@ export const NativeChatBotMention = Node.create({
   ]
 })
 
+/** Review notes from documents as one pill; its text is the whole tagged block the agent reads. */
+export const NativeChatReviewNotes = Node.create({
+  name: REVIEW_NOTES_NODE,
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  addNodeView: () => ReactNodeViewRenderer(NativeChatReviewNotesNodeView),
+  addAttributes: () => ({ count: { default: 1 }, body: { default: '' } }),
+  renderText: ({ node }) => promptLeafString(REVIEW_NOTES_NODE, node.attrs),
+  renderHTML: ({ node }) => ['span', { 'data-native-chat-review-notes': node.attrs.count }]
+})
+
 /** The composer's pill nodes, with the keys that delete and step over them in one press. */
 export const nativeChatPromptPills = [
   NativeChatSkill,
@@ -141,6 +156,7 @@ export const nativeChatPromptPills = [
   NativeChatOrchestration,
   NativeChatImageReference,
   NativeChatBotMention,
+  NativeChatReviewNotes,
   NativeChatPromptPillKeys
 ]
 

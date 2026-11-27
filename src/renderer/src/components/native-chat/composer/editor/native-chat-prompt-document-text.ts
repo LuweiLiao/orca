@@ -20,6 +20,8 @@ import {
   botMentionToken,
   splitBotMentions
 } from '../../../../../../shared/bots/bot-mention-context'
+import { reviewNotesBlockToken } from '../../../../../../shared/file-review/review-notes-block'
+import { promptTextWithReviewNotes, REVIEW_NOTES_NODE } from './native-chat-prompt-review-notes'
 
 export const IMAGE_REFERENCE_NODE = 'nativeChatImageReference'
 export const FILE_REFERENCE_NODE = 'nativeChatFileReference'
@@ -41,6 +43,9 @@ export function promptLeafString(
   }
   if (type === IMAGE_REFERENCE_NODE) {
     return imageReferenceToken(String(attrs?.attachmentId))
+  }
+  if (type === REVIEW_NOTES_NODE) {
+    return reviewNotesBlockToken({ count: Number(attrs?.count), body: String(attrs?.body) })
   }
   if (type === BOT_MENTION_NODE) {
     const chatId = typeof attrs?.chatId === 'string' && attrs.chatId ? attrs.chatId : undefined
@@ -122,6 +127,10 @@ function promptLineContent(line: string): JSONContent[] {
 }
 
 export function promptTextContent(text: string): JSONContent {
+  return promptTextWithReviewNotes(text, promptLinesContent)
+}
+
+function promptLinesContent(text: string): JSONContent {
   return {
     type: 'doc',
     content: text.split('\n').map((line) => ({
