@@ -1,6 +1,6 @@
 import { useOwnedDiffCommentTarget } from '../../../diff-comments/use-diff-comment-owner'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { MutableRefObject } from 'react'
+import { addNoteToLastFocusedChat } from '../../../native-chat/selection-quotes/last-focused-chat-note-delivery'
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import type { Editor } from '@tiptap/react'
@@ -193,6 +193,7 @@ export function useRichMarkdownReviewController({
         )
         return
       }
+      addNoteToLastFocusedChat(owner, result)
       if (
         !submittedEditor ||
         submittedEditor.isDestroyed ||

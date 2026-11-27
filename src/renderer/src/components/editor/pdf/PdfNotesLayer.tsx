@@ -1,4 +1,12 @@
-import { type CSSProperties, type JSX, type RefObject, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type JSX,
+  type Ref,
+  type RefObject,
+  useImperativeHandle,
+  useRef,
+  useState
+} from 'react'
 import { createPortal } from 'react-dom'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { EventBus, PDFViewer as PdfJsViewer } from 'pdfjs-dist/web/pdf_viewer.mjs'
@@ -21,6 +29,7 @@ import { PdfNoteComposer } from './PdfNoteComposer'
 import { readPdfRegionText } from './pdf-region-text'
 import { pdfRegionTexSource } from './pdf-synctex-navigation'
 import type { PdfNote } from './use-pdf-notes'
+import type { PdfTextSelection } from './pdf-text-selection'
 
 type DraftDetails = { excerpt: string; texSource: PdfNoteTexSource | null }
 type Draft = {
@@ -30,6 +39,8 @@ type Draft = {
   excerpt: string | null
   texSource: PdfNoteTexSource | null
   body: string
+  /** Made from selected text, so it shows outside marking mode too. */
+  fromSelection: boolean
 }
 
 /** A box on a page as percentages of the page, so it stays put through zooms between renders. */
@@ -84,7 +95,8 @@ export function PdfNotesLayer({
   annotating,
   activeNoteId,
   onActiveNoteChange,
-  onAddNote
+  onAddNote,
+  selectionNoteRef
 }: {
   viewer: InstanceType<typeof PdfJsViewer>
   eventBus: InstanceType<typeof EventBus>
@@ -98,6 +110,8 @@ export function PdfNotesLayer({
   activeNoteId: string | null
   onActiveNoteChange: (noteId: string | null) => void
   onAddNote: AddPdfNote
+  /** Opens a note on the text the user selected, from the selection's offer outside this layer. */
+  selectionNoteRef: Ref<(selection: PdfTextSelection) => void>
 }): JSX.Element {
   const [markedDraft, setDraft] = useState<Draft | null>(null)
   const draftDirtyRef = useRef(false)
@@ -111,23 +125,39 @@ export function PdfNotesLayer({
       setDraft(null)
       onActiveNoteChange(null)
     },
-    onRegion: (region) => {
-      draftDirtyRef.current = false
-      const details = Promise.all([
-        readPdfRegionText(doc, region).catch(() => ''),
-        pdfRegionTexSource(fileId, region).catch(() => null)
-      ]).then(([excerpt, texSource]) => ({ excerpt, texSource }))
-      setDraft({ region, details, excerpt: null, texSource: null, body: '' })
-      void details.then(({ excerpt, texSource }) =>
-        setDraft((current) =>
-          current?.region === region ? { ...current, excerpt, texSource } : current
-        )
-      )
-    }
+    onRegion: (region) => startDraft(region, null)
   })
 
-  // Leaving marking mode hides the draft; a typed one comes back with the mode.
-  const draft = annotating ? markedDraft : null
+  // `excerpt` is the selected text when there is one; a dragged region reads what lies inside it.
+  const startDraft = (region: SynctexRect, excerpt: string | null): void => {
+    draftDirtyRef.current = false
+    onActiveNoteChange(null)
+    const details = Promise.all([
+      excerpt ?? readPdfRegionText(doc, region).catch(() => ''),
+      pdfRegionTexSource(fileId, region).catch(() => null)
+    ]).then(([text, texSource]) => ({ excerpt: text, texSource }))
+    setDraft({
+      region,
+      details,
+      excerpt,
+      texSource: null,
+      body: '',
+      fromSelection: excerpt !== null
+    })
+    void details.then((read) =>
+      setDraft((current) => (current?.region === region ? { ...current, ...read } : current))
+    )
+  }
+  useImperativeHandle(selectionNoteRef, () => (selection) => {
+    if (draftDirtyRef.current) {
+      return
+    }
+    window.getSelection()?.removeAllRanges()
+    startDraft(selection.region, selection.text)
+  })
+
+  // Leaving marking mode hides a dragged draft; a typed one comes back with the mode.
+  const draft = annotating || markedDraft?.fromSelection ? markedDraft : null
 
   const pages = [
     ...notes.map((note) => note.pdfRegion.page),

@@ -16888,6 +16888,7 @@
           "decodeFailed": "无法解码 PDF 内容",
           "synctexMissing": "这个 PDF 没有 SyncTeX 数据。编译时加上 -synctex=1。",
           "synctexOutsideWorkspace": "源文件不在这个工作区里：{{path}}",
+          "addSelectionNote": "添加批注",
           "annotate": "框选区域添加批注",
           "annotateHint": "在页面上拖动，框出要批注的内容",
           "nextNote": "下一条批注",

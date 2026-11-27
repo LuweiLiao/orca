@@ -1,4 +1,4 @@
-import { type ReactNode, type RefObject, useCallback, useEffect, useState } from 'react'
+import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import type { EventBus, PDFViewer as PdfJsViewer } from 'pdfjs-dist/web/pdf_viewer.mjs'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,10 @@ import type { SynctexRect } from './pdf-synctex-parser'
 import { PdfNotesLayer } from './PdfNotesLayer'
 import { PdfNotesToolbar } from './PdfNotesToolbar'
 import { usePdfNotes } from './use-pdf-notes'
+import { SelectionAddToChatPopover } from '../../native-chat/selection-quotes/SelectionAddToChatPopover'
+import { openAddToChatMenuAt } from '../../native-chat/selection-quotes/add-to-chat-point-menu'
+import { formatNativeChatQuote } from '../../../../../shared/native-chat/input/quotes/native-chat-quote-selection'
+import { readPdfTextSelection, type PdfTextSelection } from './pdf-text-selection'
 
 /**
  * Review notes for the PDF in editor tab `editorFileId`: the layer over the pages (with the hint
@@ -32,6 +36,9 @@ export function usePdfViewerNotes({
   const { owner, worktreeId, notes, addNote } = usePdfNotes(editorFileId)
   const [annotating, setAnnotating] = useState(false)
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null)
+  const openSelectionNoteRef = useRef<((selection: PdfTextSelection) => void) | null>(null)
+  // The selection the offer was made for; its region is read again when the note opens.
+  const offeredSelectionRef = useRef<PdfTextSelection | null>(null)
 
   const goToNextNote = useCallback(() => {
     if (!shown || notes.length === 0) {
@@ -81,6 +88,39 @@ export function usePdfViewerNotes({
             activeNoteId={activeNoteId}
             onActiveNoteChange={setActiveNoteId}
             onAddNote={addNote}
+            selectionNoteRef={openSelectionNoteRef}
+          />
+        ) : null}
+        {shown ? (
+          <SelectionAddToChatPopover
+            rootRef={containerRef}
+            // Marking mode takes the drag for regions, so page text can't be selected then.
+            enabled={!annotating}
+            readQuotable={(root) => {
+              const selection = readPdfTextSelection(shown.viewer, root)
+              offeredSelectionRef.current = selection
+              return selection ? { text: selection.text, range: selection.range } : null
+            }}
+            annotate={{
+              label: t('auto.components.editor.PdfViewer.addSelectionNote', 'Add note'),
+              onAnnotate: () => {
+                const root = containerRef.current
+                const selection =
+                  (root && readPdfTextSelection(shown.viewer, root)) ?? offeredSelectionRef.current
+                if (selection) {
+                  openSelectionNoteRef.current?.(selection)
+                }
+              }
+            }}
+            onAdd={(text, button) =>
+              openAddToChatMenuAt({
+                worktreeId,
+                quote: formatNativeChatQuote(text),
+                launchSource: 'native_chat',
+                x: button.left,
+                y: button.bottom
+              })
+            }
           />
         ) : null}
         {annotating ? (

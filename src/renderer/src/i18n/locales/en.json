@@ -17912,6 +17912,7 @@
           "decodeFailed": "Failed to decode PDF content",
           "synctexMissing": "No SyncTeX data for this PDF. Build it with -synctex=1.",
           "synctexOutsideWorkspace": "The source is outside this workspace: {{path}}",
+          "addSelectionNote": "Add note",
           "annotate": "Mark a region to note",
           "annotateHint": "Drag over the page to mark what the note is about",
           "nextNote": "Next note",

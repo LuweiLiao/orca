@@ -1,4 +1,5 @@
 import { diffCommentOwnerKey } from '@/store/slices/diff-comments/diff-comment-owner'
+import { addNoteToLastFocusedChat } from '../../../native-chat/selection-quotes/last-focused-chat-note-delivery'
 import { cloneElement, isValidElement, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Check, Copy, Plus } from 'lucide-react'
@@ -90,6 +91,7 @@ export function useMarkdownPreviewAnnotationRenderers({
         })
         if (result) {
           setActiveAnnotationBlockKey(null)
+          addNoteToLastFocusedChat(commentOwner, result)
           return true
         }
         // The composer keeps the draft for retry.

@@ -25,6 +25,7 @@ import {
   type MarkdownReviewNote
 } from '@/lib/editor/markdown/review-notes/markdown-review-notes'
 import { useDiffCommentDecorator } from '../../../diff-comments/useDiffCommentDecorator'
+import { addNoteToLastFocusedChat } from '../../../native-chat/selection-quotes/last-focused-chat-note-delivery'
 import {
   getDiffCommentPopoverLeft,
   getDiffCommentPopoverTop
@@ -225,6 +226,10 @@ export function useMonacoMarkdownAnnotations(params: {
       : null)
     if (result) {
       setCommentPopover(null)
+      // A saved note implies its owner, which addDiffComment needed.
+      if (owner) {
+        addNoteToLastFocusedChat(owner, result)
+      }
     } else {
       // The draft stays open for retry.
       toast.error(t('auto.components.editor.diffCommentSaveFailed', 'Failed to save comment'))

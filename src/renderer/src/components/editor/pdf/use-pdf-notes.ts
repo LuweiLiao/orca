@@ -4,6 +4,7 @@ import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
 import { isPdfComment } from '@/lib/source-control/review/comments/diff-comment-compat'
 import { useDiffCommentView } from '../../diff-comments/use-diff-comment-owner'
+import { addNoteToLastFocusedChat } from '../../native-chat/selection-quotes/last-focused-chat-note-delivery'
 import type {
   DiffComment,
   PdfNoteTexSource
@@ -71,8 +72,10 @@ export function usePdfNotes(fileId: string | undefined) {
         toast.error(
           translate('auto.components.editor.diffCommentSaveFailed', 'Failed to save comment')
         )
+        return false
       }
-      return saved !== null
+      addNoteToLastFocusedChat(owner, saved)
+      return true
     },
     [owner, relativePath, worktreeId]
   )
